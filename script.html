@@ -1643,4 +1643,32 @@ window.addEventListener('load', () => {
     };
   }
 });
+
+// Google Sheet ID 浮動提示互動
+const sheetIdInput = document.getElementById('sheet-id-input');
+const sheetIdTooltip = document.getElementById('sheet-id-tooltip');
+if (sheetIdInput && sheetIdTooltip) {
+  let isHovered = false;
+  let isFocused = false;
+  
+  function updateTooltip() {
+    if (isHovered || isFocused) {
+      sheetIdTooltip.style.display = 'block';
+    } else {
+      sheetIdTooltip.style.display = 'none';
+    }
+  }
+  
+  // 滑鼠移入輸入框時
+  sheetIdInput.addEventListener('mouseenter', () => {
+    isHovered = true;
+    updateTooltip();
+  });
+  
+  // 滑鼠離開輸入框時
+  sheetIdInput.addEventListener('mouseleave', () => {
+    isHovered = false;
+    updateTooltip();
+  });
+}
 </script>

@@ -66,13 +66,14 @@
             <label for="sheet-id-input">Google Sheet ID 或 URL</label>
             <div class="setting-control">
               <input type="text" id="sheet-id-input" placeholder="請輸入 Google Sheet ID 或完整 URL" style="width: 100%; padding: 8px; border: 1px solid #FFFF00; background: #000; color: #FFFF00; border-radius: 4px;">
-            </div>
-            <div class="setting-help">
-              <small style="color: #888;">
-                可輸入以下任一格式：<br>
-                • Sheet ID: <strong>1ABC123DEF456</strong><br>
-                • 完整 URL: <strong>https://docs.google.com/spreadsheets/d/ID/edit</strong>
-              </small>
+              <!-- 浮動提示容器 -->
+              <div id="sheet-id-tooltip" class="sheet-id-tooltip" style="display:none;">
+                <small style="color: #888;">
+                  可輸入以下任一格式：<br>
+                  • Sheet ID: <strong>1ABC123DEF456</strong><br>
+                  • 完整 URL: <strong>https://docs.google.com/spreadsheets/d/ID/edit</strong>
+                </small>
+              </div>
             </div>
           </div>
           
