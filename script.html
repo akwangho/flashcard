@@ -62,10 +62,14 @@ class FlashcardApp {
       // 檢查是否有已設定的 Google Sheet
       if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
         console.log('發現已設定的 Google Sheet，載入單字...');
-        await this.loadWords(true); // 標記為初始載入，啟用自動處理
+        const hasDuplicates = await this.loadWords(true); // 標記為初始載入，啟用自動處理
         this.hideLoading();
         this.applySettings(); // 應用設定
-        this.startNewRound();
+        
+        // 只有在沒有重複單字需要處理時才開始新回合
+        if (!hasDuplicates) {
+          this.startNewRound();
+        }
       } else {
         console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
         // 沒有設定則顯示設定畫面
@@ -170,14 +174,20 @@ class FlashcardApp {
                 this.currentDuplicateIndex = 0;
                 this.duplicateProcessingResults = [];
                 
-                // 顯示重複處理Modal
-                this.showDuplicateModal();
-                resolve(); // 先resolve，讓主要流程繼續
+                // 確保 DOM 完全加載後再顯示重複處理Modal
+                if (document.readyState === 'complete') {
+                  this.showDuplicateModal();
+                } else {
+                  window.addEventListener('load', () => {
+                    this.showDuplicateModal();
+                  });
+                }
+                resolve(true); // 返回true表示有重複單字需要處理
                 return;
               }
               
               console.log('單字載入完成，沒有重複問題');
-              resolve();
+              resolve(false); // 返回false表示沒有重複單字
             } else {
               reject(new Error('沒有找到單字資料'));
             }
@@ -1547,10 +1557,15 @@ class FlashcardApp {
       flashcardDiv.style.display = 'none';
       
       // 重新載入單字（手動載入，不自動處理重複）
-      this.loadWords(false).then(() => {
+      this.loadWords(false).then((hasDuplicates) => {
         this.setupEventListeners();
         this.applySettings();
-        this.startNewRound();
+        
+        // 只有在沒有重複單字需要處理時才開始新回合
+        if (!hasDuplicates) {
+          this.startNewRound();
+        }
+        
         loadingDiv.style.display = 'none';
         flashcardDiv.style.display = 'flex';
       }).catch(error => {
@@ -1755,27 +1770,159 @@ class FlashcardApp {
     }, 100);
   }
   
+  // 驗證並初始化重複單字 Modal 結構
+  initializeDuplicateModal() {
+    console.log('初始化重複單字 Modal...');
+    
+    const modal = document.getElementById('duplicate-words-modal');
+    if (!modal) {
+      console.error('致命錯誤：找不到 duplicate-words-modal 元素');
+      return false;
+    }
+    
+    // 檢查關鍵元素是否存在，如果不存在則重置整個結構
+    const duplicateSummary = document.getElementById('duplicate-summary');
+    const duplicateCount = document.getElementById('duplicate-count');
+    const duplicateContainer = document.getElementById('duplicate-word-container');
+    const duplicateActions = document.getElementById('duplicate-actions');
+    
+    if (!duplicateSummary || !duplicateCount || !duplicateContainer || !duplicateActions) {
+      console.log('發現 Modal 結構不完整，執行重置...');
+      this.resetDuplicateModalStructure();
+    }
+    
+    // 再次驗證結構是否正確
+    const finalCheck = [
+      'duplicate-summary',
+      'duplicate-count', 
+      'duplicate-word-container',
+      'duplicate-actions',
+      'current-duplicate-english',
+      'duplicate-options-container'
+    ];
+    
+    for (const elementId of finalCheck) {
+      if (!document.getElementById(elementId)) {
+        console.error(`重置後仍然找不到元素: ${elementId}`);
+        return false;
+      }
+    }
+    
+    console.log('重複單字 Modal 初始化完成');
+    return true;
+  }
+
   // 顯示重複單字處理Modal
   showDuplicateModal() {
     console.log('顯示重複單字處理Modal');
+    console.log('DOM 準備狀態:', document.readyState);
+    
+    // 等待 DOM 完全加載
+    if (document.readyState === 'loading') {
+      console.log('DOM 還在加載中，等待完成...');
+      document.addEventListener('DOMContentLoaded', () => {
+        this.showDuplicateModal();
+      });
+      return;
+    }
+    
+    // 初始化和驗證 Modal 結構
+    if (!this.initializeDuplicateModal()) {
+      console.error('無法初始化重複單字 Modal，取消顯示');
+      return;
+    }
+    
+    // 重新獲取元素（可能已經被重新創建）
     const modal = document.getElementById('duplicate-words-modal');
     const duplicateCount = document.getElementById('duplicate-count');
-    const duplicateContainer = document.getElementById('duplicate-word-container');
+    
+    // 停止任何正在播放的語音
+    if (this.speechSynthesis) {
+      this.speechSynthesis.cancel();
+    }
+    
+    // 清除任何現有的計時器
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+    
+    // 暫停處理狀態
+    this.pauseTimer();
     
     // 設定重複數量
-    duplicateCount.textContent = this.duplicateWords.length;
+    if (duplicateCount) {
+      duplicateCount.textContent = this.duplicateWords.length;
+    }
     
     // 渲染重複單字清單
     this.renderDuplicateWordsList();
     
+    // 重新綁定事件監聽器（因為DOM可能被重置）
+    this.bindDuplicateModalEvents();
+    
     // 顯示Modal
     modal.style.display = 'flex';
-    this.pauseTimer();
+    console.log('重複單字 Modal 已顯示');
+  }
+  
+  // 綁定重複處理Modal的事件監聽器
+  bindDuplicateModalEvents() {
+    const skipBtn = document.getElementById('skip-duplicates');
+    const processBtn = document.getElementById('process-all-duplicates');
+    const confirmBtn = document.getElementById('confirm-duplicate-action');
+    const nextBtn = document.getElementById('next-duplicate');
+    const closeBtn = document.getElementById('close-duplicate-modal');
+    
+    // 確保移除舊的事件監聽器（如果存在）
+    if (skipBtn) {
+      skipBtn.replaceWith(skipBtn.cloneNode(true));
+      document.getElementById('skip-duplicates').addEventListener('click', () => {
+        this.skipDuplicates();
+      });
+    }
+    
+    if (processBtn) {
+      processBtn.replaceWith(processBtn.cloneNode(true));
+      document.getElementById('process-all-duplicates').addEventListener('click', () => {
+        this.processAllDuplicates();
+      });
+    }
+    
+    if (confirmBtn) {
+      confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+      document.getElementById('confirm-duplicate-action').addEventListener('click', () => {
+        this.confirmDuplicateAction();
+      });
+    }
+    
+    if (nextBtn) {
+      nextBtn.replaceWith(nextBtn.cloneNode(true));
+      document.getElementById('next-duplicate').addEventListener('click', () => {
+        this.nextDuplicate();
+      });
+    }
+    
+    if (closeBtn) {
+      closeBtn.replaceWith(closeBtn.cloneNode(true));
+      document.getElementById('close-duplicate-modal').addEventListener('click', () => {
+        this.closeDuplicateModal();
+      });
+    }
+    
+    console.log('重複處理Modal事件監聽器已重新綁定');
   }
   
   // 渲染重複單字清單
   renderDuplicateWordsList() {
     const container = document.getElementById('duplicate-word-container');
+    
+    // 檢查容器元素是否存在
+    if (!container) {
+      console.error('找不到 duplicate-word-container 元素');
+      return;
+    }
+    
     container.innerHTML = '';
     
     this.duplicateWords.forEach((duplicate, index) => {
@@ -1869,6 +2016,17 @@ class FlashcardApp {
     const actionsDiv = document.getElementById('duplicate-actions');
     const englishSpan = document.getElementById('current-duplicate-english');
     const optionsContainer = document.getElementById('duplicate-options-container');
+    
+    // 檢查必要的 DOM 元素是否存在
+    if (!englishSpan) {
+      console.error('找不到 current-duplicate-english 元素');
+      return;
+    }
+    
+    if (!optionsContainer) {
+      console.error('找不到 duplicate-options-container 元素');
+      return;
+    }
     
     englishSpan.textContent = duplicate.english;
     optionsContainer.innerHTML = '';
@@ -2034,12 +2192,239 @@ class FlashcardApp {
   closeDuplicateModal() {
     const modal = document.getElementById('duplicate-words-modal');
     modal.style.display = 'none';
+    
+    // 恢復 Modal 原始結構，以確保下次可以正常使用
+    this.resetDuplicateModalStructure();
+    
     this.resumeTimer();
+  }
+  
+  // 重置重複處理Modal結構
+  resetDuplicateModalStructure() {
+    const modal = document.getElementById('duplicate-words-modal');
+    if (!modal) return;
+    
+    const modalBody = modal.querySelector('.modal-body');
+    const modalFooter = modal.querySelector('.modal-footer');
+    
+    if (modalBody) {
+      // 恢復原始的 modal-body 結構
+      modalBody.innerHTML = `
+        <div class="duplicate-info">
+          <p id="duplicate-summary">找到 <span id="duplicate-count">0</span> 組重複單字，請選擇處理方式：</p>
+        </div>
+        
+        <div class="duplicate-word-container" id="duplicate-word-container">
+          <!-- 重複單字項目將在這裡動態生成 -->
+        </div>
+        
+        <div class="duplicate-actions" id="duplicate-actions" style="display: none;">
+          <div class="current-duplicate-info">
+            <h3>處理單字：<strong id="current-duplicate-english"></strong></h3>
+            <div id="duplicate-options-container">
+              <!-- 處理選項將在這裡動態生成 -->
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    if (modalFooter) {
+      // 恢復原始的 modal-footer 結構
+      modalFooter.innerHTML = `
+        <button id="skip-duplicates" class="secondary-btn">跳過，稍後處理</button>
+        <button id="process-all-duplicates" class="primary-btn">開始處理</button>
+        <button id="confirm-duplicate-action" class="primary-btn" style="display: none;">確認操作</button>
+        <button id="next-duplicate" class="primary-btn" style="display: none;">下一個</button>
+      `;
+      
+      modalFooter.style.display = 'flex'; // 確保顯示
+    }
+    
+    console.log('重複處理Modal結構已重置');
   }
   
     // 跳過重複處理
   skipDuplicates() {
-    console.log('跳過重複處理 - 執行自動處理邏輯（修改Google Sheet）');
+    console.log('跳過重複處理 - 執行本地自動處理邏輯（僅記憶體處理，不修改Google Sheet）');
+    console.log('當前單字數量:', this.words.length);
+    console.log('重複單字數量:', this.duplicateWords.length);
+    
+    // 嘗試直接在前端進行記憶體處理，避免 Google Apps Script 調用可能的卡頓問題
+    try {
+      const result = this.processDuplicatesInMemory(this.words, this.duplicateWords);
+      
+      if (result.success) {
+        // 更新當前單字陣列
+        this.words = result.processedWords;
+        // 初始化 difficultWords 狀態
+        this.difficultWords = this.words.filter(w => w.difficult).map(w => w.id);
+        
+        // 顯示成功結果
+        const modal = document.getElementById('duplicate-words-modal');
+        const modalBody = modal.querySelector('.modal-body');
+        const modalFooter = modal.querySelector('.modal-footer');
+        modalFooter.style.display = 'none';
+        
+        const successCount = result.successCount || 0;
+        const totalCount = result.totalCount || 0;
+        const removedCount = result.removedCount || 0;
+        
+        modalBody.innerHTML = `
+          <div class="auto-processing-result success">
+            <h3>✅ 自動處理完成！</h3>
+            <p>成功處理 ${successCount}/${totalCount} 個重複單字</p>
+            <p>原始單字數量：${result.originalCount}，處理後數量：${result.processedCount}</p>
+            <p>已移除重複項目：${removedCount} 個</p>
+            <p class="sheet-modify-notice">✅ Google Sheet未被修改，僅在記憶體中處理</p>
+            <div class="processing-details">
+              ${result.results ? result.results.map(r => `
+                <div class="result-item ${r.success ? 'success' : 'error'}">
+                  <strong>${r.english}</strong>: 
+                  ${r.success ? 
+                    (r.action === 'keep_first' ? 
+                      `保留 ${r.keptSheet}，移除 ${r.removedCount || 0} 個重複項` : 
+                      `合併到 ${r.targetSheet}，移除 ${r.removedCount || 0} 個重複項`) : 
+                    `失敗 - ${r.error}`
+                  }
+                </div>
+              `).join('') : ''}
+            </div>
+            <button id="finish-auto-processing" class="primary-btn">完成</button>
+          </div>
+        `;
+        
+        document.getElementById('finish-auto-processing').addEventListener('click', () => {
+          this.closeDuplicateModal();
+          // 不需要重新載入，因為已經更新了記憶體中的單字
+          // 確保事件監聽器和設定已正確應用
+          this.setupEventListeners();
+          this.applySettings();
+          this.startNewRound(); // 直接開始新的回合
+        });
+      } else {
+        throw new Error(result.error || '處理失敗');
+      }
+    } catch (error) {
+      console.error('本地處理失敗，嘗試回退到後端處理:', error);
+      this.skipDuplicatesWithBackend();
+    }
+  }
+  
+  // 本地記憶體處理重複單字
+  processDuplicatesInMemory(allWords, duplicates) {
+    try {
+      console.log('在前端記憶體中自動處理重複單字，總數:', duplicates.length);
+      
+      const results = [];
+      const wordsToRemove = new Set(); // 記錄要從記憶體中移除的單字ID
+      const wordsToModify = new Map(); // 記錄要修改定義的單字ID和新定義
+      
+      for (let i = 0; i < duplicates.length; i++) {
+        const duplicate = duplicates[i];
+        console.log('處理重複單字:', duplicate.english, '是否相同定義:', duplicate.isSameDefinition);
+        
+        if (duplicate.isSameDefinition) {
+          // 中文意義相同：保留第一個工作表的，移除其他
+          const keepWord = duplicate.words[0]; // 第一個工作表的
+          const removeWords = duplicate.words.slice(1); // 其他工作表的
+          
+          console.log('相同定義，保留第一個工作表:', keepWord.sheetName);
+          
+          // 記錄要移除的單字ID
+          removeWords.forEach(word => {
+            wordsToRemove.add(word.id);
+          });
+          
+          results.push({
+            english: duplicate.english,
+            action: 'keep_first',
+            success: true,
+            keptSheet: keepWord.sheetName,
+            removedCount: removeWords.length
+          });
+        } else {
+          // 中文意義不同：合併定義到第一個工作表的單字
+          const targetWord = duplicate.words[0]; // 第一個工作表的作為目標
+          const mergeWords = duplicate.words.slice(1); // 其他工作表的合併進來
+          
+          console.log('不同定義，合併到第一個工作表:', targetWord.sheetName);
+          
+          // 準備合併後的定義
+          const allDefinitions = duplicate.words.map((w, index) => 
+            `${index + 1}. ${w.chinese.trim()}`
+          );
+          const mergedDefinition = allDefinitions.join('\n');
+          
+          // 記錄要修改的單字
+          wordsToModify.set(targetWord.id, mergedDefinition);
+          
+          // 記錄要移除的單字ID
+          mergeWords.forEach(word => {
+            wordsToRemove.add(word.id);
+          });
+          
+          results.push({
+            english: duplicate.english,
+            action: 'merge_to_first',
+            success: true,
+            targetSheet: targetWord.sheetName,
+            mergedDefinition: mergedDefinition,
+            removedCount: mergeWords.length
+          });
+        }
+      }
+      
+      // 處理單字陣列：移除重複項目並修改定義
+      const processedWords = [];
+      for (let i = 0; i < allWords.length; i++) {
+        const word = allWords[i];
+        
+        if (wordsToRemove.has(word.id)) {
+          // 跳過要移除的單字
+          continue;
+        }
+        
+        if (wordsToModify.has(word.id)) {
+          // 修改定義
+          const modifiedWord = { ...word };
+          modifiedWord.chinese = wordsToModify.get(word.id);
+          processedWords.push(modifiedWord);
+        } else {
+          // 保持原樣
+          processedWords.push(word);
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      const removedCount = wordsToRemove.size;
+      
+      console.log('前端記憶體處理完成，成功:', successCount, '總數:', results.length, '移除單字數:', removedCount);
+      console.log('處理前單字數:', allWords.length, '處理後單字數:', processedWords.length);
+      
+      return {
+        success: true,
+        processedWords: processedWords,
+        results: results,
+        successCount: successCount,
+        totalCount: results.length,
+        originalCount: allWords.length,
+        processedCount: processedWords.length,
+        removedCount: removedCount
+      };
+    } catch (error) {
+      console.error('前端記憶體自動處理重複單字失敗:', error);
+      return {
+        success: false,
+        error: error.message,
+        processedWords: allWords // 失敗時返回原始單字
+      };
+    }
+  }
+  
+  // 後端處理（備用方案）
+  skipDuplicatesWithBackend() {
+    console.log('使用後端處理重複單字');
     
     // 顯示處理中狀態
     const modal = document.getElementById('duplicate-words-modal');
@@ -2048,12 +2433,12 @@ class FlashcardApp {
       <div class="auto-processing-indicator">
         <div class="processing-spinner"></div>
         <h3>自動處理重複單字中...</h3>
-        <p>正在根據以下規則處理並修改Google Sheet：</p>
+        <p>正在根據以下規則處理（僅在記憶體中，不修改Google Sheet）：</p>
         <ul>
-          <li>中文意義相同的單字：保留第一個工作表的版本，刪除其他</li>
-          <li>中文意義不同的單字：自動合併為一個單字，刪除其他</li>
+          <li>中文意義相同的單字：保留第一個工作表的版本，移除其他</li>
+          <li>中文意義不同的單字：自動合併為一個單字，移除其他</li>
         </ul>
-        <p class="sheet-modify-notice">⚠️ 將會實際修改Google Sheet內容</p>
+        <p class="sheet-modify-notice">✅ Google Sheet不會被修改</p>
       </div>
     `;
     
@@ -2061,33 +2446,63 @@ class FlashcardApp {
     const modalFooter = modal.querySelector('.modal-footer');
     modalFooter.style.display = 'none';
     
-    // 調用後端實際修改Google Sheet的函數
+    // 設置30秒超時處理
+    const timeoutId = setTimeout(() => {
+      console.error('後端處理超時');
+      modalBody.innerHTML = `
+        <div class="auto-processing-result error">
+          <h3>❌ 處理超時</h3>
+          <p>處理時間過長，可能是網路連接問題或資料量太大</p>
+          <button id="retry-auto-processing" class="primary-btn">重試</button>
+          <button id="manual-processing" class="secondary-btn">手動處理</button>
+        </div>
+      `;
+      
+      document.getElementById('retry-auto-processing').addEventListener('click', () => {
+        this.skipDuplicates();
+      });
+      
+      document.getElementById('manual-processing').addEventListener('click', () => {
+        this.showDuplicateModal();
+      });
+    }, 30000);
+    
+    // 調用後端記憶體處理函數（不修改Google Sheet）
     google.script.run
       .withSuccessHandler(result => {
-        console.log('自動處理完成:', result);
+        clearTimeout(timeoutId);
+        console.log('後端記憶體自動處理完成:', result);
         
-        if (result.success) {
+        if (result && result.success) {
+          // 更新當前單字陣列
+          this.words = result.processedWords;
+          // 初始化 difficultWords 狀態
+          this.difficultWords = this.words.filter(w => w.difficult).map(w => w.id);
+          
           // 處理成功
-          const successCount = result.successCount;
-          const totalCount = result.totalCount;
+          const successCount = result.successCount || 0;
+          const totalCount = result.totalCount || 0;
+          const removedCount = result.removedCount || 0;
           
           modalBody.innerHTML = `
             <div class="auto-processing-result success">
               <h3>✅ 自動處理完成！</h3>
               <p>成功處理 ${successCount}/${totalCount} 個重複單字</p>
-              <p class="sheet-modify-notice">✅ Google Sheet已被修改</p>
+              <p>原始單字數量：${result.originalCount}，處理後數量：${result.processedCount}</p>
+              <p>已移除重複項目：${removedCount} 個</p>
+              <p class="sheet-modify-notice">✅ Google Sheet未被修改，僅在記憶體中處理</p>
               <div class="processing-details">
-                ${result.results.map(r => `
+                ${result.results ? result.results.map(r => `
                   <div class="result-item ${r.success ? 'success' : 'error'}">
                     <strong>${r.english}</strong>: 
                     ${r.success ? 
                       (r.action === 'keep_first' ? 
-                        `保留 ${r.keptSheet}，刪除 ${r.deletedCount || 0} 個重複項` : 
-                        `合併到 ${r.targetSheet}，刪除 ${r.deletedCount || 0} 個重複項`) : 
+                        `保留 ${r.keptSheet}，移除 ${r.removedCount || 0} 個重複項` : 
+                        `合併到 ${r.targetSheet}，移除 ${r.removedCount || 0} 個重複項`) : 
                       `失敗 - ${r.error}`
                     }
                   </div>
-                `).join('')}
+                `).join('') : ''}
               </div>
               <button id="finish-auto-processing" class="primary-btn">完成</button>
             </div>
@@ -2095,14 +2510,19 @@ class FlashcardApp {
           
           document.getElementById('finish-auto-processing').addEventListener('click', () => {
             this.closeDuplicateModal();
-            this.reloadWordsAfterDuplicateProcessing(); // 重新載入以反映Google Sheet的更改
+            // 不需要重新載入，因為已經更新了記憶體中的單字
+            // 確保事件監聽器和設定已正確應用
+            this.setupEventListeners();
+            this.applySettings();
+            this.startNewRound(); // 直接開始新的回合
           });
         } else {
           // 處理失敗
+          const errorMsg = result ? result.error : '未知錯誤';
           modalBody.innerHTML = `
             <div class="auto-processing-result error">
               <h3>❌ 自動處理失敗</h3>
-              <p>錯誤訊息：${result.error}</p>
+              <p>錯誤訊息：${errorMsg}</p>
               <button id="retry-auto-processing" class="primary-btn">重試</button>
               <button id="manual-processing" class="secondary-btn">手動處理</button>
             </div>
@@ -2119,12 +2539,14 @@ class FlashcardApp {
         }
       })
       .withFailureHandler(error => {
-        console.error('自動處理失敗:', error);
+        clearTimeout(timeoutId);
+        console.error('後端記憶體自動處理失敗:', error);
         
         modalBody.innerHTML = `
           <div class="auto-processing-result error">
             <h3>❌ 自動處理失敗</h3>
             <p>錯誤訊息：${error.message || error}</p>
+            <p>請嘗試重新整理頁面或手動處理重複單字</p>
             <button id="retry-auto-processing" class="primary-btn">重試</button>
             <button id="manual-processing" class="secondary-btn">手動處理</button>
           </div>
@@ -2139,7 +2561,7 @@ class FlashcardApp {
           this.showDuplicateModal();
         });
       })
-      .autoHandleSkippedDuplicates(this.sheetSettings.sheetId, this.duplicateWords); // 使用實際修改Google Sheet的函數
+      .autoHandleSkippedDuplicatesInMemory(this.words, this.duplicateWords); // 使用記憶體處理函數，不修改Google Sheet
   }
   
   // 開始處理重複
