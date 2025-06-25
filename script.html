@@ -1,0 +1,993 @@
+<!-- script.html -->
+<script>
+class FlashcardApp {
+  constructor() {
+    this.words = [];
+    this.currentWords = [];
+    this.currentIndex = 0;
+    this.showingChinese = false;
+    this.isTransitioning = false;
+    this.isProcessingClick = false;
+    this.displayTimer = null;
+    this.speechSynthesis = window.speechSynthesis;
+    this.removedWords = [];
+    this.navigationHistory = [];
+    this.pendingRemoval = null;
+    this.isPaused = false; // 新增：暫停狀態
+    this.pausedTimestamp = null; // 新增：暫停時間戳
+    this.remainingTime = 0; // 新增：剩餘時間
+    this.settings = {
+      delayTime: 1, // 延遲時間（秒）
+      fontSize: 96, // 字體大小（px）
+      reverseMode: false // 是否先顯示中文
+    };
+    this.voiceSettings = {
+      enabled: true, // 新增：是否啟用發音
+      rate: 0.8,
+      pitch: 1,
+      volume: 1,
+      lang: 'en-US',
+      voiceURI: '' // 新增：語音腔調
+    };
+    this.difficultWords = [];
+    this.showDifficultOnly = false;
+    this.init();
+  }
+  
+  async init() {
+    try {
+      this.loadSettings(); // 載入設定
+      await this.loadWords();
+      this.setupEventListeners();
+      this.applySettings(); // 應用設定
+      this.startNewRound();
+      this.hideLoading();
+    } catch (error) {
+      console.error('初始化錯誤:', error);
+      this.showError();
+    }
+  }
+  
+  // 新增：載入設定
+  loadSettings() {
+    const savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
+    this.settings = { ...this.settings, ...savedSettings };
+    // 新增：載入語音設定
+    const savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
+    this.voiceSettings = { ...this.voiceSettings, ...savedVoiceSettings };
+  }
+  
+  // 新增：儲存設定
+  saveSettings() {
+    localStorage.setItem('flashcard-settings', JSON.stringify(this.settings));
+    // 新增：儲存語音設定
+    localStorage.setItem('flashcard-voice-settings', JSON.stringify(this.voiceSettings));
+  }
+  
+  // 新增：應用設定到UI
+  applySettings() {
+    const englishWord = document.getElementById('english-word');
+    const chineseWord = document.getElementById('chinese-word');
+    const loadingText = document.querySelector('#loading p');
+    
+    // 應用字體大小
+    if (englishWord) englishWord.style.fontSize = this.settings.fontSize + 'px';
+    if (chineseWord) chineseWord.style.fontSize = this.settings.fontSize + 'px';
+    if (loadingText) loadingText.style.fontSize = this.settings.fontSize + 'px';
+    
+    // 更新設定畫面的滑桿值
+    const delaySlider = document.getElementById('delay-setting');
+    const fontSizeSlider = document.getElementById('font-size-setting');
+    const reverseToggle = document.getElementById('reverse-setting');
+    
+    if (delaySlider) {
+      delaySlider.value = this.settings.delayTime;
+      document.getElementById('delay-value').textContent = this.settings.delayTime;
+    }
+    if (fontSizeSlider) {
+      fontSizeSlider.value = this.settings.fontSize;
+      document.getElementById('font-size-value').textContent = this.settings.fontSize + 'px';
+    }
+    if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+  }
+  
+  async loadWords() {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(words => {
+          if (words && words.length > 0) {
+            this.words = words;
+            // 初始化 difficultWords 狀態
+            this.difficultWords = words.filter(w => w.difficult).map(w => w.id);
+            resolve();
+          } else {
+            reject(new Error('沒有找到單字資料'));
+          }
+        })
+        .withFailureHandler(error => {
+          reject(error);
+        })
+        .getWordsFromSheet();
+    });
+  }
+  
+  // Refactored: Split into smaller, more manageable functions
+  setupEventListeners() {
+    this.setupCoreListeners();
+    this.setupMenuListeners();
+    this.setupModalListeners();
+    this.setupKeyboardListeners();
+    // 進度區點擊標註/取消不熟單字
+    document.getElementById('progress-area').addEventListener('click', () => this.toggleDifficultCurrentWord());
+    // 只顯示不熟單字checkbox
+    document.getElementById('show-difficult-only').addEventListener('change', (e) => {
+      this.showDifficultOnly = e.target.checked;
+      this.filterWordsByDifficult();
+    });
+    // 匯出單字相關事件
+    document.getElementById('export-btn').addEventListener('click', () => this.openExportModal());
+    document.getElementById('close-export-modal').addEventListener('click', () => this.closeExportModal());
+    document.getElementById('cancel-export').addEventListener('click', () => this.closeExportModal());
+    document.getElementById('confirm-export').addEventListener('click', () => this.confirmExport());
+  }
+  
+  // New: Listeners for core card and control functionality
+  setupCoreListeners() {
+    document.getElementById('english-section').addEventListener('click', () => this.onWordClick());
+    document.getElementById('chinese-section').addEventListener('click', () => this.onWordClick());
+    document.getElementById('next-btn').addEventListener('click', () => this.nextWord());
+    document.getElementById('prev-btn').addEventListener('click', () => this.previousWord());
+    document.getElementById('restart-btn').addEventListener('click', () => this.restart());
+  }
+  
+  // New: Listeners for the menu system
+  setupMenuListeners() {
+    const menuBtn = document.getElementById('menu-btn');
+    const menuDropdown = document.getElementById('menu-dropdown');
+    
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleMenu();
+    });
+    
+    document.addEventListener('click', () => this.closeMenu());
+    
+    menuDropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    document.getElementById('settings-btn').addEventListener('click', () => {
+      this.closeMenu();
+      this.openSettings();
+    });
+
+    document.getElementById('voice-settings-btn').addEventListener('click', () => {
+      this.closeMenu();
+      this.openVoiceSettings();
+    });
+  }
+
+  // New: Listeners for all modals (main and voice settings)
+  setupModalListeners() {
+    // Main settings modal
+    const settingsModal = document.getElementById('settings-modal');
+    document.getElementById('close-settings').addEventListener('click', () => this.closeSettings());
+    document.getElementById('save-settings').addEventListener('click', () => this.saveSettingsAndClose());
+    document.getElementById('reset-settings').addEventListener('click', () => this.resetSettings());
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) this.closeSettings();
+    });
+    document.getElementById('delay-setting').addEventListener('input', (e) => {
+      document.getElementById('delay-value').textContent = e.target.value;
+    });
+    document.getElementById('font-size-setting').addEventListener('input', (e) => {
+      document.getElementById('font-size-value').textContent = e.target.value + 'px';
+      // Live preview font size
+      const englishWord = document.getElementById('english-word');
+      const chineseWord = document.getElementById('chinese-word');
+      if (englishWord) englishWord.style.fontSize = e.target.value + 'px';
+      if (chineseWord) chineseWord.style.fontSize = e.target.value + 'px';
+    });
+
+    // Voice settings modal
+    const voiceSettingsModal = document.getElementById('voice-settings-modal');
+    document.getElementById('close-voice-settings').addEventListener('click', () => this.closeVoiceSettings());
+    document.getElementById('cancel-voice-settings').addEventListener('click', () => this.closeVoiceSettings());
+    document.getElementById('save-voice-settings').addEventListener('click', () => this.saveVoiceSettingsAndClose());
+    voiceSettingsModal.addEventListener('click', (e) => {
+      if (e.target === voiceSettingsModal) this.closeVoiceSettings();
+    });
+    document.getElementById('voice-rate-setting').addEventListener('input', (e) => {
+      document.getElementById('voice-rate-value').textContent = e.target.value;
+    });
+  }
+
+  // New: Listeners for all keyboard shortcuts
+  setupKeyboardListeners() {
+    document.addEventListener('keydown', (e) => {
+      if (this.isPaused) return;
+
+      const keyActions = {
+        'Enter': () => this.onWordClick(),
+        'Space': () => this.onWordClick(),
+        'KeyD': () => this.onWordClick(),
+        'KeyR': () => this.restart(),
+        'ArrowLeft': () => this.previousWord(),
+        'ArrowUp': () => this.previousWord(),
+        'ArrowRight': () => this.nextWord(),
+        'ArrowDown': () => this.nextWord(),
+        'Escape': () => {
+          this.closeSettings();
+          this.closeVoiceSettings();
+          this.closeMenu();
+        }
+      };
+
+      if (keyActions[e.code]) {
+        e.preventDefault();
+        keyActions[e.code]();
+      }
+    });
+  }
+  
+  // 新增：選單控制
+  toggleMenu() {
+    const menuBtn = document.getElementById('menu-btn');
+    const menuDropdown = document.getElementById('menu-dropdown');
+    
+    const isOpen = menuDropdown.classList.contains('show');
+    
+    if (isOpen) {
+      this.closeMenu();
+    } else {
+      menuBtn.classList.add('active');
+      menuDropdown.classList.add('show');
+    }
+  }
+  
+  closeMenu() {
+    const menuBtn = document.getElementById('menu-btn');
+    const menuDropdown = document.getElementById('menu-dropdown');
+    
+    menuBtn.classList.remove('active');
+    menuDropdown.classList.remove('show');
+  }
+  
+  // 新增：開啟設定畫面
+  openSettings() {
+    const settingsModal = document.getElementById('settings-modal');
+    settingsModal.style.display = 'flex';
+    
+    // 暫停計時器
+    this.pauseTimer();
+    
+    // 更新設定畫面的值
+    this.applySettings();
+  }
+  
+  // 修正：關閉設定畫面
+  closeSettings(shouldRedisplay = false) {
+    const settingsModal = document.getElementById('settings-modal');
+    settingsModal.style.display = 'none';
+    
+    // 恢復計時器
+    this.resumeTimer();
+    
+    // 只有在需要時才重新顯示當前單字
+    if (shouldRedisplay) {
+      this.redisplayCurrentWord();
+    }
+  }
+  
+  // 新增方法：重新顯示當前單字
+  redisplayCurrentWord() {
+    // 清除現有的計時器
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+    
+    // 停止語音播放
+    this.speechSynthesis.cancel();
+    
+    // 重置狀態
+    this.showingChinese = false;
+    this.isTransitioning = false;
+    this.isProcessingClick = false;
+    this.pendingRemoval = null;
+    
+    // 重新顯示當前單字
+    this.displayCurrentWord();
+  }
+  
+  // 新增：儲存設定並關閉
+  saveSettingsAndClose() {
+    const delaySlider = document.getElementById('delay-setting');
+    const fontSizeSlider = document.getElementById('font-size-setting');
+    const reverseToggle = document.getElementById('reverse-setting');
+    
+    // 檢查是否有重要設定變更
+    const oldReverseMode = this.settings.reverseMode;
+    
+    // 更新設定
+    this.settings.delayTime = parseFloat(delaySlider.value);
+    this.settings.fontSize = parseInt(fontSizeSlider.value);
+    this.settings.reverseMode = reverseToggle.checked;
+    
+    // 儲存到本地儲存
+    this.saveSettings();
+    
+    // 應用新設定
+    this.applySettings();
+    
+    // 關閉設定畫面
+    this.closeSettings();
+    
+    // 如果反向模式有變更，重新顯示當前單字
+    if (oldReverseMode !== this.settings.reverseMode) {
+      this.redisplayCurrentWord();
+    }
+  }
+  
+  // 新增：重置設定
+  resetSettings() {
+    this.settings = {
+      delayTime: 3,
+      fontSize: 96,
+      reverseMode: false
+    };
+    this.voiceSettings = {
+      enabled: true,
+      rate: 0.8,
+      pitch: 1,
+      volume: 1,
+      lang: 'en-US',
+      voiceURI: ''
+    };
+    this.applySettings();
+    this.saveSettings();
+    this.closeSettings();
+  }
+  
+  // 新增：暫停計時器
+  pauseTimer() {
+    this.isPaused = true;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+    
+    // 顯示暫停指示器
+    const pausedIndicator = document.createElement('div');
+    pausedIndicator.id = 'paused-indicator';
+    pausedIndicator.className = 'paused-indicator';
+    pausedIndicator.textContent = '已暫停';
+    document.getElementById('flashcard').appendChild(pausedIndicator);
+  }
+  
+  // 新增：恢復計時器
+  resumeTimer() {
+    this.isPaused = false;
+    
+    // 移除暫停指示器
+    const pausedIndicator = document.getElementById('paused-indicator');
+    if (pausedIndicator) {
+      pausedIndicator.remove();
+    }
+    
+    // 恢復計時器（如果需要）
+    if (this.showingChinese) {
+      // 如果中文已經顯示，繼續等待切換到下一個單字
+      this.displayTimer = setTimeout(() => {
+        this.nextWord();
+      }, this.settings.delayTime * 1000);
+    } else if (!this.isTransitioning && !this.isProcessingClick) {
+      // 如果英文顯示中，繼續等待顯示中文
+      const currentWord = this.currentWords[this.currentIndex];
+      const chineseElement = document.getElementById('chinese-word');
+      
+      this.displayTimer = setTimeout(() => {
+        chineseElement.textContent = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+        chineseElement.classList.add('show');
+        this.showingChinese = true;
+        
+        // 中文顯示後等待切換到下一個單字
+        this.displayTimer = setTimeout(() => {
+          this.nextWord();
+        }, this.settings.delayTime * 1000);
+        
+      }, this.settings.delayTime * 1000);
+    }
+  }
+  
+  startNewRound() {
+    this.shuffleArray(this.words);
+    if (this.showDifficultOnly) {
+      this.currentWords = this.words.filter(w => this.difficultWords.includes(w.id));
+    } else {
+      this.currentWords = [...this.words];
+    }
+    this.currentIndex = 0;
+    this.removedWords = [];
+    this.navigationHistory = [];
+    this.pendingRemoval = null;
+    this.displayCurrentWord();
+    this.updateButtonStates();
+    this.renderDifficultStar();
+  }
+  
+  shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+  
+  saveNavigationState() {
+    if (this.currentWords.length > 0 && this.currentIndex >= 0) {
+      this.navigationHistory.push({
+        currentIndex: this.currentIndex,
+        wordSequence: [...this.currentWords]
+      });
+      
+      if (this.navigationHistory.length > 20) {
+        this.navigationHistory.shift();
+      }
+    }
+  }
+  
+  // Refactored: New function to handle revealing the second part and scheduling the next word
+  showSecondPartAndScheduleNext() {
+    if (this.isPaused || this.showingChinese || !this.currentWords[this.currentIndex]) {
+      return;
+    }
+
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+
+    const currentWord = this.currentWords[this.currentIndex];
+    const chineseElement = document.getElementById('chinese-word');
+    
+    const secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+    chineseElement.textContent = secondText;
+    chineseElement.classList.add('show');
+    this.showingChinese = true;
+    
+    // If in reverse mode, the second part is English, so we speak it.
+    if (this.settings.reverseMode) {
+      setTimeout(() => {
+        this.speakEnglishWord(currentWord.english);
+      }, 500); // Delay to sync with reveal animation
+    }
+    
+    // Schedule the next word to appear
+    this.displayTimer = setTimeout(() => {
+      this.nextWord();
+    }, this.settings.delayTime * 1000);
+  }
+
+  speakEnglishWord(text) {
+    // 檢查是否啟用發音
+    if (!this.voiceSettings.enabled) return;
+    
+    try {
+      this.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.voiceSettings.rate;
+      utterance.pitch = this.voiceSettings.pitch;
+      utterance.volume = this.voiceSettings.volume;
+      utterance.lang = this.voiceSettings.lang;
+      
+      const voices = this.speechSynthesis.getVoices();
+      let selectedVoice = null;
+      if (this.voiceSettings.voiceURI) {
+        selectedVoice = voices.find(v => v.voiceURI === this.voiceSettings.voiceURI);
+      }
+      
+      if (!selectedVoice) {
+        // fallback: 找第一個英文語音
+        selectedVoice = voices.find(voice => 
+          voice.lang.startsWith('en-') || 
+          voice.name.toLowerCase().includes('english')
+        );
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      
+      this.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.log('語音播放失敗:', error);
+    }
+  }
+  
+  displayCurrentWord() {
+    if (this.currentWords.length === 0) {
+      this.startNewRound();
+      return;
+    }
+    
+    const currentWord = this.currentWords[this.currentIndex];
+    const englishElement = document.getElementById('english-word');
+    const chineseElement = document.getElementById('chinese-word');
+    
+    this.showingChinese = false;
+    this.isTransitioning = false;
+    this.isProcessingClick = false;
+    this.pendingRemoval = null;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    englishElement.classList.remove('show');
+    chineseElement.classList.remove('show');
+    
+    englishElement.style.color = '';
+    chineseElement.style.color = '';
+    
+    setTimeout(() => {
+      const firstElement = document.getElementById('english-word');
+      
+      // 根據設定決定顯示順序
+      if (this.settings.reverseMode) {
+        // 先顯示中文
+        firstElement.textContent = currentWord.chinese;
+      } else {
+        // 先顯示英文（原本的邏輯）
+        firstElement.textContent = currentWord.english;
+        // 發音英文單字
+        setTimeout(() => {
+          this.speakEnglishWord(currentWord.english);
+        }, 500);
+      }
+      firstElement.classList.add('show');
+
+      // 延遲顯示第二部分
+      this.displayTimer = setTimeout(() => {
+        this.showSecondPartAndScheduleNext();
+      }, this.settings.delayTime * 1000);
+      
+    }, 100);
+    
+    this.renderDifficultStar();
+    this.updateProgress();
+    this.updateButtonStates();
+  }
+  
+  updateProgress() {
+    const progressText = document.getElementById('progress-text');
+    const current = this.currentIndex + 1;
+    const total = this.currentWords.length;
+    progressText.textContent = `${current}/${total}`;
+  }
+  
+  updateButtonStates() {
+    const prevBtn = document.getElementById('prev-btn');
+    // const hasNavigationHistory = this.navigationHistory.length > 0;
+    // const hasPendingRemoval = this.pendingRemoval !== null;
+    // prevBtn.disabled = !hasNavigationHistory && !hasPendingRemoval;
+
+    // 修正：第一個單字時「上一個」不能按
+    const isFirstWord = this.currentIndex === 0;
+    const hasPendingRemoval = this.pendingRemoval !== null;
+    prevBtn.disabled = (isFirstWord && !hasPendingRemoval) || this.navigationHistory.length === 0;
+  }
+  
+  onWordClick() {
+    if (this.isTransitioning || this.isPaused) return;
+    
+    if (this.currentWords.length <= 1) {
+      const sections = document.querySelectorAll('.card-section');
+      sections.forEach(section => {
+        section.style.backgroundColor = 'rgba(255, 100, 100, 0.3)';
+        setTimeout(() => {
+          section.style.backgroundColor = '';
+        }, 300);
+      });
+      return;
+    }
+    
+    const currentWord = this.currentWords[this.currentIndex];
+    const englishElement = document.getElementById('english-word');
+    const chineseElement = document.getElementById('chinese-word');
+    
+    const isAlreadyMarked = englishElement.style.color === 'rgb(102, 102, 102)' || 
+                          englishElement.style.color === '#666666';
+    
+    if (isAlreadyMarked) {
+      this.nextWord();
+      return;
+    }
+    
+    this.isProcessingClick = true;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    if (!this.showingChinese) {
+      const secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+      chineseElement.textContent = secondText;
+      chineseElement.classList.add('show');
+      this.showingChinese = true;
+      
+      // 如果是反向模式且還沒發音，現在發音
+      if (this.settings.reverseMode) {
+        setTimeout(() => {
+          this.speakEnglishWord(currentWord.english);
+        }, 500);
+      }
+    }
+    
+    englishElement.style.color = '#666666';
+    chineseElement.style.color = '#666666';
+    
+    const sections = document.querySelectorAll('.card-section');
+    sections.forEach(section => {
+      section.classList.add('clicked');
+      setTimeout(() => section.classList.remove('clicked'), 500);
+    });
+    
+    this.pendingRemoval = {
+      word: currentWord,
+      index: this.currentIndex,
+      originalEnglishColor: englishElement.style.color,
+      originalChineseColor: chineseElement.style.color
+    };
+    
+    this.updateButtonStates();
+    
+    this.displayTimer = setTimeout(() => {
+      this.confirmRemoval();
+    }, this.settings.delayTime * 1000);
+  }
+  
+  confirmRemoval() {
+    if (!this.pendingRemoval) return;
+    
+    const { word, index } = this.pendingRemoval;
+    
+    this.removedWords.push(word);
+    this.currentWords.splice(index, 1);
+    
+    if (this.currentIndex >= this.currentWords.length) {
+      this.currentIndex = 0;
+    }
+    
+    this.pendingRemoval = null;
+    
+    if (this.currentWords.length === 0) {
+      this.startNewRound();
+    } else {
+      this.displayCurrentWord();
+    }
+    
+    this.isProcessingClick = false;
+    this.updateButtonStates();
+  }
+  
+  cancelRemoval() {
+    if (!this.pendingRemoval) return;
+    
+    const englishElement = document.getElementById('english-word');
+    const chineseElement = document.getElementById('chinese-word');
+    
+    englishElement.style.color = '';
+    chineseElement.style.color = '';
+    
+    this.pendingRemoval = null;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    this.isProcessingClick = false;
+    this.updateButtonStates();
+    
+    if (this.showingChinese) {
+      this.displayTimer = setTimeout(() => {
+        this.nextWord();
+      }, this.settings.delayTime * 1000);
+    } else {
+      // 如果英文顯示中，恢復計時以顯示中文
+      this.displayTimer = setTimeout(() => {
+        this.showSecondPartAndScheduleNext();
+      }, this.settings.delayTime * 1000);
+    }
+  }
+  
+  nextWord() {
+    if (this.isTransitioning || this.isPaused) return;
+    
+    if (this.pendingRemoval) {
+      this.confirmRemoval();
+      return;
+    }
+    
+    if (!this.showingChinese) {
+      this.showSecondPartAndScheduleNext();
+      return;
+    }
+    
+    this.saveNavigationState();
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    this.speechSynthesis.cancel();
+    
+    this.isTransitioning = true;
+    
+    const englishElement = document.getElementById('english-word');
+    const chineseElement = document.getElementById('chinese-word');
+    
+    englishElement.classList.remove('show');
+    chineseElement.classList.remove('show');
+    
+    chineseElement.textContent = '';
+    
+    setTimeout(() => {
+      this.currentIndex = (this.currentIndex + 1) % this.currentWords.length;
+      
+      if (this.currentIndex === 0) {
+        this.shuffleArray(this.currentWords);
+        this.navigationHistory = []; // 新增：新一輪開始時，清空導覽歷史
+      }
+      
+      this.displayCurrentWord();
+      this.isTransitioning = false;
+      
+    }, 300);
+    this.renderDifficultStar();
+  }
+  
+  previousWord() {
+    if (this.isTransitioning || this.isPaused) return;
+    
+    if (this.pendingRemoval) {
+      this.cancelRemoval();
+      return;
+    }
+    
+    // 如果沒有導覽歷史，就不能返回
+    if (this.navigationHistory.length === 0) return;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    this.speechSynthesis.cancel();
+    
+    this.isTransitioning = true;
+    
+    const englishElement = document.getElementById('english-word');
+    const chineseElement = document.getElementById('chinese-word');
+    
+    englishElement.classList.remove('show');
+    chineseElement.classList.remove('show');
+    
+    chineseElement.textContent = '';
+    
+    setTimeout(() => {
+      const previousState = this.navigationHistory.pop();
+      
+      const previousWord = previousState.wordSequence[previousState.currentIndex];
+      
+      const wordIndex = this.currentWords.findIndex(word => 
+        word.english === previousWord.english && word.chinese === previousWord.chinese
+      );
+      
+      if (wordIndex !== -1) {
+        this.currentIndex = wordIndex;
+      } else {
+        this.currentIndex = Math.min(previousState.currentIndex, this.currentWords.length - 1);
+        
+        if (this.currentWords.length === 0) {
+          this.startNewRound();
+          this.isTransitioning = false;
+          return;
+        }
+      }
+      
+      this.displayCurrentWord();
+      this.isTransitioning = false;
+      
+    }, 300);
+    this.renderDifficultStar();
+  }
+  
+  restart() {
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    this.speechSynthesis.cancel();
+    this.pendingRemoval = null;
+    this.closeMenu(); // 關閉選單
+    this.startNewRound();
+  }
+  
+  hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('flashcard').style.display = 'flex';
+  }
+    
+  showError() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+  }
+  
+  // 新增：開啟語音設定畫面
+  openVoiceSettings() {
+    const modal = document.getElementById('voice-settings-modal');
+    modal.style.display = 'flex';
+    // 暫停計時器
+    this.pauseTimer();
+    // 載入目前語音設定
+    document.getElementById('speech-enabled-setting').checked = this.voiceSettings.enabled;
+    document.getElementById('voice-rate-setting').value = this.voiceSettings.rate;
+    document.getElementById('voice-rate-value').textContent = this.voiceSettings.rate;
+    // 載入語音腔調
+    this.populateVoiceSelect();
+  }
+  
+  // 新增：關閉語音設定畫面
+  closeVoiceSettings() {
+    const modal = document.getElementById('voice-settings-modal');
+    modal.style.display = 'none';
+    // 恢復計時器
+    this.resumeTimer();
+  }
+  
+  // 新增：儲存語音設定
+  saveVoiceSettingsAndClose() {
+    this.voiceSettings.enabled = document.getElementById('speech-enabled-setting').checked;
+    this.voiceSettings.rate = parseFloat(document.getElementById('voice-rate-setting').value);
+    const voiceSelect = document.getElementById('voice-select-setting');
+    const selectedVoiceURI = voiceSelect.value;
+    this.voiceSettings.voiceURI = selectedVoiceURI;
+    // 取得語音的 lang
+    const voices = this.speechSynthesis.getVoices();
+    const selectedVoice = voices.find(v => v.voiceURI === selectedVoiceURI);
+    if (selectedVoice) {
+      this.voiceSettings.lang = selectedVoice.lang;
+    }
+    this.saveSettings();
+    this.closeVoiceSettings();
+  }
+  
+  // 新增：語音腔調選單
+  populateVoiceSelect() {
+    const voiceSelect = document.getElementById('voice-select-setting');
+    // 清空
+    voiceSelect.innerHTML = '';
+    const voices = this.speechSynthesis.getVoices();
+    // 只顯示英文語音
+    const englishVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
+    englishVoices.forEach(voice => {
+      const option = document.createElement('option');
+      option.value = voice.voiceURI;
+      option.textContent = `${voice.name} (${voice.lang})`;
+      if (voice.voiceURI === this.voiceSettings.voiceURI) {
+        option.selected = true;
+      }
+      voiceSelect.appendChild(option);
+    });
+    // 若沒選到，預設選第一個
+    if (!voiceSelect.value && englishVoices.length > 0) {
+      voiceSelect.value = englishVoices[0].voiceURI;
+    }
+  }
+  
+  // 切換標註/取消標註當前單字
+  toggleDifficultCurrentWord() {
+    const currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord) return;
+    const id = currentWord.id;
+    const isDifficult = this.difficultWords.includes(id);
+    if (isDifficult) {
+      this.difficultWords = this.difficultWords.filter(did => did !== id);
+    } else {
+      this.difficultWords.push(id);
+    }
+    // 後端同步
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.markWordAsDifficult(id, !isDifficult);
+    }
+    this.renderDifficultStar();
+  }
+  
+  // 根據狀態渲染星星
+  renderDifficultStar() {
+    const currentWord = this.currentWords[this.currentIndex];
+    const star = document.getElementById('difficult-star');
+    if (currentWord && this.difficultWords.includes(currentWord.id)) {
+      star.classList.add('visible');
+    } else {
+      star.classList.remove('visible');
+    }
+  }
+  
+  // 過濾只顯示不熟單字
+  filterWordsByDifficult() {
+    if (this.showDifficultOnly) {
+      this.currentWords = this.words.filter(w => this.difficultWords.includes(w.id));
+      this.currentIndex = 0;
+    } else {
+      this.currentWords = [...this.words];
+      this.currentIndex = 0;
+    }
+    this.displayCurrentWord();
+  }
+  
+  // 匯出 modal 控制
+  openExportModal() {
+    // 預設名稱：目前工作表名稱_yyyyMMdd
+    const defaultName = this.getDefaultExportSheetName();
+    document.getElementById('export-sheet-name').value = defaultName;
+    document.getElementById('export-type-remaining').checked = true;
+    document.getElementById('export-modal').style.display = 'flex';
+    this.pauseTimer();
+  }
+  closeExportModal() {
+    document.getElementById('export-modal').style.display = 'none';
+    this.resumeTimer();
+  }
+  getDefaultExportSheetName() {
+    // 取目前工作表名稱（假設與 SHEET_NAME 一致）
+    const base = 'Sheet1';
+    const date = new Date();
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${base}_${y}${m}${d}`;
+  }
+  confirmExport() {
+    const type = document.getElementById('export-type-difficult').checked ? 'difficult' : 'remaining';
+    const sheetName = document.getElementById('export-sheet-name').value.trim() || this.getDefaultExportSheetName();
+    let exportWords = [];
+    if (type === 'difficult') {
+      exportWords = this.words.filter(w => this.difficultWords.includes(w.id));
+    } else {
+      exportWords = this.currentWords;
+    }
+    // 匯出資料格式
+    const exportData = exportWords.map(w => ({
+      english: w.english,
+      chinese: w.chinese,
+      difficult: this.difficultWords.includes(w.id)
+    }));
+    if (exportData.length === 0) {
+      alert('沒有可匯出的單字！');
+      return;
+    }
+    // 呼叫 Apps Script
+    google.script.run
+      .withSuccessHandler(() => {
+        alert('匯出成功！');
+        this.closeExportModal();
+      })
+      .withFailureHandler(() => {
+        alert('匯出失敗，請重試！');
+      })
+      .exportWordsToSheet(exportData, sheetName);
+  }
+}
+
+// 當頁面載入完成後啟動應用
+window.addEventListener('load', () => {
+  const app = new FlashcardApp();
+  // 語音列表載入後再填充語音腔調選單
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      if (typeof app.populateVoiceSelect === 'function') {
+        app.populateVoiceSelect();
+      }
+    };
+  }
+});
+</script>

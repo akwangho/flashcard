@@ -1,0 +1,602 @@
+<!-- style.html -->
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif;
+  background-color: #000000;
+  color: #FFFF00;
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+#loading, #error {
+  text-align: center;
+}
+
+#loading p {
+  font-size: 96px;
+  font-weight: bold;
+}
+
+#error {
+  font-size: 24px;
+}
+
+#error button {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #333;
+  color: #FFFF00;
+  border: 2px solid #FFFF00;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#error button:hover {
+  background-color: #FFFF00;
+  color: #000000;
+}
+
+#flashcard {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.card-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-section {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  padding: 20px;
+}
+
+.card-section:hover {
+  background-color: rgba(0, 0, 0, 0.95);
+}
+
+.card-section.clicked {
+  background-color: rgba(255, 0, 0, 0.3);
+  animation: clickEffect 0.5s ease;
+}
+
+@keyframes clickEffect {
+  0% { background-color: rgba(255, 0, 0, 0.3); }
+  100% { background-color: rgba(255, 255, 0, 0.1); }
+}
+
+.word {
+  font-size: 96px;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 90%;
+  word-wrap: break-word;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s ease;
+}
+
+.word.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 修改進度文字樣式 - 移除邊框和背景，改為灰色 */
+.progress {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #888888; /* 改為灰色 */
+  padding: 10px 15px;
+}
+
+.controls-wrapper {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  padding: 20px; /* Creates a larger invisible hover area */
+  z-index: 100;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.4s ease 0.5s; /* Fade out with a 0.5s delay */
+}
+
+.controls-wrapper:hover .controls {
+  opacity: 1;
+  transition-delay: 0s; /* Fade in instantly */
+}
+
+.controls button {
+  padding: 12px 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFF00;
+  border: 2px solid #FFFF00;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.controls button:hover {
+  background-color: #FFFF00;
+  color: #000000;
+  transform: scale(1.05);
+}
+
+.controls button:active {
+  transform: scale(0.95);
+}
+
+.controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.controls button:disabled:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFF00;
+  transform: none;
+}
+
+/* 選單系統樣式 */
+.menu-container {
+  position: relative;
+  display: inline-block;
+}
+
+.menu-toggle {
+  padding: 12px 20px !important;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFF00;
+  border: 2px solid #FFFF00;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.menu-toggle:hover {
+  background-color: #FFFF00;
+  color: #000000;
+  transform: scale(1.05);
+}
+
+.menu-toggle.active {
+  background-color: #FFFF00;
+  color: #000000;
+}
+
+.menu-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 5px;
+  background-color: rgba(0, 0, 0, 0.9);
+  border: 2px solid #FFFF00;
+  border-radius: 5px;
+  min-width: 120px;
+  display: none;
+  z-index: 1000;
+}
+
+.menu-dropdown.show {
+  display: block;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  color: #FFFF00;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+.menu-item:hover {
+  background-color: rgba(255, 255, 0, 0.2);
+}
+
+.menu-item:first-child {
+  border-radius: 3px 3px 0 0;
+}
+
+.menu-item:last-child {
+  border-radius: 0 0 3px 3px;
+}
+
+.menu-item:only-child {
+  border-radius: 3px;
+}
+
+/* 設定畫面樣式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background-color: #000000;
+  border: 3px solid #FFFF00;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid #FFFF00;
+}
+
+.modal-header h2 {
+  font-size: 24px;
+  font-weight: bold;
+  color: #FFFF00;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #FFFF00;
+  font-size: 30px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background-color: rgba(255, 255, 0, 0.2);
+  transform: scale(1.1);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.setting-group {
+  margin-bottom: 25px;
+}
+
+.setting-group label {
+  display: block;
+  font-size: 16px;
+  font-weight: bold;
+  color: #FFFF00;
+  margin-bottom: 10px;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.setting-control input[type="range"] {
+  flex: 1;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.setting-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #FFFF00;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.setting-control input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #FFFF00;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.setting-control span {
+  min-width: 60px;
+  font-weight: bold;
+  color: #FFFF00;
+  text-align: right;
+}
+
+/* 開關按鈕樣式 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #333;
+  transition: 0.4s;
+  border-radius: 34px;
+  border: 2px solid #666;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 24px;
+  width: 24px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #666;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #FFFF00;
+  border-color: #FFFF00;
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+  background-color: #000;
+}
+
+/* 測試按鈕樣式 */
+.test-btn {
+  width: 100%;
+  padding: 12px 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFF00;
+  border: 2px solid #FFFF00;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.test-btn:hover {
+  background-color: #FFFF00;
+  color: #000000;
+  transform: scale(1.02);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 20px;
+  border-top: 2px solid #FFFF00;
+}
+
+.secondary-btn {
+  padding: 12px 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFF00;
+  border: 2px solid #666;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  flex: 1;
+}
+
+.secondary-btn:hover {
+  background-color: #666;
+  border-color: #FFFF00;
+  transform: scale(1.02);
+}
+
+.primary-btn {
+  padding: 12px 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFF00;
+  border: 2px solid #FFFF00;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  flex: 2;
+}
+
+.primary-btn:hover {
+  background-color: #FFFF00;
+  color: #000000;
+  transform: scale(1.02);
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .word {
+    font-size: 36px;
+  }
+  
+  #loading p {
+    font-size: 36px;
+  }
+  
+  .progress {
+    font-size: 20px;
+    bottom: 10px;
+    left: 10px;
+  }
+  
+  .controls-wrapper {
+    padding: 10px;
+  }
+  
+  .controls {
+    bottom: 10px;
+    right: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .controls button {
+    padding: 10px 15px;
+    font-size: 14px;
+  }
+  
+  .menu-toggle {
+    padding: 10px 15px !important;
+    font-size: 14px !important;
+  }
+  
+  .modal-content {
+    width: 95%;
+    margin: 10px;
+  }
+  
+  .modal-header h2 {
+    font-size: 20px;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .word {
+    font-size: 28px;
+  }
+  
+  #loading p {
+    font-size: 28px;
+  }
+  
+  .progress {
+    font-size: 18px;
+  }
+  
+  .controls {
+    gap: 5px;
+  }
+  
+  .controls button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .menu-toggle {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* 淡入淡出動畫 */
+.fade-out {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.fade-in {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+/* 設定開啟時的暫停指示器 */
+.paused-indicator {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(255, 255, 0, 0.2);
+  color: #FFFF00;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: bold;
+  border: 1px solid #FFFF00;
+}
+
+#difficult-star {
+  margin-left: 8px;
+  color: #FFFF00;
+  font-size: 24px;
+  vertical-align: middle;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s;
+  width: 1em;
+  display: inline-block;
+}
+#difficult-star.visible {
+  visibility: visible;
+  opacity: 1;
+}
+</style>

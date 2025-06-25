@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英文單字閃卡</title>
+  <?!= include('style'); ?>
+</head>
+<body>
+  <div id="app">
+    <div id="loading">
+      <p>Ready</p>
+    </div>
+    
+    <div id="flashcard" style="display: none;">
+      <div class="card-container">
+        <div class="card-section" id="english-section">
+          <div class="word" id="english-word"></div>
+        </div>
+        
+        <div class="card-section" id="chinese-section">
+          <div class="word" id="chinese-word"></div>
+        </div>
+      </div>
+      
+      <div class="progress" id="progress-area">
+        <span id="progress-text">0/0</span>
+        <span id="difficult-star">★</span>
+      </div>
+      
+      <div class="controls-wrapper">
+        <div class="controls">
+          <button id="prev-btn">上一個</button>
+          <button id="next-btn">下一個</button>
+          
+          <!-- 新增選單系統 -->
+          <div class="menu-container">
+            <button id="menu-btn" class="menu-toggle">選單 ▼</button>
+            <div class="menu-dropdown" id="menu-dropdown">
+              <button id="restart-btn" class="menu-item">重新開始</button>
+              <button id="voice-settings-btn" class="menu-item">語音設定</button>
+              <button id="settings-btn" class="menu-item">設定</button>
+              <label class="menu-item" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="show-difficult-only" style="width:16px;height:16px;">
+                只顯示不熟單字
+              </label>
+              <button id="export-btn" class="menu-item">匯出單字</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 新增設定畫面 -->
+    <div id="settings-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>設定</h2>
+          <button id="close-settings" class="close-btn">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="setting-group">
+            <label for="delay-setting">單字卡延遲時間 (秒)</label>
+            <div class="setting-control">
+              <input type="range" id="delay-setting" min="1" max="10" value="3" step="0.5">
+              <span id="delay-value">3</span>
+            </div>
+          </div>
+          
+          <div class="setting-group">
+            <label for="font-size-setting">字體大小</label>
+            <div class="setting-control">
+              <input type="range" id="font-size-setting" min="20" max="120" value="96" step="4">
+              <span id="font-size-value">96px</span>
+            </div>
+          </div>
+          
+          <div class="setting-group">
+            <label for="reverse-setting">先顯示中文翻譯</label>
+            <div class="setting-control">
+              <label class="switch">
+                <input type="checkbox" id="reverse-setting">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button id="reset-settings" class="secondary-btn">重置所有設定</button>
+          <button id="save-settings" class="primary-btn">儲存設定</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 新增語音設定畫面 -->
+    <div id="voice-settings-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>語音設定</h2>
+          <button id="close-voice-settings" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <label for="speech-enabled-setting">啟用英文發音</label>
+            <div class="setting-control">
+              <label class="switch">
+                <input type="checkbox" id="speech-enabled-setting">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label for="voice-rate-setting">發音速度</label>
+            <div class="setting-control">
+              <input type="range" id="voice-rate-setting" min="0.1" max="1" value="0.8" step="0.1">
+              <span id="voice-rate-value">0.8</span>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label for="voice-select-setting">語音腔調</label>
+            <div class="setting-control">
+              <select id="voice-select-setting"></select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-voice-settings" class="secondary-btn">取消</button>
+          <button id="save-voice-settings" class="primary-btn">儲存語音設定</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 匯出單字 Modal -->
+    <div id="export-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>匯出單字</h2>
+          <button id="close-export-modal" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <label>匯出內容</label>
+            <div class="setting-control">
+              <label><input type="radio" name="export-type" id="export-type-remaining" value="remaining" checked> 剩餘單字</label>
+              <label><input type="radio" name="export-type" id="export-type-difficult" value="difficult"> 不熟單字</label>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label for="export-sheet-name">工作表名稱</label>
+            <div class="setting-control">
+              <input type="text" id="export-sheet-name" style="width: 220px;">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-export" class="secondary-btn">取消</button>
+          <button id="confirm-export" class="primary-btn">匯出</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="error" style="display: none;">
+      <p>載入失敗，請檢查 Google Sheet 設定</p>
+      <button onclick="location.reload()">重新載入</button>
+    </div>
+  </div>
+
+  <?!= include('script'); ?>
+</body>
+</html>
