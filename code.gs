@@ -396,9 +396,9 @@ function handleDuplicateWordMerge(sheetId, targetWord, mergeWords) {
 }
 
 // 修改：載入單字時包含重複偵測
-function getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames) {
+function getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle = false) {
   try {
-    console.log('載入單字並偵測重複，Sheet ID:', sheetId, '工作表:', sheetNames);
+    console.log('載入單字並偵測重複，Sheet ID:', sheetId, '工作表:', sheetNames, '自動處理:', autoHandle);
     
     // 先載入所有單字
     const allWords = getWordsFromSheets(sheetId, sheetNames);
@@ -406,13 +406,219 @@ function getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames) {
     // 偵測重複
     const duplicates = detectDuplicateWords(allWords);
     
-    return {
-      words: allWords,
-      duplicates: duplicates,
-      hasDuplicates: duplicates.length > 0
-    };
+    if (autoHandle && duplicates.length > 0) {
+      console.log('自動處理重複單字（僅記憶體處理），數量:', duplicates.length);
+      
+      // 在記憶體中處理重複單字，不修改實際的Google Sheet
+      const autoResult = autoHandleSkippedDuplicatesInMemory(allWords, duplicates);
+      
+      if (autoResult.success) {
+        console.log('記憶體自動處理成功，去重後單字數量:', autoResult.processedWords.length);
+        
+        return {
+          words: autoResult.processedWords,
+          duplicates: [],
+          hasDuplicates: false,
+          autoHandled: true,
+          autoResults: autoResult
+        };
+      } else {
+        console.error('記憶體自動處理失敗:', autoResult.error);
+        // 如果自動處理失敗，仍然返回原始結果，讓用戶手動處理
+        return {
+          words: allWords,
+          duplicates: duplicates,
+          hasDuplicates: duplicates.length > 0,
+          autoHandled: false,
+          autoError: autoResult.error
+        };
+      }
+    } else {
+      return {
+        words: allWords,
+        duplicates: duplicates,
+        hasDuplicates: duplicates.length > 0,
+        autoHandled: false
+      };
+    }
   } catch (error) {
     console.error('載入單字並偵測重複時發生錯誤:', error);
     throw error;
+  }
+}
+
+// 新增：在記憶體中自動處理重複單字（不修改Google Sheet）
+function autoHandleSkippedDuplicatesInMemory(allWords, duplicates) {
+  try {
+    console.log('在記憶體中自動處理重複單字，總數:', duplicates.length);
+    
+    const results = [];
+    const wordsToRemove = new Set(); // 記錄要從記憶體中移除的單字ID
+    const wordsToModify = new Map(); // 記錄要修改定義的單字ID和新定義
+    
+    for (let i = 0; i < duplicates.length; i++) {
+      const duplicate = duplicates[i];
+      console.log('處理重複單字:', duplicate.english, '是否相同定義:', duplicate.isSameDefinition);
+      
+      if (duplicate.isSameDefinition) {
+        // 中文意義相同：保留第一個工作表的，移除其他
+        const keepWord = duplicate.words[0]; // 第一個工作表的
+        const removeWords = duplicate.words.slice(1); // 其他工作表的
+        
+        console.log('相同定義，保留第一個工作表:', keepWord.sheetName);
+        
+        // 記錄要移除的單字ID
+        removeWords.forEach(word => {
+          wordsToRemove.add(word.id);
+        });
+        
+        results.push({
+          english: duplicate.english,
+          action: 'keep_first',
+          success: true,
+          keptSheet: keepWord.sheetName,
+          removedCount: removeWords.length
+        });
+      } else {
+        // 中文意義不同：合併定義到第一個工作表的單字
+        const targetWord = duplicate.words[0]; // 第一個工作表的作為目標
+        const mergeWords = duplicate.words.slice(1); // 其他工作表的合併進來
+        
+        console.log('不同定義，合併到第一個工作表:', targetWord.sheetName);
+        
+        // 準備合併後的定義
+        const allDefinitions = duplicate.words.map((w, index) => 
+          `${index + 1}. ${w.chinese.trim()}`
+        );
+        const mergedDefinition = allDefinitions.join('\n');
+        
+        // 記錄要修改的單字
+        wordsToModify.set(targetWord.id, mergedDefinition);
+        
+        // 記錄要移除的單字ID
+        mergeWords.forEach(word => {
+          wordsToRemove.add(word.id);
+        });
+        
+        results.push({
+          english: duplicate.english,
+          action: 'merge_to_first',
+          success: true,
+          targetSheet: targetWord.sheetName,
+          mergedDefinition: mergedDefinition,
+          removedCount: mergeWords.length
+        });
+      }
+    }
+    
+    // 處理單字陣列：移除重複項目並修改定義
+    const processedWords = [];
+    for (let i = 0; i < allWords.length; i++) {
+      const word = allWords[i];
+      
+      if (wordsToRemove.has(word.id)) {
+        // 跳過要移除的單字
+        continue;
+      }
+      
+      if (wordsToModify.has(word.id)) {
+        // 修改定義
+        const modifiedWord = { ...word };
+        modifiedWord.chinese = wordsToModify.get(word.id);
+        processedWords.push(modifiedWord);
+      } else {
+        // 保持原樣
+        processedWords.push(word);
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    const removedCount = wordsToRemove.size;
+    
+    console.log('記憶體處理完成，成功:', successCount, '總數:', results.length, '移除單字數:', removedCount);
+    console.log('處理前單字數:', allWords.length, '處理後單字數:', processedWords.length);
+    
+    return {
+      success: true,
+      processedWords: processedWords,
+      results: results,
+      successCount: successCount,
+      totalCount: results.length,
+      originalCount: allWords.length,
+      processedCount: processedWords.length,
+      removedCount: removedCount
+    };
+  } catch (error) {
+    console.error('記憶體自動處理重複單字失敗:', error);
+    return {
+      success: false,
+      error: error.message,
+      processedWords: allWords // 失敗時返回原始單字
+    };
+  }
+}
+
+// 新增：自動處理重複單字（跳過不處理的邏輯 - 修改Google Sheet）
+function autoHandleSkippedDuplicates(sheetId, duplicates) {
+  try {
+    console.log('自動處理重複單字（跳過不處理邏輯），總數:', duplicates.length);
+    
+    const results = [];
+    
+    for (let i = 0; i < duplicates.length; i++) {
+      const duplicate = duplicates[i];
+      console.log('處理重複單字:', duplicate.english, '是否相同定義:', duplicate.isSameDefinition);
+      
+      if (duplicate.isSameDefinition) {
+        // 中文意義相同：保留第一個工作表的，刪除其他
+        const keepWord = duplicate.words[0]; // 第一個工作表的
+        const deleteWords = duplicate.words.slice(1); // 其他工作表的
+        
+        console.log('相同定義，保留第一個工作表:', keepWord.sheetName);
+        const result = handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords);
+        
+        results.push({
+          english: duplicate.english,
+          action: 'keep_first',
+          success: result.success,
+          keptSheet: keepWord.sheetName,
+          deletedCount: result.deletedCount || 0,
+          error: result.error
+        });
+      } else {
+        // 中文意義不同：自動合併成一個（保留第一個工作表的，合併其他定義）
+        const targetWord = duplicate.words[0]; // 第一個工作表的作為目標
+        const mergeWords = duplicate.words.slice(1); // 其他工作表的合併進來
+        
+        console.log('不同定義，合併到第一個工作表:', targetWord.sheetName);
+        const result = handleDuplicateWordMerge(sheetId, targetWord, mergeWords);
+        
+        results.push({
+          english: duplicate.english,
+          action: 'merge_to_first',
+          success: result.success,
+          targetSheet: targetWord.sheetName,
+          mergedDefinition: result.mergedDefinition,
+          deletedCount: result.deletedCount || 0,
+          error: result.error
+        });
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    console.log('自動處理完成，成功:', successCount, '總數:', results.length);
+    
+    return {
+      success: true,
+      results: results,
+      successCount: successCount,
+      totalCount: results.length
+    };
+  } catch (error) {
+    console.error('自動處理重複單字失敗:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }

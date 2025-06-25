@@ -1021,4 +1021,172 @@ input:checked + .slider:before {
   margin: 10px 0;
   text-align: center;
 }
+
+/* 自動處理通知樣式 */
+.auto-processing-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  background-color: rgba(0, 0, 0, 0.95);
+  border: 2px solid #00FF00;
+  border-radius: 8px;
+  padding: 0;
+  max-width: 400px;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s ease;
+}
+
+.auto-processing-notification.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.auto-processing-notification.fade-out {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.notification-content {
+  padding: 20px;
+  position: relative;
+}
+
+.notification-content h3 {
+  color: #00FF00;
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+
+.notification-content p {
+  color: #FFFFFF;
+  margin: 0 0 15px 0;
+  font-size: 14px;
+}
+
+.notification-details {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item.success {
+  color: #CCCCCC;
+}
+
+.notification-item.error {
+  color: #FF6B6B;
+}
+
+.notification-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #FFFFFF;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-close:hover {
+  color: #FF6B6B;
+}
+
+/* 自動處理指示器樣式 */
+.auto-processing-indicator {
+  text-align: center;
+  padding: 30px;
+}
+
+.auto-processing-indicator h3 {
+  color: #FFFF00;
+  margin-bottom: 20px;
+}
+
+.auto-processing-indicator p {
+  color: #CCCCCC;
+  margin-bottom: 15px;
+}
+
+.auto-processing-indicator ul {
+  text-align: left;
+  color: #CCCCCC;
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+.auto-processing-indicator li {
+  margin-bottom: 8px;
+}
+
+.auto-processing-result {
+  text-align: center;
+  padding: 20px;
+}
+
+.auto-processing-result.success h3 {
+  color: #00FF00;
+}
+
+.auto-processing-result.error h3 {
+  color: #FF6B6B;
+}
+
+.processing-details {
+  text-align: left;
+  margin: 20px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.result-item {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 14px;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.result-item.success {
+  color: #CCCCCC;
+}
+
+.result-item.error {
+  color: #FF6B6B;
+}
+
+/* 記憶體處理提示樣式 */
+.memory-notice {
+  font-size: 12px;
+  color: #FFA500;
+  font-style: italic;
+  margin-top: 5px;
+}
+
+/* Google Sheet修改提示樣式 */
+.sheet-modify-notice {
+  font-size: 12px;
+  color: #FF6B6B;
+  font-weight: bold;
+  margin-top: 5px;
+}
 </style>
