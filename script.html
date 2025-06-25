@@ -38,6 +38,7 @@ class FlashcardApp {
     };
     this.availableSheets = [];
     this.listenersSetup = false; // 新增：追蹤事件監聽器是否已設置
+    this.currentSpreadsheetName = null; // 新增：當前 Google Sheet 名稱
     this.init();
   }
   
@@ -1260,13 +1261,31 @@ class FlashcardApp {
       console.log('開始調用 Google Apps Script...');
       
       google.script.run
-        .withSuccessHandler(sheets => {
+        .withSuccessHandler(result => {
           console.log('=== Google Apps Script 成功回調 ===');
           clearTimeout(timeout);
-          console.log('成功載入工作表清單，數量:', sheets ? sheets.length : 0);
+          
+          // 處理新的返回格式
+          let sheets, spreadsheetName;
+          if (result && result.sheets) {
+            // 新格式：包含 spreadsheet 名稱
+            sheets = result.sheets;
+            spreadsheetName = result.spreadsheetName;
+            console.log('成功載入 Google Sheet:', spreadsheetName, '包含', sheets.length, '個工作表');
+          } else if (Array.isArray(result)) {
+            // 向後兼容：舊格式
+            sheets = result;
+            spreadsheetName = null;
+            console.log('使用舊格式載入工作表清單，數量:', sheets.length);
+          } else {
+            console.error('未知的返回格式:', result);
+            throw new Error('載入工作表清單失敗：返回格式錯誤');
+          }
+          
           console.log('工作表資料:', sheets);
           
           this.availableSheets = sheets;
+          this.currentSpreadsheetName = spreadsheetName; // 儲存 spreadsheet 名稱
           this.renderSheetsList();
           loadBtn.disabled = false;
           loadBtn.textContent = '載入工作表清單';
@@ -1317,21 +1336,43 @@ class FlashcardApp {
     console.log('=== renderSheetsList 開始執行 ===');
     console.log('可用工作表數量:', this.availableSheets ? this.availableSheets.length : 0);
     console.log('工作表資料:', this.availableSheets);
+    console.log('當前 Google Sheet 名稱:', this.currentSpreadsheetName);
     
     const sheetsList = document.getElementById('sheets-list');
-    if (!sheetsList) {
-      console.error('找不到 sheets-list 元素');
+    const sheetsGroup = document.getElementById('sheets-selection-group');
+    if (!sheetsList || !sheetsGroup) {
+      console.error('找不到 sheets-list 或 sheets-selection-group 元素');
       return;
     }
     
     if (!this.availableSheets || this.availableSheets.length === 0) {
       console.warn('沒有可用的工作表');
       sheetsList.innerHTML = '<div class="error-text">沒有找到工作表</div>';
+      // 移除舊的標題
+      const oldTitle = sheetsGroup.querySelector('.sheet-title');
+      if (oldTitle) oldTitle.remove();
       return;
     }
     
     console.log('開始清空並重新渲染工作表清單');
     sheetsList.innerHTML = '';
+    
+    // 先移除舊的標題
+    const oldTitle = sheetsGroup.querySelector('.sheet-title');
+    if (oldTitle) oldTitle.remove();
+    // 如果有 Google Sheet 名稱，顯示在 sheetsGroup 最上方
+    if (this.currentSpreadsheetName) {
+      const sheetTitle = document.createElement('div');
+      sheetTitle.className = 'sheet-title';
+      sheetTitle.innerHTML = `
+        <div class="sheet-title-text">
+          <strong>Google Sheet:</strong> ${this.currentSpreadsheetName}
+        </div>
+      `;
+      // 插入到 sheetsGroup 最前面
+      sheetsGroup.insertBefore(sheetTitle, sheetsGroup.firstChild);
+      console.log('顯示 Google Sheet 名稱:', this.currentSpreadsheetName);
+    }
     
     this.availableSheets.forEach((sheet, index) => {
       console.log(`渲染工作表 ${index + 1}:`, sheet);
@@ -1342,6 +1383,13 @@ class FlashcardApp {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.value = sheet.name;
+      
+      // 檢查是否應該自動勾選（如果是當前已載入的工作表）
+      if (this.sheetSettings.selectedSheets && this.sheetSettings.selectedSheets.includes(sheet.name)) {
+        checkbox.checked = true;
+        console.log('自動勾選已載入的工作表:', sheet.name);
+      }
+      
       checkbox.addEventListener('change', () => {
         console.log('工作表選擇狀態改變:', sheet.name, checkbox.checked);
         this.toggleSheetSelection();

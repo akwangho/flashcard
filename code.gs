@@ -29,6 +29,10 @@ function getSheetsList(sheetId) {
       throw new Error('無法開啟 Google Sheet，請檢查：\n1. Sheet ID 是否正確\n2. 您是否有存取權限\n3. Sheet 是否存在');
     }
     
+    // 獲取 spreadsheet 名稱
+    const spreadsheetName = spreadsheet.getName();
+    console.log('成功載入 Google Sheet:', spreadsheetName);
+    
     let sheets;
     try {
       sheets = spreadsheet.getSheets();
@@ -72,8 +76,13 @@ function getSheetsList(sheetId) {
       });
     }
     
-    console.log('成功載入工作表清單:', sheetsList);
-    return sheetsList;
+    console.log('成功載入工作表清單，總計', sheetsList.length, '個工作表');
+    
+    // 返回包含 spreadsheet 名稱的完整資訊
+    return {
+      spreadsheetName: spreadsheetName,
+      sheets: sheetsList
+    };
   } catch (error) {
     console.error('getSheetsList 發生錯誤:', error);
     throw new Error('載入工作表清單失敗：' + error.message);
