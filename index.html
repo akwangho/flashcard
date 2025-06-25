@@ -210,6 +210,42 @@
       <p>載入失敗，請檢查 Google Sheet 設定</p>
       <button onclick="location.reload()">重新載入</button>
     </div>
+    
+    <!-- 新增：重複單字處理 Modal -->
+    <div id="duplicate-words-modal" class="modal" style="display: none;">
+      <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+          <h2>發現重複單字</h2>
+          <button id="close-duplicate-modal" class="close-btn">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="duplicate-info">
+            <p id="duplicate-summary">找到 <span id="duplicate-count">0</span> 組重複單字，請選擇處理方式：</p>
+          </div>
+          
+          <div class="duplicate-word-container" id="duplicate-word-container">
+            <!-- 重複單字項目將在這裡動態生成 -->
+          </div>
+          
+          <div class="duplicate-actions" id="duplicate-actions" style="display: none;">
+            <div class="current-duplicate-info">
+              <h3>處理單字：<strong id="current-duplicate-english"></strong></h3>
+              <div id="duplicate-options-container">
+                <!-- 處理選項將在這裡動態生成 -->
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button id="skip-duplicates" class="secondary-btn">跳過，稍後處理</button>
+          <button id="process-all-duplicates" class="primary-btn">開始處理</button>
+          <button id="confirm-duplicate-action" class="primary-btn" style="display: none;">確認操作</button>
+          <button id="next-duplicate" class="primary-btn" style="display: none;">下一個</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <?!= include('script'); ?>

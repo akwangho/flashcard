@@ -233,3 +233,186 @@ function exportWordsToSheet(words, sheetName, targetSheetId) {
     return false;
   }
 }
+
+// 新增：偵測重複單字
+function detectDuplicateWords(allWords) {
+  try {
+    console.log('開始偵測重複單字，總數:', allWords.length);
+    
+    const duplicatesMap = new Map();
+    const processed = new Set();
+    
+    // 建立英文單字的對應表
+    for (let i = 0; i < allWords.length; i++) {
+      const word = allWords[i];
+      const englishLower = word.english.toLowerCase().trim();
+      
+      if (!duplicatesMap.has(englishLower)) {
+        duplicatesMap.set(englishLower, []);
+      }
+      duplicatesMap.get(englishLower).push(word);
+    }
+    
+    // 找出有重複的單字
+    const duplicates = [];
+    for (const [englishLower, wordsList] of duplicatesMap) {
+      if (wordsList.length > 1) {
+        // 檢查是否定義相同
+        const firstDefinition = wordsList[0].chinese.toLowerCase().trim();
+        const isSameDefinition = wordsList.every(w => 
+          w.chinese.toLowerCase().trim() === firstDefinition
+        );
+        
+        duplicates.push({
+          english: wordsList[0].english, // 使用原始大小寫
+          words: wordsList,
+          isSameDefinition: isSameDefinition
+        });
+      }
+    }
+    
+    console.log('找到', duplicates.length, '組重複單字');
+    return duplicates;
+  } catch (error) {
+    console.error('偵測重複單字時發生錯誤:', error);
+    return [];
+  }
+}
+
+// 新增：處理重複單字（刪除其他保留一個）
+function handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords) {
+  try {
+    console.log('處理重複單字 - 保留一個，刪除其他');
+    console.log('保留:', keepWord);
+    console.log('刪除:', deleteWords);
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetId.trim());
+    let deletedCount = 0;
+    
+    // 為每個要刪除的單字找到當前的實際行位置
+    for (const word of deleteWords) {
+      try {
+        const sheet = spreadsheet.getSheetByName(word.sheetName);
+        if (!sheet) {
+          console.error('找不到工作表:', word.sheetName);
+          continue;
+        }
+        
+        // 獲取當前工作表的所有資料
+        const data = sheet.getDataRange().getValues();
+        let foundRowIndex = -1;
+        
+        // 尋找匹配的行（通過英文和中文內容匹配）
+        for (let i = 0; i < data.length; i++) {
+          const rowEnglish = data[i][0] ? data[i][0].toString().trim() : '';
+          const rowChinese = data[i][1] ? data[i][1].toString().trim() : '';
+          
+          // 比較英文和中文內容（忽略大小寫）
+          if (rowEnglish.toLowerCase() === word.english.toLowerCase().trim() && 
+              rowChinese.toLowerCase() === word.chinese.toLowerCase().trim()) {
+            foundRowIndex = i;
+            break;
+          }
+        }
+        
+        if (foundRowIndex !== -1) {
+          const actualRow = foundRowIndex + 1; // 轉換為1-based索引
+          sheet.deleteRow(actualRow);
+          deletedCount++;
+          console.log('已刪除:', word.sheetName, '第', actualRow, '行', '內容:', word.english, '-', word.chinese);
+        } else {
+          console.warn('找不到要刪除的行:', word.english, '-', word.chinese, '在工作表:', word.sheetName);
+        }
+      } catch (deleteError) {
+        console.error('刪除單字失敗:', word, deleteError);
+      }
+    }
+    
+    console.log('成功刪除', deletedCount, '個重複單字');
+    return { success: true, deletedCount: deletedCount };
+  } catch (error) {
+    console.error('處理重複單字失敗:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 新增：處理重複單字（合併定義）
+function handleDuplicateWordMerge(sheetId, targetWord, mergeWords) {
+  try {
+    console.log('處理重複單字 - 合併定義');
+    console.log('目標單字:', targetWord);
+    console.log('合併來源:', mergeWords);
+    
+    const spreadsheet = SpreadsheetApp.openById(sheetId.trim());
+    
+    // 準備合併後的定義
+    const allDefinitions = [targetWord, ...mergeWords].map((w, index) => 
+      `${index + 1}. ${w.chinese.trim()}`
+    );
+    const mergedDefinition = allDefinitions.join('\n');
+    
+    // 更新目標單字的定義
+    const targetSheet = spreadsheet.getSheetByName(targetWord.sheetName);
+    if (targetSheet) {
+      // 獲取當前工作表的所有資料
+      const data = targetSheet.getDataRange().getValues();
+      let foundRowIndex = -1;
+      
+      // 尋找目標單字的當前位置
+      for (let i = 0; i < data.length; i++) {
+        const rowEnglish = data[i][0] ? data[i][0].toString().trim() : '';
+        const rowChinese = data[i][1] ? data[i][1].toString().trim() : '';
+        
+        // 比較英文和中文內容（忽略大小寫）
+        if (rowEnglish.toLowerCase() === targetWord.english.toLowerCase().trim() && 
+            rowChinese.toLowerCase() === targetWord.chinese.toLowerCase().trim()) {
+          foundRowIndex = i;
+          break;
+        }
+      }
+      
+      if (foundRowIndex !== -1) {
+        const targetRow = foundRowIndex + 1; // 轉換為1-based索引
+        targetSheet.getRange(targetRow, 2).setValue(mergedDefinition); // 第2欄是中文定義
+        console.log('已更新目標定義:', targetWord.sheetName, '第', targetRow, '行');
+      } else {
+        console.error('找不到目標單字:', targetWord.english, '-', targetWord.chinese);
+        return { success: false, error: '找不到目標單字位置' };
+      }
+    }
+    
+    // 刪除其他重複項目
+    const deleteResult = handleDuplicateWordKeepOne(sheetId, targetWord, mergeWords);
+    
+    return { 
+      success: true, 
+      mergedDefinition: mergedDefinition,
+      deletedCount: deleteResult.deletedCount 
+    };
+  } catch (error) {
+    console.error('合併重複單字失敗:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// 修改：載入單字時包含重複偵測
+function getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames) {
+  try {
+    console.log('載入單字並偵測重複，Sheet ID:', sheetId, '工作表:', sheetNames);
+    
+    // 先載入所有單字
+    const allWords = getWordsFromSheets(sheetId, sheetNames);
+    
+    // 偵測重複
+    const duplicates = detectDuplicateWords(allWords);
+    
+    return {
+      words: allWords,
+      duplicates: duplicates,
+      hasDuplicates: duplicates.length > 0
+    };
+  } catch (error) {
+    console.error('載入單字並偵測重複時發生錯誤:', error);
+    throw error;
+  }
+}

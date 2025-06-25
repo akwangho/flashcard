@@ -107,7 +107,7 @@ body {
   transform: translateY(0);
 }
 
-/* 修改進度文字樣式 - 移除邊框和背景，改為灰色 */
+/* 修改進度文字樣式 - 移除邊框和背景，改為灰色，並添加點擊游標 */
 .progress {
   position: absolute;
   bottom: 20px;
@@ -116,6 +116,13 @@ body {
   font-weight: bold;
   color: #888888; /* 改為灰色 */
   padding: 10px 15px;
+  cursor: pointer; /* 添加點擊游標提示 */
+  user-select: none; /* 防止文字選擇 */
+  transition: color 0.3s ease; /* 添加顏色過渡效果 */
+}
+
+.progress:hover {
+  color: #FFFF00; /* 滑鼠懸停時變為黃色 */
 }
 
 .controls-wrapper {
@@ -748,5 +755,270 @@ input:checked + .slider:before {
   z-index: 10;
   font-size: 13px;
   pointer-events: none;
+}
+
+/* 新增：重複單字處理 Modal 樣式 */
+.duplicate-info {
+  background-color: rgba(255, 255, 0, 0.1);
+  border: 1px solid rgba(255, 255, 0, 0.3);
+  border-radius: 5px;
+  padding: 15px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.duplicate-info p {
+  margin: 0;
+  color: #FFFF00;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#duplicate-count {
+  color: #FF6666;
+  font-size: 18px;
+}
+
+.duplicate-word-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #FFFF00;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
+}
+
+.duplicate-word-item {
+  padding: 15px;
+  border-bottom: 1px solid rgba(255, 255, 0, 0.2);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.duplicate-word-item:last-child {
+  border-bottom: none;
+}
+
+.duplicate-word-item:hover {
+  background-color: rgba(255, 255, 0, 0.1);
+}
+
+.duplicate-word-item.selected {
+  background-color: rgba(255, 255, 0, 0.2);
+  border-left: 4px solid #FFFF00;
+}
+
+.duplicate-word-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.duplicate-word-english {
+  font-size: 18px;
+  font-weight: bold;
+  color: #FFFFFF; /* 改為白色，與工作表的黃色區分 */
+}
+
+.duplicate-word-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.status-same {
+  background-color: rgba(0, 255, 0, 0.2);
+  color: #00FF00;
+}
+
+.status-different {
+  background-color: rgba(255, 165, 0, 0.2);
+  color: #FFA500;
+}
+
+.duplicate-sources {
+  margin-top: 10px;
+}
+
+.duplicate-source {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px 12px;
+  margin: 5px 0;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  gap: 15px;
+}
+
+.source-sheet {
+  font-weight: bold;
+  color: #FFFF00; /* 工作表名稱保持黃色 */
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.source-definition {
+  color: #CCCCCC; /* 定義使用淺灰色 */
+  flex: 1;
+  line-height: 1.4;
+}
+
+.duplicate-actions {
+  border: 2px solid #FFFF00;
+  border-radius: 8px;
+  padding: 20px;
+  background-color: rgba(255, 255, 0, 0.05);
+}
+
+.current-duplicate-info h3 {
+  color: #FFFF00;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+#current-duplicate-english {
+  color: #87CEEB; /* 使用淺藍色讓英文單字更突出 */
+}
+
+.duplicate-option {
+  margin: 15px 0;
+  padding: 15px;
+  border: 1px solid #666;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none; /* 防止文字選擇 */
+}
+
+.duplicate-option:hover {
+  border-color: #FFFF00;
+  background-color: rgba(255, 255, 0, 0.1);
+}
+
+.duplicate-option.selected {
+  border-color: #FFFF00;
+  background-color: rgba(255, 255, 0, 0.2);
+}
+
+.option-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  pointer-events: none; /* 讓父容器處理點擊 */
+}
+
+.option-radio {
+  width: 16px;
+  height: 16px;
+  accent-color: #FFFF00;
+  pointer-events: auto; /* radio button 本身可以點擊 */
+}
+
+.option-title {
+  font-weight: bold;
+  color: #FFFF00;
+  font-size: 16px;
+  pointer-events: none; /* 讓父容器處理點擊 */
+}
+
+.option-description {
+  color: #CCCCCC;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-left: 26px;
+  pointer-events: none; /* 讓父容器處理點擊 */
+}
+
+.merge-target-selection {
+  margin-top: 10px;
+  margin-left: 26px;
+}
+
+.merge-target-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 12px 16px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  min-height: 40px;
+  user-select: none;
+}
+
+.merge-target-option:hover {
+  background-color: rgba(255, 255, 0, 0.1);
+}
+
+.merge-target-radio {
+  width: 14px;
+  height: 14px;
+  accent-color: #FFFF00;
+  pointer-events: none;
+}
+
+.merge-target-label {
+  color: #87CEEB; /* 改為淺藍色，與工作表的黃色區分 */
+  font-weight: bold;
+  font-size: 14px;
+  flex: 1;
+  pointer-events: none;
+}
+
+.processing-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  background-color: rgba(255, 255, 0, 0.1);
+  border-radius: 5px;
+  margin: 10px 0;
+}
+
+.processing-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 0, 0.3);
+  border-top: 2px solid #FFFF00;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.processing-text {
+  color: #FFFF00;
+  font-weight: bold;
+}
+
+.duplicate-result-success {
+  background-color: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  color: #00FF00;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+  text-align: center;
+}
+
+.duplicate-result-error {
+  background-color: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  color: #FF6666;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+  text-align: center;
 }
 </style>
