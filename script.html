@@ -1,13 +1,96 @@
 <!-- script.html -->
 <script>
-// Array.includes polyfill
+// ============================================
+// ES5 COMPATIBILITY POLYFILLS FOR OLDER BROWSERS
+// ============================================
+
+// Promise polyfill (如果瀏覽器不支援)
+if (typeof Promise === 'undefined') {
+  window.Promise = function(executor) {
+    var self = this;
+    this.state = 'pending';
+    this.value = undefined;
+    this.handlers = [];
+
+    function resolve(result) {
+      if (self.state === 'pending') {
+        self.state = 'fulfilled';
+        self.value = result;
+        self.handlers.forEach(handle);
+        self.handlers = null;
+      }
+    }
+
+    function reject(error) {
+      if (self.state === 'pending') {
+        self.state = 'rejected';
+        self.value = error;
+        self.handlers.forEach(handle);
+        self.handlers = null;
+      }
+    }
+
+    function handle(handler) {
+      if (self.state === 'pending') {
+        self.handlers.push(handler);
+      } else {
+        if (self.state === 'fulfilled' && typeof handler.onFulfilled === 'function') {
+          handler.onFulfilled(self.value);
+        }
+        if (self.state === 'rejected' && typeof handler.onRejected === 'function') {
+          handler.onRejected(self.value);
+        }
+      }
+    }
+
+    this.then = function(onFulfilled, onRejected) {
+      return new Promise(function(resolve, reject) {
+        handle({
+          onFulfilled: function(result) {
+            try {
+              if (typeof onFulfilled === 'function') {
+                resolve(onFulfilled(result));
+              } else {
+                resolve(result);
+              }
+            } catch (ex) {
+              reject(ex);
+            }
+          },
+          onRejected: function(error) {
+            try {
+              if (typeof onRejected === 'function') {
+                resolve(onRejected(error));
+              } else {
+                reject(error);
+              }
+            } catch (ex) {
+              reject(ex);
+            }
+          }
+        });
+      });
+    };
+
+    this.catch = function(onRejected) {
+      return this.then(null, onRejected);
+    };
+
+    try {
+      executor(resolve, reject);
+    } catch (ex) {
+      reject(ex);
+    }
+  };
+}
+
+// Array methods polyfills
 if (!Array.prototype.includes) {
   Array.prototype.includes = function(searchElement) {
     return this.indexOf(searchElement) !== -1;
   };
 }
 
-// Array.find polyfill
 if (!Array.prototype.find) {
   Array.prototype.find = function(predicate) {
     for (var i = 0; i < this.length; i++) {
@@ -19,7 +102,6 @@ if (!Array.prototype.find) {
   };
 }
 
-// Array.filter polyfill (如果需要)
 if (!Array.prototype.filter) {
   Array.prototype.filter = function(callback) {
     var filtered = [];
@@ -53,109 +135,127 @@ if (typeof Object.assign !== 'function') {
   };
 }
 
+// String.includes polyfill
+if (!String.prototype.includes) {
+  String.prototype.includes = function(search, start) {
+    if (typeof start !== 'number') {
+      start = 0;
+    }
+    if (start + search.length > this.length) {
+      return false;
+    } else {
+      return this.indexOf(search, start) !== -1;
+    }
+  };
+}
+
+// ============================================
+// MAIN APPLICATION CODE
+// ============================================
+
 class FlashcardApp {
   constructor() {
-    // ===== CORE STATE =====
-    this.words = [];
-    this.currentWords = [];
-    this.currentIndex = 0;
-    this.showingChinese = false;
-    this.isTransitioning = false;
-    this.isProcessingClick = false;
-    this.displayTimer = null;
-    this.speechSynthesis = window.speechSynthesis;
-    this.removedWords = [];
-    this.navigationHistory = [];
-    this.pendingRemoval = null;
-    this.isPaused = false;
-    this.pausedTimestamp = null;
-    this.remainingTime = 0;
-    
-    // ===== SETTINGS =====
-    this.settings = {
-      delayTime: 1,
-      fontSize: 96,
-      reverseMode: false
-    };
-    this.voiceSettings = {
-      enabled: true,
-      rate: 0.8,
-      pitch: 1,
-      volume: 1,
-      lang: 'en-US',
-      voiceURI: ''
-    };
-    this.sheetSettings = {
-      sheetId: '',
-      selectedSheets: []
-    };
-    
-    // ===== FEATURES STATE =====
-    this.difficultWords = [];
-    this.showDifficultOnly = false;
-    this.availableSheets = [];
-    this.listenersSetup = false;
-    this.currentSpreadsheetName = null;
-    this.duplicateWords = [];
-    this.currentDuplicateIndex = 0;
-    this.duplicateProcessingResults = [];
-    
-    this.init();
+  // ===== CORE STATE =====
+  this.words = [];
+  this.currentWords = [];
+  this.currentIndex = 0;
+  this.showingChinese = false;
+  this.isTransitioning = false;
+  this.isProcessingClick = false;
+  this.displayTimer = null;
+  this.speechSynthesis = window.speechSynthesis;
+  this.removedWords = [];
+  this.navigationHistory = [];
+  this.pendingRemoval = null;
+  this.isPaused = false;
+  this.pausedTimestamp = null;
+  this.remainingTime = 0;
+  
+  // ===== SETTINGS =====
+  this.settings = {
+    delayTime: 1,
+    fontSize: 96,
+    reverseMode: false
+  };
+  this.voiceSettings = {
+    enabled: true,
+    rate: 0.8,
+    pitch: 1,
+    volume: 1,
+    lang: 'en-US',
+    voiceURI: ''
+  };
+  this.sheetSettings = {
+    sheetId: '',
+    selectedSheets: []
+  };
+  
+  // ===== FEATURES STATE =====
+  this.difficultWords = [];
+  this.showDifficultOnly = false;
+  this.availableSheets = [];
+  this.listenersSetup = false;
+  this.currentSpreadsheetName = null;
+  this.duplicateWords = [];
+  this.currentDuplicateIndex = 0;
+  this.duplicateProcessingResults = [];
+  
+  this.init();
   }
 
-  // ==========================================
-  // INITIALIZATION & SETUP
-  // ==========================================
-  
+// ==========================================
+// INITIALIZATION & SETUP
+// ==========================================
+
   init() {
-    console.log('=== FlashcardApp 初始化開始 ===');
-    var self = this;
-    
-    try {
-      console.log('載入基本設定...');
-      this.loadSettings();
-      this.loadSheetSettings();
-      
-      console.log('Sheet 設定:', this.sheetSettings);
-      console.log('設定事件監聽器...');
-      this.setupEventListeners();
-      
-      if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
-        console.log('發現已設定的 Google Sheet，載入單字...');
-        this.loadWords(true).then(function(hasDuplicates) {
-          self.hideLoading();
-          self.applySettings();
-          
-          if (!hasDuplicates) {
-            self.startNewRound();
-          }
-        }).catch(function(error) {
-          console.error('載入失敗:', error);
-          self.showError();
-        });
-      } else {
-        console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
-        this.hideLoading();
-        this.openSheetSettings();
-        return;
-      }
-      
-      console.log('=== FlashcardApp 初始化完成 ===');
-    } catch (error) {
-      console.error('初始化錯誤:', error);
-      this.showError();
-    }
-  }
+  console.log('=== FlashcardApp 初始化開始 ===');
+  var self = this;
   
-  // ==========================================
-  // SETTINGS MANAGEMENT
-  // ==========================================
+  try {
+    console.log('載入基本設定...');
+    this.loadSettings();
+    this.loadSheetSettings();
+    
+    console.log('Sheet 設定:', this.sheetSettings);
+    console.log('設定事件監聽器...');
+    this.setupEventListeners();
+    
+    if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+      console.log('發現已設定的 Google Sheet，載入單字...');
+      this.loadWords(true).then(function(hasDuplicates) {
+        self.hideLoading();
+        self.applySettings();
+        
+        if (!hasDuplicates) {
+          self.startNewRound();
+        }
+      }).catch(function(error) {
+        console.error('載入失敗:', error);
+        self.showError();
+      });
+    } else {
+      console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
+      this.hideLoading();
+      this.openSheetSettings();
+      return;
+    }
+    
+    console.log('=== FlashcardApp 初始化完成 ===');
+  } catch (error) {
+    console.error('初始化錯誤:', error);
+    this.showError();
+  }
+  }
+
+// ==========================================
+// SETTINGS MANAGEMENT
+// ==========================================
 
   loadSettings() {
-    var savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
-    this.settings = Object.assign({}, this.settings, savedSettings);
-    var savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
-    this.voiceSettings = Object.assign({}, this.voiceSettings, savedVoiceSettings);
+  var savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
+  this.settings = Object.assign({}, this.settings, savedSettings);
+  var savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
+  this.voiceSettings = Object.assign({}, this.voiceSettings, savedVoiceSettings);
   }
   
   loadSheetSettings() {
@@ -164,277 +264,279 @@ class FlashcardApp {
   }
   
   saveSettings() {
-    localStorage.setItem('flashcard-settings', JSON.stringify(this.settings));
-    localStorage.setItem('flashcard-voice-settings', JSON.stringify(this.voiceSettings));
+  localStorage.setItem('flashcard-settings', JSON.stringify(this.settings));
+  localStorage.setItem('flashcard-voice-settings', JSON.stringify(this.voiceSettings));
   }
-  
+
   saveSheetSettings() {
-    localStorage.setItem('flashcard-sheet-settings', JSON.stringify(this.sheetSettings));
+  localStorage.setItem('flashcard-sheet-settings', JSON.stringify(this.sheetSettings));
   }
   
   applySettings() {
     const englishWord = document.getElementById('english-word');
     const chineseWord = document.getElementById('chinese-word');
     const loadingText = document.querySelector('#loading p');
-    
-    // 應用字體大小
-    if (englishWord) englishWord.style.fontSize = this.settings.fontSize + 'px';
-    if (chineseWord) chineseWord.style.fontSize = this.settings.fontSize + 'px';
-    if (loadingText) loadingText.style.fontSize = this.settings.fontSize + 'px';
-    
-    // 更新設定畫面的滑桿值
+  
+  // 應用字體大小
+  if (englishWord) englishWord.style.fontSize = this.settings.fontSize + 'px';
+  if (chineseWord) chineseWord.style.fontSize = this.settings.fontSize + 'px';
+  if (loadingText) loadingText.style.fontSize = this.settings.fontSize + 'px';
+  
+  // 更新設定畫面的滑桿值
     const delaySlider = document.getElementById('delay-setting');
     const fontSizeSlider = document.getElementById('font-size-setting');
     const reverseToggle = document.getElementById('reverse-setting');
-    
-    if (delaySlider) {
-      delaySlider.value = this.settings.delayTime;
-      document.getElementById('delay-value').textContent = this.settings.delayTime;
-    }
-    if (fontSizeSlider) {
-      fontSizeSlider.value = this.settings.fontSize;
-      document.getElementById('font-size-value').textContent = this.settings.fontSize + 'px';
-    }
-    if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+  
+  if (delaySlider) {
+    delaySlider.value = this.settings.delayTime;
+    document.getElementById('delay-value').textContent = this.settings.delayTime;
+  }
+  if (fontSizeSlider) {
+    fontSizeSlider.value = this.settings.fontSize;
+    document.getElementById('font-size-value').textContent = this.settings.fontSize + 'px';
+  }
+  if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
   }
 
-  // ==========================================
-  // DATA LOADING & MANAGEMENT
-  // ==========================================
-  
-  async loadWords(isInitialLoad = false) {
-    return new Promise((resolve, reject) => {
-      if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
-        // 使用新的重複偵測載入功能
-        // 只有在程式初始化時才自動處理，手動載入時顯示手動處理界面
+// ==========================================
+// DATA LOADING & MANAGEMENT
+// ==========================================
+
+  loadWords(isInitialLoad = false) {
+    if (typeof isInitialLoad === 'undefined') isInitialLoad = false;
+    // 移除 async，返回 Promise
+  return new Promise(function(resolve, reject) {
+    if (self.sheetSettings.sheetId && self.sheetSettings.selectedSheets.length > 0) {
+      // 使用新的重複偵測載入功能
+      // 只有在程式初始化時才自動處理，手動載入時顯示手動處理界面
         const autoHandle = isInitialLoad;
-        
-        google.script.run
+      
+      google.script.run
           .withSuccessHandler(result => {
-            console.log('載入結果:', result);
+          console.log('載入結果:', result);
+          
+          if (result && result.words && result.words.length > 0) {
+            self.words = result.words;
+            // 初始化 difficultWords 狀態
+              self.difficultWords = self.words.filter(w => w.difficult).map(w => w.id);
             
-            if (result && result.words && result.words.length > 0) {
-              this.words = result.words;
-              // 初始化 difficultWords 狀態
-              this.difficultWords = this.words.filter(w => w.difficult).map(w => w.id);
-              
-              // 檢查自動處理結果
-              if (result.autoHandled) {
-                console.log('重複單字已自動處理:', result.autoResults);
-                if (result.autoResults && result.autoResults.successCount > 0) {
-                  // 顯示自動處理結果通知
-                  this.showAutoProcessingNotification(result.autoResults);
-                }
-              } else if (result.hasDuplicates && result.duplicates.length > 0) {
-                // 如果自動處理失敗或未啟用，顯示手動處理Modal
-                console.log('發現重複單字需要手動處理:', result.duplicates);
-                this.duplicateWords = result.duplicates;
-                this.currentDuplicateIndex = 0;
-                this.duplicateProcessingResults = [];
-                
-                // 確保 DOM 完全加載後再顯示重複處理Modal
-                if (document.readyState === 'complete') {
-                  this.showDuplicateModal();
-                } else {
-                  window.addEventListener('load', () => {
-                    this.showDuplicateModal();
-                  });
-                }
-                resolve(true); // 返回true表示有重複單字需要處理
-                return;
+            // 檢查自動處理結果
+            if (result.autoHandled) {
+              console.log('重複單字已自動處理:', result.autoResults);
+              if (result.autoResults && result.autoResults.successCount > 0) {
+                // 顯示自動處理結果通知
+                self.showAutoProcessingNotification(result.autoResults);
               }
+            } else if (result.hasDuplicates && result.duplicates.length > 0) {
+              // 如果自動處理失敗或未啟用，顯示手動處理Modal
+              console.log('發現重複單字需要手動處理:', result.duplicates);
+              self.duplicateWords = result.duplicates;
+              self.currentDuplicateIndex = 0;
+              self.duplicateProcessingResults = [];
               
-              console.log('單字載入完成，沒有重複問題');
-              resolve(false); // 返回false表示沒有重複單字
-            } else {
-              reject(new Error('沒有找到單字資料'));
+              // 確保 DOM 完全加載後再顯示重複處理Modal
+              if (document.readyState === 'complete') {
+                self.showDuplicateModal();
+              } else {
+                  window.addEventListener('load', () => {
+                  self.showDuplicateModal();
+                });
+              }
+              resolve(true); // 返回true表示有重複單字需要處理
+              return;
             }
-          })
+            
+            console.log('單字載入完成，沒有重複問題');
+            resolve(false); // 返回false表示沒有重複單字
+          } else {
+            reject(new Error('沒有找到單字資料'));
+          }
+        })
           .withFailureHandler(error => {
-            console.error('載入單字失敗:', error);
-            reject(error);
-          })
-          .getWordsFromSheetsWithDuplicateDetection(this.sheetSettings.sheetId, this.sheetSettings.selectedSheets, autoHandle);
-      } else {
-        // 向後相容：使用預設設定
-        google.script.run
+          console.error('載入單字失敗:', error);
+          reject(error);
+        })
+        .getWordsFromSheetsWithDuplicateDetection(self.sheetSettings.sheetId, self.sheetSettings.selectedSheets, autoHandle);
+    } else {
+      // 向後相容：使用預設設定
+      google.script.run
           .withSuccessHandler(words => {
-            if (words && words.length > 0) {
-              this.words = words;
-              // 初始化 difficultWords 狀態
-              this.difficultWords = words.filter(w => w.difficult).map(w => w.id);
-              resolve();
-            } else {
-              reject(new Error('沒有找到單字資料'));
-            }
-          })
+          if (words && words.length > 0) {
+            self.words = words;
+            // 初始化 difficultWords 狀態
+              self.difficultWords = words.filter(w => w.difficult).map(w => w.id);
+            resolve();
+          } else {
+            reject(new Error('沒有找到單字資料'));
+          }
+        })
           .withFailureHandler(error => {
-            reject(error);
-          })
-          .getWordsFromSheet();
-      }
-    });
-  }
-
-  // ==========================================
-  // EVENT LISTENERS SETUP
-  // ==========================================
-  
-  setupEventListeners() {
-    console.log('設置事件監聽器...');
-
-    // 防止重複綁定事件監聽器
-    if (this.listenersSetup) {
-      console.log('事件監聽器已設置，跳過重複設置');
-      return;
+          reject(error);
+        })
+        .getWordsFromSheet();
     }
-
-    this.setupCoreListeners();
-    this.setupMenuListeners();
-    this.setupModalListeners();
-    this.setupKeyboardListeners();
-    this.setupProgressAndExportListeners();
-
-    // 標記事件監聽器已設置
-    this.listenersSetup = true;
-    console.log('所有事件監聽器設置完成');
+  });
   }
-  
+
+// ==========================================
+// EVENT LISTENERS SETUP
+// ==========================================
+
+  setupEventListeners() {
+  console.log('設置事件監聽器...');
+
+  // 防止重複綁定事件監聽器
+  if (this.listenersSetup) {
+    console.log('事件監聽器已設置，跳過重複設置');
+    return;
+  }
+
+  this.setupCoreListeners();
+  this.setupMenuListeners();
+  this.setupModalListeners();
+  this.setupKeyboardListeners();
+  this.setupProgressAndExportListeners();
+
+  // 標記事件監聽器已設置
+  this.listenersSetup = true;
+  console.log('所有事件監聽器設置完成');
+  }
+
   setupCoreListeners() {
-    var self = this;
-    document.getElementById('english-section').addEventListener('click', function() { self.onWordClick(); });
-    document.getElementById('chinese-section').addEventListener('click', function() { self.onWordClick(); });
-    document.getElementById('next-btn').addEventListener('click', function() { self.nextWord(); });
-    document.getElementById('prev-btn').addEventListener('click', function() { self.previousWord(); });
-    document.getElementById('restart-btn').addEventListener('click', function() { self.restart(); });
+  var self = this;
+  document.getElementById('english-section').addEventListener('click', function() { self.onWordClick(); });
+  document.getElementById('chinese-section').addEventListener('click', function() { self.onWordClick(); });
+  document.getElementById('next-btn').addEventListener('click', function() { self.nextWord(); });
+  document.getElementById('prev-btn').addEventListener('click', function() { self.previousWord(); });
+  document.getElementById('restart-btn').addEventListener('click', function() { self.restart(); });
   }
-  
+
   setupMenuListeners() {
-    console.log('設定選單事件監聽器...');
-    
+  console.log('設定選單事件監聽器...');
+  
     const menuBtn = document.getElementById('menu-btn');
     const menuDropdown = document.getElementById('menu-dropdown');
-    
-    if (!menuBtn) {
-      console.error('找不到 menu-btn 元素');
-      return;
-    }
-    
-    if (!menuDropdown) {
-      console.error('找不到 menu-dropdown 元素');
-      return;
-    }
-    
-    console.log('選單元素檢查通過');
-    
-    // 使用委派事件監聽，避免重複綁定的問題
+  
+  if (!menuBtn) {
+    console.error('找不到 menu-btn 元素');
+    return;
+  }
+  
+  if (!menuDropdown) {
+    console.error('找不到 menu-dropdown 元素');
+    return;
+  }
+  
+  console.log('選單元素檢查通過');
+  
+  // 使用委派事件監聽，避免重複綁定的問題
     document.addEventListener('click', (e) => {
-      // 處理選單按鈕點擊
-      if (e.target.id === 'menu-btn' || e.target.closest('#menu-btn')) {
-        console.log('選單按鈕被點擊');
-        e.stopPropagation();
-        this.toggleMenu();
-        return;
-      }
+    // 處理選單按鈕點擊
+    if (e.target.id === 'menu-btn' || e.target.closest('#menu-btn')) {
+      console.log('選單按鈕被點擊');
+      e.stopPropagation();
+      this.toggleMenu();
+      return;
+    }
 
-      // 處理選單項目點擊
-      if (e.target.closest('#menu-dropdown')) {
-        console.log('點擊選單下拉選項');
-        e.stopPropagation();
+    // 處理選單項目點擊
+    if (e.target.closest('#menu-dropdown')) {
+      console.log('點擊選單下拉選項');
+      e.stopPropagation();
 
-        // 處理各種選單項目
-        if (e.target.id === 'restart-btn') {
-          console.log('重新開始按鈕被點擊');
-          this.closeMenu();
-          this.restart();
-        } else if (e.target.id === 'sheet-settings-btn') {
-          console.log('Google Sheet 設定按鈕被點擊');
-          this.closeMenu();
-          this.openSheetSettings();
-        } else if (e.target.id === 'voice-settings-btn') {
-          console.log('語音設定按鈕被點擊');
-          this.closeMenu();
-          this.openVoiceSettings();
-        } else if (e.target.id === 'settings-btn') {
-          console.log('設定按鈕被點擊');
-          this.closeMenu();
-          this.openSettings();
-        } else if (e.target.id === 'export-btn') {
-          console.log('匯出按鈕被點擊');
-          this.closeMenu();
-          this.openExportModal();
-        }
-        return;
-      }
-
-      // 點擊其他地方關閉選單
-      if (this.closeMenu) {
+      // 處理各種選單項目
+      if (e.target.id === 'restart-btn') {
+        console.log('重新開始按鈕被點擊');
         this.closeMenu();
+        this.restart();
+      } else if (e.target.id === 'sheet-settings-btn') {
+        console.log('Google Sheet 設定按鈕被點擊');
+        this.closeMenu();
+        this.openSheetSettings();
+      } else if (e.target.id === 'voice-settings-btn') {
+        console.log('語音設定按鈕被點擊');
+        this.closeMenu();
+        this.openVoiceSettings();
+      } else if (e.target.id === 'settings-btn') {
+        console.log('設定按鈕被點擊');
+        this.closeMenu();
+        this.openSettings();
+      } else if (e.target.id === 'export-btn') {
+        console.log('匯出按鈕被點擊');
+        this.closeMenu();
+        this.openExportModal();
       }
+      return;
+    }
+
+    // 點擊其他地方關閉選單
+    if (this.closeMenu) {
+      this.closeMenu();
+    }
     });
 
-    console.log('選單事件監聽器設定完成（使用事件委派）');
+  console.log('選單事件監聽器設定完成（使用事件委派）');
   }
 
   setupModalListeners() {
-    // Main settings modal
+  // Main settings modal
     const settingsModal = document.getElementById('settings-modal');
     document.getElementById('close-settings').addEventListener('click', () => this.closeSettings());
     document.getElementById('save-settings').addEventListener('click', () => this.saveSettingsAndClose());
     document.getElementById('reset-settings').addEventListener('click', () => this.resetSettings());
     settingsModal.addEventListener('click', (e) => {
-      if (e.target === settingsModal) this.closeSettings();
+    if (e.target === settingsModal) this.closeSettings();
     });
     document.getElementById('delay-setting').addEventListener('input', (e) => {
-      document.getElementById('delay-value').textContent = e.target.value;
-    });
+    document.getElementById('delay-value').textContent = e.target.value;
+  });
     document.getElementById('font-size-setting').addEventListener('input', (e) => {
-      document.getElementById('font-size-value').textContent = e.target.value + 'px';
-      // Live preview font size
+    document.getElementById('font-size-value').textContent = e.target.value + 'px';
+    // Live preview font size
       const englishWord = document.getElementById('english-word');
       const chineseWord = document.getElementById('chinese-word');
-      if (englishWord) englishWord.style.fontSize = e.target.value + 'px';
-      if (chineseWord) chineseWord.style.fontSize = e.target.value + 'px';
-    });
+    if (englishWord) englishWord.style.fontSize = e.target.value + 'px';
+    if (chineseWord) chineseWord.style.fontSize = e.target.value + 'px';
+  });
 
-    // Voice settings modal
+  // Voice settings modal
     const voiceSettingsModal = document.getElementById('voice-settings-modal');
     document.getElementById('close-voice-settings').addEventListener('click', () => this.closeVoiceSettings());
     document.getElementById('cancel-voice-settings').addEventListener('click', () => this.closeVoiceSettings());
     document.getElementById('save-voice-settings').addEventListener('click', () => this.saveVoiceSettingsAndClose());
     voiceSettingsModal.addEventListener('click', (e) => {
-      if (e.target === voiceSettingsModal) this.closeVoiceSettings();
+    if (e.target === voiceSettingsModal) this.closeVoiceSettings();
     });
     document.getElementById('voice-rate-setting').addEventListener('input', (e) => {
-      document.getElementById('voice-rate-value').textContent = e.target.value;
-    });
+    document.getElementById('voice-rate-value').textContent = e.target.value;
+  });
 
-    // Google Sheet settings modal
+  // Google Sheet settings modal
     const sheetSettingsModal = document.getElementById('sheet-settings-modal');
     document.getElementById('close-sheet-settings').addEventListener('click', () => {
-      console.log('關閉 Sheet 設定按鈕被點擊');
-      this.closeSheetSettings();
+    console.log('關閉 Sheet 設定按鈕被點擊');
+    this.closeSheetSettings();
     });
     document.getElementById('cancel-sheet-settings').addEventListener('click', () => {
-      console.log('取消 Sheet 設定按鈕被點擊');
-      this.closeSheetSettings();
+    console.log('取消 Sheet 設定按鈕被點擊');
+    this.closeSheetSettings();
     });
     document.getElementById('save-sheet-settings').addEventListener('click', () => {
-      console.log('儲存 Sheet 設定按鈕被點擊');
-      this.saveSheetSettingsAndClose();
+    console.log('儲存 Sheet 設定按鈕被點擊');
+    this.saveSheetSettingsAndClose();
     });
     document.getElementById('load-sheets-btn').addEventListener('click', () => {
-      console.log('載入工作表清單按鈕被點擊');
-      this.loadSheetsList();
+    console.log('載入工作表清單按鈕被點擊');
+    this.loadSheetsList();
     });
     sheetSettingsModal.addEventListener('click', (e) => {
-      if (e.target === sheetSettingsModal) {
-        console.log('點擊模態視窗背景，關閉設定');
-        this.closeSheetSettings();
-      }
+    if (e.target === sheetSettingsModal) {
+      console.log('點擊模態視窗背景，關閉設定');
+      this.closeSheetSettings();
+    }
     });
-    
-    // 新增：重複單字處理Modal事件監聽器
+  
+  // 新增：重複單字處理Modal事件監聽器
     const duplicateModal = document.getElementById('duplicate-words-modal');
     document.getElementById('close-duplicate-modal').addEventListener('click', () => {
       this.closeDuplicateModal();
@@ -452,16 +554,16 @@ class FlashcardApp {
       this.nextDuplicate();
     });
     duplicateModal.addEventListener('click', (e) => {
-      if (e.target === duplicateModal) {
-        // 不允許點擊背景關閉重複處理Modal
-        return;
-      }
+    if (e.target === duplicateModal) {
+      // 不允許點擊背景關閉重複處理Modal
+      return;
+    }
     });
   }
 
   setupKeyboardListeners() {
     document.addEventListener('keydown', (e) => {
-      if (this.isPaused) return;
+    if (this.isPaused) return;
 
       const keyActions = {
         'Enter': () => this.toggleDifficultCurrentWord(), // 標註不熟單字
@@ -474,221 +576,222 @@ class FlashcardApp {
         'ArrowRight': () => this.nextWord(),
         'ArrowDown': () => this.nextWord(),
         'Escape': () => {
-          this.closeSettings();
-          this.closeVoiceSettings();
-          this.closeMenu();
-        }
-      };
-
-      if (keyActions[e.code]) {
-        e.preventDefault();
-        keyActions[e.code]();
+        this.closeSettings();
+        this.closeVoiceSettings();
+        this.closeMenu();
       }
+    };
+
+    if (keyActions[e.code]) {
+      e.preventDefault();
+        keyActions[e.code]();
+    }
     });
   }
-  
-  setupProgressAndExportListeners() {
-    console.log('設置進度區和匯出事件監聽器...');
 
-    // 進度區點擊標註/取消不熟單字
+  setupProgressAndExportListeners() {
+  console.log('設置進度區和匯出事件監聽器...');
+
+  // 進度區點擊標註/取消不熟單字
     const progressArea = document.getElementById('progress-area');
-    if (progressArea) {
-      // 移除舊的事件監聽器（如果存在）
+  if (progressArea) {
+    // 移除舊的事件監聽器（如果存在）
       const newProgressArea = progressArea.cloneNode(true);
-      progressArea.parentNode.replaceChild(newProgressArea, progressArea);
+    progressArea.parentNode.replaceChild(newProgressArea, progressArea);
 
       newProgressArea.addEventListener('click', () => {
-        console.log('進度區被點擊，切換困難單字狀態');
-        this.toggleDifficultCurrentWord();
+      console.log('進度區被點擊，切換困難單字狀態');
+      this.toggleDifficultCurrentWord();
       });
-      console.log('進度區事件監聽器設置完成');
-    } else {
-      console.error('找不到 progress-area 元素');
-    }
+    console.log('進度區事件監聽器設置完成');
+  } else {
+    console.error('找不到 progress-area 元素');
+  }
 
-    // 只顯示不熟單字checkbox
+  // 只顯示不熟單字checkbox
     const showDifficultCheckbox = document.getElementById('show-difficult-only');
-    if (showDifficultCheckbox) {
+  if (showDifficultCheckbox) {
       showDifficultCheckbox.addEventListener('change', (e) => {
-        console.log('切換只顯示不熟單字:', e.target.checked);
-        this.showDifficultOnly = e.target.checked;
-        this.filterWordsByDifficult();
+      console.log('切換只顯示不熟單字:', e.target.checked);
+      this.showDifficultOnly = e.target.checked;
+      this.filterWordsByDifficult();
       });
-      console.log('不熟單字過濾器事件監聽器設置完成');
-    } else {
-      console.error('找不到 show-difficult-only 元素');
-    }
+    console.log('不熟單字過濾器事件監聽器設置完成');
+  } else {
+    console.error('找不到 show-difficult-only 元素');
+  }
 
-    // 匯出單字相關事件
+  // 匯出單字相關事件
     const exportBtn = document.getElementById('export-btn');
     const closeExportModal = document.getElementById('close-export-modal');
     const cancelExport = document.getElementById('cancel-export');
     const confirmExport = document.getElementById('confirm-export');
 
-    if (exportBtn) {
+  if (exportBtn) {
       exportBtn.addEventListener('click', () => {
-        console.log('匯出按鈕被點擊');
-        this.openExportModal();
+      console.log('匯出按鈕被點擊');
+      this.openExportModal();
       });
-    }
+  }
 
-    if (closeExportModal) {
+  if (closeExportModal) {
       closeExportModal.addEventListener('click', () => this.closeExportModal());
-    }
+  }
 
-    if (cancelExport) {
+  if (cancelExport) {
       cancelExport.addEventListener('click', () => this.closeExportModal());
-    }
+  }
 
-    if (confirmExport) {
+  if (confirmExport) {
       confirmExport.addEventListener('click', () => this.confirmExport());
-    }
-
-    console.log('匯出相關事件監聽器設置完成');
   }
 
-  // ==========================================
-  // UI CONTROLS & DISPLAY
-  // ==========================================
-  
+  console.log('匯出相關事件監聽器設置完成');
+  }
+
+// ==========================================
+// UI CONTROLS & DISPLAY
+// ==========================================
+
   toggleMenu() {
-    console.log('toggleMenu 被調用');
+  console.log('toggleMenu 被調用');
     const menuBtn = document.getElementById('menu-btn');
     const menuDropdown = document.getElementById('menu-dropdown');
-    
-    if (!menuBtn || !menuDropdown) {
-      console.error('選單元素不存在，無法切換');
-      return;
-    }
-    
+  
+  if (!menuBtn || !menuDropdown) {
+    console.error('選單元素不存在，無法切換');
+    return;
+  }
+  
     const isOpen = menuDropdown.classList.contains('show');
-    console.log('選單目前狀態:', isOpen ? '開啟' : '關閉');
-    
-    if (isOpen) {
-      this.closeMenu();
-    } else {
-      console.log('開啟選單');
-      menuBtn.classList.add('active');
-      menuDropdown.classList.add('show');
-    }
-  }
+  console.log('選單目前狀態:', isOpen ? '開啟' : '關閉');
   
+  if (isOpen) {
+    this.closeMenu();
+  } else {
+    console.log('開啟選單');
+    menuBtn.classList.add('active');
+    menuDropdown.classList.add('show');
+  }
+  }
+
   closeMenu() {
-    console.log('closeMenu 被調用');
+  console.log('closeMenu 被調用');
     const menuBtn = document.getElementById('menu-btn');
     const menuDropdown = document.getElementById('menu-dropdown');
-    
-    if (menuBtn && menuDropdown) {
-      console.log('關閉選單');
-      menuBtn.classList.remove('active');
-      menuDropdown.classList.remove('show');
-    }
-  }
   
+  if (menuBtn && menuDropdown) {
+    console.log('關閉選單');
+    menuBtn.classList.remove('active');
+    menuDropdown.classList.remove('show');
+  }
+  }
+
   openSettings() {
     const settingsModal = document.getElementById('settings-modal');
-    settingsModal.style.display = 'flex';
-    
-    // 暫停計時器
-    this.pauseTimer();
-    
-    // 更新設定畫面的值
-    this.applySettings();
-  }
+  settingsModal.style.display = 'flex';
   
-  closeSettings(shouldRedisplay = false) {
+  // 暫停計時器
+  this.pauseTimer();
+  
+  // 更新設定畫面的值
+  this.applySettings();
+  }
+
+  closeSettings(shouldRedisplay) {
+  if (typeof shouldRedisplay === 'undefined') shouldRedisplay = false;
     const settingsModal = document.getElementById('settings-modal');
-    settingsModal.style.display = 'none';
-    
-    // 恢復計時器
-    this.resumeTimer();
-    
-    // 只有在需要時才重新顯示當前單字
-    if (shouldRedisplay) {
-      this.redisplayCurrentWord();
-    }
+  settingsModal.style.display = 'none';
+  
+  // 恢復計時器
+  this.resumeTimer();
+  
+  // 只有在需要時才重新顯示當前單字
+  if (shouldRedisplay) {
+    this.redisplayCurrentWord();
+  }
+  }
+
+  redisplayCurrentWord() {
+  // 清除現有的計時器
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
+    this.displayTimer = null;
   }
   
-  redisplayCurrentWord() {
-    // 清除現有的計時器
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-      this.displayTimer = null;
-    }
-    
-    // 停止語音播放
-    this.speechSynthesis.cancel();
-    
-    // 重置狀態
-    this.showingChinese = false;
-    this.isTransitioning = false;
-    this.isProcessingClick = false;
-    this.pendingRemoval = null;
-    
-    // 重新顯示當前單字
-    this.displayCurrentWord();
+  // 停止語音播放
+  this.speechSynthesis.cancel();
+  
+  // 重置狀態
+  this.showingChinese = false;
+  this.isTransitioning = false;
+  this.isProcessingClick = false;
+  this.pendingRemoval = null;
+  
+  // 重新顯示當前單字
+  this.displayCurrentWord();
   }
   
   saveSettingsAndClose() {
     const delaySlider = document.getElementById('delay-setting');
     const fontSizeSlider = document.getElementById('font-size-setting');
     const reverseToggle = document.getElementById('reverse-setting');
-    
-    // 檢查是否有重要設定變更
-    const oldReverseMode = this.settings.reverseMode;
-    
-    // 更新設定
-    this.settings.delayTime = parseFloat(delaySlider.value);
-    this.settings.fontSize = parseInt(fontSizeSlider.value);
-    this.settings.reverseMode = reverseToggle.checked;
-    
-    // 儲存到本地儲存
-    this.saveSettings();
-    
-    // 應用新設定
-    this.applySettings();
-    
-    // 關閉設定畫面
-    this.closeSettings();
-    
-    // 如果反向模式有變更，重新顯示當前單字
-    if (oldReverseMode !== this.settings.reverseMode) {
-      this.redisplayCurrentWord();
-    }
-  }
   
-  resetSettings() {
-    this.settings = {
-      delayTime: 3,
-      fontSize: 96,
-      reverseMode: false
-    };
-    this.voiceSettings = {
-      enabled: true,
-      rate: 0.8,
-      pitch: 1,
-      volume: 1,
-      lang: 'en-US',
-      voiceURI: ''
-    };
-    this.applySettings();
-    this.saveSettings();
-    this.closeSettings();
+  // 檢查是否有重要設定變更
+    const oldReverseMode = this.settings.reverseMode;
+  
+  // 更新設定
+  this.settings.delayTime = parseFloat(delaySlider.value);
+  this.settings.fontSize = parseInt(fontSizeSlider.value);
+  this.settings.reverseMode = reverseToggle.checked;
+  
+  // 儲存到本地儲存
+  this.saveSettings();
+  
+  // 應用新設定
+  this.applySettings();
+  
+  // 關閉設定畫面
+  this.closeSettings();
+  
+  // 如果反向模式有變更，重新顯示當前單字
+  if (oldReverseMode !== this.settings.reverseMode) {
+    this.redisplayCurrentWord();
+  }
   }
 
-  // ==========================================
-  // GAME CORE LOGIC & TIMER MANAGEMENT
-  // ==========================================
-  
+  resetSettings() {
+  this.settings = {
+    delayTime: 3,
+    fontSize: 96,
+    reverseMode: false
+  };
+  this.voiceSettings = {
+    enabled: true,
+    rate: 0.8,
+    pitch: 1,
+    volume: 1,
+    lang: 'en-US',
+    voiceURI: ''
+  };
+  this.applySettings();
+  this.saveSettings();
+  this.closeSettings();
+  }
+
+// ==========================================
+// GAME CORE LOGIC & TIMER MANAGEMENT
+// ==========================================
+
   pauseTimer() {
-    this.isPaused = true;
-    
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-      this.displayTimer = null;
-    }
-    
-    // 顯示暫停指示器
+  this.isPaused = true;
+  
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
+    this.displayTimer = null;
+  }
+  
+  // 顯示暫停指示器
     const pausedIndicator = document.createElement('div');
     pausedIndicator.id = 'paused-indicator';
     pausedIndicator.className = 'paused-indicator';
@@ -708,7 +811,7 @@ class FlashcardApp {
     // 恢復計時器（如果需要）
     if (this.showingChinese) {
       // 如果中文已經顯示，繼續等待切換到下一個單字
-      this.displayTimer = setTimeout(() => {
+      this.displayTimer = setTimeout(function() {
         this.nextWord();
       }, this.settings.delayTime * 1000);
     } else if (!this.isTransitioning && !this.isProcessingClick) {
@@ -716,13 +819,13 @@ class FlashcardApp {
       const currentWord = this.currentWords[this.currentIndex];
       const chineseElement = document.getElementById('chinese-word');
       
-      this.displayTimer = setTimeout(() => {
+      this.displayTimer = setTimeout(function() {
         chineseElement.textContent = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
         chineseElement.classList.add('show');
         this.showingChinese = true;
         
         // 中文顯示後等待切換到下一個單字
-        this.displayTimer = setTimeout(() => {
+        this.displayTimer = setTimeout(function() {
           this.nextWord();
         }, this.settings.delayTime * 1000);
         
@@ -797,13 +900,13 @@ class FlashcardApp {
     
     // If in reverse mode, the second part is English, so we speak it.
     if (this.settings.reverseMode) {
-      setTimeout(() => {
+      setTimeout(function() {
         this.speakEnglishWord(currentWord.english);
       }, 500); // Delay to sync with reveal animation
-    }
+    }, 500);
     
     // Schedule the next word to appear
-    this.displayTimer = setTimeout(() => {
+    this.displayTimer = setTimeout(function() {
       this.nextWord();
     }, this.settings.delayTime * 1000);
   }
@@ -926,33 +1029,33 @@ class FlashcardApp {
     englishElement.style.color = '';
     chineseElement.style.color = '';
     
-    setTimeout(() => {
+    setTimeout(function() {
       const firstElement = document.getElementById('english-word');
       
       // 根據設定決定顯示順序
-      if (this.settings.reverseMode) {
+      if (self.settings.reverseMode) {
         // 先顯示中文
         firstElement.textContent = currentWord.chinese;
       } else {
         // 先顯示英文（原本的邏輯）
         firstElement.textContent = currentWord.english;
         // 發音英文單字
-        setTimeout(() => {
-          this.speakEnglishWord(currentWord.english);
+        setTimeout(function() {
+          self.speakEnglishWord(currentWord.english);
         }, 500);
       }
       firstElement.classList.add('show');
 
       // 延遲顯示第二部分
-      this.displayTimer = setTimeout(() => {
-        this.showSecondPartAndScheduleNext();
-      }, this.settings.delayTime * 1000);
+      self.displayTimer = setTimeout(function() {
+        self.showSecondPartAndScheduleNext();
+      }, self.settings.delayTime * 1000);
       
     }, 100);
     
-    this.renderDifficultStar();
-    this.updateProgress();
-    this.updateButtonStates();
+    self.renderDifficultStar();
+    self.updateProgress();
+    self.updateButtonStates();
   }
   
   updateProgress() {
@@ -981,7 +1084,7 @@ class FlashcardApp {
       const sections = document.querySelectorAll('.card-section');
       sections.forEach(section => {
         section.style.backgroundColor = 'rgba(255, 100, 100, 0.3)';
-        setTimeout(() => {
+        setTimeout(function() {
           section.style.backgroundColor = '';
         }, 300);
       });
@@ -1014,8 +1117,8 @@ class FlashcardApp {
       
       // 如果是反向模式且還沒發音，現在發音
       if (this.settings.reverseMode) {
-        setTimeout(() => {
-          this.speakEnglishWord(currentWord.english);
+        setTimeout(function() {
+          self.speakEnglishWord(currentWord.english);
         }, 500);
       }
     }
@@ -1026,7 +1129,9 @@ class FlashcardApp {
     const sections = document.querySelectorAll('.card-section');
     sections.forEach(section => {
       section.classList.add('clicked');
-      setTimeout(() => section.classList.remove('clicked'), 500);
+      setTimeout(function() {
+        section.classList.remove('clicked');
+      }, 500);
     });
     
     this.pendingRemoval = {
@@ -1038,9 +1143,9 @@ class FlashcardApp {
     
     this.updateButtonStates();
     
-    this.displayTimer = setTimeout(() => {
-      this.confirmRemoval();
-    }, this.settings.delayTime * 1000);
+    this.displayTimer = setTimeout(function() {
+      self.confirmRemoval();
+    }, self.settings.delayTime * 1000);
   }
   
   confirmRemoval() {
@@ -1086,14 +1191,14 @@ class FlashcardApp {
     this.updateButtonStates();
     
     if (this.showingChinese) {
-      this.displayTimer = setTimeout(() => {
-        this.nextWord();
-      }, this.settings.delayTime * 1000);
+      this.displayTimer = setTimeout(function() {
+        self.nextWord();
+      }, self.settings.delayTime * 1000);
     } else {
       // 如果英文顯示中，恢復計時以顯示中文
-      this.displayTimer = setTimeout(() => {
-        this.showSecondPartAndScheduleNext();
-      }, this.settings.delayTime * 1000);
+      this.displayTimer = setTimeout(function() {
+        self.showSecondPartAndScheduleNext();
+      }, self.settings.delayTime * 1000);
     }
   }
   
@@ -1128,19 +1233,19 @@ class FlashcardApp {
     
     chineseElement.textContent = '';
     
-    setTimeout(() => {
-      this.currentIndex = (this.currentIndex + 1) % this.currentWords.length;
+    setTimeout(function() {
+      self.currentIndex = (self.currentIndex + 1) % self.currentWords.length;
       
-      if (this.currentIndex === 0) {
-        this.shuffleArray(this.currentWords);
-        this.navigationHistory = []; // 新增：新一輪開始時，清空導覽歷史
+      if (self.currentIndex === 0) {
+        self.shuffleArray(self.currentWords);
+        self.navigationHistory = []; // 新增：新一輪開始時，清空導覽歷史
       }
       
-      this.displayCurrentWord();
-      this.isTransitioning = false;
+      self.displayCurrentWord();
+      self.isTransitioning = false;
       
     }, 300);
-    this.renderDifficultStar();
+    self.renderDifficultStar();
   }
   
   previousWord() {
@@ -1170,32 +1275,32 @@ class FlashcardApp {
     
     chineseElement.textContent = '';
     
-    setTimeout(() => {
-      const previousState = this.navigationHistory.pop();
+    setTimeout(function() {
+      const previousState = self.navigationHistory.pop();
       
       const previousWord = previousState.wordSequence[previousState.currentIndex];
       
-      const wordIndex = this.currentWords.findIndex(word => 
-        word.english === previousWord.english && word.chinese === previousWord.chinese
-      );
+      const wordIndex = self.currentWords.findIndex(function(word) { 
+        return word.english === previousWord.english && word.chinese === previousWord.chinese
+      });
       
       if (wordIndex !== -1) {
-        this.currentIndex = wordIndex;
+        self.currentIndex = wordIndex;
       } else {
-        this.currentIndex = Math.min(previousState.currentIndex, this.currentWords.length - 1);
+        self.currentIndex = Math.min(previousState.currentIndex, self.currentWords.length - 1);
         
-        if (this.currentWords.length === 0) {
-          this.startNewRound();
-          this.isTransitioning = false;
+        if (self.currentWords.length === 0) {
+          self.startNewRound();
+          self.isTransitioning = false;
           return;
         }
       }
       
-      this.displayCurrentWord();
-      this.isTransitioning = false;
+      self.displayCurrentWord();
+      self.isTransitioning = false;
       
     }, 300);
-    this.renderDifficultStar();
+    self.renderDifficultStar();
   }
   
   restart() {
@@ -1596,7 +1701,7 @@ class FlashcardApp {
         if (e.target !== checkbox) {
           console.log('點擊工作表項目:', sheet.name);
           checkbox.checked = !checkbox.checked;
-          this.toggleSheetSelection();
+          self.toggleSheetSelection();
         }
       });
       
@@ -1652,17 +1757,17 @@ class FlashcardApp {
     
     try {
       // 提取並儲存 Sheet ID
-      const sheetId = this.extractSheetId(input);
+      const sheetId = self.extractSheetId(input);
       
       // 儲存設定
-      this.sheetSettings.sheetId = sheetId;
-      this.sheetSettings.selectedSheets = selectedSheets;
-      this.saveSheetSettings();
+      self.sheetSettings.sheetId = sheetId;
+      self.sheetSettings.selectedSheets = selectedSheets;
+      self.saveSheetSettings();
       
-      console.log('儲存 Sheet 設定:', this.sheetSettings);
+      console.log('儲存 Sheet 設定:', self.sheetSettings);
       
       // 關閉設定畫面
-      this.closeSheetSettings();
+      self.closeSheetSettings();
       
       // 顯示載入中訊息
       const loadingDiv = document.getElementById('loading');
@@ -1671,13 +1776,13 @@ class FlashcardApp {
       flashcardDiv.style.display = 'none';
       
       // 重新載入單字（手動載入，不自動處理重複）
-      this.loadWords(false).then((hasDuplicates) => {
-        this.setupEventListeners();
-        this.applySettings();
+      self.loadWords(false).then((hasDuplicates) => {
+        self.setupEventListeners();
+        self.applySettings();
         
         // 只有在沒有重複單字需要處理時才開始新回合
         if (!hasDuplicates) {
-          this.startNewRound();
+          self.startNewRound();
         }
         
         loadingDiv.style.display = 'none';
@@ -1686,7 +1791,7 @@ class FlashcardApp {
         console.error('載入單字失敗:', error);
         alert('載入單字失敗：' + error.message);
         loadingDiv.style.display = 'none';
-        this.openSheetSettings(); // 重新開啟設定畫面
+        self.openSheetSettings(); // 重新開啟設定畫面
       });
       
     } catch (error) {
