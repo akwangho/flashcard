@@ -1,5 +1,58 @@
 <!-- script.html -->
 <script>
+// Array.includes polyfill
+if (!Array.prototype.includes) {
+  Array.prototype.includes = function(searchElement) {
+    return this.indexOf(searchElement) !== -1;
+  };
+}
+
+// Array.find polyfill
+if (!Array.prototype.find) {
+  Array.prototype.find = function(predicate) {
+    for (var i = 0; i < this.length; i++) {
+      if (predicate(this[i], i, this)) {
+        return this[i];
+      }
+    }
+    return undefined;
+  };
+}
+
+// Array.filter polyfill (如果需要)
+if (!Array.prototype.filter) {
+  Array.prototype.filter = function(callback) {
+    var filtered = [];
+    for (var i = 0; i < this.length; i++) {
+      if (callback(this[i], i, this)) {
+        filtered.push(this[i]);
+      }
+    }
+    return filtered;
+  };
+}
+
+// Object.assign polyfill
+if (typeof Object.assign !== 'function') {
+  Object.assign = function(target) {
+    if (target == null) {
+      throw new TypeError('Cannot convert undefined or null to object');
+    }
+    var to = Object(target);
+    for (var index = 1; index < arguments.length; index++) {
+      var nextSource = arguments[index];
+      if (nextSource != null) {
+        for (var nextKey in nextSource) {
+          if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+            to[nextKey] = nextSource[nextKey];
+          }
+        }
+      }
+    }
+    return to;
+  };
+}
+
 class FlashcardApp {
   constructor() {
     // ===== CORE STATE =====
@@ -54,33 +107,34 @@ class FlashcardApp {
   // INITIALIZATION & SETUP
   // ==========================================
   
-  async init() {
+  init() {
     console.log('=== FlashcardApp 初始化開始 ===');
+    var self = this;
+    
     try {
       console.log('載入基本設定...');
-      this.loadSettings(); // 載入設定
-      this.loadSheetSettings(); // 載入 Sheet 設定
+      this.loadSettings();
+      this.loadSheetSettings();
       
       console.log('Sheet 設定:', this.sheetSettings);
-      
-      // 首先設置事件監聽器（只設置一次）
       console.log('設定事件監聽器...');
       this.setupEventListeners();
       
-      // 檢查是否有已設定的 Google Sheet
       if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
         console.log('發現已設定的 Google Sheet，載入單字...');
-        const hasDuplicates = await this.loadWords(true); // 標記為初始載入，啟用自動處理
-        this.hideLoading();
-        this.applySettings(); // 應用設定
-        
-        // 只有在沒有重複單字需要處理時才開始新回合
-        if (!hasDuplicates) {
-          this.startNewRound();
-        }
+        this.loadWords(true).then(function(hasDuplicates) {
+          self.hideLoading();
+          self.applySettings();
+          
+          if (!hasDuplicates) {
+            self.startNewRound();
+          }
+        }).catch(function(error) {
+          console.error('載入失敗:', error);
+          self.showError();
+        });
       } else {
         console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
-        // 沒有設定則顯示設定畫面
         this.hideLoading();
         this.openSheetSettings();
         return;
@@ -89,11 +143,6 @@ class FlashcardApp {
       console.log('=== FlashcardApp 初始化完成 ===');
     } catch (error) {
       console.error('初始化錯誤:', error);
-      console.error('錯誤詳細資訊:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
       this.showError();
     }
   }
@@ -103,10 +152,10 @@ class FlashcardApp {
   // ==========================================
 
   loadSettings() {
-    const savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
-    this.settings = { ...this.settings, ...savedSettings };
-    const savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
-    this.voiceSettings = { ...this.voiceSettings, ...savedVoiceSettings };
+    var savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
+    this.settings = Object.assign({}, this.settings, savedSettings);
+    var savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
+    this.voiceSettings = Object.assign({}, this.voiceSettings, savedVoiceSettings);
   }
   
   loadSheetSettings() {
@@ -252,11 +301,12 @@ class FlashcardApp {
   }
   
   setupCoreListeners() {
-    document.getElementById('english-section').addEventListener('click', () => this.onWordClick());
-    document.getElementById('chinese-section').addEventListener('click', () => this.onWordClick());
-    document.getElementById('next-btn').addEventListener('click', () => this.nextWord());
-    document.getElementById('prev-btn').addEventListener('click', () => this.previousWord());
-    document.getElementById('restart-btn').addEventListener('click', () => this.restart());
+    var self = this;
+    document.getElementById('english-section').addEventListener('click', function() { self.onWordClick(); });
+    document.getElementById('chinese-section').addEventListener('click', function() { self.onWordClick(); });
+    document.getElementById('next-btn').addEventListener('click', function() { self.nextWord(); });
+    document.getElementById('prev-btn').addEventListener('click', function() { self.previousWord(); });
+    document.getElementById('restart-btn').addEventListener('click', function() { self.restart(); });
   }
   
   setupMenuListeners() {
@@ -1450,8 +1500,8 @@ class FlashcardApp {
     clearTimeout(timeout);
     console.error('載入工作表清單失敗:', error);
 
-    const errorMessage = error.message || '未知錯誤';
-    elements.sheetsList.innerHTML = `<div class="error-text">載入失敗：${errorMessage}</div>`;
+    var errorMessage = error.message || '未知錯誤';
+    elements.sheetsList.innerHTML = '<div class="error-text">載入失敗：' + errorMessage + '</div>';
     this.updateSheetLoadingUI(elements, false);
 
     if (errorMessage.includes('權限')) {
@@ -3000,16 +3050,40 @@ class FlashcardApp {
   }
 }
 
-// 當頁面載入完成後啟動應用
-window.addEventListener('load', () => {
-  const app = new FlashcardApp();
-  // 語音列表載入後再填充語音腔調選單
-  if (window.speechSynthesis) {
-    window.speechSynthesis.onvoiceschanged = () => {
-      if (typeof app.populateVoiceSelect === 'function') {
-        app.populateVoiceSelect();
-      }
-    };
+// 在 window.addEventListener('load') 之前添加檢查
+window.addEventListener('load', function() {
+  // 檢查必要的DOM元素
+  var requiredElements = [
+    'loading', 'flashcard', 'english-word', 'chinese-word',
+    'english-section', 'chinese-section', 'next-btn', 'prev-btn'
+  ];
+  
+  var missingElements = [];
+  for (var i = 0; i < requiredElements.length; i++) {
+    if (!document.getElementById(requiredElements[i])) {
+      missingElements.push(requiredElements[i]);
+    }
+  }
+  
+  if (missingElements.length > 0) {
+    console.error('缺少必要DOM元素:', missingElements);
+    alert('頁面載入不完整，請重新整理頁面');
+    return;
+  }
+  
+  try {
+    var app = new FlashcardApp();
+    // 語音列表載入後再填充語音腔調選單
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = function() {
+        if (typeof app.populateVoiceSelect === 'function') {
+          app.populateVoiceSelect();
+        }
+      };
+    }
+  } catch (error) {
+    console.error('應用初始化失敗:', error);
+    document.getElementById('loading').innerHTML = '<p>載入失敗，請重新整理頁面</p>';
   }
 });
 
