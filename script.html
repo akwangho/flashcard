@@ -414,9 +414,10 @@ class FlashcardApp {
       if (this.isPaused) return;
 
       const keyActions = {
-        'Enter': () => this.onWordClick(),
-        'Space': () => this.onWordClick(),
-        'KeyD': () => this.onWordClick(),
+        'Enter': () => this.toggleDifficultCurrentWord(), // 標註不熟單字
+        'KeyS': () => this.toggleDifficultCurrentWord(), // 標註不熟單字
+        'Space': () => this.onWordClick(), // 保持空白鍵為刪除單字
+        'KeyD': () => this.onWordClick(), // 保持 D 鍵為刪除單字
         'KeyR': () => this.restart(),
         'ArrowLeft': () => this.previousWord(),
         'ArrowUp': () => this.previousWord(),
