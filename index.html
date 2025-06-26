@@ -195,13 +195,39 @@
           <div class="setting-group">
             <label for="export-sheet-name">工作表名稱</label>
             <div class="setting-control">
-              <input type="text" id="export-sheet-name" style="width: 220px;">
+              <input type="text" id="export-sheet-name" placeholder="請輸入工作表名稱">
+              <div id="sheet-name-hint" class="sheet-name-hint normal">
+                💡 如果工作表已存在，系統會詢問您是否要覆寫
+              </div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
           <button id="cancel-export" class="secondary-btn">取消</button>
           <button id="confirm-export" class="primary-btn">匯出</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 覆寫確認 Modal -->
+    <div id="overwrite-confirm-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>⚠️ 工作表已存在</h2>
+          <button id="close-overwrite-confirm" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="overwrite-warning">
+            <p>工作表 <strong id="existing-sheet-name"></strong> 已存在。</p>
+            <p>您希望如何處理？</p>
+            <div class="warning-box">
+              <p>⚠️ <strong>警告：</strong>覆寫將會永久刪除現有工作表的所有內容！</p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="use-different-name" class="secondary-btn">使用不同名稱</button>
+          <button id="overwrite-confirm" class="danger-btn">覆寫現有工作表</button>
         </div>
       </div>
     </div>

@@ -1764,11 +1764,16 @@ class FlashcardApp {
     return `${base}_${y}${m}${d}`;
   }
   confirmExport() {
+    this.performExport(false);
+  }
+
+  performExport(overwrite = false) {
     const confirmBtn = document.getElementById('confirm-export');
     if (confirmBtn) {
       confirmBtn.disabled = true;
-      confirmBtn.textContent = '匯出中...';
+      confirmBtn.textContent = overwrite ? '覆寫中...' : '匯出中...';
     }
+    
     const type = document.getElementById('export-type-difficult').checked ? 'difficult' : 'remaining';
     const sheetName = document.getElementById('export-sheet-name').value.trim() || this.getDefaultExportSheetName();
     let exportWords = [];
@@ -1777,12 +1782,14 @@ class FlashcardApp {
     } else {
       exportWords = this.currentWords;
     }
+    
     // 匯出資料格式
     const exportData = exportWords.map(w => ({
       english: w.english,
       chinese: w.chinese,
       difficult: this.difficultWords.includes(w.id)
     }));
+    
     if (exportData.length === 0) {
       alert('沒有可匯出的單字！');
       if (confirmBtn) {
@@ -1791,21 +1798,183 @@ class FlashcardApp {
       }
       return;
     }
+    
     // 呼叫 Apps Script
     const targetSheetId = this.sheetSettings.sheetId || null;
     google.script.run
-      .withSuccessHandler(() => {
-        alert('匯出成功！');
-        this.closeExportModal();
+      .withSuccessHandler((result) => {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = '匯出';
+        }
+        
+        if (result && result.success === false && result.error === 'SHEET_EXISTS') {
+          // 工作表已存在，詢問用戶是否覆寫
+          this.handleSheetExistsError(result.message);
+        } else if (result && result.success) {
+          // 匯出成功
+          alert(result.message || '匯出成功！');
+          this.closeExportModal();
+        } else {
+          // 其他成功情況（向後兼容）
+          alert('匯出成功！');
+          this.closeExportModal();
+        }
       })
-      .withFailureHandler(() => {
+      .withFailureHandler((error) => {
+        console.error('匯出失敗:', error);
         alert('匯出失敗，請重試！');
         if (confirmBtn) {
           confirmBtn.disabled = false;
           confirmBtn.textContent = '匯出';
         }
       })
-      .exportWordsToSheet(exportData, sheetName, targetSheetId);
+      .exportWordsToSheet(exportData, sheetName, targetSheetId, overwrite);
+  }
+
+  handleSheetExistsError(message) {
+    const currentSheetName = document.getElementById('export-sheet-name').value.trim();
+    
+    // 顯示自定義覆寫確認對話框
+    this.showOverwriteConfirmModal(currentSheetName);
+  }
+
+  showOverwriteConfirmModal(sheetName) {
+    // 設置工作表名稱
+    document.getElementById('existing-sheet-name').textContent = sheetName;
+    
+    // 顯示對話框
+    document.getElementById('overwrite-confirm-modal').style.display = 'flex';
+    
+    // 暫停計時器
+    this.pauseTimer();
+    
+    // 綁定事件處理程序
+    this.bindOverwriteConfirmEvents();
+  }
+
+  closeOverwriteConfirmModal() {
+    document.getElementById('overwrite-confirm-modal').style.display = 'none';
+    this.resumeTimer();
+    
+    // 移除事件處理程序
+    this.unbindOverwriteConfirmEvents();
+  }
+
+  bindOverwriteConfirmEvents() {
+    // 移除之前的事件處理程序（如果存在）
+    this.unbindOverwriteConfirmEvents();
+    
+    // 關閉按鈕
+    this.closeOverwriteHandler = () => this.closeOverwriteConfirmModal();
+    document.getElementById('close-overwrite-confirm').addEventListener('click', this.closeOverwriteHandler);
+    
+    // 使用不同名稱按鈕
+    this.useDifferentNameHandler = () => {
+      this.closeOverwriteConfirmModal();
+      this.suggestAlternativeName();
+    };
+    document.getElementById('use-different-name').addEventListener('click', this.useDifferentNameHandler);
+    
+    // 覆寫確認按鈕
+    this.overwriteConfirmHandler = () => {
+      this.closeOverwriteConfirmModal();
+      this.performExport(true);
+    };
+    document.getElementById('overwrite-confirm').addEventListener('click', this.overwriteConfirmHandler);
+    
+    // 鍵盤事件處理
+    this.overwriteKeyHandler = (event) => this.handleOverwriteKeyboard(event);
+    document.addEventListener('keydown', this.overwriteKeyHandler);
+  }
+
+  unbindOverwriteConfirmEvents() {
+    if (this.closeOverwriteHandler) {
+      document.getElementById('close-overwrite-confirm').removeEventListener('click', this.closeOverwriteHandler);
+      this.closeOverwriteHandler = null;
+    }
+    if (this.useDifferentNameHandler) {
+      document.getElementById('use-different-name').removeEventListener('click', this.useDifferentNameHandler);
+      this.useDifferentNameHandler = null;
+    }
+    if (this.overwriteConfirmHandler) {
+      document.getElementById('overwrite-confirm').removeEventListener('click', this.overwriteConfirmHandler);
+      this.overwriteConfirmHandler = null;
+    }
+    if (this.overwriteKeyHandler) {
+      document.removeEventListener('keydown', this.overwriteKeyHandler);
+      this.overwriteKeyHandler = null;
+    }
+  }
+
+  // 添加鍵盤快捷鍵支持
+  handleOverwriteKeyboard(event) {
+    if (document.getElementById('overwrite-confirm-modal').style.display === 'flex') {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeOverwriteConfirmModal();
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        // Enter 鍵默認選擇使用不同名稱（較安全的選項）
+        this.closeOverwriteConfirmModal();
+        this.suggestAlternativeName();
+      }
+    }
+  }
+
+  suggestAlternativeName() {
+    const sheetNameInput = document.getElementById('export-sheet-name');
+    if (sheetNameInput) {
+      // 生成建議的替代名稱
+      const currentName = sheetNameInput.value.trim();
+      const suggestedName = this.generateAlternativeSheetName(currentName);
+      
+      // 更新輸入框值為建議名稱
+      sheetNameInput.value = suggestedName;
+      sheetNameInput.focus();
+      sheetNameInput.select(); // 選取現有文字，方便用戶替換
+      
+      // 添加錯誤樣式類
+      const settingControl = sheetNameInput.closest('.setting-control');
+      if (settingControl) {
+        settingControl.classList.add('export-error');
+      }
+      
+      // 更新提示文字和樣式
+      const hintElement = document.getElementById('sheet-name-hint');
+      if (hintElement) {
+        hintElement.innerHTML = '💡 已自動建議新名稱，您可以修改後重新匯出';
+        hintElement.className = 'sheet-name-hint error';
+      }
+      
+      // 移除錯誤樣式（當用戶開始輸入時）
+      const removeErrorStyle = () => {
+        if (settingControl) {
+          settingControl.classList.remove('export-error');
+        }
+        if (hintElement) {
+          hintElement.innerHTML = '💡 如果工作表已存在，系統會詢問您是否要覆寫';
+          hintElement.className = 'sheet-name-hint normal';
+        }
+        sheetNameInput.removeEventListener('input', removeErrorStyle);
+      };
+      sheetNameInput.addEventListener('input', removeErrorStyle);
+    }
+  }
+
+  generateAlternativeSheetName(originalName) {
+    const now = new Date();
+    const timestamp = now.getHours().toString().padStart(2, '0') + 
+                     now.getMinutes().toString().padStart(2, '0');
+    
+    // 如果原名稱包含時間戳記，則更新時間戳記
+    const timePattern = /_\d{4}$/;
+    if (timePattern.test(originalName)) {
+      return originalName.replace(timePattern, `_${timestamp}`);
+    } else {
+      // 否則添加時間戳記
+      return `${originalName}_${timestamp}`;
+    }
   }
 
   // ==========================================

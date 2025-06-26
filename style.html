@@ -416,6 +416,11 @@ body {
 
 .modal-body {
   padding: var(--spacing-lg);
+  color: var(--primary-color);
+}
+
+.modal-body p, .modal-body div, .modal-body span {
+  color: var(--primary-color);
 }
 
 .setting-group {
@@ -470,6 +475,62 @@ body {
   font-weight: bold;
   color: var(--primary-color);
   text-align: right;
+}
+
+/* Input text styles */
+input[type="text"], input[type="email"], input[type="password"], input[type="url"] {
+  padding: 8px 12px;
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-color);
+  color: var(--primary-color);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  outline: none;
+  transition: all var(--transition-normal);
+}
+
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="url"]:focus {
+  border-color: var(--primary-color);
+  background-color: var(--bg-color);
+  color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(255, 255, 0, 0.2);
+}
+
+input[type="text"]::placeholder, input[type="email"]::placeholder, input[type="password"]::placeholder, input[type="url"]::placeholder {
+  color: var(--gray-color);
+  opacity: 0.7;
+}
+
+/* Radio button styles */
+input[type="radio"] {
+  margin-right: 8px;
+  accent-color: var(--primary-color);
+}
+
+/* Label styles for radio buttons */
+.setting-control label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  color: var(--primary-color);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+/* Specific input field styles */
+#export-sheet-name {
+  width: 100%;
+  max-width: 300px;
+}
+
+#sheet-id-input {
+  /* Override inline styles to use consistent styling */
+  padding: 8px 12px !important;
+  border: 2px solid var(--primary-color) !important;
+  border-radius: var(--radius-md) !important;
+  background-color: var(--bg-color) !important;
+  color: var(--primary-color) !important;
 }
 
 /* Switch component */
@@ -712,6 +773,100 @@ input:checked + .slider:before {
   border-radius: var(--radius-md);
   background-color: rgba(255, 102, 102, 0.1);
   margin-top: var(--spacing-sm);
+}
+
+/* 工作表名稱錯誤狀態樣式 */
+.export-error input {
+  border: 2px solid #ff6b6b !important;
+  background-color: rgba(255, 107, 107, 0.1) !important;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.sheet-name-hint {
+  font-size: var(--font-xs);
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-normal);
+}
+
+.sheet-name-hint.error {
+  color: #ff6b6b;
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.sheet-name-hint.normal {
+  color: var(--gray-color);
+  background-color: transparent;
+  border: 1px solid transparent;
+}
+
+/* 覆寫確認對話框樣式 */
+.overwrite-warning {
+  text-align: center;
+  line-height: 1.6;
+}
+
+.overwrite-warning p {
+  margin: var(--spacing-md) 0;
+  color: var(--primary-color);
+}
+
+.overwrite-warning strong {
+  color: var(--primary-color);
+  font-weight: bold;
+}
+
+.warning-box {
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 2px solid #ff6b6b;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin: var(--spacing-lg) 0;
+}
+
+.warning-box p {
+  margin: 0;
+  color: #ff6b6b !important;
+  font-weight: bold;
+}
+
+.danger-btn {
+  padding: 12px var(--spacing-lg);
+  background-color: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+  border: 2px solid #ff6b6b;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: bold;
+  transition: all var(--transition-normal);
+  flex: 2;
+}
+
+.danger-btn:hover {
+  background-color: #ff6b6b;
+  color: white;
+  transform: scale(1.02);
+}
+
+.danger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.danger-btn:disabled:hover {
+  background-color: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+  transform: none;
 }
 
 /* ==========================================================================

@@ -265,20 +265,49 @@ function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
 }
 
 /**
+ * 檢查工作表是否存在
+ */
+function checkSheetExists(sheetName, targetSheetId) {
+  try {
+    const SHEET_ID = targetSheetId || '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const existingSheet = ss.getSheetByName(sheetName);
+    return existingSheet !== null;
+  } catch (error) {
+    console.error('檢查工作表是否存在時發生錯誤:', error);
+    return false;
+  }
+}
+
+/**
  * 匯出單字到新工作表
  */
-function exportWordsToSheet(words, sheetName, targetSheetId) {
+function exportWordsToSheet(words, sheetName, targetSheetId, overwrite = false) {
   try {
-    console.log('匯出單字，目標 Sheet ID:', targetSheetId, '工作表名稱:', sheetName);
+    console.log('匯出單字，目標 Sheet ID:', targetSheetId, '工作表名稱:', sheetName, '覆寫模式:', overwrite);
     
     // 如果沒有指定目標 Sheet ID，使用預設值
     const SHEET_ID = targetSheetId || '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
     const ss = SpreadsheetApp.openById(SHEET_ID);
     
+    // 檢查工作表是否已存在
     let newSheet = ss.getSheetByName(sheetName);
-    if (newSheet) {
+    if (newSheet && !overwrite) {
+      // 如果工作表已存在且不是覆寫模式，返回錯誤信息讓前端處理
+      return {
+        success: false,
+        error: 'SHEET_EXISTS',
+        message: `工作表 "${sheetName}" 已存在。`
+      };
+    }
+    
+    // 如果工作表存在且要覆寫，先刪除原工作表
+    if (newSheet && overwrite) {
+      console.log('覆寫模式：刪除現有工作表');
       ss.deleteSheet(newSheet);
     }
+    
+    // 創建新工作表
     newSheet = ss.insertSheet(sheetName);
     
     // 寫入資料
@@ -291,11 +320,19 @@ function exportWordsToSheet(words, sheetName, targetSheetId) {
       ]);
     }
     
-    console.log('成功匯出', words.length, '個單字');
-    return true;
+    const actionText = overwrite ? '覆寫並匯出' : '匯出';
+    console.log(`成功${actionText}`, words.length, '個單字');
+    return {
+      success: true,
+      message: `成功${actionText} ${words.length} 個單字到工作表 "${sheetName}"`
+    };
   } catch (error) {
     console.error('匯出失敗:', error);
-    return false;
+    return {
+      success: false,
+      error: 'EXPORT_ERROR',
+      message: '匯出失敗：' + error.message
+    };
   }
 }
 
