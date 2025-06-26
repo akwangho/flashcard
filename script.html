@@ -1,9 +1,10 @@
+<!-- script.html -->
 <script>
-// ES5兼容性檢查和修復 for iPad4舊版瀏覽器
+// ES5兼容版本 FlashcardApp for iPad4
 (function() {
   'use strict';
   
-  // 添加基本的polyfills
+  // ES5 Polyfills
   if (!Array.prototype.forEach) {
     Array.prototype.forEach = function(callback, thisArg) {
       for (var i = 0; i < this.length; i++) {
@@ -23,148 +24,452 @@
       return result;
     };
   }
+  
+  if (!Array.prototype.map) {
+    Array.prototype.map = function(callback, thisArg) {
+      var result = [];
+      for (var i = 0; i < this.length; i++) {
+        result.push(callback.call(thisArg, this[i], i, this));
+      }
+      return result;
+    };
+  }
+  
+  if (!Array.prototype.find) {
+    Array.prototype.find = function(callback, thisArg) {
+      for (var i = 0; i < this.length; i++) {
+        if (callback.call(thisArg, this[i], i, this)) {
+          return this[i];
+        }
+      }
+      return undefined;
+    };
+  }
+  
+  if (!Array.prototype.includes) {
+    Array.prototype.includes = function(searchElement) {
+      for (var i = 0; i < this.length; i++) {
+        if (this[i] === searchElement) {
+          return true;
+        }
+      }
+      return false;
+    };
+  }
 })();
 
-// 全域變數定義 (ES5兼容版本)
-var flashcardApp = {};
-
-// 初始化函數
-function initFlashcardApp() {
-  console.log('開始初始化FlashcardApp (ES5兼容版本)');
-  
+// 全域 FlashcardApp
+function FlashcardApp() {
   // 初始化屬性
-  flashcardApp.words = [];
-  flashcardApp.currentWords = [];
-  flashcardApp.currentIndex = 0;
-  flashcardApp.removedWords = [];
-  flashcardApp.displayTimer = null;
-  flashcardApp.showingChinese = false;
-  flashcardApp.isTransitioning = false;
-  flashcardApp.speechSynthesis = window.speechSynthesis;
-  flashcardApp.isPaused = false;
-  flashcardApp.isProcessingClick = false;
-  flashcardApp.pendingRemoval = null;
-  flashcardApp.navigationHistory = [];
+  this.words = [];
+  this.currentWords = [];
+  this.currentIndex = 0;
+    this.showingChinese = false;
+    this.isTransitioning = false;
+    this.isProcessingClick = false;
+  this.displayTimer = null;
+  this.speechSynthesis = window.speechSynthesis;
+  this.removedWords = [];
+  this.navigationHistory = [];
+    this.pendingRemoval = null;
+  this.isPaused = false;
+  this.pausedTimestamp = null;
+  this.remainingTime = 0;
   
   // 設定
-  flashcardApp.settings = {
-    delayTime: 3,
+  this.settings = {
+    delayTime: 1,
     fontSize: 96,
     reverseMode: false
   };
   
-  try {
-    loadSettings();
-    loadWords();
-    setupEventListeners();
-    applySettings();
-    startNewRound();
-    hideLoading();
-    console.log('FlashcardApp 初始化完成');
-  } catch (error) {
-    console.error('FlashcardApp 初始化失敗:', error);
-    showError();
-  }
+  this.voiceSettings = {
+    enabled: true,
+    rate: 0.8,
+    pitch: 1,
+    volume: 1,
+    lang: 'en-US',
+    voiceURI: ''
+  };
+  
+  this.sheetSettings = {
+    sheetId: '',
+    selectedSheets: []
+  };
+  
+  // 功能狀態
+  this.difficultWords = [];
+  this.showDifficultOnly = false;
+  this.availableSheets = [];
+  this.listenersSetup = false;
+  this.currentSpreadsheetName = null;
+  this.duplicateWords = [];
+  this.currentDuplicateIndex = 0;
+  this.duplicateProcessingResults = [];
+  
+  // 啟動初始化
+  this.init();
 }
 
+// 初始化方法
+FlashcardApp.prototype.init = function() {
+  console.log('=== FlashcardApp 初始化開始 (ES5版本) ===');
+  try {
+    console.log('載入基本設定...');
+    this.loadSettings();
+    this.loadSheetSettings();
+    
+    console.log('Sheet 設定:', this.sheetSettings);
+    
+    console.log('設定事件監聽器...');
+    this.setupEventListeners();
+    
+    // 檢查是否有已設定的 Google Sheet
+    if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+      console.log('發現已設定的 Google Sheet，載入單字...');
+      var self = this;
+      this.loadWords(true, function(hasDuplicates) {
+        self.hideLoading();
+        self.applySettings();
+        
+        if (!hasDuplicates) {
+          self.startNewRound();
+        }
+      });
+    } else {
+      console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
+      this.hideLoading();
+      this.openSheetSettings();
+      return;
+    }
+    
+    console.log('=== FlashcardApp 初始化完成 ===');
+  } catch (error) {
+    console.error('初始化錯誤:', error);
+    this.showError();
+  }
+};
+
 // 載入設定
-function loadSettings() {
+FlashcardApp.prototype.loadSettings = function() {
   try {
     var savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
     for (var key in savedSettings) {
-      if (savedSettings.hasOwnProperty(key) && flashcardApp.settings.hasOwnProperty(key)) {
-        flashcardApp.settings[key] = savedSettings[key];
+      if (savedSettings.hasOwnProperty(key) && this.settings.hasOwnProperty(key)) {
+        this.settings[key] = savedSettings[key];
+      }
+    }
+    
+    var savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
+    for (var key in savedVoiceSettings) {
+      if (savedVoiceSettings.hasOwnProperty(key) && this.voiceSettings.hasOwnProperty(key)) {
+        this.voiceSettings[key] = savedVoiceSettings[key];
       }
     }
   } catch (e) {
     console.log('載入設定失敗，使用預設值');
   }
-}
+};
+
+// 載入Sheet設定
+FlashcardApp.prototype.loadSheetSettings = function() {
+  try {
+    var savedSheetSettings = JSON.parse(localStorage.getItem('flashcard-sheet-settings') || '{}');
+    for (var key in savedSheetSettings) {
+      if (savedSheetSettings.hasOwnProperty(key) && this.sheetSettings.hasOwnProperty(key)) {
+        this.sheetSettings[key] = savedSheetSettings[key];
+      }
+    }
+  } catch (e) {
+    console.log('載入Sheet設定失敗');
+  }
+};
+
+// 儲存設定
+FlashcardApp.prototype.saveSettings = function() {
+  localStorage.setItem('flashcard-settings', JSON.stringify(this.settings));
+  localStorage.setItem('flashcard-voice-settings', JSON.stringify(this.voiceSettings));
+};
+
+// 儲存Sheet設定
+FlashcardApp.prototype.saveSheetSettings = function() {
+  localStorage.setItem('flashcard-sheet-settings', JSON.stringify(this.sheetSettings));
+};
+
+// 應用設定
+FlashcardApp.prototype.applySettings = function() {
+  var englishWord = document.getElementById('english-word');
+  var chineseWord = document.getElementById('chinese-word');
+  var loadingText = document.querySelector('#loading p');
+  
+  if (englishWord) englishWord.style.fontSize = this.settings.fontSize + 'px';
+  if (chineseWord) chineseWord.style.fontSize = this.settings.fontSize + 'px';
+  if (loadingText) loadingText.style.fontSize = this.settings.fontSize + 'px';
+  
+  var delaySlider = document.getElementById('delay-setting');
+  var fontSizeSlider = document.getElementById('font-size-setting');
+  var reverseToggle = document.getElementById('reverse-setting');
+  var delayValue = document.getElementById('delay-value');
+  var fontSizeValue = document.getElementById('font-size-value');
+  
+  if (delaySlider && delayValue) {
+    delaySlider.value = this.settings.delayTime;
+    delayValue.textContent = this.settings.delayTime;
+  }
+  if (fontSizeSlider && fontSizeValue) {
+    fontSizeSlider.value = this.settings.fontSize;
+    fontSizeValue.textContent = this.settings.fontSize + 'px';
+  }
+  if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+};
+
+// 載入單字
+FlashcardApp.prototype.loadWords = function(isInitialLoad, callback) {
+  var self = this;
+  callback = callback || function() {};
+  
+  if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+    var autoHandle = isInitialLoad;
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        console.log('載入結果:', result);
+        
+        if (result && result.words && result.words.length > 0) {
+          self.words = result.words;
+          self.difficultWords = self.words.filter(function(w) { return w.difficult; }).map(function(w) { return w.id; });
+          
+          if (result.autoHandled) {
+            console.log('重複單字已自動處理:', result.autoResults);
+            if (result.autoResults && result.autoResults.successCount > 0) {
+              self.showAutoProcessingNotification(result.autoResults);
+            }
+            callback(false);
+          } else if (result.hasDuplicates && result.duplicates.length > 0) {
+            console.log('發現重複單字需要手動處理:', result.duplicates);
+            self.duplicateWords = result.duplicates;
+            self.currentDuplicateIndex = 0;
+            self.duplicateProcessingResults = [];
+            
+            if (document.readyState === 'complete') {
+              self.showDuplicateModal();
+    } else {
+              window.addEventListener('load', function() {
+                self.showDuplicateModal();
+              });
+            }
+            callback(true);
+      return;
+          } else {
+            callback(false);
+          }
+        } else {
+          throw new Error('沒有找到單字資料');
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('載入單字失敗:', error);
+        self.showError();
+      })
+      .getWordsFromSheetsWithDuplicateDetection(this.sheetSettings.sheetId, this.sheetSettings.selectedSheets, autoHandle);
+  } else {
+    google.script.run
+      .withSuccessHandler(function(words) {
+        if (words && words.length > 0) {
+          self.words = words;
+          self.difficultWords = words.filter(function(w) { return w.difficult; }).map(function(w) { return w.id; });
+          callback(false);
+        } else {
+          throw new Error('沒有找到單字資料');
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('載入單字失敗:', error);
+        self.showError();
+      })
+      .getWordsFromSheet();
+  }
+};
+
+// 設置事件監聽器
+FlashcardApp.prototype.setupEventListeners = function() {
+  console.log('設置事件監聽器...');
+
+  if (this.listenersSetup) {
+    console.log('事件監聽器已設置，跳過重複設置');
+    return;
+  }
+
+  this.setupCoreListeners();
+  this.setupMenuListeners();
+  this.setupModalListeners();
+  this.setupKeyboardListeners();
+  this.setupProgressAndExportListeners();
+
+  this.listenersSetup = true;
+  console.log('所有事件監聽器設置完成');
+};
+
+// 核心監聽器
+FlashcardApp.prototype.setupCoreListeners = function() {
+  var self = this;
+  
+  var englishSection = document.getElementById('english-section');
+  var chineseSection = document.getElementById('chinese-section');
+  var nextBtn = document.getElementById('next-btn');
+  var prevBtn = document.getElementById('prev-btn');
+  var restartBtn = document.getElementById('restart-btn');
+  
+  if (englishSection) {
+    englishSection.addEventListener('click', function() { self.onWordClick(); });
+  }
+  if (chineseSection) {
+    chineseSection.addEventListener('click', function() { self.onWordClick(); });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function() { self.nextWord(); });
+  }
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function() { self.previousWord(); });
+  }
+  if (restartBtn) {
+    restartBtn.addEventListener('click', function() { self.restart(); });
+  }
+};
+
+// 選單監聽器
+FlashcardApp.prototype.setupMenuListeners = function() {
+  console.log('設定選單事件監聽器...');
+  
+  var self = this;
+  var menuBtn = document.getElementById('menu-btn');
+  var menuDropdown = document.getElementById('menu-dropdown');
+  
+  if (!menuBtn || !menuDropdown) {
+    console.error('找不到選單元素');
+    return;
+  }
+  
+  // 使用委派事件監聽
+  document.addEventListener('click', function(e) {
+    // 處理選單按鈕點擊
+    if (e.target.id === 'menu-btn' || e.target.closest('#menu-btn')) {
+      console.log('選單按鈕被點擊');
+      e.stopPropagation();
+      self.toggleMenu();
+      return;
+    }
+    
+    // 處理選單項目點擊
+    if (e.target.closest('#menu-dropdown')) {
+      console.log('點擊選單下拉選項');
+      e.stopPropagation();
+
+      if (e.target.id === 'restart-btn') {
+        console.log('重新開始按鈕被點擊');
+        self.closeMenu();
+        self.restart();
+      } else if (e.target.id === 'sheet-settings-btn') {
+        console.log('Google Sheet 設定按鈕被點擊');
+        self.closeMenu();
+        self.openSheetSettings();
+      } else if (e.target.id === 'voice-settings-btn') {
+        console.log('語音設定按鈕被點擊');
+        self.closeMenu();
+        self.openVoiceSettings();
+      } else if (e.target.id === 'settings-btn') {
+        console.log('設定按鈕被點擊');
+        self.closeMenu();
+        self.openSettings();
+      } else if (e.target.id === 'export-btn') {
+        console.log('匯出按鈕被點擊');
+        self.closeMenu();
+        self.openExportModal();
+      }
+      return;
+    }
+
+    // 點擊其他地方關閉選單
+    self.closeMenu();
+  });
+
+  console.log('選單事件監聽器設定完成');
+};
 
 // 隱藏載入畫面
-function hideLoading() {
+FlashcardApp.prototype.hideLoading = function() {
   var loadingDiv = document.getElementById('loading');
   var flashcardDiv = document.getElementById('flashcard');
   if (loadingDiv) loadingDiv.style.display = 'none';
   if (flashcardDiv) flashcardDiv.style.display = 'flex';
-}
+};
 
 // 顯示錯誤
-function showError() {
+FlashcardApp.prototype.showError = function() {
   var loadingDiv = document.getElementById('loading');
   var errorDiv = document.getElementById('error');
   if (loadingDiv) loadingDiv.style.display = 'none';
   if (errorDiv) errorDiv.style.display = 'block';
-}
-
-// 載入單字
-function loadWords() {
-  flashcardApp.words = getDemoWords();
-}
-
-// 取得示例單字
-function getDemoWords() {
-  return [
-    {id: 0, english: 'Hello', chinese: '你好', difficult: false},
-    {id: 1, english: 'World', chinese: '世界', difficult: false},
-    {id: 2, english: 'Apple', chinese: '蘋果', difficult: false},
-    {id: 3, english: 'Book', chinese: '書', difficult: false},
-    {id: 4, english: 'Computer', chinese: '電腦', difficult: false},
-    {id: 5, english: 'Friend', chinese: '朋友', difficult: false},
-    {id: 6, english: 'Happy', chinese: '快樂', difficult: false},
-    {id: 7, english: 'Study', chinese: '學習', difficult: false},
-    {id: 8, english: 'Love', chinese: '愛', difficult: false},
-    {id: 9, english: 'Peace', chinese: '和平', difficult: false}
-  ];
-}
+};
 
 // 開始新回合
-function startNewRound() {
-  flashcardApp.currentWords = flashcardApp.words.slice();
-  
-  if (flashcardApp.currentWords.length === 0) {
-    flashcardApp.currentWords = getDemoWords();
+FlashcardApp.prototype.startNewRound = function() {
+  this.shuffleArray(this.words);
+  if (this.showDifficultOnly) {
+    this.currentWords = this.words.filter(function(w) { 
+      return this.difficultWords.includes(w.id); 
+    }, this);
+      } else {
+    this.currentWords = this.words.slice();
   }
-  
-  shuffleArray(flashcardApp.currentWords);
-  flashcardApp.currentIndex = 0;
-  flashcardApp.navigationHistory = [];
-  displayCurrentWord();
-}
+  this.currentIndex = 0;
+  this.removedWords = [];
+  this.navigationHistory = [];
+  this.pendingRemoval = null;
+        
+        if (this.currentWords.length === 0) {
+    if (this.showDifficultOnly) {
+      alert('沒有不熟單字！');
+      this.showDifficultOnly = false;
+      var checkbox = document.getElementById('show-difficult-only');
+      if (checkbox) checkbox.checked = false;
+      this.currentWords = this.words.slice();
+        }
+      }
+      
+      this.displayCurrentWord();
+  this.updateButtonStates();
+    this.renderDifficultStar();
+};
 
-// 洗牌算法
-function shuffleArray(array) {
+// 洗牌
+FlashcardApp.prototype.shuffleArray = function(array) {
   for (var i = array.length - 1; i > 0; i--) {
     var j = Math.floor(Math.random() * (i + 1));
     var temp = array[i];
     array[i] = array[j];
     array[j] = temp;
   }
-}
+};
 
 // 顯示當前單字
-function displayCurrentWord() {
-  if (flashcardApp.currentWords.length === 0) {
-    startNewRound();
+FlashcardApp.prototype.displayCurrentWord = function() {
+  if (this.currentWords.length === 0) {
+    this.startNewRound();
     return;
   }
   
-  var currentWord = flashcardApp.currentWords[flashcardApp.currentIndex];
+  var currentWord = this.currentWords[this.currentIndex];
   var englishElement = document.getElementById('english-word');
   var chineseElement = document.getElementById('chinese-word');
   
-  if (!englishElement || !chineseElement) {
-    console.error('找不到必要的HTML元素');
-    return;
-  }
+  this.showingChinese = false;
+  this.isTransitioning = false;
+  this.isProcessingClick = false;
+  this.pendingRemoval = null;
   
-  flashcardApp.showingChinese = false;
-  flashcardApp.isTransitioning = false;
-  flashcardApp.isProcessingClick = false;
-  flashcardApp.pendingRemoval = null;
-  
-  if (flashcardApp.displayTimer) {
-    clearTimeout(flashcardApp.displayTimer);
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
   }
   
   englishElement.classList.remove('show');
@@ -173,94 +478,517 @@ function displayCurrentWord() {
   englishElement.style.color = '';
   chineseElement.style.color = '';
   
+  var self = this;
   setTimeout(function() {
     var firstElement = document.getElementById('english-word');
     
-    // 根據設定決定顯示順序
-    if (flashcardApp.settings.reverseMode) {
-      // 先顯示中文
+    if (self.settings.reverseMode) {
       firstElement.textContent = currentWord.chinese;
     } else {
-      // 先顯示英文（原本的邏輯）
       firstElement.textContent = currentWord.english;
-      // 發音英文單字
       setTimeout(function() {
-        speakEnglishWord(currentWord.english);
+        self.speakEnglishWord(currentWord.english);
       }, 500);
     }
     firstElement.classList.add('show');
 
-    // 延遲顯示第二部分
-    flashcardApp.displayTimer = setTimeout(function() {
-      showSecondPartAndScheduleNext();
-    }, flashcardApp.settings.delayTime * 1000);
+    self.displayTimer = setTimeout(function() {
+      self.showSecondPartAndScheduleNext();
+    }, self.settings.delayTime * 1000);
     
   }, 100);
   
-  updateProgress();
-  updateButtonStates();
-}
-
-// 顯示第二部分並安排下一個
-function showSecondPartAndScheduleNext() {
-  var currentWord = flashcardApp.currentWords[flashcardApp.currentIndex];
-  var chineseElement = document.getElementById('chinese-word');
-  
-  var secondText = flashcardApp.settings.reverseMode ? currentWord.english : currentWord.chinese;
-  chineseElement.textContent = secondText;
-  chineseElement.classList.add('show');
-  flashcardApp.showingChinese = true;
-  
-  // 如果是反向模式且還沒發音，現在發音
-  if (flashcardApp.settings.reverseMode) {
-    setTimeout(function() {
-      speakEnglishWord(currentWord.english);
-    }, 500);
-  }
-  
-  flashcardApp.displayTimer = setTimeout(function() {
-    nextWord();
-  }, flashcardApp.settings.delayTime * 1000);
-}
+  this.renderDifficultStar();
+  this.updateProgress();
+  this.updateButtonStates();
+};
 
 // 更新進度
-function updateProgress() {
+FlashcardApp.prototype.updateProgress = function() {
   var progressText = document.getElementById('progress-text');
   if (progressText) {
-    var current = flashcardApp.currentIndex + 1;
-    var total = flashcardApp.currentWords.length;
+    var current = this.currentIndex + 1;
+    var total = this.currentWords.length;
     progressText.textContent = current + '/' + total;
   }
-}
+};
 
 // 更新按鈕狀態
-function updateButtonStates() {
+FlashcardApp.prototype.updateButtonStates = function() {
   var prevBtn = document.getElementById('prev-btn');
   if (prevBtn) {
-    var isFirstWord = flashcardApp.currentIndex === 0;
-    var hasPendingRemoval = flashcardApp.pendingRemoval !== null;
-    prevBtn.disabled = (isFirstWord && !hasPendingRemoval) || flashcardApp.navigationHistory.length === 0;
+    var isFirstWord = this.currentIndex === 0;
+    var hasPendingRemoval = this.pendingRemoval !== null;
+    prevBtn.disabled = (isFirstWord && !hasPendingRemoval) || this.navigationHistory.length === 0;
   }
-}
+};
 
-// 單字點擊事件
-function onWordClick() {
-  if (flashcardApp.isTransitioning || flashcardApp.isPaused) return;
+// 切換選單
+FlashcardApp.prototype.toggleMenu = function() {
+  console.log('toggleMenu 被調用');
+  var menuBtn = document.getElementById('menu-btn');
+  var menuDropdown = document.getElementById('menu-dropdown');
   
-  if (flashcardApp.currentWords.length <= 1) {
+  if (!menuBtn || !menuDropdown) {
+    console.error('選單元素不存在，無法切換');
+      return;
+    }
+    
+  var isOpen = menuDropdown.classList.contains('show');
+  console.log('選單目前狀態:', isOpen ? '開啟' : '關閉');
+  
+  if (isOpen) {
+    this.closeMenu();
+  } else {
+    console.log('開啟選單');
+    menuBtn.classList.add('active');
+    menuDropdown.classList.add('show');
+  }
+};
+
+// 關閉選單
+FlashcardApp.prototype.closeMenu = function() {
+  console.log('closeMenu 被調用');
+  var menuBtn = document.getElementById('menu-btn');
+  var menuDropdown = document.getElementById('menu-dropdown');
+  
+  if (menuBtn && menuDropdown) {
+    console.log('關閉選單');
+    menuBtn.classList.remove('active');
+    menuDropdown.classList.remove('show');
+  }
+};
+
+// 模態框監聽器
+FlashcardApp.prototype.setupModalListeners = function() {
+  var self = this;
+  
+  // 主設定模態框
+  var settingsModal = document.getElementById('settings-modal');
+  var closeSettings = document.getElementById('close-settings');
+  var saveSettings = document.getElementById('save-settings');
+  var resetSettings = document.getElementById('reset-settings');
+  var delaySlider = document.getElementById('delay-setting');
+  var fontSizeSlider = document.getElementById('font-size-setting');
+  
+  if (closeSettings) {
+    closeSettings.addEventListener('click', function() { self.closeSettings(); });
+  }
+  if (saveSettings) {
+    saveSettings.addEventListener('click', function() { self.saveSettingsAndClose(); });
+  }
+  if (resetSettings) {
+    resetSettings.addEventListener('click', function() { self.resetSettings(); });
+  }
+  if (settingsModal) {
+    settingsModal.addEventListener('click', function(e) {
+      if (e.target === settingsModal) self.closeSettings();
+    });
+  }
+  
+  // 修復：設定滑桿實時更新
+  if (delaySlider) {
+    delaySlider.addEventListener('input', function(e) {
+      var delayValue = document.getElementById('delay-value');
+      if (delayValue) {
+        delayValue.textContent = e.target.value;
+      }
+    });
+  }
+  
+  if (fontSizeSlider) {
+    fontSizeSlider.addEventListener('input', function(e) {
+      var fontSizeValue = document.getElementById('font-size-value');
+      if (fontSizeValue) {
+        fontSizeValue.textContent = e.target.value + 'px';
+      }
+      // 即時預覽字體大小
+      var englishWord = document.getElementById('english-word');
+      var chineseWord = document.getElementById('chinese-word');
+      if (englishWord) englishWord.style.fontSize = e.target.value + 'px';
+      if (chineseWord) chineseWord.style.fontSize = e.target.value + 'px';
+    });
+  }
+  
+  // Google Sheet 設定模態框
+  var sheetSettingsModal = document.getElementById('sheet-settings-modal');
+  var closeSheetSettings = document.getElementById('close-sheet-settings');
+  var cancelSheetSettings = document.getElementById('cancel-sheet-settings');
+  var saveSheetSettings = document.getElementById('save-sheet-settings');
+  var loadSheetsBtn = document.getElementById('load-sheets-btn');
+  
+  if (closeSheetSettings) {
+    closeSheetSettings.addEventListener('click', function() { self.closeSheetSettings(); });
+  }
+  if (cancelSheetSettings) {
+    cancelSheetSettings.addEventListener('click', function() { self.closeSheetSettings(); });
+  }
+  if (saveSheetSettings) {
+    saveSheetSettings.addEventListener('click', function() { self.saveSheetSettingsAndClose(); });
+  }
+  if (loadSheetsBtn) {
+    loadSheetsBtn.addEventListener('click', function() { self.loadSheetsList(); });
+  }
+  if (sheetSettingsModal) {
+    sheetSettingsModal.addEventListener('click', function(e) {
+      if (e.target === sheetSettingsModal) self.closeSheetSettings();
+    });
+  }
+  
+  // 語音設定模態框
+  var voiceSettingsModal = document.getElementById('voice-settings-modal');
+  var closeVoiceSettings = document.getElementById('close-voice-settings');
+  var cancelVoiceSettings = document.getElementById('cancel-voice-settings');
+  var saveVoiceSettings = document.getElementById('save-voice-settings');
+  var voiceRateSlider = document.getElementById('voice-rate-setting');
+  
+  if (closeVoiceSettings) {
+    closeVoiceSettings.addEventListener('click', function() { self.closeVoiceSettings(); });
+  }
+  if (cancelVoiceSettings) {
+    cancelVoiceSettings.addEventListener('click', function() { self.closeVoiceSettings(); });
+  }
+  if (saveVoiceSettings) {
+    saveVoiceSettings.addEventListener('click', function() { self.saveVoiceSettingsAndClose(); });
+  }
+  if (voiceSettingsModal) {
+    voiceSettingsModal.addEventListener('click', function(e) {
+      if (e.target === voiceSettingsModal) self.closeVoiceSettings();
+    });
+  }
+  if (voiceRateSlider) {
+    voiceRateSlider.addEventListener('input', function(e) {
+      var voiceRateValue = document.getElementById('voice-rate-value');
+      if (voiceRateValue) {
+        voiceRateValue.textContent = e.target.value;
+      }
+    });
+  }
+};
+
+// 鍵盤監聽器
+FlashcardApp.prototype.setupKeyboardListeners = function() {
+  var self = this;
+  
+  document.addEventListener('keydown', function(e) {
+    if (self.isPaused) return;
+
+    var keyActions = {
+      'Enter': function() { self.toggleDifficultCurrentWord(); },
+      'KeyS': function() { self.toggleDifficultCurrentWord(); },
+      'Space': function() { self.onWordClick(); },
+      'KeyD': function() { self.onWordClick(); },
+      'KeyR': function() { self.restart(); },
+      'ArrowLeft': function() { self.previousWord(); },
+      'ArrowUp': function() { self.previousWord(); },
+      'ArrowRight': function() { self.nextWord(); },
+      'ArrowDown': function() { self.nextWord(); },
+      'Escape': function() {
+        self.closeSettings();
+        self.closeVoiceSettings();
+        self.closeMenu();
+      }
+    };
+
+    if (keyActions[e.code]) {
+      e.preventDefault();
+      keyActions[e.code]();
+    }
+  });
+};
+
+// 進度區和匯出監聽器
+FlashcardApp.prototype.setupProgressAndExportListeners = function() {
+  console.log('設置進度區和匯出事件監聽器...');
+  var self = this;
+
+  // 修復：進度區點擊標註/取消不熟單字
+  var progressArea = document.getElementById('progress-area');
+  if (progressArea) {
+    // 移除舊的事件監聽器
+    var newProgressArea = progressArea.cloneNode(true);
+    progressArea.parentNode.replaceChild(newProgressArea, progressArea);
+
+    newProgressArea.addEventListener('click', function() {
+      console.log('進度區被點擊，切換困難單字狀態');
+      self.toggleDifficultCurrentWord();
+    });
+    console.log('進度區事件監聽器設置完成');
+    } else {
+    console.error('找不到 progress-area 元素');
+  }
+
+  // 只顯示不熟單字checkbox
+  var showDifficultCheckbox = document.getElementById('show-difficult-only');
+  if (showDifficultCheckbox) {
+    showDifficultCheckbox.addEventListener('change', function(e) {
+      console.log('切換只顯示不熟單字:', e.target.checked);
+      self.showDifficultOnly = e.target.checked;
+      self.filterWordsByDifficult();
+    });
+    console.log('不熟單字過濾器事件監聽器設置完成');
+  } else {
+    console.error('找不到 show-difficult-only 元素');
+  }
+
+  // 匯出相關事件
+  var closeExportModal = document.getElementById('close-export-modal');
+  var cancelExport = document.getElementById('cancel-export');
+  var confirmExport = document.getElementById('confirm-export');
+
+  if (closeExportModal) {
+    closeExportModal.addEventListener('click', function() { self.closeExportModal(); });
+  }
+  if (cancelExport) {
+    cancelExport.addEventListener('click', function() { self.closeExportModal(); });
+  }
+  if (confirmExport) {
+    confirmExport.addEventListener('click', function() { self.confirmExport(); });
+  }
+
+  console.log('匯出相關事件監聽器設置完成');
+};
+
+// 開啟設定
+FlashcardApp.prototype.openSettings = function() {
+  var settingsModal = document.getElementById('settings-modal');
+  if (settingsModal) {
+    settingsModal.style.display = 'flex';
+    this.pauseTimer();
+    this.applySettings();
+  }
+};
+
+// 關閉設定
+FlashcardApp.prototype.closeSettings = function(shouldRedisplay) {
+  var settingsModal = document.getElementById('settings-modal');
+  if (settingsModal) {
+    settingsModal.style.display = 'none';
+    this.resumeTimer();
+    
+    if (shouldRedisplay) {
+      this.redisplayCurrentWord();
+    }
+  }
+};
+
+// 儲存設定並關閉
+FlashcardApp.prototype.saveSettingsAndClose = function() {
+  var delaySlider = document.getElementById('delay-setting');
+  var fontSizeSlider = document.getElementById('font-size-setting');
+  var reverseToggle = document.getElementById('reverse-setting');
+  
+  var oldReverseMode = this.settings.reverseMode;
+  
+  if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
+  if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
+  if (reverseToggle) this.settings.reverseMode = reverseToggle.checked;
+  
+  this.saveSettings();
+  this.applySettings();
+  this.closeSettings();
+  
+  if (oldReverseMode !== this.settings.reverseMode) {
+    this.redisplayCurrentWord();
+  }
+};
+
+// 重置設定
+FlashcardApp.prototype.resetSettings = function() {
+  this.settings = {
+    delayTime: 3,
+    fontSize: 96,
+    reverseMode: false
+  };
+  this.voiceSettings = {
+    enabled: true,
+    rate: 0.8,
+    pitch: 1,
+    volume: 1,
+    lang: 'en-US',
+    voiceURI: ''
+  };
+  this.applySettings();
+  this.saveSettings();
+  this.closeSettings();
+};
+
+// 暫停計時器
+FlashcardApp.prototype.pauseTimer = function() {
+  this.isPaused = true;
+  
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
+    this.displayTimer = null;
+  }
+  
+  var pausedIndicator = document.createElement('div');
+  pausedIndicator.id = 'paused-indicator';
+  pausedIndicator.className = 'paused-indicator';
+  pausedIndicator.textContent = '已暫停';
+  var flashcard = document.getElementById('flashcard');
+  if (flashcard) {
+    flashcard.appendChild(pausedIndicator);
+  }
+};
+
+// 恢復計時器
+FlashcardApp.prototype.resumeTimer = function() {
+  this.isPaused = false;
+  
+  var pausedIndicator = document.getElementById('paused-indicator');
+  if (pausedIndicator) {
+    pausedIndicator.remove();
+  }
+  
+  var self = this;
+  if (this.showingChinese) {
+    this.displayTimer = setTimeout(function() {
+      self.nextWord();
+    }, this.settings.delayTime * 1000);
+  } else if (!this.isTransitioning && !this.isProcessingClick) {
+    var currentWord = this.currentWords[this.currentIndex];
+    if (currentWord) {
+      this.displayTimer = setTimeout(function() {
+        self.showSecondPartAndScheduleNext();
+      }, this.settings.delayTime * 1000);
+    }
+  }
+};
+
+// 開啟Google Sheet設定
+FlashcardApp.prototype.openSheetSettings = function() {
+  console.log('開啟 Google Sheet 設定畫面');
+  var modal = document.getElementById('sheet-settings-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    
+    var sheetIdInput = document.getElementById('sheet-id-input');
+    if (sheetIdInput) {
+      sheetIdInput.value = this.sheetSettings.sheetId || '';
+    }
+    
+    var sheetsGroup = document.getElementById('sheets-selection-group');
+    if (sheetsGroup) {
+      sheetsGroup.style.display = 'none';
+    }
+    
+    var saveBtn = document.getElementById('save-sheet-settings');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+    }
+    
+    this.pauseTimer();
+  }
+};
+
+// 關閉Google Sheet設定
+FlashcardApp.prototype.closeSheetSettings = function() {
+  var modal = document.getElementById('sheet-settings-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    this.resumeTimer();
+  }
+};
+
+// 標註困難單字
+FlashcardApp.prototype.toggleDifficultCurrentWord = function() {
+  if (this.currentWords.length === 0) return;
+  
+  var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord) return;
+    
+  var id = currentWord.id;
+  var isDifficult = this.difficultWords.includes(id);
+  
+    if (isDifficult) {
+    this.difficultWords = this.difficultWords.filter(function(did) { return did !== id; });
+    } else {
+      this.difficultWords.push(id);
+    }
+    
+    // 後端同步
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+    var rowIndex = currentWord.originalRowIndex;
+      if (rowIndex === undefined) {
+      rowIndex = this.words.findIndex(function(w) {
+        return w.english === currentWord.english && w.chinese === currentWord.chinese;
+      });
+      }
+      
+      if (rowIndex !== -1) {
+      var sheetId = this.sheetSettings.sheetId;
+      var sheetName = currentWord.sheetName || 'Sheet1';
+      var markValue = isDifficult ? '' : '*';
+        console.log('標註單字:', currentWord.english, '行索引:', rowIndex, '標記值:', markValue);
+        google.script.run.markWordAsDifficult(sheetId, sheetName, rowIndex, markValue);
+      }
+    }
+
+  // 處理「只顯示不熟單字」模式
+    if (this.showDifficultOnly && isDifficult) {
+      this.currentWords.splice(this.currentIndex, 1);
+      
+      if (this.currentIndex >= this.currentWords.length) {
+        this.currentIndex = 0;
+      }
+      
+      if (this.currentWords.length === 0) {
+        alert('恭喜！沒有不熟單字了！');
+        this.showDifficultOnly = false;
+      var checkbox = document.getElementById('show-difficult-only');
+      if (checkbox) checkbox.checked = false;
+        this.startNewRound();
+      } else {
+        this.displayCurrentWord();
+      }
+    } else {
+      this.renderDifficultStar();
+    }
+};
+
+// 渲染困難星星
+FlashcardApp.prototype.renderDifficultStar = function() {
+  var currentWord = this.currentWords[this.currentIndex];
+  var star = document.getElementById('difficult-star');
+  if (star && currentWord && this.difficultWords.includes(currentWord.id)) {
+      star.classList.add('visible');
+  } else if (star) {
+      star.classList.remove('visible');
+    }
+};
+  
+// 過濾困難單字
+FlashcardApp.prototype.filterWordsByDifficult = function() {
+    if (this.showDifficultOnly) {
+    var self = this;
+    this.currentWords = this.words.filter(function(w) { return self.difficultWords.includes(w.id); });
+      this.currentIndex = 0;
+    } else {
+    this.currentWords = this.words.slice();
+      this.currentIndex = 0;
+    }
+    this.displayCurrentWord();
+};
+
+// 單字點擊事件（刪除單字功能）
+FlashcardApp.prototype.onWordClick = function() {
+  if (this.isTransitioning || this.isPaused) return;
+  
+  if (this.currentWords.length <= 1) {
     var sections = document.querySelectorAll('.card-section');
     for (var i = 0; i < sections.length; i++) {
       sections[i].style.backgroundColor = 'rgba(255, 100, 100, 0.3)';
-      setTimeout((function(section) {
-        return function() {
+      (function(section) {
+        setTimeout(function() {
           section.style.backgroundColor = '';
-        };
-      })(sections[i]), 300);
+        }, 300);
+      })(sections[i]);
     }
     return;
   }
   
-  var currentWord = flashcardApp.currentWords[flashcardApp.currentIndex];
+  var currentWord = this.currentWords[this.currentIndex];
   var englishElement = document.getElementById('english-word');
   var chineseElement = document.getElementById('chinese-word');
   
@@ -268,26 +996,26 @@ function onWordClick() {
                       englishElement.style.color === '#666666';
   
   if (isAlreadyMarked) {
-    nextWord();
-    return;
+    this.nextWord();
+      return;
+    }
+    
+  this.isProcessingClick = true;
+  
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
   }
   
-  flashcardApp.isProcessingClick = true;
-  
-  if (flashcardApp.displayTimer) {
-    clearTimeout(flashcardApp.displayTimer);
-  }
-  
-  if (!flashcardApp.showingChinese) {
-    var secondText = flashcardApp.settings.reverseMode ? currentWord.english : currentWord.chinese;
+  if (!this.showingChinese) {
+    var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
     chineseElement.textContent = secondText;
     chineseElement.classList.add('show');
-    flashcardApp.showingChinese = true;
+    this.showingChinese = true;
     
-    // 如果是反向模式且還沒發音，現在發音
-    if (flashcardApp.settings.reverseMode) {
+    if (this.settings.reverseMode) {
+      var self = this;
       setTimeout(function() {
-        speakEnglishWord(currentWord.english);
+        self.speakEnglishWord(currentWord.english);
       }, 500);
     }
   }
@@ -298,345 +1026,821 @@ function onWordClick() {
   var sections = document.querySelectorAll('.card-section');
   for (var i = 0; i < sections.length; i++) {
     sections[i].classList.add('clicked');
-    setTimeout((function(section) {
-      return function() {
-        section.classList.remove('clicked');
-      };
-    })(sections[i]), 500);
+    (function(section) {
+      setTimeout(function() { 
+        section.classList.remove('clicked'); 
+      }, 500);
+    })(sections[i]);
   }
   
-  flashcardApp.pendingRemoval = {
+  this.pendingRemoval = {
     word: currentWord,
-    index: flashcardApp.currentIndex,
+    index: this.currentIndex,
     originalEnglishColor: englishElement.style.color,
     originalChineseColor: chineseElement.style.color
   };
   
-  updateButtonStates();
+  this.updateButtonStates();
   
-  flashcardApp.displayTimer = setTimeout(function() {
-    confirmRemoval();
-  }, flashcardApp.settings.delayTime * 1000);
-}
+  var self = this;
+  this.displayTimer = setTimeout(function() {
+    self.confirmRemoval();
+  }, this.settings.delayTime * 1000);
+};
 
-// 確認移除
-function confirmRemoval() {
-  if (!flashcardApp.pendingRemoval) return;
+// 確認移除單字
+FlashcardApp.prototype.confirmRemoval = function() {
+  if (!this.pendingRemoval) return;
   
-  var word = flashcardApp.pendingRemoval.word;
-  var index = flashcardApp.pendingRemoval.index;
+  var word = this.pendingRemoval.word;
+  var index = this.pendingRemoval.index;
   
-  flashcardApp.removedWords.push(word);
-  flashcardApp.currentWords.splice(index, 1);
+  this.removedWords.push(word);
+  this.currentWords.splice(index, 1);
   
-  if (flashcardApp.currentIndex >= flashcardApp.currentWords.length) {
-    flashcardApp.currentIndex = 0;
+  if (this.currentIndex >= this.currentWords.length) {
+    this.currentIndex = 0;
   }
   
-  flashcardApp.pendingRemoval = null;
+  this.pendingRemoval = null;
   
-  if (flashcardApp.currentWords.length === 0) {
-    startNewRound();
+  if (this.currentWords.length === 0) {
+    this.startNewRound();
   } else {
-    displayCurrentWord();
+    this.displayCurrentWord();
   }
   
-  flashcardApp.isProcessingClick = false;
-  updateButtonStates();
-}
+  this.isProcessingClick = false;
+  this.updateButtonStates();
+};
 
-// 下一個單字
-function nextWord() {
-  if (flashcardApp.isTransitioning || flashcardApp.isPaused) return;
-  
-  if (flashcardApp.pendingRemoval) {
-    confirmRemoval();
-    return;
-  }
-  
-  if (!flashcardApp.showingChinese) {
-    showSecondPartAndScheduleNext();
-    return;
-  }
-  
-  saveNavigationState();
-  
-  if (flashcardApp.displayTimer) {
-    clearTimeout(flashcardApp.displayTimer);
-  }
-  
-  if (flashcardApp.speechSynthesis) {
-    flashcardApp.speechSynthesis.cancel();
-  }
-  
-  flashcardApp.isTransitioning = true;
+// 取消移除
+FlashcardApp.prototype.cancelRemoval = function() {
+  if (!this.pendingRemoval) return;
   
   var englishElement = document.getElementById('english-word');
   var chineseElement = document.getElementById('chinese-word');
   
-  englishElement.classList.remove('show');
-  chineseElement.classList.remove('show');
+  englishElement.style.color = '';
+  chineseElement.style.color = '';
   
-  chineseElement.textContent = '';
+  this.pendingRemoval = null;
   
-  setTimeout(function() {
-    flashcardApp.currentIndex = (flashcardApp.currentIndex + 1) % flashcardApp.currentWords.length;
-    
-    if (flashcardApp.currentIndex === 0) {
-      shuffleArray(flashcardApp.currentWords);
-      flashcardApp.navigationHistory = [];
-    }
-    
-    displayCurrentWord();
-    flashcardApp.isTransitioning = false;
-    
-  }, 300);
-}
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
+  }
+  
+  this.isProcessingClick = false;
+  this.updateButtonStates();
+  
+  var self = this;
+  if (this.showingChinese) {
+    this.displayTimer = setTimeout(function() {
+      self.nextWord();
+    }, this.settings.delayTime * 1000);
+  } else {
+    this.displayTimer = setTimeout(function() {
+      self.showSecondPartAndScheduleNext();
+    }, this.settings.delayTime * 1000);
+  }
+};
 
-// 儲存導覽狀態
-function saveNavigationState() {
-  flashcardApp.navigationHistory.push({
-    currentIndex: flashcardApp.currentIndex,
-    wordSequence: flashcardApp.currentWords.slice()
-  });
-}
-
-// 上一個單字
-function previousWord() {
-  if (flashcardApp.isTransitioning || flashcardApp.isPaused) return;
-  
-  if (flashcardApp.pendingRemoval) {
-    // 取消移除
-    var englishElement = document.getElementById('english-word');
-    var chineseElement = document.getElementById('chinese-word');
-    
-    englishElement.style.color = '';
-    chineseElement.style.color = '';
-    
-    flashcardApp.pendingRemoval = null;
-    
-    if (flashcardApp.displayTimer) {
-      clearTimeout(flashcardApp.displayTimer);
-    }
-    
-    flashcardApp.isProcessingClick = false;
-    updateButtonStates();
+// 顯示第二部分並安排下一個
+FlashcardApp.prototype.showSecondPartAndScheduleNext = function() {
+  if (this.isPaused || this.showingChinese || !this.currentWords[this.currentIndex]) {
     return;
   }
-  
-  if (flashcardApp.navigationHistory.length === 0) return;
-  
-  if (flashcardApp.displayTimer) {
-    clearTimeout(flashcardApp.displayTimer);
+
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
   }
-  
-  if (flashcardApp.speechSynthesis) {
-    flashcardApp.speechSynthesis.cancel();
-  }
-  
-  flashcardApp.isTransitioning = true;
-  
-  var englishElement = document.getElementById('english-word');
+
+  var currentWord = this.currentWords[this.currentIndex];
   var chineseElement = document.getElementById('chinese-word');
   
-  englishElement.classList.remove('show');
-  chineseElement.classList.remove('show');
+  var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+  chineseElement.textContent = secondText;
+  chineseElement.classList.add('show');
+  this.showingChinese = true;
   
-  chineseElement.textContent = '';
+  if (this.settings.reverseMode) {
+    var self = this;
+    setTimeout(function() {
+      self.speakEnglishWord(currentWord.english);
+    }, 500);
+  }
   
-  setTimeout(function() {
-    var previousState = flashcardApp.navigationHistory.pop();
-    flashcardApp.currentIndex = previousState.currentIndex;
-    flashcardApp.currentWords = previousState.wordSequence.slice();
-    
-    displayCurrentWord();
-    flashcardApp.isTransitioning = false;
-    
-  }, 300);
-}
-
-// 重新開始
-function restart() {
-  if (flashcardApp.displayTimer) {
-    clearTimeout(flashcardApp.displayTimer);
-  }
-  if (flashcardApp.speechSynthesis) {
-    flashcardApp.speechSynthesis.cancel();
-  }
-  flashcardApp.pendingRemoval = null;
-  closeMenu();
-  startNewRound();
-}
+  var self = this;
+  this.displayTimer = setTimeout(function() {
+    self.nextWord();
+  }, this.settings.delayTime * 1000);
+};
 
 // 語音播放
-function speakEnglishWord(text) {
-  if (!flashcardApp.speechSynthesis || !text) return;
+FlashcardApp.prototype.speakEnglishWord = function(text) {
+  if (!this.voiceSettings.enabled) return;
   
   try {
+    this.speechSynthesis.cancel();
     var utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.8;
-    utterance.lang = 'en-US';
-    flashcardApp.speechSynthesis.speak(utterance);
-  } catch (e) {
-    console.log('語音播放失敗:', e);
-  }
-}
-
-// 設定事件監聽器
-function setupEventListeners() {
-  var englishWord = document.getElementById('english-word');
-  var chineseWord = document.getElementById('chinese-word');
-  
-  if (englishWord) englishWord.addEventListener('click', onWordClick);
-  if (chineseWord) chineseWord.addEventListener('click', onWordClick);
-  
-  // 按鈕事件
-  var prevBtn = document.getElementById('prev-btn');
-  var nextBtn = document.getElementById('next-btn');
-  
-  if (prevBtn) prevBtn.addEventListener('click', previousWord);
-  if (nextBtn) nextBtn.addEventListener('click', nextWord);
-  
-  // 鍵盤事件
-  document.addEventListener('keydown', function(event) {
-    if (event.key === 'ArrowLeft' || event.keyCode === 37) {
-      event.preventDefault();
-      previousWord();
-    } else if (event.key === 'ArrowRight' || event.keyCode === 39) {
-      event.preventDefault();
-      nextWord();
-    } else if (event.key === ' ' || event.keyCode === 32) {
-      event.preventDefault();
-      onWordClick();
+    utterance.rate = this.voiceSettings.rate;
+    utterance.pitch = this.voiceSettings.pitch;
+    utterance.volume = this.voiceSettings.volume;
+    utterance.lang = this.voiceSettings.lang;
+    
+    var voices = this.speechSynthesis.getVoices();
+    var selectedVoice = null;
+    if (this.voiceSettings.voiceURI) {
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === this.voiceSettings.voiceURI) {
+          selectedVoice = voices[i];
+          break;
+        }
+      }
     }
+    
+    if (!selectedVoice) {
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].lang.indexOf('en-') === 0 || 
+            voices[i].name.toLowerCase().indexOf('english') !== -1) {
+          selectedVoice = voices[i];
+          break;
+        }
+      }
+    }
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    
+    this.speechSynthesis.speak(utterance);
+  } catch (error) {
+    console.log('語音播放失敗:', error);
+  }
+};
+
+// 下一個單字
+FlashcardApp.prototype.nextWord = function() {
+  if (this.isTransitioning || this.isPaused) return;
+  
+  if (this.pendingRemoval) {
+    this.confirmRemoval();
+      return;
+    }
+    
+  if (!this.showingChinese) {
+    this.showSecondPartAndScheduleNext();
+    return;
+  }
+  
+  this.saveNavigationState();
+  
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+  }
+  
+  this.speechSynthesis.cancel();
+  
+  this.isTransitioning = true;
+  
+  var englishElement = document.getElementById('english-word');
+  var chineseElement = document.getElementById('chinese-word');
+  
+  englishElement.classList.remove('show');
+  chineseElement.classList.remove('show');
+  
+  chineseElement.textContent = '';
+  
+  var self = this;
+  setTimeout(function() {
+    self.currentIndex = (self.currentIndex + 1) % self.currentWords.length;
+    
+    if (self.currentIndex === 0) {
+      self.shuffleArray(self.currentWords);
+      self.navigationHistory = [];
+    }
+    
+    self.displayCurrentWord();
+    self.isTransitioning = false;
+    
+  }, 300);
+  this.renderDifficultStar();
+};
+
+// 上一個單字
+FlashcardApp.prototype.previousWord = function() {
+  if (this.isTransitioning || this.isPaused) return;
+  
+  if (this.pendingRemoval) {
+    this.cancelRemoval();
+    return;
+  }
+  
+  if (this.navigationHistory.length === 0) return;
+  
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
+  }
+  
+  this.speechSynthesis.cancel();
+  
+  this.isTransitioning = true;
+  
+  var englishElement = document.getElementById('english-word');
+  var chineseElement = document.getElementById('chinese-word');
+  
+  englishElement.classList.remove('show');
+  chineseElement.classList.remove('show');
+  
+  chineseElement.textContent = '';
+  
+  var self = this;
+  setTimeout(function() {
+    var previousState = self.navigationHistory.pop();
+    
+    var previousWord = previousState.wordSequence[previousState.currentIndex];
+    
+    var wordIndex = -1;
+    for (var i = 0; i < self.currentWords.length; i++) {
+      if (self.currentWords[i].english === previousWord.english && 
+          self.currentWords[i].chinese === previousWord.chinese) {
+        wordIndex = i;
+        break;
+      }
+    }
+    
+    if (wordIndex !== -1) {
+      self.currentIndex = wordIndex;
+    } else {
+      self.currentIndex = Math.min(previousState.currentIndex, self.currentWords.length - 1);
+      
+      if (self.currentWords.length === 0) {
+        self.startNewRound();
+        self.isTransitioning = false;
+        return;
+      }
+    }
+    
+    self.displayCurrentWord();
+    self.isTransitioning = false;
+    
+  }, 300);
+  this.renderDifficultStar();
+};
+
+// 儲存導航狀態
+FlashcardApp.prototype.saveNavigationState = function() {
+  if (this.currentWords.length > 0 && this.currentIndex >= 0) {
+    this.navigationHistory.push({
+      currentIndex: this.currentIndex,
+      wordSequence: this.currentWords.slice()
+    });
+    
+    if (this.navigationHistory.length > 20) {
+      this.navigationHistory.shift();
+    }
+  }
+};
+
+// 重新開始
+FlashcardApp.prototype.restart = function() {
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
+  }
+  this.speechSynthesis.cancel();
+  this.pendingRemoval = null;
+  this.closeMenu();
+  this.startNewRound();
+};
+
+// 重新顯示當前單字
+FlashcardApp.prototype.redisplayCurrentWord = function() {
+  if (this.displayTimer) {
+    clearTimeout(this.displayTimer);
+    this.displayTimer = null;
+  }
+  
+  this.speechSynthesis.cancel();
+  
+  this.showingChinese = false;
+  this.isTransitioning = false;
+  this.isProcessingClick = false;
+  this.pendingRemoval = null;
+  
+  this.displayCurrentWord();
+};
+
+// 語音設定相關
+FlashcardApp.prototype.openVoiceSettings = function() {
+  var modal = document.getElementById('voice-settings-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    this.pauseTimer();
+    
+    var speechEnabledSetting = document.getElementById('speech-enabled-setting');
+    var voiceRateSetting = document.getElementById('voice-rate-setting');
+    var voiceRateValue = document.getElementById('voice-rate-value');
+    
+    if (speechEnabledSetting) speechEnabledSetting.checked = this.voiceSettings.enabled;
+    if (voiceRateSetting) voiceRateSetting.value = this.voiceSettings.rate;
+    if (voiceRateValue) voiceRateValue.textContent = this.voiceSettings.rate;
+    
+    this.populateVoiceSelect();
+  }
+};
+
+FlashcardApp.prototype.closeVoiceSettings = function() {
+  var modal = document.getElementById('voice-settings-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    this.resumeTimer();
+  }
+};
+
+FlashcardApp.prototype.saveVoiceSettingsAndClose = function() {
+  var speechEnabledSetting = document.getElementById('speech-enabled-setting');
+  var voiceRateSetting = document.getElementById('voice-rate-setting');
+  var voiceSelectSetting = document.getElementById('voice-select-setting');
+  
+  if (speechEnabledSetting) this.voiceSettings.enabled = speechEnabledSetting.checked;
+  if (voiceRateSetting) this.voiceSettings.rate = parseFloat(voiceRateSetting.value);
+  
+  if (voiceSelectSetting) {
+    var selectedVoiceURI = voiceSelectSetting.value;
+    this.voiceSettings.voiceURI = selectedVoiceURI;
+    var voices = this.speechSynthesis.getVoices();
+    for (var i = 0; i < voices.length; i++) {
+      if (voices[i].voiceURI === selectedVoiceURI) {
+        this.voiceSettings.lang = voices[i].lang;
+        break;
+      }
+    }
+  }
+  
+  this.saveSettings();
+  this.closeVoiceSettings();
+};
+
+FlashcardApp.prototype.populateVoiceSelect = function() {
+  var voiceSelect = document.getElementById('voice-select-setting');
+  if (!voiceSelect) return;
+  
+  voiceSelect.innerHTML = '';
+  var voices = this.speechSynthesis.getVoices();
+  var englishVoices = voices.filter(function(v) { 
+    return v.lang && v.lang.indexOf('en') === 0; 
   });
   
-  // 選單相關事件
-  var menuBtn = document.getElementById('menu-btn');
-  var restartBtn = document.getElementById('restart-btn');
-  
-  if (menuBtn) menuBtn.addEventListener('click', toggleMenu);
-  if (restartBtn) restartBtn.addEventListener('click', restart);
-  
-  // 設定相關事件
-  var settingsBtn = document.getElementById('settings-btn');
-  var closeSettings = document.getElementById('close-settings');
-  var saveSettings = document.getElementById('save-settings');
-  
-  if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
-  if (closeSettings) closeSettings.addEventListener('click', closeSettingsModal);
-  if (saveSettings) saveSettings.addEventListener('click', saveSettingsAndClose);
-}
-
-// 應用設定
-function applySettings() {
-  if (document.documentElement.style.setProperty) {
-    document.documentElement.style.setProperty('--font-4xl', flashcardApp.settings.fontSize + 'px');
-  }
-}
-
-// 選單相關函數
-function toggleMenu() {
-  var menuDropdown = document.getElementById('menu-dropdown');
-  if (menuDropdown) {
-    if (menuDropdown.classList.contains('show')) {
-      menuDropdown.classList.remove('show');
-    } else {
-      menuDropdown.classList.add('show');
+  for (var i = 0; i < englishVoices.length; i++) {
+    var voice = englishVoices[i];
+    var option = document.createElement('option');
+    option.value = voice.voiceURI;
+    option.textContent = voice.name + ' (' + voice.lang + ')';
+    if (voice.voiceURI === this.voiceSettings.voiceURI) {
+      option.selected = true;
     }
+    voiceSelect.appendChild(option);
   }
-}
-
-function closeMenu() {
-  var menuDropdown = document.getElementById('menu-dropdown');
-  if (menuDropdown) {
-    menuDropdown.classList.remove('show');
+  
+  if (!voiceSelect.value && englishVoices.length > 0) {
+    voiceSelect.value = englishVoices[0].voiceURI;
   }
-}
+};
 
-// 設定相關函數
-function openSettings() {
-  var settingsModal = document.getElementById('settings-modal');
-  if (settingsModal) {
-    settingsModal.style.display = 'flex';
-  }
-  closeMenu();
-}
+// 匯出功能相關（基本版本）
+FlashcardApp.prototype.openExportModal = function() {
+  console.log('匯出功能需要完整實現');
+  alert('匯出功能正在開發中');
+};
 
-function closeSettingsModal() {
-  var settingsModal = document.getElementById('settings-modal');
-  if (settingsModal) {
-    settingsModal.style.display = 'none';
-  }
-}
+FlashcardApp.prototype.closeExportModal = function() {
+  console.log('關閉匯出模態框');
+};
 
-function saveSettingsAndClose() {
+FlashcardApp.prototype.confirmExport = function() {
+  console.log('確認匯出');
+};
+
+// Sheet設定相關（完整實現）
+FlashcardApp.prototype.loadSheetsList = function() {
+  var input = this.validateAndGetSheetInput();
+  if (!input) return;
+
+  var elements = this.validateSheetUIElements();
+  if (!elements) return;
+
   try {
-    var delaySlider = document.getElementById('delay-setting');
-    var fontSizeSlider = document.getElementById('font-size-setting');
-    var reverseToggle = document.getElementById('reverse-setting');
-    
-    if (delaySlider) flashcardApp.settings.delayTime = parseFloat(delaySlider.value);
-    if (fontSizeSlider) flashcardApp.settings.fontSize = parseInt(fontSizeSlider.value);
-    if (reverseToggle) flashcardApp.settings.reverseMode = reverseToggle.checked;
-    
-    localStorage.setItem('flashcard-settings', JSON.stringify(flashcardApp.settings));
-    
-    applySettings();
-    closeSettingsModal();
-  } catch (e) {
-    console.log('儲存設定失敗:', e);
-    closeSettingsModal();
-  }
-}
-
-// 當頁面載入完成後啟動應用 (ES5 兼容版本)
-window.addEventListener('load', function() {
-  // 兼容性檢查
-  try {
-    // 檢查基本功能
-    if (!document.getElementById || !document.createElement || !document.querySelector) {
-      throw new Error('基本DOM功能不支援');
-    }
-    
-    console.log('嘗試初始化FlashcardApp (ES5兼容版本)...');
-    initFlashcardApp();
-    
-    console.log('FlashcardApp 成功初始化');
+    var sheetId = this.extractSheetId(input);
+    this.updateSheetLoadingUI(elements, true);
+    this.performSheetListRequest(sheetId, elements);
   } catch (error) {
-    console.error('FlashcardApp 初始化失敗:', error);
+    console.error('loadSheetsList 執行過程中發生錯誤:', error);
+    alert('錯誤：' + error.message);
+  }
+};
+
+FlashcardApp.prototype.validateAndGetSheetInput = function() {
+  var sheetIdInput = document.getElementById('sheet-id-input');
+  if (!sheetIdInput) {
+    console.error('找不到 sheet-id-input 元素');
+    alert('系統錯誤：找不到輸入框元素');
+    return null;
+  }
+
+  var input = sheetIdInput.value.trim();
+  if (!input) {
+    console.warn('用戶未輸入任何內容');
+    alert('請輸入 Google Sheet ID 或 URL');
+    return null;
+  }
+
+  return input;
+};
+
+FlashcardApp.prototype.validateSheetUIElements = function() {
+  var elements = {
+    sheetsList: document.getElementById('sheets-list'),
+    sheetsGroup: document.getElementById('sheets-selection-group'),
+    loadBtn: document.getElementById('load-sheets-btn')
+  };
+
+  var elementChecks = [
+    { element: elements.sheetsList, name: 'sheets-list', error: '找不到工作表清單元素' },
+    { element: elements.sheetsGroup, name: 'sheets-selection-group', error: '找不到工作表選擇組元素' },
+    { element: elements.loadBtn, name: 'load-sheets-btn', error: '找不到載入按鈕' }
+  ];
+
+  for (var i = 0; i < elementChecks.length; i++) {
+    var check = elementChecks[i];
+    if (!check.element) {
+      console.error('找不到 ' + check.name + ' 元素');
+      alert('系統錯誤：' + check.error);
+      return null;
+    }
+  }
+
+  return elements;
+};
+
+FlashcardApp.prototype.extractSheetId = function(input) {
+  console.log('=== extractSheetId 開始執行 ===');
+  console.log('輸入內容:', input);
+  
+  var trimmedInput = input.trim();
+  console.log('去除空格後:', trimmedInput);
+  
+  // 如果看起來像是 URL
+  if (trimmedInput.indexOf('docs.google.com/spreadsheets') !== -1) {
+    console.log('檢測到 Google Sheets URL');
+    // 尋找 /d/ 後面的 ID
+    var match = trimmedInput.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    console.log('正則表達式匹配結果:', match);
     
-    // 顯示兼容性錯誤訊息
+    if (match && match[1]) {
+      console.log('從 URL 提取到 Sheet ID:', match[1]);
+      return match[1];
+        } else {
+      console.error('無法從 URL 中提取 Sheet ID');
+      throw new Error('無法從 URL 中提取 Sheet ID，請確認 URL 格式正確');
+    }
+  }
+  
+  // 如果看起來像是純 ID (字母數字組合)
+  var idPattern = /^[a-zA-Z0-9-_]+$/;
+  console.log('檢查是否為純 ID，模式:', idPattern);
+  console.log('模式測試結果:', idPattern.test(trimmedInput));
+  
+  if (idPattern.test(trimmedInput)) {
+    console.log('輸入看起來是 Sheet ID:', trimmedInput);
+    return trimmedInput;
+  }
+  
+  console.error('輸入格式不正確');
+  throw new Error('輸入格式不正確，請輸入有效的 Google Sheet ID 或 URL');
+};
+
+FlashcardApp.prototype.updateSheetLoadingUI = function(elements, isLoading) {
+  if (isLoading) {
+    elements.sheetsList.innerHTML = '<div class="loading-text">載入中...</div>';
+    elements.sheetsGroup.style.display = 'block';
+    elements.loadBtn.disabled = true;
+    elements.loadBtn.textContent = '載入中...';
+        } else {
+    elements.loadBtn.disabled = false;
+    elements.loadBtn.textContent = '載入工作表清單';
+  }
+};
+
+FlashcardApp.prototype.performSheetListRequest = function(sheetId, elements) {
+  if (!this.validateGoogleScriptEnvironment()) {
+    throw new Error('Google Apps Script 環境不可用');
+  }
+
+  var self = this;
+  var timeout = this.setupSheetRequestTimeout(elements);
+  
+  google.script.run
+    .withSuccessHandler(function(result) {
+      self.handleSheetListSuccess(result, elements, timeout);
+    })
+    .withFailureHandler(function(error) {
+      self.handleSheetListFailure(error, elements, timeout);
+    })
+    .getSheetsList(sheetId);
+};
+
+FlashcardApp.prototype.validateGoogleScriptEnvironment = function() {
+  if (typeof google === 'undefined') {
+    console.error('google 物件未定義');
+    return false;
+  }
+  if (!google.script || !google.script.run) {
+    console.error('Google Apps Script 功能未可用');
+    return false;
+  }
+  return true;
+};
+
+FlashcardApp.prototype.setupSheetRequestTimeout = function(elements) {
+  var self = this;
+  return setTimeout(function() {
+    console.error('載入工作表清單超時 (15秒)');
+    elements.sheetsList.innerHTML = '<div class="error-text">載入超時，請檢查網路連接或重試</div>';
+    self.updateSheetLoadingUI(elements, false);
+  }, 15000);
+};
+
+FlashcardApp.prototype.handleSheetListSuccess = function(result, elements, timeout) {
+  clearTimeout(timeout);
+  console.log('Google Apps Script 成功回調');
+
+  var sheets, spreadsheetName;
+  if (result && result.sheets) {
+    sheets = result.sheets;
+    spreadsheetName = result.spreadsheetName;
+  } else if (Array.isArray(result)) {
+    sheets = result;
+    spreadsheetName = null;
+  } else {
+    throw new Error('載入工作表清單失敗：返回格式錯誤');
+  }
+
+  this.availableSheets = sheets;
+  this.currentSpreadsheetName = spreadsheetName;
+  this.renderSheetsList();
+  this.updateSheetLoadingUI(elements, false);
+};
+
+FlashcardApp.prototype.handleSheetListFailure = function(error, elements, timeout) {
+  clearTimeout(timeout);
+  console.error('載入工作表清單失敗:', error);
+
+  var errorMessage = error.message || '未知錯誤';
+  var helpMessage = '';
+  
+  // 根據不同錯誤類型提供具體的幫助訊息
+  if (errorMessage.indexOf('權限') !== -1 || errorMessage.indexOf('Permission') !== -1) {
+    helpMessage = '<div class="error-help"><strong>解決方案：</strong><br>1. 確認您有存取此 Google Sheet 的權限<br>2. 如果是私人 Sheet，請確保您已登入相同的 Google 帳號<br>3. 嘗試在瀏覽器中直接開啟該 Sheet 確認權限</div>';
+  } else if (errorMessage.indexOf('找不到') !== -1 || errorMessage.indexOf('無法開啟') !== -1 || errorMessage.indexOf('not found') !== -1) {
+    helpMessage = '<div class="error-help"><strong>解決方案：</strong><br>1. 請檢查 Sheet ID 是否正確<br>2. 確認 Sheet 是否存在且未被刪除<br>3. 如果是 URL，請確保格式正確</div>';
+  } else if (errorMessage.indexOf('network') !== -1 || errorMessage.indexOf('網路') !== -1) {
+    helpMessage = '<div class="error-help"><strong>解決方案：</strong><br>1. 檢查網路連接<br>2. 稍後重試<br>3. 確認防火牆未阻擋 Google 服務</div>';
+        } else {
+    helpMessage = '<div class="error-help"><strong>常見解決方案：</strong><br>1. 請刷新頁面重試（按 Ctrl+F5 或 Cmd+Shift+R）<br>2. 確認 Google Sheet ID 格式正確<br>3. 確認您有該 Sheet 的存取權限<br>4. 嘗試直接在瀏覽器開啟該 Sheet</div>';
+  }
+  
+  elements.sheetsList.innerHTML = '<div class="error-text">載入失敗：' + errorMessage + '</div>' + helpMessage;
+  this.updateSheetLoadingUI(elements, false);
+};
+
+FlashcardApp.prototype.renderSheetsList = function() {
+  console.log('=== renderSheetsList 開始執行 ===');
+  console.log('可用工作表數量:', this.availableSheets ? this.availableSheets.length : 0);
+  console.log('工作表資料:', this.availableSheets);
+  console.log('當前 Google Sheet 名稱:', this.currentSpreadsheetName);
+  
+  var sheetsList = document.getElementById('sheets-list');
+  var sheetsGroup = document.getElementById('sheets-selection-group');
+  if (!sheetsList || !sheetsGroup) {
+    console.error('找不到 sheets-list 或 sheets-selection-group 元素');
+    return;
+  }
+  
+  if (!this.availableSheets || this.availableSheets.length === 0) {
+    console.warn('沒有可用的工作表');
+    sheetsList.innerHTML = '<div class="error-text">沒有找到工作表</div>';
+    var oldTitle = sheetsGroup.querySelector('.sheet-title');
+    if (oldTitle) oldTitle.remove();
+      return;
+    }
+
+  console.log('開始清空並重新渲染工作表清單');
+  sheetsList.innerHTML = '';
+  
+  // 先移除舊的標題
+  var oldTitle = sheetsGroup.querySelector('.sheet-title');
+  if (oldTitle) oldTitle.remove();
+  
+  // 如果有 Google Sheet 名稱，顯示在 sheetsGroup 最上方
+  if (this.currentSpreadsheetName) {
+    var sheetTitle = document.createElement('div');
+    sheetTitle.className = 'sheet-title';
+    sheetTitle.innerHTML = '<div class="sheet-title-text"><strong>Google Sheet:</strong> ' + this.currentSpreadsheetName + '</div>';
+    sheetsGroup.insertBefore(sheetTitle, sheetsGroup.firstChild);
+    console.log('顯示 Google Sheet 名稱:', this.currentSpreadsheetName);
+  }
+  
+  var self = this;
+  for (var index = 0; index < this.availableSheets.length; index++) {
+    var sheet = this.availableSheets[index];
+    console.log('渲染工作表 ' + (index + 1) + ':', sheet);
+    
+    var sheetItem = document.createElement('div');
+    sheetItem.className = 'sheet-item';
+    
+    var checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = sheet.name;
+    
+    // 檢查是否應該自動勾選
+    if (this.sheetSettings.selectedSheets && this.sheetSettings.selectedSheets.includes(sheet.name)) {
+      checkbox.checked = true;
+      console.log('自動勾選已載入的工作表:', sheet.name);
+    }
+    
+    (function(sheetName) {
+      checkbox.addEventListener('change', function() {
+        console.log('工作表選擇狀態改變:', sheetName, checkbox.checked);
+        self.toggleSheetSelection();
+      });
+    })(sheet.name);
+    
+    var sheetInfo = document.createElement('div');
+    sheetInfo.className = 'sheet-info';
+    
+    var sheetName = document.createElement('div');
+    sheetName.className = 'sheet-name';
+    sheetName.textContent = sheet.name;
+    
+    var sheetCount = document.createElement('div');
+    sheetCount.className = 'sheet-count';
+    sheetCount.textContent = sheet.wordCount + ' 個單字';
+    
+    sheetInfo.appendChild(sheetName);
+    sheetInfo.appendChild(sheetCount);
+    
+    sheetItem.appendChild(checkbox);
+    sheetItem.appendChild(sheetInfo);
+    
+    (function(currentSheet, currentCheckbox) {
+      sheetItem.addEventListener('click', function(e) {
+        if (e.target !== currentCheckbox) {
+          console.log('點擊工作表項目:', currentSheet.name);
+          currentCheckbox.checked = !currentCheckbox.checked;
+          self.toggleSheetSelection();
+        }
+      });
+    })(sheet, checkbox);
+    
+    sheetsList.appendChild(sheetItem);
+    console.log('工作表 ' + sheet.name + ' 渲染完成');
+  }
+  
+  console.log('所有工作表渲染完成，更新選擇計數');
+  this.updateSelectedCount();
+  
+  // 檢查是否有已勾選的工作表，如果有則啟用載入按鈕
+  var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+  var selectedCount = 0;
+  for (var i = 0; i < checkboxes.length; i++) {
+    if (checkboxes[i].checked) selectedCount++;
+  }
+  var saveBtn = document.getElementById('save-sheet-settings');
+  if (saveBtn && selectedCount > 0) {
+    saveBtn.disabled = false;
+    console.log('啟用載入單字按鈕，已選擇', selectedCount, '個工作表');
+  }
+  
+  console.log('=== renderSheetsList 執行完成 ===');
+};
+
+FlashcardApp.prototype.toggleSheetSelection = function() {
+  var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+  var selectedCount = 0;
+  for (var i = 0; i < checkboxes.length; i++) {
+    if (checkboxes[i].checked) selectedCount++;
+  }
+  
+  var saveBtn = document.getElementById('save-sheet-settings');
+  if (saveBtn) {
+    saveBtn.disabled = selectedCount === 0;
+  }
+  this.updateSelectedCount();
+};
+
+FlashcardApp.prototype.updateSelectedCount = function() {
+  var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+  var selectedCount = 0;
+  for (var i = 0; i < checkboxes.length; i++) {
+    if (checkboxes[i].checked) selectedCount++;
+  }
+  var selectedCountElement = document.getElementById('selected-count');
+  if (selectedCountElement) {
+    selectedCountElement.textContent = '(已選 ' + selectedCount + ' 個)';
+  }
+};
+
+FlashcardApp.prototype.saveSheetSettingsAndClose = function() {
+  var sheetIdInput = document.getElementById('sheet-id-input');
+  var input = sheetIdInput.value.trim();
+  
+  var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+  var selectedSheets = [];
+  for (var i = 0; i < checkboxes.length; i++) {
+    if (checkboxes[i].checked) {
+      selectedSheets.push(checkboxes[i].value);
+    }
+  }
+  
+  if (!input || selectedSheets.length === 0) {
+    alert('請輸入 Google Sheet ID/URL 並選擇至少一個工作表');
+    return;
+  }
+  
+  try {
+    var sheetId = this.extractSheetId(input);
+    
+    this.sheetSettings.sheetId = sheetId;
+    this.sheetSettings.selectedSheets = selectedSheets;
+    this.saveSheetSettings();
+    
+    console.log('儲存 Sheet 設定:', this.sheetSettings);
+    
+    this.closeSheetSettings();
+    
+    // 顯示載入中訊息
+    var loadingDiv = document.getElementById('loading');
+    var flashcardDiv = document.getElementById('flashcard');
+    if (loadingDiv) loadingDiv.style.display = 'flex';
+    if (flashcardDiv) flashcardDiv.style.display = 'none';
+    
+    // 重新載入單字
+    var self = this;
+    this.loadWords(false, function(hasDuplicates) {
+      self.setupEventListeners();
+      self.applySettings();
+      
+      if (!hasDuplicates) {
+        self.startNewRound();
+      }
+      
+      if (loadingDiv) loadingDiv.style.display = 'none';
+      if (flashcardDiv) flashcardDiv.style.display = 'flex';
+    });
+    
+  } catch (error) {
+    console.error('儲存設定時發生錯誤:', error);
+    alert(error.message);
+  }
+};
+
+// 重複處理相關（基本版本）
+FlashcardApp.prototype.showAutoProcessingNotification = function(results) {
+  console.log('顯示自動處理通知:', results);
+};
+
+FlashcardApp.prototype.showDuplicateModal = function() {
+  console.log('顯示重複處理模態框');
+};
+
+// 全域變數
+var app;
+
+// 頁面載入完成後啟動
+window.addEventListener('load', function() {
+  try {
+    console.log('頁面載入完成，啟動FlashcardApp');
+    app = new FlashcardApp();
+    
+    // 語音列表載入後填充語音腔調選單
+  if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = function() {
+        if (app && typeof app.populateVoiceSelect === 'function') {
+        app.populateVoiceSelect();
+      }
+    };
+  }
+  } catch (error) {
+    console.error('應用啟動失敗:', error);
     var loadingDiv = document.getElementById('loading');
     var errorDiv = document.getElementById('error');
-    
-    if (loadingDiv) {
-      loadingDiv.style.display = 'none';
-    }
-    
+    if (loadingDiv) loadingDiv.style.display = 'none';
     if (errorDiv) {
       errorDiv.style.display = 'block';
-      errorDiv.innerHTML = '<h2>瀏覽器兼容性問題</h2>' +
-        '<p>您的瀏覽器版本可能過舊，不支援此應用程式的某些功能。</p>' +
-        '<p><strong>檢測到的問題：</strong></p>' +
-        '<ul>' +
-        '<li>iPad4 Chrome 134版本可能不支援某些JavaScript功能</li>' +
-        '<li>請嘗試重新整理頁面</li>' +
-        '<li>如果問題持續，建議使用Safari瀏覽器</li>' +
-        '</ul>' +
-        '<p><strong>錯誤詳情：</strong> ' + error.message + '</p>' +
-        '<p><strong>建議解決方案：</strong></p>' +
-        '<ul>' +
-        '<li>嘗試重新整理頁面</li>' +
-        '<li>清除瀏覽器快取</li>' +
-        '<li>使用Safari瀏覽器（通常在iPad上相容性更好）</li>' +
-        '</ul>';
-    } else {
-      // 如果沒有error div，創建一個
-      var newErrorDiv = document.createElement('div');
-      newErrorDiv.innerHTML = '<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; color: black; padding: 20px; border: 2px solid red; z-index: 9999; max-width: 80%;"><h2>瀏覽器兼容性問題</h2><p>您的瀏覽器版本可能過舊，不支援此應用程式的某些功能。</p><p>請嘗試重新整理頁面或使用Safari瀏覽器。</p><p>錯誤詳情：' + error.message + '</p></div>';
-      document.body.appendChild(newErrorDiv);
+      errorDiv.innerHTML = '<h2>啟動失敗</h2><p>請重新整理頁面，錯誤：' + error.message + '</p>';
     }
   }
 });
-</script> 
+
+console.log('FlashcardApp ES5兼容版本已載入');
+</script>

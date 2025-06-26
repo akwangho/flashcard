@@ -1487,5 +1487,29 @@ input:checked + .slider:before {
   color: var(--error-color);
   font-weight: bold;
 }
+
+/* ==========================================================================
+   ERROR HELP MESSAGES
+   ========================================================================== */
+
+.error-help {
+  background-color: rgba(255, 165, 0, 0.1);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+  color: #FFB347; /* 淺橙色 */
+  font-size: var(--font-sm);
+  line-height: 1.4;
+}
+
+.error-help strong {
+  color: var(--warning-color);
+  font-weight: bold;
+}
+
+.error-help br {
+  line-height: 1.6;
+}
 </style>
 
