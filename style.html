@@ -526,11 +526,41 @@ input[type="radio"] {
 
 #sheet-id-input {
   /* Override inline styles to use consistent styling */
+  width: 100% !important;
   padding: 8px 12px !important;
   border: 2px solid var(--primary-color) !important;
   border-radius: var(--radius-md) !important;
   background-color: var(--bg-color) !important;
-  color: var(--primary-color) !important;
+  color: #FFFFFF !important; /* White text for user input */
+}
+
+/* Enhanced color scheme for better text distinction */
+/* Specifically for sheet selection area */
+.sheets-list .sheet-item label {
+  color: #CCCCCC !important; /* Light gray for sheet names */
+}
+
+.sheets-list .sheet-item span {
+  color: #87CEEB !important; /* Light blue for word counts */
+}
+
+/* Selected count indicator */
+#selected-count {
+  color: #87CEEB !important; /* Light blue for selection status */
+}
+
+/* Status text and hints */
+.sheet-id-tooltip small, .sheet-id-tooltip strong {
+  color: var(--gray-color) !important; /* Gray for hints */
+}
+
+/* Improve general input text visibility */
+input[type="text"], input[type="email"], input[type="password"], input[type="url"] {
+  color: #FFFFFF !important; /* White text for all inputs */
+}
+
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="url"]:focus {
+  color: #FFFFFF !important; /* White text when focused */
 }
 
 /* Switch component */
