@@ -1,5 +1,27 @@
 <!-- style.html -->
 <style>
+/* iPad4 兼容性：為舊版瀏覽器提供fallback */
+
+/* 原始硬編碼值作為fallback */
+body {
+  font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif;
+  background-color: #000000;
+  color: #FFFF00;
+  margin: 0;
+  padding: 0;
+}
+
+#loading p {
+  font-size: 96px;
+  font-weight: bold;
+}
+
+.word {
+  font-size: 96px;
+  font-weight: bold;
+}
+
+/* CSS變量定義（新版瀏覽器會覆蓋上面的fallback值） */
 :root {
   /* Colors */
   --primary-color: #FFFF00;
