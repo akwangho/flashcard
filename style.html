@@ -1,5 +1,45 @@
 <!-- style.html -->
 <style>
+:root {
+  /* Colors */
+  --primary-color: #FFFF00;
+  --bg-color: #000000;
+  --text-color: #FFFFFF;
+  --gray-color: #888888;
+  --success-color: #00FF00;
+  --error-color: #FF6B6B;
+  --warning-color: #FFA500;
+  --light-blue: #87CEEB;
+  
+  /* Spacing */
+  --spacing-xs: 5px;
+  --spacing-sm: 10px;
+  --spacing-md: 15px;
+  --spacing-lg: 20px;
+  --spacing-xl: 30px;
+  
+  /* Border radius */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  
+  /* Font sizes */
+  --font-xs: 12px;
+  --font-sm: 14px;
+  --font-md: 16px;
+  --font-lg: 18px;
+  --font-xl: 20px;
+  --font-2xl: 24px;
+  --font-3xl: 36px;
+  --font-4xl: 96px;
+  
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -8,12 +48,16 @@
 
 body {
   font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif;
-  background-color: #000000;
-  color: #FFFF00;
+  background-color: var(--bg-color);
+  color: var(--primary-color);
   height: 100vh;
   overflow: hidden;
   user-select: none;
 }
+
+/* ==========================================================================
+   BASE COMPONENTS
+   ========================================================================== */
 
 #app {
   height: 100vh;
@@ -28,29 +72,34 @@ body {
 }
 
 #loading p {
-  font-size: 96px;
+  font-size: var(--font-4xl);
   font-weight: bold;
 }
 
 #error {
-  font-size: 24px;
+  font-size: var(--font-2xl);
 }
 
 #error button {
-  margin-top: 20px;
-  padding: 10px 20px;
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
   background-color: #333;
-  color: #FFFF00;
-  border: 2px solid #FFFF00;
-  border-radius: 5px;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-md);
+  transition: var(--transition-normal);
 }
 
 #error button:hover {
-  background-color: #FFFF00;
-  color: #000000;
+  background-color: var(--primary-color);
+  color: var(--bg-color);
 }
+
+/* ==========================================================================
+   FLASHCARD COMPONENTS
+   ========================================================================== */
 
 #flashcard {
   width: 100%;
@@ -72,8 +121,8 @@ body {
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  padding: 20px;
+  transition: background-color var(--transition-normal);
+  padding: var(--spacing-lg);
 }
 
 .card-section:hover {
@@ -82,7 +131,7 @@ body {
 
 .card-section.clicked {
   background-color: rgba(255, 0, 0, 0.3);
-  animation: clickEffect 0.5s ease;
+  animation: clickEffect var(--transition-slow);
 }
 
 @keyframes clickEffect {
@@ -91,15 +140,15 @@ body {
 }
 
 .word {
-  font-size: 96px;
+  font-size: var(--font-4xl);
   font-weight: bold;
   text-align: center;
   line-height: 1.2;
   max-width: 90%;
   word-wrap: break-word;
   opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.5s ease;
+  transform: translateY(var(--spacing-lg));
+  transition: all var(--transition-slow);
 }
 
 .word.show {
@@ -107,60 +156,101 @@ body {
   transform: translateY(0);
 }
 
-/* 修改進度文字樣式 - 移除邊框和背景，改為灰色，並添加點擊游標 */
+/* ==========================================================================
+   COMMON BUTTON STYLES
+   ========================================================================== */
+
+.btn-base {
+  padding: 12px var(--spacing-lg);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: bold;
+  transition: all var(--transition-normal);
+  font-size: var(--font-md);
+}
+
+.btn-base:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  transform: scale(1.05);
+}
+
+.btn-base:active {
+  transform: scale(0.95);
+}
+
+.btn-base:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-base:disabled:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: var(--primary-color);
+  transform: none;
+}
+
+/* ==========================================================================
+   PROGRESS & CONTROLS
+   ========================================================================== */
+
 .progress {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  font-size: 24px;
+  bottom: var(--spacing-lg);
+  left: var(--spacing-lg);
+  font-size: var(--font-2xl);
   font-weight: bold;
-  color: #888888; /* 改為灰色 */
-  padding: 10px 15px;
-  cursor: pointer; /* 添加點擊游標提示 */
-  user-select: none; /* 防止文字選擇 */
-  transition: color 0.3s ease; /* 添加顏色過渡效果 */
+  color: var(--gray-color);
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition-normal);
 }
 
 .progress:hover {
-  color: #FFFF00; /* 滑鼠懸停時變為黃色 */
+  color: var(--primary-color);
 }
 
 .controls-wrapper {
   position: absolute;
   bottom: 0;
   right: 0;
-  padding: 20px; /* Creates a larger invisible hover area */
+  padding: var(--spacing-lg);
   z-index: 100;
 }
 
 .controls {
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-sm);
   align-items: center;
   opacity: 0;
-  transition: opacity 0.4s ease 0.5s; /* Fade out with a 0.5s delay */
+  transition: opacity 0.4s ease 0.5s;
 }
 
 .controls-wrapper:hover .controls {
   opacity: 1;
-  transition-delay: 0s; /* Fade in instantly */
+  transition-delay: 0s;
 }
 
 .controls button {
-  padding: 12px 20px;
+  padding: 12px var(--spacing-lg);
   background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFF00;
-  border: 2px solid #FFFF00;
-  border-radius: 5px;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 16px;
   font-weight: bold;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
+  font-size: var(--font-md);
 }
 
 .controls button:hover {
-  background-color: #FFFF00;
-  color: #000000;
+  background-color: var(--primary-color);
+  color: var(--bg-color);
   transform: scale(1.05);
 }
 
@@ -176,48 +266,47 @@ body {
 
 .controls button:disabled:hover {
   background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFF00;
+  color: var(--primary-color);
   transform: none;
 }
 
-/* 選單系統樣式 */
+/* ==========================================================================
+   MENU SYSTEM
+   ========================================================================== */
+
 .menu-container {
   position: relative;
   display: inline-block;
 }
 
 .menu-toggle {
-  padding: 12px 20px !important;
+  padding: 12px var(--spacing-lg) !important;
   background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFF00;
-  border: 2px solid #FFFF00;
-  border-radius: 5px;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-md);
   font-weight: bold;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
 }
 
-.menu-toggle:hover {
-  background-color: #FFFF00;
-  color: #000000;
-  transform: scale(1.05);
-}
-
+.menu-toggle:hover,
 .menu-toggle.active {
-  background-color: #FFFF00;
-  color: #000000;
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  transform: scale(1.05);
 }
 
 .menu-dropdown {
   position: absolute;
   bottom: 100%;
   right: 0;
-  margin-bottom: 5px;
+  margin-bottom: var(--spacing-xs);
   background-color: rgba(0, 0, 0, 0.9);
-  border: 2px solid #FFFF00;
-  border-radius: 5px;
-  min-width: 200px; /* 增加寬度確保內容顯示完整 */
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
+  min-width: 200px;
   display: none;
   z-index: 1000;
 }
@@ -229,16 +318,16 @@ body {
 .menu-item {
   display: block;
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px var(--spacing-md);
   background: none;
-  color: #FFFF00;
+  color: var(--primary-color);
   border: none;
   text-align: left;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-sm);
   font-weight: bold;
-  transition: background-color 0.3s ease;
-  white-space: nowrap; /* 防止文字換行 */
+  transition: background-color var(--transition-normal);
+  white-space: nowrap;
 }
 
 .menu-item:hover {
@@ -246,24 +335,26 @@ body {
 }
 
 .menu-item:first-child {
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .menu-item:last-child {
-  border-radius: 0 0 3px 3px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
-/* 確保 checkbox 的 label 樣式 */
 .menu-item label {
   margin: 0;
   padding: 0;
-  font-size: 14px;
+  font-size: var(--font-sm);
   font-weight: bold;
-  color: #FFFF00;
+  color: var(--primary-color);
   cursor: pointer;
 }
 
-/* 設定畫面樣式 */
+/* ==========================================================================
+   MODAL COMPONENTS
+   ========================================================================== */
+
 .modal {
   position: fixed;
   top: 0;
@@ -278,9 +369,9 @@ body {
 }
 
 .modal-content {
-  background-color: #000000;
-  border: 3px solid #FFFF00;
-  border-radius: 10px;
+  background-color: var(--bg-color);
+  border: 3px solid var(--primary-color);
+  border-radius: var(--radius-xl);
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
@@ -291,21 +382,21 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 2px solid #FFFF00;
+  padding: var(--spacing-lg);
+  border-bottom: 2px solid var(--primary-color);
 }
 
 .modal-header h2 {
-  font-size: 24px;
+  font-size: var(--font-2xl);
   font-weight: bold;
-  color: #FFFF00;
+  color: var(--primary-color);
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: #FFFF00;
-  font-size: 30px;
+  color: var(--primary-color);
+  font-size: var(--font-xl);
   font-weight: bold;
   cursor: pointer;
   padding: 0;
@@ -315,7 +406,7 @@ body {
   justify-content: center;
   align-items: center;
   border-radius: 50%;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
 }
 
 .close-btn:hover {
@@ -324,7 +415,7 @@ body {
 }
 
 .modal-body {
-  padding: 20px;
+  padding: var(--spacing-lg);
 }
 
 .setting-group {
@@ -333,24 +424,24 @@ body {
 
 .setting-group label {
   display: block;
-  font-size: 16px;
+  font-size: var(--font-md);
   font-weight: bold;
-  color: #FFFF00;
-  margin-bottom: 10px;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-sm);
 }
 
 .setting-control {
   display: flex;
   align-items: center;
-  gap: 15px;
-  position: relative; /* 讓 tooltip 定位於此 */
+  gap: var(--spacing-md);
+  position: relative;
 }
 
 .setting-control input[type="range"] {
   flex: 1;
   height: 6px;
   background: #333;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   outline: none;
   -webkit-appearance: none;
 }
@@ -358,17 +449,17 @@ body {
 .setting-control input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
-  background: #FFFF00;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
+  background: var(--primary-color);
   border-radius: 50%;
   cursor: pointer;
 }
 
 .setting-control input[type="range"]::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  background: #FFFF00;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
+  background: var(--primary-color);
   border-radius: 50%;
   cursor: pointer;
   border: none;
@@ -377,11 +468,11 @@ body {
 .setting-control span {
   min-width: 60px;
   font-weight: bold;
-  color: #FFFF00;
+  color: var(--primary-color);
   text-align: right;
 }
 
-/* 開關按鈕樣式 */
+/* Switch component */
 .switch {
   position: relative;
   display: inline-block;
@@ -411,42 +502,42 @@ body {
 .slider:before {
   position: absolute;
   content: "";
-  height: 24px;
-  width: 24px;
-  left: 3px;
-  bottom: 3px;
+  height: var(--font-2xl);
+  width: var(--font-2xl);
+  left: var(--spacing-xs);
+  bottom: var(--spacing-xs);
   background-color: #666;
   transition: 0.4s;
   border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: #FFFF00;
-  border-color: #FFFF00;
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 input:checked + .slider:before {
-  transform: translateX(24px);
-  background-color: #000;
+  transform: translateX(var(--font-2xl));
+  background-color: var(--bg-color);
 }
 
-/* 測試按鈕樣式 */
+/* Test button styles */
 .test-btn {
   width: 100%;
-  padding: 12px 20px;
+  padding: 12px var(--spacing-lg);
   background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFF00;
-  border: 2px solid #FFFF00;
-  border-radius: 5px;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-md);
   font-weight: bold;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
 }
 
 .test-btn:hover {
-  background-color: #FFFF00;
-  color: #000000;
+  background-color: var(--primary-color);
+  color: var(--bg-color);
   transform: scale(1.02);
 }
 
@@ -455,59 +546,59 @@ input:checked + .slider:before {
   cursor: not-allowed;
   transform: none;
   background-color: rgba(0, 0, 0, 0.7);
-  color: #888;
+  color: var(--gray-color);
   border-color: #666;
 }
 
 .test-btn:disabled:hover {
   background-color: rgba(0, 0, 0, 0.7);
-  color: #888;
+  color: var(--gray-color);
   transform: none;
 }
 
 .modal-footer {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  padding: 20px;
-  border-top: 2px solid #FFFF00;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  border-top: 2px solid var(--primary-color);
 }
 
 .secondary-btn {
-  padding: 12px 20px;
+  padding: 12px var(--spacing-lg);
   background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFF00;
+  color: var(--primary-color);
   border: 2px solid #666;
-  border-radius: 5px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-sm);
   font-weight: bold;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
   flex: 1;
 }
 
 .secondary-btn:hover {
   background-color: #666;
-  border-color: #FFFF00;
+  border-color: var(--primary-color);
   transform: scale(1.02);
 }
 
 .primary-btn {
-  padding: 12px 20px;
+  padding: 12px var(--spacing-lg);
   background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFF00;
-  border: 2px solid #FFFF00;
-  border-radius: 5px;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-sm);
   font-weight: bold;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
   flex: 2;
 }
 
 .primary-btn:hover {
-  background-color: #FFFF00;
-  color: #000000;
+  background-color: var(--primary-color);
+  color: var(--bg-color);
   transform: scale(1.02);
 }
 
@@ -519,56 +610,58 @@ input:checked + .slider:before {
 
 .primary-btn:disabled:hover {
   background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFF00;
+  color: var(--primary-color);
   transform: none;
 }
 
-/* Google Sheet 設定相關樣式 */
+/* ==========================================================================
+   GOOGLE SHEET COMPONENTS
+   ========================================================================== */
+
 .setting-help {
-  margin-top: 5px;
+  margin-top: var(--spacing-xs);
 }
 
 .setting-help small {
-  font-size: 12px;
+  font-size: var(--font-xs);
   line-height: 1.4;
 }
 
-/* 新增：Google Sheet 標題樣式 */
 .sheet-title {
-  padding: 15px;
+  padding: var(--spacing-md);
   background-color: rgba(255, 255, 0, 0.1);
   border: 1px solid rgba(255, 255, 0, 0.3);
-  border-radius: 5px;
-  margin-bottom: 10px;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-sm);
 }
 
 .sheet-title-text {
-  color: #FFFF00;
-  font-size: 14px;
+  color: var(--primary-color);
+  font-size: var(--font-sm);
   text-align: center;
 }
 
 .sheet-title-text strong {
-  color: #FFFF00;
+  color: var(--primary-color);
   font-weight: bold;
 }
 
 .sheets-list {
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #FFFF00;
-  border-radius: 5px;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-md);
   background-color: rgba(0, 0, 0, 0.5);
 }
 
 .sheet-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 15px;
+  gap: var(--spacing-sm);
+  padding: 12px var(--spacing-md);
   border-bottom: 1px solid rgba(255, 255, 0, 0.2);
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color var(--transition-normal);
 }
 
 .sheet-item:last-child {
@@ -594,76 +687,68 @@ input:checked + .slider:before {
 
 .sheet-name {
   font-weight: bold;
-  color: #FFFF00;
-  font-size: 14px;
+  color: var(--primary-color);
+  font-size: var(--font-sm);
 }
 
 .sheet-count {
-  color: #888;
-  font-size: 12px;
+  color: var(--gray-color);
+  font-size: var(--font-xs);
 }
 
 .loading-text {
   text-align: center;
-  color: #888;
+  color: var(--gray-color);
   font-style: italic;
-  padding: 20px;
+  padding: var(--spacing-lg);
 }
 
 .error-text {
   text-align: center;
-  color: #FF6666;
-  font-size: 14px;
-  padding: 15px;
-  border: 1px solid #FF6666;
-  border-radius: 5px;
+  color: var(--error-color);
+  font-size: var(--font-sm);
+  padding: var(--spacing-md);
+  border: 1px solid var(--error-color);
+  border-radius: var(--radius-md);
   background-color: rgba(255, 102, 102, 0.1);
-  margin-top: 10px;
+  margin-top: var(--spacing-sm);
 }
 
-/* 響應式設計 */
+/* ==========================================================================
+   RESPONSIVE DESIGN
+   ========================================================================== */
+
 @media (max-width: 768px) {
-  .word {
-    font-size: 36px;
-  }
-  
-  #loading p {
-    font-size: 36px;
+  .word, #loading p {
+    font-size: var(--font-3xl);
   }
   
   .progress {
-    font-size: 20px;
-    bottom: 10px;
-    left: 10px;
+    font-size: var(--font-xl);
+    bottom: var(--spacing-sm);
+    left: var(--spacing-sm);
   }
   
   .controls-wrapper {
-    padding: 10px;
+    padding: var(--spacing-sm);
   }
   
   .controls {
-    bottom: 10px;
-    right: 10px;
     flex-wrap: wrap;
   }
   
-  .controls button {
-    padding: 10px 15px;
-    font-size: 14px;
-  }
-  
-  .menu-toggle {
-    padding: 10px 15px !important;
-    font-size: 14px !important;
+  .controls button, .menu-toggle {
+    padding: var(--spacing-sm) var(--spacing-md) !important;
+    font-size: var(--font-sm) !important;
   }
   
   .modal-content {
     width: 95%;
-    margin: 10px;
+    margin: var(--spacing-sm);
   }
   
   .modal-header h2 {
-    font-size: 20px;
+    font-size: var(--font-xl);
   }
   
   .modal-footer {
@@ -672,84 +757,83 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 480px) {
-  .word {
-    font-size: 28px;
-  }
-  
-  #loading p {
+  .word, #loading p {
     font-size: 28px;
   }
   
   .progress {
-    font-size: 18px;
+    font-size: var(--font-lg);
   }
   
   .controls {
-    gap: 5px;
+    gap: var(--spacing-xs);
   }
   
-  .controls button {
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-  
-  .menu-toggle {
+  .controls button, .menu-toggle {
     padding: 8px 12px !important;
-    font-size: 12px !important;
+    font-size: var(--font-xs) !important;
   }
 }
 
-/* 淡入淡出動畫 */
+/* ==========================================================================
+   ANIMATIONS & UTILITIES
+   ========================================================================== */
+
+.fade-out, .fade-in {
+  transition: opacity var(--transition-normal);
+}
+
 .fade-out {
   opacity: 0;
-  transition: opacity 0.3s ease;
 }
 
 .fade-in {
   opacity: 1;
-  transition: opacity 0.3s ease;
 }
 
-/* 設定開啟時的暫停指示器 */
 .paused-indicator {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
   background-color: rgba(255, 255, 0, 0.2);
-  color: #FFFF00;
+  color: var(--primary-color);
   padding: 8px 12px;
-  border-radius: 5px;
-  font-size: 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
   font-weight: bold;
-  border: 1px solid #FFFF00;
+  border: 1px solid var(--primary-color);
 }
 
 #difficult-star {
   margin-left: 8px;
-  color: #FFFF00;
-  font-size: 24px;
+  color: var(--primary-color);
+  font-size: var(--font-2xl);
   vertical-align: middle;
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition-fast);
   width: 1em;
   display: inline-block;
 }
+
 #difficult-star.visible {
   visibility: visible;
   opacity: 1;
 }
 
-/* 浮動提示：Google Sheet ID 格式說明 */
+/* ==========================================================================
+   TOOLTIP & SPECIAL COMPONENTS
+   ========================================================================== */
+
 .sheet-id-tooltip {
   position: absolute;
   left: 0;
   top: 110%;
   min-width: 260px;
   background: rgba(30, 30, 30, 0.98);
-  color: #888;
+  color: var(--gray-color);
   border: 1px solid #444;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   padding: 12px 18px;
   z-index: 10;
@@ -757,42 +841,45 @@ input:checked + .slider:before {
   pointer-events: none;
 }
 
-/* 新增：重複單字處理 Modal 樣式 */
+/* ==========================================================================
+   DUPLICATE WORD PROCESSING
+   ========================================================================== */
+
 .duplicate-info {
   background-color: rgba(255, 255, 0, 0.1);
   border: 1px solid rgba(255, 255, 0, 0.3);
-  border-radius: 5px;
-  padding: 15px;
-  margin-bottom: 20px;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
   text-align: center;
 }
 
 .duplicate-info p {
   margin: 0;
-  color: #FFFF00;
-  font-size: 16px;
+  color: var(--primary-color);
+  font-size: var(--font-md);
   font-weight: bold;
 }
 
 #duplicate-count {
-  color: #FF6666;
-  font-size: 18px;
+  color: var(--error-color);
+  font-size: var(--font-lg);
 }
 
 .duplicate-word-container {
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #FFFF00;
-  border-radius: 5px;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-md);
   background-color: rgba(0, 0, 0, 0.5);
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
 }
 
 .duplicate-word-item {
-  padding: 15px;
+  padding: var(--spacing-md);
   border-bottom: 1px solid rgba(255, 255, 0, 0.2);
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color var(--transition-normal);
 }
 
 .duplicate-word-item:last-child {
@@ -805,41 +892,41 @@ input:checked + .slider:before {
 
 .duplicate-word-item.selected {
   background-color: rgba(255, 255, 0, 0.2);
-  border-left: 4px solid #FFFF00;
+  border-left: 4px solid var(--primary-color);
 }
 
 .duplicate-word-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .duplicate-word-english {
-  font-size: 18px;
+  font-size: var(--font-lg);
   font-weight: bold;
-  color: #FFFFFF; /* 改為白色，與工作表的黃色區分 */
+  color: var(--text-color);
 }
 
 .duplicate-word-status {
-  font-size: 12px;
+  font-size: var(--font-xs);
   padding: 4px 8px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   font-weight: bold;
 }
 
 .status-same {
   background-color: rgba(0, 255, 0, 0.2);
-  color: #00FF00;
+  color: var(--success-color);
 }
 
 .status-different {
   background-color: rgba(255, 165, 0, 0.2);
-  color: #FFA500;
+  color: var(--warning-color);
 }
 
 .duplicate-sources {
-  margin-top: 10px;
+  margin-top: var(--spacing-sm);
 }
 
 .duplicate-source {
@@ -847,21 +934,21 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: flex-start;
   padding: 8px 12px;
-  margin: 5px 0;
+  margin: var(--spacing-xs) 0;
   background-color: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
-  gap: 15px;
+  gap: var(--spacing-md);
 }
 
 .source-sheet {
   font-weight: bold;
-  color: #FFFF00; /* 工作表名稱保持黃色 */
+  color: var(--primary-color);
   min-width: 100px;
   flex-shrink: 0;
 }
 
 .source-definition {
-  color: #CCCCCC; /* 定義使用淺灰色 */
+  color: #CCCCCC;
   flex: 1;
   line-height: 1.4;
 }
@@ -998,44 +1085,46 @@ input:checked + .slider:before {
 }
 
 .processing-text {
-  color: #FFFF00;
+  color: var(--primary-color);
   font-weight: bold;
+}
+
+.duplicate-result-success, .duplicate-result-error {
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  margin: var(--spacing-sm) 0;
+  text-align: center;
 }
 
 .duplicate-result-success {
   background-color: rgba(0, 255, 0, 0.1);
   border: 1px solid rgba(0, 255, 0, 0.3);
-  color: #00FF00;
-  padding: 10px;
-  border-radius: 5px;
-  margin: 10px 0;
-  text-align: center;
+  color: var(--success-color);
 }
 
 .duplicate-result-error {
   background-color: rgba(255, 0, 0, 0.1);
   border: 1px solid rgba(255, 0, 0, 0.3);
-  color: #FF6666;
-  padding: 10px;
-  border-radius: 5px;
-  margin: 10px 0;
-  text-align: center;
+  color: var(--error-color);
 }
 
-/* 自動處理通知樣式 */
+/* ==========================================================================
+   NOTIFICATIONS & PROCESSING
+   ========================================================================== */
+
 .auto-processing-notification {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
   z-index: 10000;
   background-color: rgba(0, 0, 0, 0.95);
-  border: 2px solid #00FF00;
-  border-radius: 8px;
+  border: 2px solid var(--success-color);
+  border-radius: var(--radius-lg);
   padding: 0;
   max-width: 400px;
   opacity: 0;
   transform: translateX(100%);
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
 }
 
 .auto-processing-notification.show {
@@ -1049,20 +1138,20 @@ input:checked + .slider:before {
 }
 
 .notification-content {
-  padding: 20px;
+  padding: var(--spacing-lg);
   position: relative;
 }
 
 .notification-content h3 {
-  color: #00FF00;
-  margin: 0 0 10px 0;
-  font-size: 16px;
+  color: var(--success-color);
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-md);
 }
 
 .notification-content p {
-  color: #FFFFFF;
-  margin: 0 0 15px 0;
-  font-size: 14px;
+  color: var(--text-color);
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-sm);
 }
 
 .notification-details {
@@ -1071,8 +1160,8 @@ input:checked + .slider:before {
 }
 
 .notification-item {
-  padding: 5px 0;
-  font-size: 12px;
+  padding: var(--spacing-xs) 0;
+  font-size: var(--font-xs);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -1085,51 +1174,50 @@ input:checked + .slider:before {
 }
 
 .notification-item.error {
-  color: #FF6B6B;
+  color: var(--error-color);
 }
 
 .notification-close {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
   background: none;
   border: none;
-  color: #FFFFFF;
-  font-size: 20px;
+  color: var(--text-color);
+  font-size: var(--font-xl);
   cursor: pointer;
   padding: 0;
-  width: 20px;
-  height: 20px;
+  width: var(--spacing-lg);
+  height: var(--spacing-lg);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .notification-close:hover {
-  color: #FF6B6B;
+  color: var(--error-color);
 }
 
-/* 自動處理指示器樣式 */
 .auto-processing-indicator {
   text-align: center;
-  padding: 30px;
+  padding: var(--spacing-xl);
 }
 
 .auto-processing-indicator h3 {
-  color: #FFFF00;
-  margin-bottom: 20px;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-lg);
 }
 
 .auto-processing-indicator p {
   color: #CCCCCC;
-  margin-bottom: 15px;
+  margin-bottom: var(--spacing-md);
 }
 
 .auto-processing-indicator ul {
   text-align: left;
   color: #CCCCCC;
-  margin: 15px 0;
-  padding-left: 20px;
+  margin: var(--spacing-md) 0;
+  padding-left: var(--spacing-lg);
 }
 
 .auto-processing-indicator li {
@@ -1138,20 +1226,20 @@ input:checked + .slider:before {
 
 .auto-processing-result {
   text-align: center;
-  padding: 20px;
+  padding: var(--spacing-lg);
 }
 
 .auto-processing-result.success h3 {
-  color: #00FF00;
+  color: var(--success-color);
 }
 
 .auto-processing-result.error h3 {
-  color: #FF6B6B;
+  color: var(--error-color);
 }
 
 .processing-details {
   text-align: left;
-  margin: 20px 0;
+  margin: var(--spacing-lg) 0;
   max-height: 200px;
   overflow-y: auto;
 }
@@ -1159,7 +1247,7 @@ input:checked + .slider:before {
 .result-item {
   padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 14px;
+  font-size: var(--font-sm);
 }
 
 .result-item:last-child {
@@ -1171,22 +1259,26 @@ input:checked + .slider:before {
 }
 
 .result-item.error {
-  color: #FF6B6B;
+  color: var(--error-color);
 }
 
-/* 記憶體處理提示樣式 */
-.memory-notice {
-  font-size: 12px;
-  color: #FFA500;
+/* ==========================================================================
+   HELPER NOTICES
+   ========================================================================== */
+
+.memory-notice, .sheet-modify-notice {
+  font-size: var(--font-xs);
   font-style: italic;
-  margin-top: 5px;
+  margin-top: var(--spacing-xs);
 }
 
-/* Google Sheet修改提示樣式 */
+.memory-notice {
+  color: var(--warning-color);
+}
+
 .sheet-modify-notice {
-  font-size: 12px;
-  color: #FF6B6B;
+  color: var(--error-color);
   font-weight: bold;
-  margin-top: 5px;
 }
 </style>
+

@@ -2,6 +2,7 @@
 <script>
 class FlashcardApp {
   constructor() {
+    // ===== CORE STATE =====
     this.words = [];
     this.currentWords = [];
     this.currentIndex = 0;
@@ -13,38 +14,45 @@ class FlashcardApp {
     this.removedWords = [];
     this.navigationHistory = [];
     this.pendingRemoval = null;
-    this.isPaused = false; // 新增：暫停狀態
-    this.pausedTimestamp = null; // 新增：暫停時間戳
-    this.remainingTime = 0; // 新增：剩餘時間
+    this.isPaused = false;
+    this.pausedTimestamp = null;
+    this.remainingTime = 0;
+    
+    // ===== SETTINGS =====
     this.settings = {
-      delayTime: 1, // 延遲時間（秒）
-      fontSize: 96, // 字體大小（px）
-      reverseMode: false // 是否先顯示中文
+      delayTime: 1,
+      fontSize: 96,
+      reverseMode: false
     };
     this.voiceSettings = {
-      enabled: true, // 新增：是否啟用發音
+      enabled: true,
       rate: 0.8,
       pitch: 1,
       volume: 1,
       lang: 'en-US',
-      voiceURI: '' // 新增：語音腔調
+      voiceURI: ''
     };
-    this.difficultWords = [];
-    this.showDifficultOnly = false;
-    // 新增：Google Sheet 設定
     this.sheetSettings = {
       sheetId: '',
       selectedSheets: []
     };
+    
+    // ===== FEATURES STATE =====
+    this.difficultWords = [];
+    this.showDifficultOnly = false;
     this.availableSheets = [];
-    this.listenersSetup = false; // 新增：追蹤事件監聽器是否已設置
-    this.currentSpreadsheetName = null; // 新增：當前 Google Sheet 名稱
-    // 新增：重複單字處理相關變數
+    this.listenersSetup = false;
+    this.currentSpreadsheetName = null;
     this.duplicateWords = [];
     this.currentDuplicateIndex = 0;
     this.duplicateProcessingResults = [];
+    
     this.init();
   }
+
+  // ==========================================
+  // INITIALIZATION & SETUP
+  // ==========================================
   
   async init() {
     console.log('=== FlashcardApp 初始化開始 ===');
@@ -90,34 +98,31 @@ class FlashcardApp {
     }
   }
   
-  // 新增：載入設定
+  // ==========================================
+  // SETTINGS MANAGEMENT
+  // ==========================================
+
   loadSettings() {
     const savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
     this.settings = { ...this.settings, ...savedSettings };
-    // 新增：載入語音設定
     const savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
     this.voiceSettings = { ...this.voiceSettings, ...savedVoiceSettings };
   }
   
-  // 新增：載入 Sheet 設定
   loadSheetSettings() {
     const savedSheetSettings = JSON.parse(localStorage.getItem('flashcard-sheet-settings') || '{}');
     this.sheetSettings = { ...this.sheetSettings, ...savedSheetSettings };
   }
   
-  // 新增：儲存設定
   saveSettings() {
     localStorage.setItem('flashcard-settings', JSON.stringify(this.settings));
-    // 新增：儲存語音設定
     localStorage.setItem('flashcard-voice-settings', JSON.stringify(this.voiceSettings));
   }
   
-  // 新增：儲存 Sheet 設定
   saveSheetSettings() {
     localStorage.setItem('flashcard-sheet-settings', JSON.stringify(this.sheetSettings));
   }
   
-  // 新增：應用設定到UI
   applySettings() {
     const englishWord = document.getElementById('english-word');
     const chineseWord = document.getElementById('chinese-word');
@@ -143,6 +148,10 @@ class FlashcardApp {
     }
     if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
   }
+
+  // ==========================================
+  // DATA LOADING & MANAGEMENT
+  // ==========================================
   
   async loadWords(isInitialLoad = false) {
     return new Promise((resolve, reject) => {
@@ -217,8 +226,11 @@ class FlashcardApp {
       }
     });
   }
+
+  // ==========================================
+  // EVENT LISTENERS SETUP
+  // ==========================================
   
-  // Refactored: Split into smaller, more manageable functions
   setupEventListeners() {
     console.log('設置事件監聽器...');
 
@@ -239,7 +251,6 @@ class FlashcardApp {
     console.log('所有事件監聽器設置完成');
   }
   
-  // New: Listeners for core card and control functionality
   setupCoreListeners() {
     document.getElementById('english-section').addEventListener('click', () => this.onWordClick());
     document.getElementById('chinese-section').addEventListener('click', () => this.onWordClick());
@@ -248,7 +259,6 @@ class FlashcardApp {
     document.getElementById('restart-btn').addEventListener('click', () => this.restart());
   }
   
-  // New: Listeners for the menu system
   setupMenuListeners() {
     console.log('設定選單事件監聽器...');
     
@@ -316,7 +326,6 @@ class FlashcardApp {
     console.log('選單事件監聽器設定完成（使用事件委派）');
   }
 
-  // New: Listeners for all modals (main and voice settings)
   setupModalListeners() {
     // Main settings modal
     const settingsModal = document.getElementById('settings-modal');
@@ -400,7 +409,6 @@ class FlashcardApp {
     });
   }
 
-  // New: Listeners for all keyboard shortcuts
   setupKeyboardListeners() {
     document.addEventListener('keydown', (e) => {
       if (this.isPaused) return;
@@ -428,7 +436,6 @@ class FlashcardApp {
     });
   }
   
-  // 新增：設置進度區和匯出相關的事件監聽器
   setupProgressAndExportListeners() {
     console.log('設置進度區和匯出事件監聽器...');
 
@@ -488,8 +495,11 @@ class FlashcardApp {
 
     console.log('匯出相關事件監聽器設置完成');
   }
+
+  // ==========================================
+  // UI CONTROLS & DISPLAY
+  // ==========================================
   
-  // 新增：選單控制
   toggleMenu() {
     console.log('toggleMenu 被調用');
     const menuBtn = document.getElementById('menu-btn');
@@ -524,7 +534,6 @@ class FlashcardApp {
     }
   }
   
-  // 新增：開啟設定畫面
   openSettings() {
     const settingsModal = document.getElementById('settings-modal');
     settingsModal.style.display = 'flex';
@@ -536,7 +545,6 @@ class FlashcardApp {
     this.applySettings();
   }
   
-  // 修正：關閉設定畫面
   closeSettings(shouldRedisplay = false) {
     const settingsModal = document.getElementById('settings-modal');
     settingsModal.style.display = 'none';
@@ -550,7 +558,6 @@ class FlashcardApp {
     }
   }
   
-  // 新增方法：重新顯示當前單字
   redisplayCurrentWord() {
     // 清除現有的計時器
     if (this.displayTimer) {
@@ -571,7 +578,6 @@ class FlashcardApp {
     this.displayCurrentWord();
   }
   
-  // 新增：儲存設定並關閉
   saveSettingsAndClose() {
     const delaySlider = document.getElementById('delay-setting');
     const fontSizeSlider = document.getElementById('font-size-setting');
@@ -600,7 +606,6 @@ class FlashcardApp {
     }
   }
   
-  // 新增：重置設定
   resetSettings() {
     this.settings = {
       delayTime: 3,
@@ -619,8 +624,11 @@ class FlashcardApp {
     this.saveSettings();
     this.closeSettings();
   }
+
+  // ==========================================
+  // GAME CORE LOGIC & TIMER MANAGEMENT
+  // ==========================================
   
-  // 新增：暫停計時器
   pauseTimer() {
     this.isPaused = true;
     
@@ -637,7 +645,6 @@ class FlashcardApp {
     document.getElementById('flashcard').appendChild(pausedIndicator);
   }
   
-  // 新增：恢復計時器
   resumeTimer() {
     this.isPaused = false;
     
@@ -674,6 +681,7 @@ class FlashcardApp {
   
   startNewRound() {
     this.shuffleArray(this.words);
+    // 根據「只顯示不熟單字」設定來過濾單字
     if (this.showDifficultOnly) {
       this.currentWords = this.words.filter(w => this.difficultWords.includes(w.id));
     } else {
@@ -683,6 +691,17 @@ class FlashcardApp {
     this.removedWords = [];
     this.navigationHistory = [];
     this.pendingRemoval = null;
+    
+    // 如果沒有符合條件的單字
+    if (this.currentWords.length === 0) {
+      if (this.showDifficultOnly) {
+        alert('沒有不熟單字！');
+        this.showDifficultOnly = false;
+        document.getElementById('show-difficult-only').checked = false;
+        this.currentWords = [...this.words];
+      }
+    }
+    
     this.displayCurrentWord();
     this.updateButtonStates();
     this.renderDifficultStar();
@@ -708,7 +727,6 @@ class FlashcardApp {
     }
   }
   
-  // Refactored: New function to handle revealing the second part and scheduling the next word
   showSecondPartAndScheduleNext() {
     if (this.isPaused || this.showingChinese || !this.currentWords[this.currentIndex]) {
       return;
@@ -739,8 +757,11 @@ class FlashcardApp {
     }, this.settings.delayTime * 1000);
   }
 
+  // ==========================================
+  // SPEECH & VOICE SETTINGS
+  // ==========================================
+
   speakEnglishWord(text) {
-    // 檢查是否啟用發音
     if (!this.voiceSettings.enabled) return;
     
     try {
@@ -774,6 +795,60 @@ class FlashcardApp {
       console.log('語音播放失敗:', error);
     }
   }
+
+  openVoiceSettings() {
+    const modal = document.getElementById('voice-settings-modal');
+    modal.style.display = 'flex';
+    this.pauseTimer();
+    document.getElementById('speech-enabled-setting').checked = this.voiceSettings.enabled;
+    document.getElementById('voice-rate-setting').value = this.voiceSettings.rate;
+    document.getElementById('voice-rate-value').textContent = this.voiceSettings.rate;
+    this.populateVoiceSelect();
+  }
+  
+  closeVoiceSettings() {
+    const modal = document.getElementById('voice-settings-modal');
+    modal.style.display = 'none';
+    this.resumeTimer();
+  }
+  
+  saveVoiceSettingsAndClose() {
+    this.voiceSettings.enabled = document.getElementById('speech-enabled-setting').checked;
+    this.voiceSettings.rate = parseFloat(document.getElementById('voice-rate-setting').value);
+    const voiceSelect = document.getElementById('voice-select-setting');
+    const selectedVoiceURI = voiceSelect.value;
+    this.voiceSettings.voiceURI = selectedVoiceURI;
+    const voices = this.speechSynthesis.getVoices();
+    const selectedVoice = voices.find(v => v.voiceURI === selectedVoiceURI);
+    if (selectedVoice) {
+      this.voiceSettings.lang = selectedVoice.lang;
+    }
+    this.saveSettings();
+    this.closeVoiceSettings();
+  }
+  
+  populateVoiceSelect() {
+    const voiceSelect = document.getElementById('voice-select-setting');
+    voiceSelect.innerHTML = '';
+    const voices = this.speechSynthesis.getVoices();
+    const englishVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
+    englishVoices.forEach(voice => {
+      const option = document.createElement('option');
+      option.value = voice.voiceURI;
+      option.textContent = `${voice.name} (${voice.lang})`;
+      if (voice.voiceURI === this.voiceSettings.voiceURI) {
+        option.selected = true;
+      }
+      voiceSelect.appendChild(option);
+    });
+    if (!voiceSelect.value && englishVoices.length > 0) {
+      voiceSelect.value = englishVoices[0].voiceURI;
+    }
+  }
+
+  // ==========================================
+  // FLASHCARD DISPLAY & NAVIGATION
+  // ==========================================
   
   displayCurrentWord() {
     if (this.currentWords.length === 0) {
@@ -1082,6 +1157,10 @@ class FlashcardApp {
     this.startNewRound();
   }
   
+  // ==========================================
+  // UTILITY FUNCTIONS
+  // ==========================================
+
   hideLoading() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('flashcard').style.display = 'flex';
@@ -1092,7 +1171,6 @@ class FlashcardApp {
     document.getElementById('error').style.display = 'block';
   }
   
-  // 新增：開啟語音設定畫面
   openVoiceSettings() {
     const modal = document.getElementById('voice-settings-modal');
     modal.style.display = 'flex';
@@ -1106,7 +1184,6 @@ class FlashcardApp {
     this.populateVoiceSelect();
   }
   
-  // 新增：關閉語音設定畫面
   closeVoiceSettings() {
     const modal = document.getElementById('voice-settings-modal');
     modal.style.display = 'none';
@@ -1114,7 +1191,6 @@ class FlashcardApp {
     this.resumeTimer();
   }
   
-  // 新增：儲存語音設定
   saveVoiceSettingsAndClose() {
     this.voiceSettings.enabled = document.getElementById('speech-enabled-setting').checked;
     this.voiceSettings.rate = parseFloat(document.getElementById('voice-rate-setting').value);
@@ -1131,7 +1207,6 @@ class FlashcardApp {
     this.closeVoiceSettings();
   }
   
-  // 新增：語音腔調選單
   populateVoiceSelect() {
     const voiceSelect = document.getElementById('voice-select-setting');
     // 清空
@@ -1154,7 +1229,10 @@ class FlashcardApp {
     }
   }
 
-  // 新增：開啟 Google Sheet 設定畫面
+  // ==========================================
+  // GOOGLE SHEET SETTINGS
+  // ==========================================
+
   openSheetSettings() {
     console.log('開啟 Google Sheet 設定畫面');
     const modal = document.getElementById('sheet-settings-modal');
@@ -1242,159 +1320,144 @@ class FlashcardApp {
     throw new Error('輸入格式不正確，請輸入有效的 Google Sheet ID 或 URL');
   }
 
-  // 新增：載入工作表清單
   loadSheetsList() {
-    console.log('=== loadSheetsList 函數開始執行 ===');
-    
+    const input = this.validateAndGetSheetInput();
+    if (!input) return;
+
+    const elements = this.validateSheetUIElements();
+    if (!elements) return;
+
+    try {
+      const sheetId = this.extractSheetId(input);
+      this.updateSheetLoadingUI(elements, true);
+      this.performSheetListRequest(sheetId, elements);
+    } catch (error) {
+      console.error('loadSheetsList 執行過程中發生錯誤:', error);
+      alert('錯誤：' + error.message);
+    }
+  }
+
+  validateAndGetSheetInput() {
     const sheetIdInput = document.getElementById('sheet-id-input');
     if (!sheetIdInput) {
       console.error('找不到 sheet-id-input 元素');
       alert('系統錯誤：找不到輸入框元素');
-      return;
+      return null;
     }
-    
+
     const input = sheetIdInput.value.trim();
-    console.log('用戶輸入的內容:', input);
-    
     if (!input) {
       console.warn('用戶未輸入任何內容');
       alert('請輸入 Google Sheet ID 或 URL');
-      return;
+      return null;
     }
-    
-    const sheetsList = document.getElementById('sheets-list');
-    const sheetsGroup = document.getElementById('sheets-selection-group');
-    const loadBtn = document.getElementById('load-sheets-btn');
-    
-    // 檢查 DOM 元素是否存在
-    if (!sheetsList) {
-      console.error('找不到 sheets-list 元素');
-      alert('系統錯誤：找不到工作表清單元素');
-      return;
-    }
-    if (!sheetsGroup) {
-      console.error('找不到 sheets-selection-group 元素');
-      alert('系統錯誤：找不到工作表選擇組元素');
-      return;
-    }
-    if (!loadBtn) {
-      console.error('找不到 load-sheets-btn 按鈕');
-      alert('系統錯誤：找不到載入按鈕');
-      return;
-    }
-    
-    console.log('所有 DOM 元素檢查通過');
-    
-    try {
-      // 提取 Sheet ID
-      console.log('開始提取 Sheet ID...');
-      const sheetId = this.extractSheetId(input);
-      console.log('成功提取 Sheet ID:', sheetId);
-      
-      // 更新 UI 狀態
-      console.log('更新 UI 狀態...');
-      sheetsList.innerHTML = '<div class="loading-text">載入中...</div>';
-      sheetsGroup.style.display = 'block';
-      loadBtn.disabled = true;
-      loadBtn.textContent = '載入中...';
-      console.log('UI 狀態更新完成');
-      
-      // 檢查 google.script.run 是否可用
-      if (typeof google === 'undefined') {
-        console.error('google 物件未定義');
-        throw new Error('Google Apps Script 環境未正確載入');
+
+    return input;
+  }
+
+  validateSheetUIElements() {
+    const elements = {
+      sheetsList: document.getElementById('sheets-list'),
+      sheetsGroup: document.getElementById('sheets-selection-group'),
+      loadBtn: document.getElementById('load-sheets-btn')
+    };
+
+    const elementChecks = [
+      { element: elements.sheetsList, name: 'sheets-list', error: '找不到工作表清單元素' },
+      { element: elements.sheetsGroup, name: 'sheets-selection-group', error: '找不到工作表選擇組元素' },
+      { element: elements.loadBtn, name: 'load-sheets-btn', error: '找不到載入按鈕' }
+    ];
+
+    for (const check of elementChecks) {
+      if (!check.element) {
+        console.error(`找不到 ${check.name} 元素`);
+        alert(`系統錯誤：${check.error}`);
+        return null;
       }
-      if (!google.script) {
-        console.error('google.script 未定義');
-        throw new Error('Google Apps Script 功能未可用');
-      }
-      if (!google.script.run) {
-        console.error('google.script.run 未定義');
-        throw new Error('Google Apps Script 執行功能未可用');
-      }
-      
-      console.log('Google Apps Script 環境檢查通過');
-      console.log('準備調用 getSheetsList，參數:', sheetId);
-      
-      // 設定超時處理
-      const timeout = setTimeout(() => {
-        console.error('載入工作表清單超時 (15秒)');
-        sheetsList.innerHTML = '<div class="error-text">載入超時，請檢查網路連接或重試</div>';
-        loadBtn.disabled = false;
-        loadBtn.textContent = '載入工作表清單';
-      }, 15000); // 15秒超時
-      
-      console.log('開始調用 Google Apps Script...');
-      
-      google.script.run
-        .withSuccessHandler(result => {
-          console.log('=== Google Apps Script 成功回調 ===');
-          clearTimeout(timeout);
-          
-          // 處理新的返回格式
-          let sheets, spreadsheetName;
-          if (result && result.sheets) {
-            // 新格式：包含 spreadsheet 名稱
-            sheets = result.sheets;
-            spreadsheetName = result.spreadsheetName;
-            console.log('成功載入 Google Sheet:', spreadsheetName, '包含', sheets.length, '個工作表');
-          } else if (Array.isArray(result)) {
-            // 向後兼容：舊格式
-            sheets = result;
-            spreadsheetName = null;
-            console.log('使用舊格式載入工作表清單，數量:', sheets.length);
-          } else {
-            console.error('未知的返回格式:', result);
-            throw new Error('載入工作表清單失敗：返回格式錯誤');
-          }
-          
-          console.log('工作表資料:', sheets);
-          
-          this.availableSheets = sheets;
-          this.currentSpreadsheetName = spreadsheetName; // 儲存 spreadsheet 名稱
-          this.renderSheetsList();
-          loadBtn.disabled = false;
-          loadBtn.textContent = '載入工作表清單';
-          console.log('工作表清單渲染完成');
-        })
-        .withFailureHandler(error => {
-          console.log('=== Google Apps Script 失敗回調 ===');
-          clearTimeout(timeout);
-          console.error('載入工作表清單失敗:', error);
-          console.error('錯誤詳細資訊:', {
-            name: error.name,
-            message: error.message,
-            stack: error.stack
-          });
-          
-          const errorMessage = error.message || '未知錯誤';
-          sheetsList.innerHTML = '<div class="error-text">載入失敗：' + errorMessage + '</div>';
-          loadBtn.disabled = false;
-          loadBtn.textContent = '載入工作表清單';
-          
-          // 顯示更詳細的錯誤提示
-          if (errorMessage.includes('權限')) {
-            sheetsList.innerHTML += '<div class="error-text">提示：請確認您有存取此 Google Sheet 的權限</div>';
-          } else if (errorMessage.includes('找不到') || errorMessage.includes('無法開啟')) {
-            sheetsList.innerHTML += '<div class="error-text">提示：請檢查 Sheet ID 是否正確，或 Sheet 是否存在</div>';
-          }
-        })
-        .getSheetsList(sheetId);
-      
-      console.log('Google Apps Script 調用已發送');
-      
-    } catch (error) {
-      console.error('loadSheetsList 執行過程中發生錯誤:', error);
-      console.error('錯誤詳細資訊:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-      alert('錯誤：' + error.message);
-      return;
     }
+
+    return elements;
+  }
+
+  updateSheetLoadingUI(elements, isLoading) {
+    if (isLoading) {
+      elements.sheetsList.innerHTML = '<div class="loading-text">載入中...</div>';
+      elements.sheetsGroup.style.display = 'block';
+      elements.loadBtn.disabled = true;
+      elements.loadBtn.textContent = '載入中...';
+    } else {
+      elements.loadBtn.disabled = false;
+      elements.loadBtn.textContent = '載入工作表清單';
+    }
+  }
+
+  performSheetListRequest(sheetId, elements) {
+    if (!this.validateGoogleScriptEnvironment()) {
+      throw new Error('Google Apps Script 環境不可用');
+    }
+
+    const timeout = this.setupSheetRequestTimeout(elements);
     
-    console.log('=== loadSheetsList 函數執行完成 ===');
+    google.script.run
+      .withSuccessHandler(result => this.handleSheetListSuccess(result, elements, timeout))
+      .withFailureHandler(error => this.handleSheetListFailure(error, elements, timeout))
+      .getSheetsList(sheetId);
+  }
+
+  validateGoogleScriptEnvironment() {
+    if (typeof google === 'undefined') {
+      console.error('google 物件未定義');
+      return false;
+    }
+    if (!google.script || !google.script.run) {
+      console.error('Google Apps Script 功能未可用');
+      return false;
+    }
+    return true;
+  }
+
+  setupSheetRequestTimeout(elements) {
+    return setTimeout(() => {
+      console.error('載入工作表清單超時 (15秒)');
+      elements.sheetsList.innerHTML = '<div class="error-text">載入超時，請檢查網路連接或重試</div>';
+      this.updateSheetLoadingUI(elements, false);
+    }, 15000);
+  }
+
+  handleSheetListSuccess(result, elements, timeout) {
+    clearTimeout(timeout);
+    console.log('Google Apps Script 成功回調');
+
+    let sheets, spreadsheetName;
+    if (result && result.sheets) {
+      sheets = result.sheets;
+      spreadsheetName = result.spreadsheetName;
+    } else if (Array.isArray(result)) {
+      sheets = result;
+      spreadsheetName = null;
+    } else {
+      throw new Error('載入工作表清單失敗：返回格式錯誤');
+    }
+
+    this.availableSheets = sheets;
+    this.currentSpreadsheetName = spreadsheetName;
+    this.renderSheetsList();
+    this.updateSheetLoadingUI(elements, false);
+  }
+
+  handleSheetListFailure(error, elements, timeout) {
+    clearTimeout(timeout);
+    console.error('載入工作表清單失敗:', error);
+
+    const errorMessage = error.message || '未知錯誤';
+    elements.sheetsList.innerHTML = `<div class="error-text">載入失敗：${errorMessage}</div>`;
+    this.updateSheetLoadingUI(elements, false);
+
+    if (errorMessage.includes('權限')) {
+      elements.sheetsList.innerHTML += '<div class="error-text">提示：請確認您有存取此 Google Sheet 的權限</div>';
+    } else if (errorMessage.includes('找不到') || errorMessage.includes('無法開啟')) {
+      elements.sheetsList.innerHTML += '<div class="error-text">提示：請檢查 Sheet ID 是否正確，或 Sheet 是否存在</div>';
+    }
   }
 
   // 新增：渲染工作表清單
@@ -1581,20 +1644,25 @@ class FlashcardApp {
     }
   }
   
-  // 切換標註/取消標註當前單字
+  // ==========================================
+  // DIFFICULT WORDS MANAGEMENT
+  // ==========================================
+
   toggleDifficultCurrentWord() {
     const currentWord = this.currentWords[this.currentIndex];
     if (!currentWord) return;
     const id = currentWord.id;
     const isDifficult = this.difficultWords.includes(id);
+    
+    // 更新困難單字狀態
     if (isDifficult) {
       this.difficultWords = this.difficultWords.filter(did => did !== id);
     } else {
       this.difficultWords.push(id);
     }
+    
     // 後端同步
     if (typeof google !== 'undefined' && google.script && google.script.run) {
-      // 使用 originalRowIndex 如果有的話，否則回退到尋找
       let rowIndex = currentWord.originalRowIndex;
       if (rowIndex === undefined) {
         rowIndex = this.words.findIndex(w => 
@@ -1605,14 +1673,40 @@ class FlashcardApp {
       if (rowIndex !== -1) {
         const sheetId = this.sheetSettings.sheetId;
         const sheetName = currentWord.sheetName || 'Sheet1';
-        console.log('標註單字:', currentWord.english, '行索引:', rowIndex, '是否困難:', !isDifficult);
-        google.script.run.markWordAsDifficult(sheetId, sheetName, rowIndex, !isDifficult);
+        const markValue = isDifficult ? '' : '*';
+        console.log('標註單字:', currentWord.english, '行索引:', rowIndex, '標記值:', markValue);
+        google.script.run.markWordAsDifficult(sheetId, sheetName, rowIndex, markValue);
       }
     }
-    this.renderDifficultStar();
+
+    // *** 新增邏輯：處理「只顯示不熟單字」模式 ***
+    if (this.showDifficultOnly && isDifficult) {
+      // 如果開啟了「只顯示不熟單字」且剛剛取消了困難標記
+      // 需要從當前單字列表中移除這個單字
+      this.currentWords.splice(this.currentIndex, 1);
+      
+      // 調整索引
+      if (this.currentIndex >= this.currentWords.length) {
+        this.currentIndex = 0;
+      }
+      
+      // 檢查是否還有單字
+      if (this.currentWords.length === 0) {
+        // 沒有不熟單字了，顯示完成訊息或重新開始
+        alert('恭喜！沒有不熟單字了！');
+        this.showDifficultOnly = false;
+        document.getElementById('show-difficult-only').checked = false;
+        this.startNewRound();
+      } else {
+        // 顯示下一個單字
+        this.displayCurrentWord();
+      }
+    } else {
+      // 正常情況，只更新星星顯示
+      this.renderDifficultStar();
+    }
   }
   
-  // 根據狀態渲染星星
   renderDifficultStar() {
     const currentWord = this.currentWords[this.currentIndex];
     const star = document.getElementById('difficult-star');
@@ -1623,7 +1717,6 @@ class FlashcardApp {
     }
   }
   
-  // 過濾只顯示不熟單字
   filterWordsByDifficult() {
     if (this.showDifficultOnly) {
       this.currentWords = this.words.filter(w => this.difficultWords.includes(w.id));
@@ -1634,8 +1727,11 @@ class FlashcardApp {
     }
     this.displayCurrentWord();
   }
+
+  // ==========================================
+  // EXPORT FUNCTIONALITY
+  // ==========================================
   
-  // 匯出 modal 控制
   openExportModal() {
     // 預設名稱：目前工作表名稱_yyyyMMdd
     const defaultName = this.getDefaultExportSheetName();
@@ -1710,10 +1806,11 @@ class FlashcardApp {
       })
       .exportWordsToSheet(exportData, sheetName, targetSheetId);
   }
+
+  // ==========================================
+  // DUPLICATE WORDS PROCESSING
+  // ==========================================
   
-  // 新增：重複單字處理相關函數
-  
-  // 顯示自動處理結果通知
   showAutoProcessingNotification(autoResults) {
     console.log('顯示自動處理結果通知:', autoResults);
     

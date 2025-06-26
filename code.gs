@@ -1,3 +1,7 @@
+// ===========================================
+// HTML 服務和基本設定
+// ===========================================
+
 function doGet() {
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
@@ -8,28 +12,114 @@ function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-// 新增：獲取工作表清單和單字數量
+// ===========================================
+// 工具函數 (Utility Functions)
+// ===========================================
+
+/**
+ * 驗證和清理 Sheet ID
+ */
+function validateAndCleanSheetId(sheetId) {
+  if (!sheetId || sheetId.trim() === '') {
+    throw new Error('請提供有效的 Google Sheet ID');
+  }
+  return sheetId.trim();
+}
+
+/**
+ * 安全地開啟 Google Spreadsheet
+ */
+function openSpreadsheetSafely(sheetId) {
+  try {
+    return SpreadsheetApp.openById(sheetId);
+  } catch (openError) {
+    console.error('無法開啟 Spreadsheet:', openError);
+    throw new Error('無法開啟 Google Sheet，請檢查：\n1. Sheet ID 是否正確\n2. 您是否有存取權限\n3. Sheet 是否存在');
+  }
+}
+
+/**
+ * 計算工作表中的有效單字數量
+ */
+function countValidWords(sheet) {
+  try {
+    const data = sheet.getDataRange().getValues();
+    let wordCount = 0;
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] && data[i][1]) { // 確保英文和中文欄位都有資料
+        wordCount++;
+      }
+    }
+    return wordCount;
+  } catch (dataError) {
+    console.error('讀取工作表資料時發生錯誤:', sheet.getName(), dataError);
+    return 0;
+  }
+}
+
+/**
+ * 建立單字物件
+ */
+function createWordObject(rowData, id, sheetName, rowIndex) {
+  return {
+    id: id,
+    english: rowData[0].toString().trim(),
+    chinese: rowData[1].toString().trim(),
+    difficult: rowData[2] && rowData[2].toString().trim() === '*',
+    sheetName: sheetName,
+    originalRowIndex: rowIndex
+  };
+}
+
+/**
+ * 取得示例資料（測試用）
+ */
+function getDemoWords() {
+  return [
+    {id: 0, english: 'Hello', chinese: '你好', difficult: false, sheetName: 'Demo', originalRowIndex: 0},
+    {id: 1, english: 'World', chinese: '世界', difficult: false, sheetName: 'Demo', originalRowIndex: 1},
+    {id: 2, english: 'Apple', chinese: '蘋果', difficult: false, sheetName: 'Demo', originalRowIndex: 2},
+    {id: 3, english: 'Book', chinese: '書', difficult: false, sheetName: 'Demo', originalRowIndex: 3},
+    {id: 4, english: 'Computer', chinese: '電腦', difficult: false, sheetName: 'Demo', originalRowIndex: 4},
+    {id: 5, english: 'Friend', chinese: '朋友', difficult: false, sheetName: 'Demo', originalRowIndex: 5},
+    {id: 6, english: 'Happy', chinese: '快樂', difficult: false, sheetName: 'Demo', originalRowIndex: 6}
+  ];
+}
+
+/**
+ * 根據英文和中文內容尋找工作表中的行索引
+ */
+function findWordRowIndex(sheet, englishWord, chineseWord) {
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 0; i < data.length; i++) {
+    const rowEnglish = data[i][0] ? data[i][0].toString().trim() : '';
+    const rowChinese = data[i][1] ? data[i][1].toString().trim() : '';
+    
+    if (rowEnglish.toLowerCase() === englishWord.toLowerCase().trim() && 
+        rowChinese.toLowerCase() === chineseWord.toLowerCase().trim()) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// ===========================================
+// 工作表基礎操作
+// ===========================================
+
+/**
+ * 獲取工作表清單和單字數量
+ */
 function getSheetsList(sheetId) {
   try {
     console.log('開始載入工作表清單，Sheet ID:', sheetId);
     
-    if (!sheetId || sheetId.trim() === '') {
-      throw new Error('請提供有效的 Google Sheet ID');
-    }
-    
-    // 清理 Sheet ID (移除多餘的空格和特殊字符)
-    const cleanSheetId = sheetId.trim();
+    const cleanSheetId = validateAndCleanSheetId(sheetId);
     console.log('清理後的 Sheet ID:', cleanSheetId);
     
-    let spreadsheet;
-    try {
-      spreadsheet = SpreadsheetApp.openById(cleanSheetId);
-    } catch (openError) {
-      console.error('無法開啟 Spreadsheet:', openError);
-      throw new Error('無法開啟 Google Sheet，請檢查：\n1. Sheet ID 是否正確\n2. 您是否有存取權限\n3. Sheet 是否存在');
-    }
-    
-    // 獲取 spreadsheet 名稱
+    const spreadsheet = openSpreadsheetSafely(cleanSheetId);
     const spreadsheetName = spreadsheet.getName();
     console.log('成功載入 Google Sheet:', spreadsheetName);
     
@@ -53,22 +143,8 @@ function getSheetsList(sheetId) {
       const sheetName = sheet.getName();
       console.log('處理工作表:', sheetName);
       
-      let wordCount = 0;
-      try {
-        // 獲取有效資料行數（排除空行）
-        const data = sheet.getDataRange().getValues();
-        
-        for (let j = 0; j < data.length; j++) {
-          if (data[j][0] && data[j][1]) { // 確保英文和中文欄位都有資料
-            wordCount++;
-          }
-        }
-        console.log('工作表', sheetName, '有', wordCount, '個單字');
-      } catch (dataError) {
-        console.error('讀取工作表資料時發生錯誤:', sheetName, dataError);
-        // 即使讀取資料失敗，仍然加入清單，但單字數為0
-        wordCount = 0;
-      }
+      const wordCount = countValidWords(sheet);
+      console.log('工作表', sheetName, '有', wordCount, '個單字');
       
       sheetsList.push({
         name: sheetName,
@@ -78,7 +154,6 @@ function getSheetsList(sheetId) {
     
     console.log('成功載入工作表清單，總計', sheetsList.length, '個工作表');
     
-    // 返回包含 spreadsheet 名稱的完整資訊
     return {
       spreadsheetName: spreadsheetName,
       sheets: sheetsList
@@ -89,20 +164,20 @@ function getSheetsList(sheetId) {
   }
 }
 
-// 修改：支援指定 Sheet ID 和工作表名稱，以及多個工作表
+/**
+ * 從指定的工作表載入單字
+ */
 function getWordsFromSheets(sheetId, sheetNames) {
   try {
     console.log('開始載入單字，Sheet ID:', sheetId, '工作表:', sheetNames);
     
-    if (!sheetId || sheetId.trim() === '') {
-      throw new Error('請提供有效的 Google Sheet ID');
-    }
+    const cleanSheetId = validateAndCleanSheetId(sheetId);
     
     if (!sheetNames || !Array.isArray(sheetNames) || sheetNames.length === 0) {
       throw new Error('請選擇至少一個工作表');
     }
     
-    const spreadsheet = SpreadsheetApp.openById(sheetId.trim());
+    const spreadsheet = openSpreadsheetSafely(cleanSheetId);
     const allWords = [];
     let currentId = 0;
     
@@ -122,14 +197,7 @@ function getWordsFromSheets(sheetId, sheetNames) {
       
       for (let j = 0; j < data.length; j++) {
         if (data[j][0] && data[j][1]) { // 確保兩欄都有資料
-          allWords.push({
-            id: currentId++,
-            english: data[j][0].toString().trim(),
-            chinese: data[j][1].toString().trim(),
-            difficult: data[j][2] && data[j][2].toString().trim() === '*' ? true : false,
-            sheetName: sheetName, // 記錄來源工作表
-            originalRowIndex: j // 記錄原始行索引
-          });
+          allWords.push(createWordObject(data[j], currentId++, sheetName, j));
           sheetWordCount++;
         }
       }
@@ -144,21 +212,14 @@ function getWordsFromSheets(sheetId, sheetNames) {
     return allWords;
   } catch (error) {
     console.error('載入單字時發生錯誤:', error);
-    // 返回示例資料以供測試
     console.log('返回示例資料進行測試');
-    return [
-      {id: 0, english: 'Hello', chinese: '你好', difficult: false, sheetName: 'Demo', originalRowIndex: 0},
-      {id: 1, english: 'World', chinese: '世界', difficult: false, sheetName: 'Demo', originalRowIndex: 1},
-      {id: 2, english: 'Apple', chinese: '蘋果', difficult: false, sheetName: 'Demo', originalRowIndex: 2},
-      {id: 3, english: 'Book', chinese: '書', difficult: false, sheetName: 'Demo', originalRowIndex: 3},
-      {id: 4, english: 'Computer', chinese: '電腦', difficult: false, sheetName: 'Demo', originalRowIndex: 4},
-      {id: 5, english: 'Friend', chinese: '朋友', difficult: false, sheetName: 'Demo', originalRowIndex: 5},
-      {id: 6, english: 'Happy', chinese: '快樂', difficult: false, sheetName: 'Demo', originalRowIndex: 6}
-    ];
+    return getDemoWords();
   }
 }
 
-// 保留原有的 getWordsFromSheet 函數以向後相容（使用預設設定）
+/**
+ * 向後相容的單一工作表載入函數
+ */
 function getWordsFromSheet() {
   const DEFAULT_SHEET_ID = '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
   const DEFAULT_SHEET_NAME = 'Sheet1';
@@ -166,7 +227,9 @@ function getWordsFromSheet() {
   return getWordsFromSheets(DEFAULT_SHEET_ID, [DEFAULT_SHEET_NAME]);
 }
 
-// 修改：標註/取消標註不熟單字 - 需要知道來源工作表
+/**
+ * 標註/取消標註不熟單字
+ */
 function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
   try {
     console.log('標註單字，Sheet ID:', sheetId, '工作表:', sheetName, '行索引:', rowIndex, '是否困難:', isDifficult);
@@ -176,7 +239,7 @@ function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
       return false;
     }
     
-    const spreadsheet = SpreadsheetApp.openById(sheetId.trim());
+    const spreadsheet = openSpreadsheetSafely(sheetId.trim());
     const sheet = spreadsheet.getSheetByName(sheetName);
     
     if (!sheet) {
@@ -201,12 +264,14 @@ function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
   }
 }
 
-// 修改：匯出單字到新工作表
+/**
+ * 匯出單字到新工作表
+ */
 function exportWordsToSheet(words, sheetName, targetSheetId) {
   try {
     console.log('匯出單字，目標 Sheet ID:', targetSheetId, '工作表名稱:', sheetName);
     
-    // 如果沒有指定目標 Sheet ID，使用第一個單字的來源 Sheet
+    // 如果沒有指定目標 Sheet ID，使用預設值
     const SHEET_ID = targetSheetId || '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
     const ss = SpreadsheetApp.openById(SHEET_ID);
     
@@ -234,13 +299,18 @@ function exportWordsToSheet(words, sheetName, targetSheetId) {
   }
 }
 
-// 新增：偵測重複單字
+// ===========================================
+// 重複單字偵測
+// ===========================================
+
+/**
+ * 偵測重複單字
+ */
 function detectDuplicateWords(allWords) {
   try {
     console.log('開始偵測重複單字，總數:', allWords.length);
     
     const duplicatesMap = new Map();
-    const processed = new Set();
     
     // 建立英文單字的對應表
     for (let i = 0; i < allWords.length; i++) {
@@ -279,14 +349,20 @@ function detectDuplicateWords(allWords) {
   }
 }
 
-// 新增：處理重複單字（刪除其他保留一個）
+// ===========================================
+// 重複單字處理
+// ===========================================
+
+/**
+ * 處理重複單字 - 保留一個，刪除其他
+ */
 function handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords) {
   try {
     console.log('處理重複單字 - 保留一個，刪除其他');
     console.log('保留:', keepWord);
     console.log('刪除:', deleteWords);
     
-    const spreadsheet = SpreadsheetApp.openById(sheetId.trim());
+    const spreadsheet = openSpreadsheetSafely(sheetId.trim());
     let deletedCount = 0;
     
     // 為每個要刪除的單字找到當前的實際行位置
@@ -298,22 +374,7 @@ function handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords) {
           continue;
         }
         
-        // 獲取當前工作表的所有資料
-        const data = sheet.getDataRange().getValues();
-        let foundRowIndex = -1;
-        
-        // 尋找匹配的行（通過英文和中文內容匹配）
-        for (let i = 0; i < data.length; i++) {
-          const rowEnglish = data[i][0] ? data[i][0].toString().trim() : '';
-          const rowChinese = data[i][1] ? data[i][1].toString().trim() : '';
-          
-          // 比較英文和中文內容（忽略大小寫）
-          if (rowEnglish.toLowerCase() === word.english.toLowerCase().trim() && 
-              rowChinese.toLowerCase() === word.chinese.toLowerCase().trim()) {
-            foundRowIndex = i;
-            break;
-          }
-        }
+        const foundRowIndex = findWordRowIndex(sheet, word.english, word.chinese);
         
         if (foundRowIndex !== -1) {
           const actualRow = foundRowIndex + 1; // 轉換為1-based索引
@@ -336,14 +397,16 @@ function handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords) {
   }
 }
 
-// 新增：處理重複單字（合併定義）
+/**
+ * 處理重複單字 - 合併定義
+ */
 function handleDuplicateWordMerge(sheetId, targetWord, mergeWords) {
   try {
     console.log('處理重複單字 - 合併定義');
     console.log('目標單字:', targetWord);
     console.log('合併來源:', mergeWords);
     
-    const spreadsheet = SpreadsheetApp.openById(sheetId.trim());
+    const spreadsheet = openSpreadsheetSafely(sheetId.trim());
     
     // 準備合併後的定義
     const allDefinitions = [targetWord, ...mergeWords].map((w, index) => 
@@ -354,22 +417,7 @@ function handleDuplicateWordMerge(sheetId, targetWord, mergeWords) {
     // 更新目標單字的定義
     const targetSheet = spreadsheet.getSheetByName(targetWord.sheetName);
     if (targetSheet) {
-      // 獲取當前工作表的所有資料
-      const data = targetSheet.getDataRange().getValues();
-      let foundRowIndex = -1;
-      
-      // 尋找目標單字的當前位置
-      for (let i = 0; i < data.length; i++) {
-        const rowEnglish = data[i][0] ? data[i][0].toString().trim() : '';
-        const rowChinese = data[i][1] ? data[i][1].toString().trim() : '';
-        
-        // 比較英文和中文內容（忽略大小寫）
-        if (rowEnglish.toLowerCase() === targetWord.english.toLowerCase().trim() && 
-            rowChinese.toLowerCase() === targetWord.chinese.toLowerCase().trim()) {
-          foundRowIndex = i;
-          break;
-        }
-      }
+      const foundRowIndex = findWordRowIndex(targetSheet, targetWord.english, targetWord.chinese);
       
       if (foundRowIndex !== -1) {
         const targetRow = foundRowIndex + 1; // 轉換為1-based索引
@@ -395,59 +443,9 @@ function handleDuplicateWordMerge(sheetId, targetWord, mergeWords) {
   }
 }
 
-// 修改：載入單字時包含重複偵測
-function getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle = false) {
-  try {
-    console.log('載入單字並偵測重複，Sheet ID:', sheetId, '工作表:', sheetNames, '自動處理:', autoHandle);
-    
-    // 先載入所有單字
-    const allWords = getWordsFromSheets(sheetId, sheetNames);
-    
-    // 偵測重複
-    const duplicates = detectDuplicateWords(allWords);
-    
-    if (autoHandle && duplicates.length > 0) {
-      console.log('自動處理重複單字（僅記憶體處理），數量:', duplicates.length);
-      
-      // 在記憶體中處理重複單字，不修改實際的Google Sheet
-      const autoResult = autoHandleSkippedDuplicatesInMemory(allWords, duplicates);
-      
-      if (autoResult.success) {
-        console.log('記憶體自動處理成功，去重後單字數量:', autoResult.processedWords.length);
-        
-        return {
-          words: autoResult.processedWords,
-          duplicates: [],
-          hasDuplicates: false,
-          autoHandled: true,
-          autoResults: autoResult
-        };
-      } else {
-        console.error('記憶體自動處理失敗:', autoResult.error);
-        // 如果自動處理失敗，仍然返回原始結果，讓用戶手動處理
-        return {
-          words: allWords,
-          duplicates: duplicates,
-          hasDuplicates: duplicates.length > 0,
-          autoHandled: false,
-          autoError: autoResult.error
-        };
-      }
-    } else {
-      return {
-        words: allWords,
-        duplicates: duplicates,
-        hasDuplicates: duplicates.length > 0,
-        autoHandled: false
-      };
-    }
-  } catch (error) {
-    console.error('載入單字並偵測重複時發生錯誤:', error);
-    throw error;
-  }
-}
-
-// 新增：在記憶體中自動處理重複單字（不修改Google Sheet）
+/**
+ * 在記憶體中自動處理重複單字（不修改Google Sheet）
+ */
 function autoHandleSkippedDuplicatesInMemory(allWords, duplicates) {
   try {
     console.log('在記憶體中自動處理重複單字，總數:', duplicates.length);
@@ -558,7 +556,9 @@ function autoHandleSkippedDuplicatesInMemory(allWords, duplicates) {
   }
 }
 
-// 新增：自動處理重複單字（跳過不處理的邏輯 - 修改Google Sheet）
+/**
+ * 自動處理重複單字（修改Google Sheet）
+ */
 function autoHandleSkippedDuplicates(sheetId, duplicates) {
   try {
     console.log('自動處理重複單字（跳過不處理邏輯），總數:', duplicates.length);
@@ -620,5 +620,63 @@ function autoHandleSkippedDuplicates(sheetId, duplicates) {
       success: false,
       error: error.message
     };
+  }
+}
+
+// ===========================================
+// 高階整合功能
+// ===========================================
+
+/**
+ * 載入單字時包含重複偵測
+ */
+function getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle = false) {
+  try {
+    console.log('載入單字並偵測重複，Sheet ID:', sheetId, '工作表:', sheetNames, '自動處理:', autoHandle);
+    
+    // 先載入所有單字
+    const allWords = getWordsFromSheets(sheetId, sheetNames);
+    
+    // 偵測重複
+    const duplicates = detectDuplicateWords(allWords);
+    
+    if (autoHandle && duplicates.length > 0) {
+      console.log('自動處理重複單字（僅記憶體處理），數量:', duplicates.length);
+      
+      // 在記憶體中處理重複單字，不修改實際的Google Sheet
+      const autoResult = autoHandleSkippedDuplicatesInMemory(allWords, duplicates);
+      
+      if (autoResult.success) {
+        console.log('記憶體自動處理成功，去重後單字數量:', autoResult.processedWords.length);
+        
+        return {
+          words: autoResult.processedWords,
+          duplicates: [],
+          hasDuplicates: false,
+          autoHandled: true,
+          autoResults: autoResult
+        };
+      } else {
+        console.error('記憶體自動處理失敗:', autoResult.error);
+        // 如果自動處理失敗，仍然返回原始結果，讓用戶手動處理
+        return {
+          words: allWords,
+          duplicates: duplicates,
+          hasDuplicates: duplicates.length > 0,
+          autoHandled: false,
+          autoError: autoResult.error
+        };
+      }
+    } else {
+      return {
+        words: allWords,
+        duplicates: duplicates,
+        hasDuplicates: duplicates.length > 0,
+        autoHandled: false
+      };
+    }
+  } catch (error) {
+    console.error('載入單字並偵測重複時發生錯誤:', error);
+    throw error;
   }
 }
