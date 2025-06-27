@@ -76,6 +76,10 @@ function FlashcardApp() {
   this.pausedTimestamp = null;
   this.remainingTime = 0;
   
+  // 語音啟用狀態（適用於舊版瀏覽器）
+  this.speechActivated = false;
+  this.isLegacyBrowser = false;
+  
   // 設定
   this.settings = {
     delayTime: 1,
@@ -121,6 +125,9 @@ FlashcardApp.prototype.init = function() {
     
     console.log('Sheet 設定:', this.sheetSettings);
     
+    // 檢測瀏覽器是否需要語音交互
+    this.detectLegacyBrowser();
+    
     console.log('設定事件監聽器...');
     this.setupEventListeners();
     
@@ -129,17 +136,11 @@ FlashcardApp.prototype.init = function() {
       console.log('發現已設定的 Google Sheet，載入單字...');
       var self = this;
       this.loadWords(true, function(hasDuplicates) {
-        self.hideLoading();
-        self.applySettings();
-        
-        if (!hasDuplicates) {
-          self.startNewRound();
-        }
+        self.handleLoadingComplete(hasDuplicates);
       });
     } else {
       console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
-      this.hideLoading();
-      this.openSheetSettings();
+      this.handleLoadingComplete(false, true);
       return;
     }
     
@@ -147,6 +148,69 @@ FlashcardApp.prototype.init = function() {
   } catch (error) {
     console.error('初始化錯誤:', error);
     this.showError();
+  }
+};
+
+// 檢測舊版瀏覽器
+FlashcardApp.prototype.detectLegacyBrowser = function() {
+  var userAgent = navigator.userAgent;
+  var isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  var iosVersion = null;
+  var isOldChrome = false;
+  
+  if (isIOS) {
+    var match = userAgent.match(/OS (\d+)_/);
+    if (match) {
+      iosVersion = parseInt(match[1]);
+    }
+  }
+  
+  // 檢測舊版Chrome（版本低於80）
+  var chromeMatch = userAgent.match(/Chrome\/(\d+)/);
+  if (chromeMatch) {
+    var chromeVersion = parseInt(chromeMatch[1]);
+    isOldChrome = chromeVersion < 80;
+  }
+  
+  // 檢測需要用戶交互才能播放語音的瀏覽器：
+  // 1. iPad/iOS 10及以下版本
+  // 2. 舊版Chrome（版本低於80）
+  // 3. Safari 12及以下版本
+  this.isLegacyBrowser = (isIOS && iosVersion && iosVersion <= 10) || 
+                        isOldChrome ||
+                        userAgent.indexOf('Safari') !== -1 && userAgent.indexOf('Chrome') === -1 && 
+                        userAgent.match(/Version\/(\d+)/) && parseInt(userAgent.match(/Version\/(\d+)/)[1]) <= 12;
+  
+  // 新版瀏覽器自動啟用語音
+  if (!this.isLegacyBrowser) {
+    this.speechActivated = true;
+  }
+  
+  console.log('瀏覽器檢測結果:', {
+    userAgent: userAgent,
+    isIOS: isIOS,
+    iosVersion: iosVersion,
+    isOldChrome: isOldChrome,
+    isLegacyBrowser: this.isLegacyBrowser,
+    speechActivated: this.speechActivated
+  });
+};
+
+// 處理載入完成
+FlashcardApp.prototype.handleLoadingComplete = function(hasDuplicates, shouldOpenSettings) {
+  if (this.isLegacyBrowser && !this.speechActivated) {
+    // 舊版瀏覽器顯示語音啟用按鈕
+    this.showSpeechActivation();
+  } else {
+    // 新版瀏覽器或已啟用語音，直接進入主畫面
+    this.hideLoading();
+    this.applySettings();
+    
+    if (shouldOpenSettings) {
+      this.openSheetSettings();
+    } else if (!hasDuplicates) {
+      this.startNewRound();
+    }
   }
 };
 
@@ -394,6 +458,74 @@ FlashcardApp.prototype.setupMenuListeners = function() {
   });
 
   console.log('選單事件監聽器設定完成');
+};
+
+// 顯示語音啟用界面
+FlashcardApp.prototype.showSpeechActivation = function() {
+  console.log('顯示語音啟用界面 (舊版瀏覽器)');
+  var activationContainer = document.getElementById('speech-activation-container');
+  if (activationContainer) {
+    activationContainer.style.display = 'block';
+  }
+  
+  // 設置語音啟用按鈕事件
+  var activateBtn = document.getElementById('activate-speech-btn');
+  var self = this;
+  if (activateBtn) {
+    activateBtn.addEventListener('click', function() {
+      self.activateSpeech();
+    });
+  }
+};
+
+// 啟用語音功能
+FlashcardApp.prototype.activateSpeech = function() {
+  console.log('用戶點擊啟用語音按鈕');
+  
+  // 測試語音功能是否可用
+  try {
+    var testUtterance = new SpeechSynthesisUtterance('');
+    testUtterance.volume = 0; // 靜音測試
+    this.speechSynthesis.speak(testUtterance);
+    
+    this.speechActivated = true;
+    console.log('語音功能已啟用');
+    
+    // 隱藏語音啟用界面
+    var activationContainer = document.getElementById('speech-activation-container');
+    if (activationContainer) {
+      activationContainer.style.display = 'none';
+    }
+    
+    // 進入主畫面
+    this.hideLoading();
+    this.applySettings();
+    
+    if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+      this.startNewRound();
+    } else {
+      this.openSheetSettings();
+    }
+    
+  } catch (error) {
+    console.error('語音啟用失敗:', error);
+    alert('語音功能啟用失敗，但程式仍可正常使用');
+    this.speechActivated = false;
+    
+    // 仍然進入主畫面
+    var activationContainer = document.getElementById('speech-activation-container');
+    if (activationContainer) {
+      activationContainer.style.display = 'none';
+    }
+    this.hideLoading();
+    this.applySettings();
+    
+    if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+      this.startNewRound();
+    } else {
+      this.openSheetSettings();
+    }
+  }
 };
 
 // 隱藏載入畫面
@@ -1139,9 +1271,18 @@ FlashcardApp.prototype.showSecondPartAndScheduleNext = function() {
 // 語音播放
 FlashcardApp.prototype.speakEnglishWord = function(text) {
   if (!this.voiceSettings.enabled) return;
+  if (!text) return;
+  
+  // 舊版瀏覽器檢查用戶交互狀態
+  if (this.isLegacyBrowser && !this.speechActivated) {
+    console.log('舊版瀏覽器：語音未啟用，跳過播放');
+    return;
+  }
   
   try {
+    console.log('播放語音:', text);
     this.speechSynthesis.cancel();
+    
     var utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = this.voiceSettings.rate;
     utterance.pitch = this.voiceSettings.pitch;
@@ -1172,6 +1313,15 @@ FlashcardApp.prototype.speakEnglishWord = function(text) {
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
+    
+    // 為舊版瀏覽器添加錯誤處理
+    utterance.onerror = function(event) {
+      console.log('語音播放錯誤:', event.error);
+    };
+    
+    utterance.onstart = function() {
+      console.log('語音開始播放:', text);
+    };
     
     this.speechSynthesis.speak(utterance);
   } catch (error) {

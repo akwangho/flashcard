@@ -17,6 +17,31 @@
     <div id="loading">
       <p>載入中...</p>
       <p><small>如果長時間停留在此畫面，可能是瀏覽器兼容性問題</small></p>
+      
+      <!-- 語音啟用按鈕（適用於舊版瀏覽器） -->
+      <div id="speech-activation-container" style="display: none; margin-top: 30px;">
+        <div style="background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 12px; margin: 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          <div style="font-size: 18px; color: #333; margin-bottom: 15px;">
+            🔊 語音功能需要您的互動才能啟用
+          </div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 20px;">
+            點擊下方按鈕以啟用英文單字發音功能
+          </div>
+          <button id="activate-speech-btn" style="
+            font-size: 18px; 
+            padding: 15px 30px; 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+          " onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
+            ▶️ 啟用語音播放
+          </button>
+        </div>
+      </div>
     </div>
     
     <!-- 錯誤顯示區域 -->
