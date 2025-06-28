@@ -149,6 +149,10 @@
       console.error('初始化錯誤:', error);
       this.showError();
     }
+    
+    // 初始化按鈕狀態
+    this.updateVoiceButtonState();
+    this.updatePauseButtonState();
   };
   
   // 檢測舊版瀏覽器
@@ -397,7 +401,18 @@
       prevBtn.addEventListener('click', function() { self.previousWord(); });
     }
     if (restartBtn) {
-      restartBtn.addEventListener('click', function() { self.restart(); });
+      restartBtn.addEventListener('click', function() { self.confirmRestart(); });
+    }
+    
+    // 新增按鈕事件監聽器
+    var voiceToggleBtn = document.getElementById('voice-toggle-btn');
+    var pauseBtn = document.getElementById('pause-btn');
+    
+    if (voiceToggleBtn) {
+      voiceToggleBtn.addEventListener('click', function() { self.toggleVoice(); });
+    }
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', function() { self.togglePause(); });
     }
   };
   
@@ -432,7 +447,7 @@
         if (e.target.id === 'restart-btn') {
           console.log('重新開始按鈕被點擊');
           self.closeMenu();
-          self.restart();
+          self.confirmRestart();
         } else if (e.target.id === 'sheet-settings-btn') {
           console.log('Google Sheet 設定按鈕被點擊');
           self.closeMenu();
@@ -534,6 +549,10 @@
     var flashcardDiv = document.getElementById('flashcard');
     if (loadingDiv) loadingDiv.style.display = 'none';
     if (flashcardDiv) flashcardDiv.style.display = 'flex';
+    
+    // 更新按鈕狀態
+    this.updateVoiceButtonState();
+    this.updatePauseButtonState();
   };
   
   // 顯示錯誤
@@ -571,6 +590,8 @@
         
         this.displayCurrentWord();
     this.updateButtonStates();
+    this.updateVoiceButtonState();
+    this.updatePauseButtonState();
       this.renderDifficultStar();
   };
   
@@ -1490,6 +1511,14 @@
     }
   };
   
+  // 確認重新載入單字
+  FlashcardApp.prototype.confirmRestart = function() {
+    var confirmed = confirm('確定要重新載入單字嗎？\n\n⚠️ 注意：重新載入會恢復所有暫時刪除的單字。');
+    if (confirmed) {
+      this.restart();
+    }
+  };
+
   // 重新載入單字
   FlashcardApp.prototype.restart = function() {
     if (this.displayTimer) {
@@ -1524,6 +1553,61 @@
           }
   };
   
+  // 切換語音播放
+  FlashcardApp.prototype.toggleVoice = function() {
+    this.voiceSettings.enabled = !this.voiceSettings.enabled;
+    this.saveSettings();
+    this.updateVoiceButtonState();
+    
+    // 停止當前播放的語音
+    if (!this.voiceSettings.enabled) {
+      this.speechSynthesis.cancel();
+    }
+  };
+  
+  // 更新語音按鈕狀態
+  FlashcardApp.prototype.updateVoiceButtonState = function() {
+    var voiceBtn = document.getElementById('voice-toggle-btn');
+    if (voiceBtn) {
+      if (this.voiceSettings.enabled) {
+        voiceBtn.textContent = '🔊';
+        voiceBtn.title = '語音播放：開啟（點擊關閉）';
+        voiceBtn.style.opacity = '1';
+      } else {
+        voiceBtn.textContent = '🔇';
+        voiceBtn.title = '語音播放：關閉（點擊開啟）';
+        voiceBtn.style.opacity = '0.6';
+      }
+    }
+  };
+  
+  // 切換暫停/恢復
+  FlashcardApp.prototype.togglePause = function() {
+    if (this.isPaused) {
+      this.resumeTimer();
+      this.updatePauseButtonState();
+    } else {
+      this.pauseTimer();
+      this.updatePauseButtonState();
+    }
+  };
+  
+  // 更新暫停按鈕狀態
+  FlashcardApp.prototype.updatePauseButtonState = function() {
+    var pauseBtn = document.getElementById('pause-btn');
+    if (pauseBtn) {
+      if (this.isPaused) {
+        pauseBtn.textContent = '▶️';
+        pauseBtn.title = '目前暫停中（點擊恢復）';
+        pauseBtn.style.opacity = '0.6';
+      } else {
+        pauseBtn.textContent = '⏸️';
+        pauseBtn.title = '目前運行中（點擊暫停）';
+        pauseBtn.style.opacity = '1';
+      }
+    }
+  };
+
   // 重新顯示當前單字
   FlashcardApp.prototype.redisplayCurrentWord = function() {
     if (this.displayTimer) {
@@ -1589,6 +1673,7 @@
     }
     
     this.saveSettings();
+    this.updateVoiceButtonState();
     this.closeVoiceSettings();
   };
   
