@@ -110,6 +110,7 @@
     this.duplicateWords = [];
     this.currentDuplicateIndex = 0;
     this.duplicateProcessingResults = [];
+    this.progressTimer = null;
     
     // 啟動初始化
     this.init();
@@ -386,7 +387,6 @@
     var chineseSection = document.getElementById('chinese-section');
     var nextBtn = document.getElementById('next-btn');
     var prevBtn = document.getElementById('prev-btn');
-    var restartBtn = document.getElementById('restart-btn');
     
     if (englishSection) {
       englishSection.addEventListener('click', function() { self.onWordClick(); });
@@ -400,9 +400,7 @@
     if (prevBtn) {
       prevBtn.addEventListener('click', function() { self.previousWord(); });
     }
-    if (restartBtn) {
-      restartBtn.addEventListener('click', function() { self.confirmRestart(); });
-    }
+    // 移除 restartBtn 的直接事件綁定，因為它已經在選單委派事件中處理了
     
     // 新增按鈕事件監聽器
     var voiceToggleBtn = document.getElementById('voice-toggle-btn');
@@ -1717,12 +1715,15 @@
     
       this.pauseTimer();
     
-    // 重置匯出按鈕狀態
+    // 重置匯出按鈕狀態和進度顯示
     var confirmBtn = document.getElementById('confirm-export');
       if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.textContent = '匯出';
       }
+    
+    // 隱藏進度顯示
+    this.hideExportProgress();
   };
   
   FlashcardApp.prototype.closeExportModal = function() {
@@ -1734,6 +1735,9 @@
     // 確保「已暫停」消失
     var pausedIndicator = document.getElementById('paused-indicator');
       if (pausedIndicator) pausedIndicator.remove();
+    
+    // 隱藏進度顯示
+    this.hideExportProgress();
   };
   
   FlashcardApp.prototype.getDefaultExportSheetName = function() {
@@ -1749,6 +1753,213 @@
     if (d.length < 2) d = '0' + d;
     
     return base + '_' + y + m + d;
+  };
+  
+  // 顯示匯出進度
+  FlashcardApp.prototype.showExportProgress = function() {
+    var progressContainer = document.getElementById('export-progress-container');
+    if (progressContainer) {
+      progressContainer.style.display = 'block';
+    }
+    
+    // 重置進度
+    this.updateExportProgress(0, 0, '準備匯出...');
+  };
+  
+  // 隱藏匯出進度
+  FlashcardApp.prototype.hideExportProgress = function() {
+    var progressContainer = document.getElementById('export-progress-container');
+    if (progressContainer) {
+      progressContainer.style.display = 'none';
+    }
+    
+    // 清除進度計時器（雖然現在不使用，但保留相容性）
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+      this.progressTimer = null;
+    }
+    
+    // 清除分批匯出狀態
+    this.currentBatch = 0;
+    this.totalBatches = 0;
+    this.processedWords = 0;
+    this.totalWords = 0;
+    this.exportBatches = null;
+    this.isSheetCreated = false;
+  };
+  
+  // 更新匯出進度
+  FlashcardApp.prototype.updateExportProgress = function(current, total, message) {
+    var progressFill = document.getElementById('export-progress-fill');
+    var progressText = document.getElementById('export-progress-text');
+    var progressCount = document.getElementById('export-progress-count');
+    
+    if (progressFill && total > 0) {
+      var percentage = Math.min((current / total) * 100, 100);
+      progressFill.style.width = percentage + '%';
+    }
+    
+    if (progressText && message) {
+      progressText.textContent = message;
+    }
+    
+    if (progressCount && total > 0) {
+      progressCount.textContent = current + ' / ' + total;
+    }
+  };
+  
+  // 開始分批匯出
+  FlashcardApp.prototype.startBatchExport = function(exportData, sheetName, targetSheetId, overwrite) {
+    var self = this;
+    var batchSize = 15; // 每批處理15個單字
+    var batches = [];
+    
+    // 將資料分成批次
+    for (var i = 0; i < exportData.length; i += batchSize) {
+      batches.push(exportData.slice(i, i + batchSize));
+    }
+    
+    this.currentBatch = 0;
+    this.totalBatches = batches.length;
+    this.processedWords = 0;
+    this.totalWords = exportData.length;
+    this.exportBatches = batches;
+    this.exportSheetName = sheetName;
+    this.exportTargetSheetId = targetSheetId;
+    this.exportOverwrite = overwrite;
+    this.isSheetCreated = false; // 追蹤工作表是否已創建
+    
+    // 開始處理第一批
+    this.processBatch();
+  };
+  
+  // 處理單一批次
+  FlashcardApp.prototype.processBatch = function() {
+    var self = this;
+    
+    if (this.currentBatch >= this.totalBatches) {
+      // 所有批次完成
+      this.completeExportProgress();
+      setTimeout(function() {
+        self.onExportComplete();
+      }, 500);
+      return;
+    }
+    
+    var currentBatchData = this.exportBatches[this.currentBatch];
+    var batchNumber = this.currentBatch + 1;
+    var isFirstBatch = this.currentBatch === 0;
+    
+    // 更新進度顯示
+    var message = '正在匯出第 ' + batchNumber + ' 批，共 ' + this.totalBatches + ' 批...';
+    this.updateExportProgress(this.processedWords, this.totalWords, message);
+    
+    // 確定操作模式：第一批次可能需要覆寫，後續批次絕對不覆寫
+    var shouldOverwrite = this.exportOverwrite && isFirstBatch;
+    
+    // 處理當前批次
+    google.script.run
+      .withSuccessHandler(function(result) {
+        // 只有第一批次才需要處理工作表存在的錯誤
+        if (isFirstBatch && result && result.success === false && result.error === 'SHEET_EXISTS') {
+          // 工作表已存在，只有第一批次才處理這個錯誤
+          self.handleSheetExistsError(result.message);
+          return;
+        }
+        
+        // 如果是其他批次遇到 SHEET_EXISTS，視為成功（工作表已存在是正常的）
+        if (!isFirstBatch && result && result.success === false && result.error === 'SHEET_EXISTS') {
+          console.log('第 ' + batchNumber + ' 批：工作表已存在，正常附加資料');
+          // 視為成功，繼續下一批次
+          result = { success: true };
+        }
+        
+        // 處理其他錯誤
+        if (result && result.success === false && result.error !== 'SHEET_EXISTS') {
+          console.error('批次匯出失敗:', result);
+          self.hideExportProgress();
+          alert('匯出失敗（第 ' + batchNumber + ' 批）：' + (result.message || result.error || '未知錯誤'));
+          self.resetExportButton();
+          return;
+        }
+        
+        // 標記工作表已創建（第一批次成功後）
+        if (isFirstBatch) {
+          self.isSheetCreated = true;
+        }
+        
+        // 批次成功完成
+        self.processedWords += currentBatchData.length;
+        self.currentBatch++;
+        
+        // 更新進度
+        var progressMessage = '已完成 ' + self.processedWords + ' / ' + self.totalWords + ' 個單字';
+        self.updateExportProgress(self.processedWords, self.totalWords, progressMessage);
+        
+        // 處理下一批（延遲一點讓使用者看到進度更新）
+        setTimeout(function() {
+          self.processBatch();
+        }, 300);
+      })
+      .withFailureHandler(function(error) {
+        console.error('批次匯出失敗:', error);
+        self.hideExportProgress();
+        alert('匯出失敗（第 ' + batchNumber + ' 批），請重試！\n錯誤：' + error);
+        self.resetExportButton();
+      })
+      .exportWordsToSheet(
+        currentBatchData, 
+        this.exportSheetName, 
+        this.exportTargetSheetId, 
+        shouldOverwrite // 第一批次可能覆寫，後續批次絕對不覆寫
+      );
+  };
+  
+  // 匯出完成處理
+  FlashcardApp.prototype.onExportComplete = function() {
+    var confirmBtn = document.getElementById('confirm-export');
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = '匯出';
+    }
+    
+    alert('匯出成功！共匯出 ' + this.totalWords + ' 個單字');
+    this.closeExportModal();
+  };
+  
+  // 重置匯出按鈕
+  FlashcardApp.prototype.resetExportButton = function() {
+    var confirmBtn = document.getElementById('confirm-export');
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = '匯出';
+    }
+  };
+  
+  // 完成匯出進度
+  FlashcardApp.prototype.completeExportProgress = function() {
+    var progressText = document.getElementById('export-progress-text');
+    var progressCount = document.getElementById('export-progress-count');
+    var progressFill = document.getElementById('export-progress-fill');
+    
+    // 清除計時器（雖然現在不使用，但保留相容性）
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+      this.progressTimer = null;
+    }
+    
+    // 設定完成狀態
+    if (progressFill) {
+      progressFill.style.width = '100%';
+    }
+    
+    if (progressText) {
+      progressText.textContent = '匯出完成！';
+    }
+    
+    if (progressCount && this.totalWords > 0) {
+      progressCount.textContent = this.totalWords + ' / ' + this.totalWords;
+    }
   };
   
   FlashcardApp.prototype.confirmExport = function() {
@@ -1796,45 +2007,25 @@
         }
         return;
       }
-      
-      // 呼叫 Apps Script
-    var targetSheetId = this.sheetSettings.sheetId || null;
-    var self = this;
     
-      google.script.run
-      .withSuccessHandler(function(result) {
-          if (confirmBtn) {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '匯出';
-          }
-          
-          if (result && result.success === false && result.error === 'SHEET_EXISTS') {
-            // 工作表已存在，詢問用戶是否覆寫
-          self.handleSheetExistsError(result.message);
-          } else if (result && result.success) {
-            // 匯出成功
-            alert(result.message || '匯出成功！');
-          self.closeExportModal();
-          } else {
-            // 其他成功情況（向後兼容）
-            alert('匯出成功！');
-          self.closeExportModal();
-          }
-        })
-      .withFailureHandler(function(error) {
-          console.error('匯出失敗:', error);
-          alert('匯出失敗，請重試！');
-          if (confirmBtn) {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '匯出';
-          }
-        })
-        .exportWordsToSheet(exportData, sheetName, targetSheetId, overwrite);
+    // 顯示進度
+    this.showExportProgress();
+    this.updateExportProgress(0, exportData.length, '準備匯出...');
+    
+    // 開始分批匯出
+    var targetSheetId = this.sheetSettings.sheetId || null;
+    this.startBatchExport(exportData, sheetName, targetSheetId, overwrite);
   };
   
   FlashcardApp.prototype.handleSheetExistsError = function(message) {
     var sheetNameInput = document.getElementById('export-sheet-name');
     var currentSheetName = sheetNameInput ? sheetNameInput.value.trim() : '';
+    
+    // 停止進度顯示
+    this.hideExportProgress();
+    
+    // 重置匯出按鈕
+    this.resetExportButton();
       
       // 顯示自定義覆寫確認對話框
       this.showOverwriteConfirmModal(currentSheetName);
@@ -1898,7 +2089,22 @@
       // 覆寫確認按鈕
     this.overwriteConfirmHandler = function() {
       self.closeOverwriteConfirmModal();
-      self.performExport(true);
+      // 重新開始分批匯出，設定覆寫模式
+      var exportData = [];
+      if (self.exportBatches) {
+        // 重新組合所有批次的資料
+        for (var i = 0; i < self.exportBatches.length; i++) {
+          exportData = exportData.concat(self.exportBatches[i]);
+        }
+      }
+      if (exportData.length > 0) {
+        self.showExportProgress();
+        // 重置工作表創建狀態
+        self.isSheetCreated = false;
+        self.startBatchExport(exportData, self.exportSheetName, self.exportTargetSheetId, true);
+      } else {
+        self.performExport(true);
+      }
     };
     var overwriteConfirmBtn = document.getElementById('overwrite-confirm');
     if (overwriteConfirmBtn) {
