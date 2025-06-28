@@ -938,15 +938,16 @@
   }
   
   /* 全螢幕狀態下的調整 */
-  .fullscreen .hidden-control-btn {
-    background-color: rgba(0, 0, 0, 0.8);
-    border-color: var(--primary-color);
-  }
-  
-  .fullscreen .hidden-controls:hover .hidden-control-btn {
-    opacity: 1;
-    visibility: visible;
-  }
+.fullscreen .hidden-control-btn {
+  background-color: rgba(0, 0, 0, 0.8);
+  border-color: var(--primary-color);
+}
+
+.fullscreen .fullscreen-control-area:hover .fullscreen-btn,
+.fullscreen .pause-control-area:hover .pause-btn {
+  opacity: 1;
+  visibility: visible;
+}
   
   /* 暫停狀態樣式 */
   .paused .pause-btn {
