@@ -217,6 +217,90 @@
   }
   
   /* ==========================================================================
+     RESTORE BUTTON
+     ========================================================================== */
+  
+  .restore-btn-container {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .restore-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 25px;
+    background-color: rgba(255, 165, 0, 0.95);
+    color: #000;
+    border: 3px solid #FFA500;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(255, 165, 0, 0.4);
+    transition: all 0.3s ease;
+    min-width: 140px;
+    justify-content: center;
+  }
+  
+  .restore-btn:hover {
+    background-color: #FFA500;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 165, 0, 0.6);
+  }
+  
+  .restore-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(255, 165, 0, 0.4);
+  }
+  
+  .restore-icon {
+    font-size: 24px;
+    font-weight: bold;
+  }
+  
+  .restore-text {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* iPad 4 兼容性：為不支持CSS變量的舊版瀏覽器提供fallback */
+  @media screen and (max-width: 768px) {
+    .restore-btn-container {
+      left: 15px;
+      bottom: 15px;
+    }
+    
+    .restore-btn {
+      padding: 12px 20px;
+      font-size: 16px;
+      min-width: 120px;
+    }
+    
+    .restore-icon {
+      font-size: 20px;
+    }
+    
+    .restore-text {
+      font-size: 14px;
+    }
+  }
+
+  /* ==========================================================================
      PROGRESS & CONTROLS
      ========================================================================== */
   

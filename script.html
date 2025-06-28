@@ -405,12 +405,16 @@
     // 新增按鈕事件監聽器
     var voiceToggleBtn = document.getElementById('voice-toggle-btn');
     var pauseBtn = document.getElementById('pause-btn');
+    var restoreBtn = document.getElementById('restore-btn');
     
     if (voiceToggleBtn) {
       voiceToggleBtn.addEventListener('click', function() { self.toggleVoice(); });
     }
     if (pauseBtn) {
       pauseBtn.addEventListener('click', function() { self.togglePause(); });
+    }
+    if (restoreBtn) {
+      restoreBtn.addEventListener('click', function() { self.cancelRemoval(); });
     }
   };
   
@@ -575,6 +579,7 @@
     this.removedWords = [];
     this.navigationHistory = [];
     this.pendingRemoval = null;
+    this.hideRestoreButton();
           
           if (this.currentWords.length === 0) {
       if (this.showDifficultOnly) {
@@ -618,6 +623,7 @@
     this.isTransitioning = false;
     this.isProcessingClick = false;
       this.pendingRemoval = null;
+      this.hideRestoreButton();
       
       if (this.displayTimer) {
         clearTimeout(this.displayTimer);
@@ -1229,6 +1235,7 @@
       originalChineseColor: chineseElement.style.color
     };
     
+    this.showRestoreButton();
     this.updateButtonStates();
     
     var self = this;
@@ -1252,6 +1259,7 @@
     }
     
     this.pendingRemoval = null;
+    this.hideRestoreButton();
     
     if (this.currentWords.length === 0) {
       this.startNewRound();
@@ -1274,6 +1282,7 @@
     chineseElement.style.color = '';
     
     this.pendingRemoval = null;
+    this.hideRestoreButton();
     
     if (this.displayTimer) {
       clearTimeout(this.displayTimer);
@@ -1291,6 +1300,22 @@
       this.displayTimer = setTimeout(function() {
         self.showSecondPartAndScheduleNext();
       }, this.settings.delayTime * 1000);
+    }
+  };
+  
+  // 顯示恢復按鈕
+  FlashcardApp.prototype.showRestoreButton = function() {
+    var restoreBtnContainer = document.getElementById('restore-btn-container');
+    if (restoreBtnContainer) {
+      restoreBtnContainer.style.display = 'block';
+    }
+  };
+  
+  // 隱藏恢復按鈕
+  FlashcardApp.prototype.hideRestoreButton = function() {
+    var restoreBtnContainer = document.getElementById('restore-btn-container');
+    if (restoreBtnContainer) {
+      restoreBtnContainer.style.display = 'none';
     }
   };
   
@@ -1619,6 +1644,7 @@
     this.isTransitioning = false;
     this.isProcessingClick = false;
     this.pendingRemoval = null;
+    this.hideRestoreButton();
     
     this.displayCurrentWord();
   };
