@@ -3,12 +3,17 @@
 <head>
   <base target="_top">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <!-- 為舊版瀏覽器添加兼容性支援 -->
   <meta name="format-detection" content="telephone=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-touch-fullscreen" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- 防止iPad縮放和選擇 -->
+  <meta name="msapplication-tap-highlight" content="no">
+  <meta name="theme-color" content="#1a1a1a">
   <title>英文單字閃卡</title>
   <?!= include('style'); ?>
 </head>
@@ -51,6 +56,12 @@
     </div>
     
     <div id="flashcard" style="display: none;">
+      <!-- 隱藏的控制按鈕 -->
+      <div class="hidden-controls">
+        <button id="fullscreen-btn" class="hidden-control-btn fullscreen-btn" title="全螢幕">⤢</button>
+        <button id="pause-btn" class="hidden-control-btn pause-btn" title="暫停">暫停</button>
+      </div>
+      
       <div class="card-container">
         <div class="card-section" id="english-section">
           <div class="word" id="english-word"></div>
@@ -75,7 +86,7 @@
           <div class="menu-container">
             <button id="menu-btn" class="menu-toggle">選單 ▼</button>
             <div class="menu-dropdown" id="menu-dropdown">
-              <button id="restart-btn" class="menu-item">重新開始</button>
+              <button id="restart-btn" class="menu-item">重新載入單字</button>
               <label class="menu-item" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                 <input type="checkbox" id="show-difficult-only" style="width:16px;height:16px;">
                 只顯示不熟單字
@@ -102,7 +113,7 @@
           <div class="setting-group">
             <label for="sheet-id-input">Google Sheet ID 或 URL</label>
             <div class="setting-control">
-              <input type="text" id="sheet-id-input" placeholder="請輸入 Google Sheet ID 或完整 URL">
+              <input type="text" id="sheet-id-input" placeholder="請輸入 Google Sheet ID 或完整 URL" value="1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM">
               <!-- 浮動提示容器 -->
               <div id="sheet-id-tooltip" class="sheet-id-tooltip" style="display:none;">
                 <small style="color: #888;">
