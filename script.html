@@ -2377,6 +2377,37 @@
     
     var modal = document.getElementById('duplicate-words-modal');
     if (modal) {
+      // 重置 modal-body 的 HTML 內容為原始狀態
+      var modalBody = modal.querySelector('.modal-body');
+      if (modalBody) {
+        modalBody.innerHTML = 
+          '<div class="duplicate-info">' +
+            '<p id="duplicate-summary">找到 <span id="duplicate-count">0</span> 組重複單字，請選擇處理方式：</p>' +
+          '</div>' +
+          '<div class="duplicate-word-container" id="duplicate-word-container">' +
+            '<!-- 重複單字項目將在這裡動態生成 -->' +
+          '</div>' +
+          '<div class="duplicate-actions" id="duplicate-actions" style="display: none;">' +
+            '<div class="current-duplicate-info">' +
+              '<h3>處理單字：<strong id="current-duplicate-english"></strong></h3>' +
+              '<div id="duplicate-options-container">' +
+                '<!-- 處理選項將在這裡動態生成 -->' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      }
+      
+      // 重置 modal-footer 的 HTML 內容為原始狀態
+      var modalFooter = modal.querySelector('.modal-footer');
+      if (modalFooter) {
+        modalFooter.innerHTML = 
+          '<button id="skip-duplicates" class="secondary-btn">跳過，稍後處理</button>' +
+          '<button id="process-all-duplicates" class="primary-btn">開始處理</button>' +
+          '<button id="confirm-duplicate-action" class="primary-btn" style="display: none;">確認操作</button>' +
+          '<button id="next-duplicate" class="primary-btn" style="display: none;">下一個</button>';
+        modalFooter.style.display = '';
+      }
+      
       modal.style.display = 'flex';
       this.pauseTimer();
       
