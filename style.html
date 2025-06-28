@@ -827,138 +827,17 @@
     margin-top: var(--spacing-sm);
   }
   
-  /* 隱藏控制按鈕樣式 - 類似選單按鈕 */
-  .hidden-controls {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    pointer-events: none;
-    height: 80px; /* 增大觸發區域 */
-  }
+
   
-  .hidden-control-btn {
-    position: absolute;
-    top: 15px;
-    padding: 8px 16px;
-    background-color: rgba(0, 0, 0, 0.7);
-    color: var(--primary-color);
-    border: 2px solid var(--primary-color);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    font-size: var(--font-sm);
-    font-weight: bold;
-    opacity: 0;
-    visibility: hidden;
-    transition: all var(--transition-normal);
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    white-space: nowrap;
-    min-width: 90px;
-  }
+
   
-  .hidden-control-btn:hover {
-    background-color: var(--primary-color);
-    color: var(--bg-color);
-    transform: scale(1.05);
-  }
+
   
-  .hidden-control-btn:active {
-    transform: scale(0.95);
-  }
+
   
-  .fullscreen-btn {
-    left: 15px;
-  }
+
   
-  .pause-btn {
-    right: 15px;
-  }
-  
-  /* 增大觸發區域 - 在區域 hover 時顯示按鈕 */
-  .hidden-controls::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 80px;
-    pointer-events: auto;
-  }
-  
-  .hidden-controls:hover .hidden-control-btn {
-    opacity: 1;
-    visibility: visible;
-  }
-  
-  /* 為平板和手機增加觸摸友好的顯示邏輯 */
-  @media (max-width: 1024px) {
-    .hidden-controls {
-      height: 100px;
-    }
-    
-    .hidden-control-btn {
-      padding: 10px 20px;
-      font-size: var(--font-md);
-      top: 20px;
-      opacity: 0; /* 平板上也隱藏 */
-      visibility: hidden;
-      min-width: 100px;
-    }
-    
-    .fullscreen-btn {
-      left: 20px;
-    }
-    
-    .pause-btn {
-      right: 20px;
-    }
-    
-    .hidden-controls::before {
-      height: 100px;
-    }
-    
-    /* 平板觸摸時完全顯示 */
-    .hidden-control-btn:active,
-    .hidden-control-btn.active {
-      opacity: 1;
-      visibility: visible;
-    }
-    
-    /* 用戶觸摸屏幕後短暫顯示按鈕 */
-    .show-controls .hidden-control-btn {
-      opacity: 0.9;
-      visibility: visible;
-    }
-  }
-  
-  /* 全螢幕狀態下的調整 */
-  .fullscreen .hidden-control-btn {
-    background-color: rgba(0, 0, 0, 0.8);
-    border-color: var(--primary-color);
-  }
-  
-  .fullscreen .hidden-controls:hover .hidden-control-btn {
-    opacity: 1;
-    visibility: visible;
-  }
-  
-  /* 暫停狀態樣式 */
-  .paused .pause-btn {
-    background-color: rgba(255, 152, 0, 0.8) !important;
-    border-color: #ff9800 !important;
-    color: white !important;
-  }
-  
-  .paused .pause-btn:hover {
-    background-color: rgba(255, 152, 0, 1) !important;
-    color: white !important;
-  }
+
   
   /* 工作表名稱錯誤狀態樣式 */
   .export-error input {
@@ -1131,18 +1010,7 @@
     opacity: 1;
   }
   
-  .paused-indicator {
-    position: absolute;
-    top: var(--spacing-lg);
-    right: var(--spacing-lg);
-    background-color: rgba(255, 255, 0, 0.2);
-    color: var(--primary-color);
-    padding: 8px 12px;
-    border-radius: var(--radius-md);
-    font-size: var(--font-sm);
-    font-weight: bold;
-    border: 1px solid var(--primary-color);
-  }
+
   
   #difficult-star {
     margin-left: 8px;

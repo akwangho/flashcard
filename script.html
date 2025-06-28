@@ -908,170 +908,26 @@
     console.log('設置隱藏控制按鈕事件監聽器...');
     var self = this;
     
-    // 全螢幕按鈕
-    var fullscreenBtn = document.getElementById('fullscreen-btn');
-    if (fullscreenBtn) {
-      fullscreenBtn.addEventListener('click', function() {
-        self.toggleFullscreen();
-      });
-      console.log('全螢幕按鈕事件監聽器設置完成');
-    }
+
     
-    // 暫停按鈕
-    var pauseBtn = document.getElementById('pause-btn');
-    if (pauseBtn) {
-      pauseBtn.addEventListener('click', function() {
-        self.togglePause();
-      });
-      console.log('暫停按鈕事件監聽器設置完成');
-    }
     
-    // 設置平板觸摸控制
-    this.setupTouchControls();
     
-    // 監聽全螢幕狀態變化
-    this.setupFullscreenListeners();
+
     
     console.log('隱藏控制按鈕事件監聽器設置完成');
   };
   
-  // 切換全螢幕模式
-  FlashcardApp.prototype.toggleFullscreen = function() {
-    console.log('切換全螢幕模式');
-    
-    try {
-      if (!document.fullscreenElement && !document.mozFullScreenElement && 
-          !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        // 進入全螢幕
-        var element = document.documentElement;
-        if (element.requestFullscreen) {
-          element.requestFullscreen();
-        } else if (element.mozRequestFullScreen) {
-          element.mozRequestFullScreen();
-        } else if (element.webkitRequestFullscreen) {
-          element.webkitRequestFullscreen();
-        } else if (element.msRequestFullscreen) {
-          element.msRequestFullscreen();
-        }
-        } else {
-        // 退出全螢幕
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-          document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
-        }
-      }
-    } catch (error) {
-      console.error('全螢幕切換失敗:', error);
-      alert('您的瀏覽器不支援全螢幕功能');
-    }
-  };
+
   
-  // 設置全螢幕狀態監聽器
-  FlashcardApp.prototype.setupFullscreenListeners = function() {
-    var self = this;
-    
-    var fullscreenChangeHandler = function() {
-      self.updateFullscreenButton();
-    };
-    
-    // 監聽各種瀏覽器的全螢幕狀態變化事件
-    document.addEventListener('fullscreenchange', fullscreenChangeHandler);
-    document.addEventListener('mozfullscreenchange', fullscreenChangeHandler);
-    document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
-    document.addEventListener('msfullscreenchange', fullscreenChangeHandler);
-  };
+
   
-  // 更新全螢幕按鈕狀態
-  FlashcardApp.prototype.updateFullscreenButton = function() {
-    var fullscreenBtn = document.getElementById('fullscreen-btn');
-    var isFullscreen = !!(document.fullscreenElement || document.mozFullScreenElement || 
-                         document.webkitFullscreenElement || document.msFullscreenElement);
-    
-    if (fullscreenBtn) {
-      if (isFullscreen) {
-        fullscreenBtn.innerHTML = '退出全螢幕';
-        fullscreenBtn.title = '退出全螢幕';
-        document.body.classList.add('fullscreen');
-      } else {
-        fullscreenBtn.innerHTML = '全螢幕';
-        fullscreenBtn.title = '全螢幕';
-        document.body.classList.remove('fullscreen');
-      }
-    }
-  };
+
   
-  // 切換暫停狀態
-  FlashcardApp.prototype.togglePause = function() {
-    console.log('切換暫停狀態，當前狀態:', this.isPaused);
-    
-    if (this.isPaused) {
-      // 恢復播放
-      this.resumeTimer();
-      this.updatePauseButton(false);
-      console.log('恢復播放');
-    } else {
-      // 暫停播放
-      this.pauseTimer();
-      this.updatePauseButton(true);
-      console.log('暫停播放');
-    }
-  };
+
   
-  // 更新暫停按鈕狀態
-  FlashcardApp.prototype.updatePauseButton = function(isPaused) {
-    var pauseBtn = document.getElementById('pause-btn');
-    
-    if (pauseBtn) {
-      if (isPaused) {
-        pauseBtn.innerHTML = '繼續';
-        pauseBtn.title = '繼續播放';
-        document.body.classList.add('paused');
-      } else {
-        pauseBtn.innerHTML = '暫停';
-        pauseBtn.title = '暫停';
-        document.body.classList.remove('paused');
-      }
-    }
-  };
+
   
-  // 設置平板觸摸控制
-  FlashcardApp.prototype.setupTouchControls = function() {
-    console.log('設置平板觸摸控制...');
-    var self = this;
-    
-    // 檢測是否為觸摸設備
-    var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    
-    if (isTouchDevice) {
-      var flashcardElement = document.getElementById('flashcard');
-      var controlsTimeout;
-      
-      // 觸摸屏幕時短暫顯示控制按鈕
-      var showControlsTemporarily = function() {
-        if (flashcardElement) {
-          flashcardElement.classList.add('show-controls');
-          
-          clearTimeout(controlsTimeout);
-          controlsTimeout = setTimeout(function() {
-            flashcardElement.classList.remove('show-controls');
-          }, 3000); // 3秒後隱藏
-        }
-      };
-      
-      // 為 flashcard 元素添加觸摸事件
-      if (flashcardElement) {
-        flashcardElement.addEventListener('touchstart', showControlsTemporarily);
-        flashcardElement.addEventListener('touchend', showControlsTemporarily);
-      }
-      
-      console.log('平板觸摸控制設置完成');
-    }
-  };
+
   
   // 開啟設定
   FlashcardApp.prototype.openSettings = function() {
@@ -1146,30 +1002,14 @@
       this.displayTimer = null;
     }
     
-    var pausedIndicator = document.createElement('div');
-    pausedIndicator.id = 'paused-indicator';
-    pausedIndicator.className = 'paused-indicator';
-    pausedIndicator.textContent = '已暫停';
-    var flashcard = document.getElementById('flashcard');
-    if (flashcard) {
-      flashcard.appendChild(pausedIndicator);
-    }
-    
-    // 更新暫停按鈕狀態
-    this.updatePauseButton(true);
+
   };
   
   // 恢復計時器
   FlashcardApp.prototype.resumeTimer = function() {
     this.isPaused = false;
     
-    var pausedIndicator = document.getElementById('paused-indicator');
-    if (pausedIndicator) {
-      pausedIndicator.remove();
-    }
-    
-    // 更新暫停按鈕狀態
-    this.updatePauseButton(false);
+
     
     var self = this;
     if (this.showingChinese) {
