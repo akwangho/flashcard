@@ -112,9 +112,7 @@
     this.duplicateProcessingResults = [];
     this.progressTimer = null;
     
-    // 選單自動隱藏相關
-    this.menuHideTimer = null;
-    this.controlsMouseMoveHandler = null;
+
     
     // 啟動初始化
     this.init();
@@ -421,8 +419,7 @@
       restoreBtn.addEventListener('click', function() { self.cancelRemoval(); });
     }
     
-    // 設定控制選單的自動隱藏功能
-    self.setupControlsAutoHide();
+
   };
   
   // 選單監聽器
@@ -453,10 +450,7 @@
         console.log('點擊選單下拉選項');
         e.stopPropagation();
   
-        if (e.target.id === 'hide-menu-btn') {
-          console.log('隱藏選單按鈕被點擊');
-          self.hideControlsMenu();
-        } else if (e.target.id === 'restart-btn') {
+        if (e.target.id === 'restart-btn') {
           console.log('重新開始按鈕被點擊');
           self.closeMenu();
           self.confirmRestart();
@@ -487,81 +481,7 @@
     console.log('選單事件監聽器設定完成');
   };
   
-  // 設定控制選單自動隱藏
-  FlashcardApp.prototype.setupControlsAutoHide = function() {
-    var self = this;
-    var controlsWrapper = document.getElementById('controls-wrapper');
-    
-    if (!controlsWrapper) {
-      console.log('找不到控制選單包裝器');
-      return;
-    }
-    
-    // 清除現有的事件監聽器
-    if (this.controlsMouseMoveHandler) {
-      controlsWrapper.removeEventListener('mousemove', this.controlsMouseMoveHandler);
-    }
-    
-    var lastMouseMove = 0;
-    
-    this.controlsMouseMoveHandler = function(e) {
-      lastMouseMove = Date.now();
-      
-      // 清除現有的隱藏計時器
-      if (self.menuHideTimer) {
-        clearTimeout(self.menuHideTimer);
-        self.menuHideTimer = null;
-      }
-      
-      // 如果是暫停狀態，不設定自動隱藏
-      if (self.isPaused) {
-        return;
-      }
-      
-      // 設定6秒後自動隱藏
-      self.menuHideTimer = setTimeout(function() {
-        controlsWrapper.classList.remove('force-show');
-      }, 6000);
-    };
-    
-    // 滑鼠進入時顯示選單
-    controlsWrapper.addEventListener('mouseenter', function() {
-      controlsWrapper.classList.add('force-show');
-      
-      // 恢復控制選單的可見性（如果被隱藏選單功能隱藏了）
-      var controls = controlsWrapper.querySelector('.controls');
-      if (controls) {
-        controls.style.opacity = '';
-        controls.style.pointerEvents = '';
-      }
-      
-      lastMouseMove = Date.now();
-      
-      // 如果不是暫停狀態，設定自動隱藏
-      if (!self.isPaused) {
-        if (self.menuHideTimer) {
-          clearTimeout(self.menuHideTimer);
-        }
-        self.menuHideTimer = setTimeout(function() {
-          controlsWrapper.classList.remove('force-show');
-        }, 6000);
-      }
-    });
-    
-    // 滑鼠離開時立即隱藏
-    controlsWrapper.addEventListener('mouseleave', function() {
-      controlsWrapper.classList.remove('force-show');
-      if (self.menuHideTimer) {
-        clearTimeout(self.menuHideTimer);
-        self.menuHideTimer = null;
-      }
-    });
-    
-    // 滑鼠移動時重置計時器
-    controlsWrapper.addEventListener('mousemove', this.controlsMouseMoveHandler);
-    
-    console.log('控制選單自動隱藏功能已設定');
-  };
+
   
   // 顯示語音啟用界面
   FlashcardApp.prototype.showSpeechActivation = function() {
@@ -808,40 +728,7 @@
     }
   };
   
-  // 隱藏控制選單
-  FlashcardApp.prototype.hideControlsMenu = function() {
-    console.log('hideControlsMenu 被調用');
-    var controlsWrapper = document.getElementById('controls-wrapper');
-    
-    if (controlsWrapper) {
-      // 關閉選單
-      this.closeMenu();
-      
-      // 移除強制顯示類別
-      controlsWrapper.classList.remove('force-show');
-      
-      // 強制隱藏控制選單（立即生效，無過渡效果）
-      var controls = controlsWrapper.querySelector('.controls');
-      if (controls) {
-        controls.style.opacity = '0';
-        controls.style.pointerEvents = 'none';
-        controls.style.transition = 'none'; // 立即隱藏，無過渡效果
-        
-        // 在下一個事件循環中恢復transition，以便之後的動畫正常工作
-        setTimeout(function() {
-          controls.style.transition = '';
-        }, 50);
-      }
-      
-      // 清除自動隱藏計時器
-      if (this.menuHideTimer) {
-        clearTimeout(this.menuHideTimer);
-        this.menuHideTimer = null;
-      }
-      
-      console.log('控制選單已隱藏');
-    }
-  };
+
   
   // 模態框監聽器
   FlashcardApp.prototype.setupModalListeners = function() {
@@ -1153,12 +1040,6 @@
       clearTimeout(this.displayTimer);
       this.displayTimer = null;
     }
-    
-    // 清除選單自動隱藏計時器
-    if (this.menuHideTimer) {
-      clearTimeout(this.menuHideTimer);
-      this.menuHideTimer = null;
-    }
 
   };
   
@@ -1182,13 +1063,7 @@
       }
     }
     
-    // 恢復後重新設定控制選單自動隱藏（如果有顯示的話）
-    var controlsWrapper = document.getElementById('controls-wrapper');
-    if (controlsWrapper && controlsWrapper.classList.contains('force-show')) {
-      this.menuHideTimer = setTimeout(function() {
-        controlsWrapper.classList.remove('force-show');
-      }, 6000);
-    }
+
   };
   
   // 開啟Google Sheet設定
