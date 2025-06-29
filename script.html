@@ -2192,7 +2192,9 @@ FlashcardApp.prototype.processBatch = function() {
       exportData.push({
         english: w.english,
         chinese: w.chinese,
-        difficult: this.difficultWords.includes(w.id)
+        difficult: this.difficultWords.includes(w.id),
+        image: w.image || '',        // 第4列：圖片URL
+        imageFormula: w.imageFormula || ''  // 第5列：圖片顯示公式
       });
     }
       

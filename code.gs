@@ -67,7 +67,8 @@
       english: rowData[0].toString().trim(),
       chinese: rowData[1].toString().trim(),
       difficult: rowData[2] && rowData[2].toString().trim() === '*',
-      image: rowData[3] ? rowData[3].toString().trim() : '', // 新增圖片欄位
+      image: rowData[3] ? rowData[3].toString().trim() : '', // 第4列：圖片URL
+      imageFormula: rowData[4] ? rowData[4].toString().trim() : '', // 第5列：圖片顯示公式
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
@@ -78,13 +79,13 @@
   */
   function getDemoWords() {
     return [
-      {id: 0, english: 'Hello', chinese: '你好', difficult: false, sheetName: 'Demo', originalRowIndex: 0},
-      {id: 1, english: 'World', chinese: '世界', difficult: false, sheetName: 'Demo', originalRowIndex: 1},
-      {id: 2, english: 'Apple', chinese: '蘋果', difficult: false, sheetName: 'Demo', originalRowIndex: 2},
-      {id: 3, english: 'Book', chinese: '書', difficult: false, sheetName: 'Demo', originalRowIndex: 3},
-      {id: 4, english: 'Computer', chinese: '電腦', difficult: false, sheetName: 'Demo', originalRowIndex: 4},
-      {id: 5, english: 'Friend', chinese: '朋友', difficult: false, sheetName: 'Demo', originalRowIndex: 5},
-      {id: 6, english: 'Happy', chinese: '快樂', difficult: false, sheetName: 'Demo', originalRowIndex: 6}
+      {id: 0, english: 'Hello', chinese: '你好', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 0},
+      {id: 1, english: 'World', chinese: '世界', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 1},
+      {id: 2, english: 'Apple', chinese: '蘋果', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 2},
+      {id: 3, english: 'Book', chinese: '書', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 3},
+      {id: 4, english: 'Computer', chinese: '電腦', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 4},
+      {id: 5, english: 'Friend', chinese: '朋友', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 5},
+      {id: 6, english: 'Happy', chinese: '快樂', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 6}
     ];
   }
 
@@ -323,10 +324,13 @@
       console.log('開始寫入', words.length, '個單字');
       for (let i = 0; i < words.length; i++) {
         const w = words[i];
+        const imageUrl = w.image || '';
+        
         targetSheet.appendRow([
-          w.english || '',
-          w.chinese || '',
-          w.difficult ? '*' : ''
+          w.english || '',           // 第1列：英文
+          w.chinese || '',           // 第2列：中文
+          w.difficult ? '*' : '',    // 第3列：難度標記
+          imageUrl                   // 第4列：圖片URL
         ]);
       }
       
