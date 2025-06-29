@@ -282,18 +282,20 @@
   /**
   * 匯出單字到新工作表
   */
-  function exportWordsToSheet(words, sheetName, targetSheetId, overwrite = false) {
+  function exportWordsToSheet(words, sheetName, targetSheetId, overwrite = false, isFirstBatch = true) {
     try {
-      console.log('匯出單字，目標 Sheet ID:', targetSheetId, '工作表名稱:', sheetName, '覆寫模式:', overwrite);
+      console.log('匯出單字，目標 Sheet ID:', targetSheetId, '工作表名稱:', sheetName, '覆寫模式:', overwrite, '是否第一批次:', isFirstBatch, '單字數量:', words.length);
       
       // 如果沒有指定目標 Sheet ID，使用預設值
       const SHEET_ID = targetSheetId || '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
       const ss = SpreadsheetApp.openById(SHEET_ID);
       
       // 檢查工作表是否已存在
-      let newSheet = ss.getSheetByName(sheetName);
-      if (newSheet && !overwrite) {
-        // 如果工作表已存在且不是覆寫模式，返回錯誤信息讓前端處理
+      let targetSheet = ss.getSheetByName(sheetName);
+      const sheetExists = targetSheet !== null;
+      
+      // 如果是第一批次且工作表已存在且不是覆寫模式，返回錯誤讓前端處理
+      if (sheetExists && !overwrite && isFirstBatch) {
         return {
           success: false,
           error: 'SHEET_EXISTS',
@@ -301,30 +303,47 @@
         };
       }
       
-      // 如果工作表存在且要覆寫，先刪除原工作表
-      if (newSheet && overwrite) {
+      if (sheetExists && overwrite) {
+        // 覆寫模式：刪除現有工作表並重新創建
         console.log('覆寫模式：刪除現有工作表');
-        ss.deleteSheet(newSheet);
+        ss.deleteSheet(targetSheet);
+        targetSheet = ss.insertSheet(sheetName);
+        console.log('覆寫模式：已創建新工作表');
+      } else if (sheetExists && !overwrite) {
+        // 附加模式：附加到已存在的工作表
+        console.log('附加模式：附加到已存在的工作表');
+      } else if (!sheetExists) {
+        // 創建新工作表
+        console.log('創建新工作表：', sheetName);
+        targetSheet = ss.insertSheet(sheetName);
       }
       
-      // 創建新工作表
-      newSheet = ss.insertSheet(sheetName);
-      
       // 寫入資料
+      console.log('開始寫入', words.length, '個單字');
       for (let i = 0; i < words.length; i++) {
         const w = words[i];
-        newSheet.appendRow([
+        targetSheet.appendRow([
           w.english || '',
           w.chinese || '',
           w.difficult ? '*' : ''
         ]);
       }
       
-      const actionText = overwrite ? '覆寫並匯出' : '匯出';
-      console.log(`成功${actionText}`, words.length, '個單字');
+      let actionText;
+      if (overwrite) {
+        actionText = '覆寫並匯出';
+      } else if (sheetExists) {
+        actionText = '附加匯出';
+      } else {
+        actionText = '匯出';
+      }
+      
+      console.log(`成功${actionText}`, words.length, '個單字到工作表', sheetName);
       return {
         success: true,
-        message: `成功${actionText} ${words.length} 個單字到工作表 "${sheetName}"`
+        message: `成功${actionText} ${words.length} 個單字到工作表 "${sheetName}"`,
+        action: actionText,
+        wordsCount: words.length
       };
     } catch (error) {
       console.error('匯出失敗:', error);

@@ -1766,20 +1766,29 @@
     this.hideExportProgress();
   };
   
-  FlashcardApp.prototype.getDefaultExportSheetName = function() {
-    // 取目前工作表名稱（預設為 Sheet1）
-    var base = 'Sheet1';
-    var date = new Date();
-    var y = date.getFullYear();
-    var m = (date.getMonth() + 1).toString();
-    var d = date.getDate().toString();
-    
-    // ES5 版本的 padStart
-    if (m.length < 2) m = '0' + m;
-    if (d.length < 2) d = '0' + d;
-    
-    return base + '_' + y + m + d;
-  };
+  // 獲取預設匯出工作表名稱
+FlashcardApp.prototype.getDefaultExportSheetName = function() {
+  // 使用實際載入的工作表名稱作為基礎
+  var base = 'Sheet1'; // 預設值
+  
+  // 如果有選擇的工作表，使用第一個作為基礎名稱
+  console.log("this.sheetSettings.selectedSheets", this.sheetSettings.selectedSheets);
+  if (this.sheetSettings.selectedSheets && this.sheetSettings.selectedSheets.length > 0) {
+    base = this.sheetSettings.selectedSheets[0];
+    console.log("base", base);
+  }
+  
+  var date = new Date();
+  var y = date.getFullYear();
+  var m = (date.getMonth() + 1).toString();
+  var d = date.getDate().toString();
+  
+  // ES5 版本的 padStart
+  if (m.length < 2) m = '0' + m;
+  if (d.length < 2) d = '0' + d;
+  
+  return base + '_' + y + m + d;
+};
   
   // 顯示匯出進度
   FlashcardApp.prototype.showExportProgress = function() {
@@ -1859,87 +1868,86 @@
     this.processBatch();
   };
   
-  // 處理單一批次
-  FlashcardApp.prototype.processBatch = function() {
-    var self = this;
-    
-    if (this.currentBatch >= this.totalBatches) {
-      // 所有批次完成
-      this.completeExportProgress();
-      setTimeout(function() {
-        self.onExportComplete();
-      }, 500);
-      return;
-    }
-    
-    var currentBatchData = this.exportBatches[this.currentBatch];
-    var batchNumber = this.currentBatch + 1;
-    var isFirstBatch = this.currentBatch === 0;
-    
-    // 更新進度顯示
-    var message = '正在匯出第 ' + batchNumber + ' 批，共 ' + this.totalBatches + ' 批...';
-    this.updateExportProgress(this.processedWords, this.totalWords, message);
-    
-    // 確定操作模式：第一批次可能需要覆寫，後續批次絕對不覆寫
-    var shouldOverwrite = this.exportOverwrite && isFirstBatch;
-    
-    // 處理當前批次
-    google.script.run
-      .withSuccessHandler(function(result) {
-        // 只有第一批次才需要處理工作表存在的錯誤
-        if (isFirstBatch && result && result.success === false && result.error === 'SHEET_EXISTS') {
-          // 工作表已存在，只有第一批次才處理這個錯誤
+  
+// 處理單一批次（修改exportWordsToSheet調用）
+FlashcardApp.prototype.processBatch = function() {
+  var self = this;
+  
+  if (this.currentBatch >= this.totalBatches) {
+    // 所有批次完成
+    this.completeExportProgress();
+    setTimeout(function() {
+      self.onExportComplete();
+    }, 500);
+    return;
+  }
+  
+  var currentBatchData = this.exportBatches[this.currentBatch];
+  var batchNumber = this.currentBatch + 1;
+  var isFirstBatch = this.currentBatch === 0;
+  
+  // 更新進度顯示
+  var message = '正在匯出第 ' + batchNumber + ' 批，共 ' + this.totalBatches + ' 批...';
+  this.updateExportProgress(this.processedWords, this.totalWords, message);
+  
+  // 確定操作模式：第一批次可能需要覆寫，後續批次絕對不覆寫
+  var shouldOverwrite = this.exportOverwrite && isFirstBatch;
+  
+  // 處理當前批次
+  google.script.run
+    .withSuccessHandler(function(result) {
+      console.log('第 ' + batchNumber + ' 批匯出結果:', result);
+      
+      // 檢查匯出結果
+      if (result && result.success === false) {
+        // 只有第一批次才處理工作表存在的錯誤
+        if (isFirstBatch && result.error === 'SHEET_EXISTS') {
+          console.log('第一批次：處理工作表已存在的情況');
           self.handleSheetExistsError(result.message);
           return;
         }
         
-        // 如果是其他批次遇到 SHEET_EXISTS，視為成功（工作表已存在是正常的）
-        if (!isFirstBatch && result && result.success === false && result.error === 'SHEET_EXISTS') {
-          console.log('第 ' + batchNumber + ' 批：工作表已存在，正常附加資料');
-          // 視為成功，繼續下一批次
-          result = { success: true };
-        }
-        
         // 處理其他錯誤
-        if (result && result.success === false && result.error !== 'SHEET_EXISTS') {
-          console.error('批次匯出失敗:', result);
-          self.hideExportProgress();
-          alert('匯出失敗（第 ' + batchNumber + ' 批）：' + (result.message || result.error || '未知錯誤'));
-          self.resetExportButton();
-          return;
-        }
-        
-        // 標記工作表已創建（第一批次成功後）
-        if (isFirstBatch) {
-          self.isSheetCreated = true;
-        }
-        
-        // 批次成功完成
-        self.processedWords += currentBatchData.length;
-        self.currentBatch++;
-        
-        // 更新進度
-        var progressMessage = '已完成 ' + self.processedWords + ' / ' + self.totalWords + ' 個單字';
-        self.updateExportProgress(self.processedWords, self.totalWords, progressMessage);
-        
-        // 處理下一批（延遲一點讓使用者看到進度更新）
-        setTimeout(function() {
-          self.processBatch();
-        }, 300);
-      })
-      .withFailureHandler(function(error) {
-        console.error('批次匯出失敗:', error);
+        console.error('批次匯出失敗:', result);
         self.hideExportProgress();
-        alert('匯出失敗（第 ' + batchNumber + ' 批），請重試！\n錯誤：' + error);
+        alert('匯出失敗（第 ' + batchNumber + ' 批）：' + (result.message || result.error || '未知錯誤'));
         self.resetExportButton();
-      })
-      .exportWordsToSheet(
-        currentBatchData, 
-        this.exportSheetName, 
-        this.exportTargetSheetId, 
-        shouldOverwrite // 第一批次可能覆寫，後續批次絕對不覆寫
-      );
-  };
+        return;
+      }
+      
+      // 批次成功完成
+      console.log('第 ' + batchNumber + ' 批成功匯出 ' + currentBatchData.length + ' 個單字');
+      self.processedWords += currentBatchData.length;
+      self.currentBatch++;
+      
+      // 標記工作表已創建（第一批次成功後）
+      if (isFirstBatch) {
+        self.isSheetCreated = true;
+      }
+      
+      // 更新進度
+      var progressMessage = '已完成 ' + self.processedWords + ' / ' + self.totalWords + ' 個單字';
+      self.updateExportProgress(self.processedWords, self.totalWords, progressMessage);
+      
+      // 處理下一批（延遲一點讓使用者看到進度更新）
+      setTimeout(function() {
+        self.processBatch();
+      }, 300);
+    })
+    .withFailureHandler(function(error) {
+      console.error('批次匯出失敗:', error);
+      self.hideExportProgress();
+      alert('匯出失敗（第 ' + batchNumber + ' 批），請重試！\n錯誤：' + error);
+      self.resetExportButton();
+    })
+    .exportWordsToSheet(
+      currentBatchData, 
+      this.exportSheetName, 
+      this.exportTargetSheetId, 
+      shouldOverwrite, // 第一批次可能覆寫，後續批次絕對不覆寫
+      isFirstBatch // 傳遞是否為第一批次的參數
+    );
+};
   
   // 匯出完成處理
   FlashcardApp.prototype.onExportComplete = function() {
