@@ -1683,23 +1683,13 @@
         pauseBtn.title = '目前暫停中（點擊恢復）';
         pauseBtn.style.opacity = '0.6';
         
-        // 暫停時清除自動隱藏計時器，讓選單保持可見
-        if (this.menuHideTimer) {
-          clearTimeout(this.menuHideTimer);
-          this.menuHideTimer = null;
-        }
+
       } else {
         pauseBtn.textContent = '⏸️';
         pauseBtn.title = '目前運行中（點擊暫停）';
         pauseBtn.style.opacity = '1';
         
-        // 恢復時如果滑鼠在選單上，重新啟動自動隱藏計時器
-        if (controlsWrapper && controlsWrapper.classList.contains('force-show')) {
-          var self = this;
-          this.menuHideTimer = setTimeout(function() {
-            controlsWrapper.classList.remove('force-show');
-          }, 6000);
-        }
+
       }
     }
   };
