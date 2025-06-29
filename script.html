@@ -618,6 +618,7 @@
     var currentWord = this.currentWords[this.currentIndex];
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
+    var chineseSection = document.getElementById('chinese-section');
     
     this.showingChinese = false;
     this.isTransitioning = false;
@@ -634,6 +635,10 @@
     
     englishElement.style.color = '';
     chineseElement.style.color = '';
+    
+    // 先清除背景圖片（圖片將在中文翻譯出現時才顯示）
+    chineseSection.style.backgroundImage = '';
+    chineseSection.classList.remove('has-image');
     
     var self = this;
     setTimeout(function() {
@@ -1331,6 +1336,16 @@
   
     var currentWord = this.currentWords[this.currentIndex];
     var chineseElement = document.getElementById('chinese-word');
+    var chineseSection = document.getElementById('chinese-section');
+    
+    // 設定背景圖片（圖片跟中文翻譯一起出現）
+    if (currentWord.image && currentWord.image !== '') {
+      chineseSection.style.backgroundImage = 'url(' + currentWord.image + ')';
+      chineseSection.classList.add('has-image');
+    } else {
+      chineseSection.style.backgroundImage = '';
+      chineseSection.classList.remove('has-image');
+    }
     
     var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
     chineseElement.textContent = secondText;
@@ -1437,11 +1452,15 @@
     
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
+    var chineseSection = document.getElementById('chinese-section');
     
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
     
     chineseElement.textContent = '';
+    // 清除背景圖片
+    chineseSection.style.backgroundImage = '';
+    chineseSection.classList.remove('has-image');
     
     var self = this;
     setTimeout(function() {
@@ -1480,11 +1499,15 @@
     
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
+    var chineseSection = document.getElementById('chinese-section');
     
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
     
     chineseElement.textContent = '';
+    // 清除背景圖片
+    chineseSection.style.backgroundImage = '';
+    chineseSection.classList.remove('has-image');
     
     var self = this;
     setTimeout(function() {

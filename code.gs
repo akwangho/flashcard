@@ -67,6 +67,7 @@
       english: rowData[0].toString().trim(),
       chinese: rowData[1].toString().trim(),
       difficult: rowData[2] && rowData[2].toString().trim() === '*',
+      image: rowData[3] ? rowData[3].toString().trim() : '', // 新增圖片欄位
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
