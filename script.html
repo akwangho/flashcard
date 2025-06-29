@@ -116,9 +116,6 @@
     this.menuHideTimer = null;
     this.controlsMouseMoveHandler = null;
     
-    // 中文翻譯延遲顯示計時器
-    this.chineseDelayTimer = null;
-    
     // 啟動初始化
     this.init();
   }
@@ -717,12 +714,6 @@
         clearTimeout(this.displayTimer);
       }
       
-      // 清除中文延遲顯示計時器
-      if (this.chineseDelayTimer) {
-        clearTimeout(this.chineseDelayTimer);
-        this.chineseDelayTimer = null;
-      }
-      
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
     
@@ -829,11 +820,17 @@
       // 移除強制顯示類別
       controlsWrapper.classList.remove('force-show');
       
-      // 強制隱藏控制選單
+      // 強制隱藏控制選單（立即生效，無過渡效果）
       var controls = controlsWrapper.querySelector('.controls');
       if (controls) {
         controls.style.opacity = '0';
         controls.style.pointerEvents = 'none';
+        controls.style.transition = 'none'; // 立即隱藏，無過渡效果
+        
+        // 在下一個事件循環中恢復transition，以便之後的動畫正常工作
+        setTimeout(function() {
+          controls.style.transition = '';
+        }, 50);
       }
       
       // 清除自動隱藏計時器
@@ -1157,12 +1154,6 @@
       this.displayTimer = null;
     }
     
-    // 清除中文延遲顯示計時器
-    if (this.chineseDelayTimer) {
-      clearTimeout(this.chineseDelayTimer);
-      this.chineseDelayTimer = null;
-    }
-    
     // 清除選單自動隱藏計時器
     if (this.menuHideTimer) {
       clearTimeout(this.menuHideTimer);
@@ -1356,6 +1347,17 @@
       chineseElement.classList.add('show');
       this.showingChinese = true;
       
+      // 同時顯示圖片（如果有的話）
+      var flashcardDiv = document.getElementById('flashcard');
+      var hasImage = currentWord.image && currentWord.image !== '';
+      if (hasImage) {
+        flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+        flashcardDiv.classList.add('has-image');
+      } else {
+        flashcardDiv.style.backgroundImage = '';
+        flashcardDiv.classList.remove('has-image');
+      }
+      
       if (this.settings.reverseMode) {
         var self = this;
         setTimeout(function() {
@@ -1501,25 +1503,20 @@
     var self = this;
     var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
     
-    // 如果有圖片，延後1秒再顯示中文翻譯
-    var delayTime = hasImage ? 1000 : 0;
+    // 圖片和中文同時顯示（移除延遲）
+    chineseElement.textContent = secondText;
+    chineseElement.classList.add('show');
+    this.showingChinese = true;
     
-    this.chineseDelayTimer = setTimeout(function() {
-      chineseElement.textContent = secondText;
-      chineseElement.classList.add('show');
-      self.showingChinese = true;
-      
-      // 在中文顯示後才設定下一個單字的計時器
-      self.displayTimer = setTimeout(function() {
-        self.nextWord();
-      }, self.settings.delayTime * 1000);
-      
-    }, delayTime);
+    // 設定下一個單字的計時器
+    this.displayTimer = setTimeout(function() {
+      self.nextWord();
+    }, this.settings.delayTime * 1000);
     
     if (this.settings.reverseMode) {
       setTimeout(function() {
         self.speakEnglishWord(currentWord.english);
-      }, delayTime + 500); // 考慮延遲時間
+      }, 500);
     }
   };
   
@@ -1604,12 +1601,6 @@
         clearTimeout(this.displayTimer);
     }
     
-    // 清除中文延遲顯示計時器
-    if (this.chineseDelayTimer) {
-      clearTimeout(this.chineseDelayTimer);
-      this.chineseDelayTimer = null;
-    }
-    
     this.speechSynthesis.cancel();
     
     this.isTransitioning = true;
@@ -1657,12 +1648,6 @@
     
     if (this.displayTimer) {
       clearTimeout(this.displayTimer);
-    }
-    
-    // 清除中文延遲顯示計時器
-    if (this.chineseDelayTimer) {
-      clearTimeout(this.chineseDelayTimer);
-      this.chineseDelayTimer = null;
     }
     
     this.speechSynthesis.cancel();
@@ -1849,12 +1834,6 @@
     if (this.displayTimer) {
       clearTimeout(this.displayTimer);
       this.displayTimer = null;
-    }
-    
-    // 清除中文延遲顯示計時器
-    if (this.chineseDelayTimer) {
-      clearTimeout(this.chineseDelayTimer);
-      this.chineseDelayTimer = null;
     }
     
     this.speechSynthesis.cancel();
