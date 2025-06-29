@@ -112,6 +112,9 @@
     this.duplicateProcessingResults = [];
     this.progressTimer = null;
     
+    // 圖片預加載管理
+    this.preloadedImages = {};
+    this.currentPreloadingImage = null;
 
     
     // 啟動初始化
@@ -298,6 +301,10 @@
   FlashcardApp.prototype.loadWords = function(isInitialLoad, callback) {
     var self = this;
     callback = callback || function() {};
+    
+    // 清理先前預加載的圖片缓存
+    this.preloadedImages = {};
+    this.currentPreloadingImage = null;
     
     if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
       var autoHandle = isInitialLoad;
@@ -660,6 +667,18 @@
         }, 500);
       }
       firstElement.classList.add('show');
+      
+      // 預加載當前單字的圖片（如果有的話）
+      if (currentWord.image && currentWord.image !== '') {
+        self.preloadImage(currentWord.image);
+      }
+      
+      // 預加載下一個單字的圖片（提前準備）
+      var nextIndex = (self.currentIndex + 1) % self.currentWords.length;
+      var nextWord = self.currentWords[nextIndex];
+      if (nextWord && nextWord.image && nextWord.image !== '') {
+        self.preloadImage(nextWord.image);
+      }
   
       self.displayTimer = setTimeout(function() {
         self.showSecondPartAndScheduleNext();
@@ -1222,10 +1241,11 @@
       chineseElement.classList.add('show');
       this.showingChinese = true;
       
-      // 同時顯示圖片（如果有的話）
+      // 同時顯示圖片（如果有的話）- 使用預加載的圖片
       var flashcardDiv = document.getElementById('flashcard');
       var hasImage = currentWord.image && currentWord.image !== '';
       if (hasImage) {
+        // 由於圖片已經預加載，可以直接設定，無需等待
         flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
         flashcardDiv.classList.add('has-image');
       } else {
@@ -1365,9 +1385,10 @@
     var chineseElement = document.getElementById('chinese-word');
     var flashcardDiv = document.getElementById('flashcard');
     
-    // 設定背景圖片（圖片佔滿整個畫面）
+    // 設定背景圖片（圖片佔滿整個畫面）- 使用預加載的圖片
     var hasImage = currentWord.image && currentWord.image !== '';
     if (hasImage) {
+      // 由於圖片已經預加載，可以直接設定，無需等待
       flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
       flashcardDiv.classList.add('has-image');
     } else {
@@ -1393,6 +1414,36 @@
         self.speakEnglishWord(currentWord.english);
       }, 500);
     }
+  };
+  
+  // 預加載圖片方法
+  FlashcardApp.prototype.preloadImage = function(imageUrl, callback) {
+    if (!imageUrl || imageUrl === '') {
+      if (callback) callback(false);
+      return;
+    }
+    
+    // 如果已經預加載過，直接回調
+    if (this.preloadedImages[imageUrl]) {
+      if (callback) callback(true);
+      return;
+    }
+    
+    var self = this;
+    var img = new Image();
+    
+    img.onload = function() {
+      self.preloadedImages[imageUrl] = true;
+      if (callback) callback(true);
+    };
+    
+    img.onerror = function() {
+      console.warn('圖片預加載失敗:', imageUrl);
+      if (callback) callback(false);
+    };
+    
+    img.src = imageUrl;
+    this.currentPreloadingImage = img;
   };
   
   // 語音播放
