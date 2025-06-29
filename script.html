@@ -288,7 +288,11 @@
     
     if (delaySlider && delayValue) {
       delaySlider.value = this.settings.delayTime;
-      delayValue.textContent = this.settings.delayTime;
+      // 修復浮點數精度問題
+      var step = parseFloat(delaySlider.step) || 0.5;
+      var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+      var formattedDelayTime = parseFloat(this.settings.delayTime.toFixed(decimalPlaces));
+      delayValue.textContent = formattedDelayTime;
     }
     if (fontSizeSlider && fontSizeValue) {
       fontSizeSlider.value = this.settings.fontSize;
@@ -780,9 +784,17 @@
       delaySlider.addEventListener('input', function(e) {
         var delayValue = document.getElementById('delay-value');
         if (delayValue) {
-          delayValue.textContent = e.target.value;
+          // 修復浮點數精度問題
+          var value = parseFloat(e.target.value);
+          var step = parseFloat(e.target.step) || 0.5;
+          var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+          var formattedValue = parseFloat(value.toFixed(decimalPlaces));
+          delayValue.textContent = formattedValue;
         }
       });
+      
+      // 增強觸控體驗：點擊軌道直接設置值
+      this.enhanceSliderInteraction(delaySlider, 'delay-value');
     }
     
     if (fontSizeSlider) {
@@ -797,6 +809,9 @@
         if (englishWord) englishWord.style.fontSize = e.target.value + 'px';
         if (chineseWord) chineseWord.style.fontSize = e.target.value + 'px';
       });
+      
+      // 增強觸控體驗：點擊軌道直接設置值
+      this.enhanceSliderInteraction(fontSizeSlider, 'font-size-value', 'px');
     }
     
     // Google Sheet 設定模態框
@@ -849,9 +864,17 @@
       voiceRateSlider.addEventListener('input', function(e) {
         var voiceRateValue = document.getElementById('voice-rate-value');
         if (voiceRateValue) {
-          voiceRateValue.textContent = e.target.value;
+          // 修復浮點數精度問題
+          var value = parseFloat(e.target.value);
+          var step = parseFloat(e.target.step) || 0.1;
+          var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+          var formattedValue = parseFloat(value.toFixed(decimalPlaces));
+          voiceRateValue.textContent = formattedValue;
         }
       });
+      
+      // 增強觸控體驗：點擊軌道直接設置值
+      this.enhanceSliderInteraction(voiceRateSlider, 'voice-rate-value');
     }
     
     // 匯出模態框
@@ -1495,6 +1518,104 @@
     this.currentPreloadingImage = img;
   };
   
+  // 增強滑塊交互體驗（ES5兼容版本）
+  FlashcardApp.prototype.enhanceSliderInteraction = function(slider, valueElementId, unit) {
+    if (!slider) return;
+    
+    var self = this;
+    unit = unit || '';
+    
+    // 計算點擊位置對應的值
+    function calculateValueFromClick(event, sliderElement) {
+      var rect = sliderElement.getBoundingClientRect();
+      var clickX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : 0);
+      var sliderX = clickX - rect.left;
+      var sliderWidth = rect.width;
+      
+      // 確保點擊位置在滑塊範圍內
+      if (sliderX < 0) sliderX = 0;
+      if (sliderX > sliderWidth) sliderX = sliderWidth;
+      
+      // 計算百分比
+      var percentage = sliderX / sliderWidth;
+      
+      // 根據滑塊的min、max、step計算值
+      var min = parseFloat(sliderElement.min);
+      var max = parseFloat(sliderElement.max);
+      var step = parseFloat(sliderElement.step) || 1;
+      
+      var rawValue = min + (max - min) * percentage;
+      
+      // 根據step調整值，修復浮點數精度問題
+      var steppedValue = Math.round(rawValue / step) * step;
+      
+      // 確保值在範圍內
+      if (steppedValue < min) steppedValue = min;
+      if (steppedValue > max) steppedValue = max;
+      
+      // 修復浮點數精度問題
+      var decimalPlaces = 0;
+      if (step.toString().indexOf('.') !== -1) {
+        decimalPlaces = step.toString().split('.')[1].length;
+      }
+      steppedValue = parseFloat(steppedValue.toFixed(decimalPlaces));
+      
+      return steppedValue;
+    }
+    
+    // 更新滑塊值和顯示
+    function updateSliderValue(newValue) {
+      slider.value = newValue;
+      
+      // 觸發input事件以更新顯示和其他邏輯
+      var inputEvent;
+      try {
+        inputEvent = new Event('input', { bubbles: true });
+      } catch (e) {
+        // IE/舊瀏覽器兼容
+        inputEvent = document.createEvent('HTMLEvents');
+        inputEvent.initEvent('input', true, true);
+      }
+      slider.dispatchEvent(inputEvent);
+      
+      // 手動更新顯示值（確保格式正確）
+      var valueElement = document.getElementById(valueElementId);
+      if (valueElement) {
+        // 格式化顯示值，避免浮點數精度問題
+        var step = parseFloat(slider.step) || 1;
+        var decimalPlaces = 0;
+        if (step.toString().indexOf('.') !== -1) {
+          decimalPlaces = step.toString().split('.')[1].length;
+        }
+        var formattedValue = parseFloat(newValue.toFixed(decimalPlaces));
+        valueElement.textContent = formattedValue + unit;
+      }
+    }
+    
+    // 點擊事件處理
+    function handleClick(event) {
+      // 防止冒泡
+      event.preventDefault();
+      event.stopPropagation();
+      
+      var newValue = calculateValueFromClick(event, slider);
+      updateSliderValue(newValue);
+    }
+    
+    // 觸摸事件處理
+    function handleTouchStart(event) {
+      event.preventDefault();
+      var newValue = calculateValueFromClick(event, slider);
+      updateSliderValue(newValue);
+    }
+    
+    // 添加事件監聽器
+    slider.addEventListener('click', handleClick);
+    slider.addEventListener('touchstart', handleTouchStart);
+    
+    console.log('已增強滑塊交互體驗:', slider.id);
+  };
+  
   // 語音播放
   FlashcardApp.prototype.speakEnglishWord = function(text) {
     if (!this.voiceSettings.enabled) return;
@@ -1825,7 +1946,13 @@
       
       if (speechEnabledSetting) speechEnabledSetting.checked = this.voiceSettings.enabled;
       if (voiceRateSetting) voiceRateSetting.value = this.voiceSettings.rate;
-      if (voiceRateValue) voiceRateValue.textContent = this.voiceSettings.rate;
+      if (voiceRateValue) {
+        // 修復浮點數精度問題
+        var step = parseFloat(voiceRateSetting.step) || 0.1;
+        var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+        var formattedRate = parseFloat(this.voiceSettings.rate.toFixed(decimalPlaces));
+        voiceRateValue.textContent = formattedRate;
+      }
       
       this.populateVoiceSelect();
     }
