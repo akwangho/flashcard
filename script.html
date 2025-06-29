@@ -392,16 +392,15 @@
   FlashcardApp.prototype.setupCoreListeners = function() {
     var self = this;
     
-    var englishSection = document.getElementById('english-section');
-    var chineseSection = document.getElementById('chinese-section');
+    var flashcardDiv = document.getElementById('flashcard');
     var nextBtn = document.getElementById('next-btn');
     var prevBtn = document.getElementById('prev-btn');
     
-    if (englishSection) {
-      englishSection.addEventListener('click', function() { self.onWordClick(); });
-    }
-    if (chineseSection) {
-      chineseSection.addEventListener('click', function() { self.onWordClick(); });
+    // 在整個flashcard區域添加點擊事件，但排除下方區域
+    if (flashcardDiv) {
+      flashcardDiv.addEventListener('click', function(e) { 
+        self.handleFlashcardClick(e); 
+      });
     }
     if (nextBtn) {
       nextBtn.addEventListener('click', function() { self.nextWord(); });
@@ -1198,6 +1197,56 @@
         this.currentIndex = 0;
       }
       this.displayCurrentWord();
+  };
+  
+  // 處理flashcard點擊事件（檢查點擊位置）
+  FlashcardApp.prototype.handleFlashcardClick = function(event) {
+    // 檢查點擊是否發生在控制按鈕或選單上（ES5兼容版本）
+    var target = event.target;
+    
+    // 向上遍历DOM树检查是否点击了控制元素
+    var element = target;
+    while (element && element !== event.currentTarget) {
+      if (element.classList && (
+          element.classList.contains('controls-wrapper') ||
+          element.classList.contains('progress') ||
+          element.classList.contains('restore-btn-container') ||
+          element.tagName === 'BUTTON')) {
+        return; // 如果點擊的是控制元素，不處理
+      }
+      element = element.parentElement;
+    }
+    
+    // 計算下方安全區域的高度
+    var flashcardRect = event.currentTarget.getBoundingClientRect();
+    var clickY = event.clientY;
+    var flashcardBottom = flashcardRect.bottom;
+    
+    // 動態計算下方安全區域高度
+    var progressElement = document.getElementById('progress-area');
+    var controlsWrapper = document.querySelector('.controls-wrapper');
+    var safeAreaHeight = 120; // 默認高度
+    
+    // 嘗試動態計算實際高度
+    try {
+      var progressHeight = progressElement ? progressElement.offsetHeight + 20 : 40; // 包含padding
+      var controlsHeight = controlsWrapper ? controlsWrapper.offsetHeight + 20 : 60; // 包含padding
+      safeAreaHeight = Math.max(progressHeight, controlsHeight) + 20; // 額外的安全邊距
+    } catch (e) {
+      console.log('無法動態計算安全區域高度，使用默認值');
+    }
+    
+    var safeAreaTop = flashcardBottom - safeAreaHeight;
+    
+    // 如果點擊位置在下方安全區域內，不觸發刪除功能
+    if (clickY >= safeAreaTop) {
+      console.log('點擊位置在安全區域內(Y:' + clickY + ', 安全區域起始:' + safeAreaTop + ')，不觸發刪除功能');
+      return;
+    }
+    
+    console.log('點擊位置在有效區域內(Y:' + clickY + ', 安全區域起始:' + safeAreaTop + ')，觸發刪除功能');
+    // 觸發單字點擊事件
+    this.onWordClick();
   };
   
   // 單字點擊事件（刪除單字功能）
