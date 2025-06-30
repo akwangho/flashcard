@@ -464,6 +464,10 @@
           console.log('重新開始按鈕被點擊');
           self.closeMenu();
           self.confirmRestart();
+        } else if (e.target.id === 'fullscreen-btn') {
+          console.log('全螢幕按鈕被點擊');
+          self.closeMenu();
+          self.toggleFullscreen();
         } else if (e.target.id === 'sheet-settings-btn') {
           console.log('Google Sheet 設定按鈕被點擊');
           self.closeMenu();
@@ -571,6 +575,7 @@
     // 更新按鈕狀態
     this.updateVoiceButtonState();
     this.updatePauseButtonState();
+    this.updateFullscreenButtonText();
   };
   
   // 顯示錯誤
@@ -608,10 +613,11 @@
         }
         
         this.displayCurrentWord();
-    this.updateButtonStates();
+        this.updateButtonStates();
     this.updateVoiceButtonState();
     this.updatePauseButtonState();
-      this.renderDifficultStar();
+    this.updateFullscreenButtonText();
+    this.renderDifficultStar();
   };
   
   // 洗牌
@@ -1890,6 +1896,142 @@
     } else {
       this.pauseTimer();
       this.updatePauseButtonState();
+    }
+  };
+  
+  // 進入全螢幕模式
+  FlashcardApp.prototype.enterFullscreen = function() {
+    console.log('嘗試進入全螢幕模式');
+    
+    var docElement = document.documentElement;
+    
+    try {
+      // 嘗試標準 API
+      if (docElement.requestFullscreen) {
+        docElement.requestFullscreen();
+      }
+      // 嘗試 webkit 前綴 (Safari, Chrome)
+      else if (docElement.webkitRequestFullscreen) {
+        docElement.webkitRequestFullscreen();
+      }
+      // 嘗試 webkit 前綴 (舊版 Safari)
+      else if (docElement.webkitRequestFullScreen) {
+        docElement.webkitRequestFullScreen();
+      }
+      // 嘗試 moz 前綴 (Firefox)
+      else if (docElement.mozRequestFullScreen) {
+        docElement.mozRequestFullScreen();
+      }
+      // 嘗試 ms 前綴 (IE/Edge)
+      else if (docElement.msRequestFullscreen) {
+        docElement.msRequestFullscreen();
+      }
+      else {
+        console.log('此瀏覽器不支援全螢幕 API');
+        alert('此瀏覽器不支援全螢幕功能');
+        return;
+      }
+      
+      console.log('全螢幕請求已發送');
+      
+      // 添加全螢幕狀態監聽
+      var self = this;
+      var fullscreenChangeHandler = function() {
+        var isFullscreen = document.fullscreenElement || 
+                          document.webkitFullscreenElement || 
+                          document.mozFullScreenElement || 
+                          document.msFullscreenElement;
+        
+        if (isFullscreen) {
+          console.log('已進入全螢幕模式');
+        } else {
+          console.log('已退出全螢幕模式');
+        }
+        
+        // 更新按鈕文字
+        self.updateFullscreenButtonText();
+      };
+      
+      // 移除舊的監聽器（如果存在）
+      document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('mozfullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('MSFullscreenChange', fullscreenChangeHandler);
+      
+      // 添加新的監聽器
+      document.addEventListener('fullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('mozfullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('MSFullscreenChange', fullscreenChangeHandler);
+      
+    } catch (error) {
+      console.error('進入全螢幕時發生錯誤:', error);
+      alert('無法進入全螢幕模式，請檢查瀏覽器設定');
+    }
+  };
+  
+  // 退出全螢幕模式
+  FlashcardApp.prototype.exitFullscreen = function() {
+    console.log('嘗試退出全螢幕模式');
+    
+    try {
+      // 嘗試標準 API
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      // 嘗試 webkit 前綴 (Safari, Chrome)
+      else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+      // 嘗試 webkit 前綴 (舊版 Safari)
+      else if (document.webkitCancelFullScreen) {
+        document.webkitCancelFullScreen();
+      }
+      // 嘗試 moz 前綴 (Firefox)
+      else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      }
+      // 嘗試 ms 前綴 (IE/Edge)
+      else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+      else {
+        console.log('此瀏覽器不支援退出全螢幕 API');
+      }
+      
+      console.log('退出全螢幕請求已發送');
+      
+    } catch (error) {
+      console.error('退出全螢幕時發生錯誤:', error);
+    }
+  };
+  
+  // 檢查是否為全螢幕狀態
+  FlashcardApp.prototype.isFullscreen = function() {
+    return !!(document.fullscreenElement || 
+             document.webkitFullscreenElement || 
+             document.mozFullScreenElement || 
+             document.msFullscreenElement);
+  };
+  
+  // 切換全螢幕狀態
+  FlashcardApp.prototype.toggleFullscreen = function() {
+    if (this.isFullscreen()) {
+      this.exitFullscreen();
+    } else {
+      this.enterFullscreen();
+    }
+  };
+  
+  // 更新全螢幕按鈕文字
+  FlashcardApp.prototype.updateFullscreenButtonText = function() {
+    var fullscreenBtn = document.getElementById('fullscreen-btn');
+    if (fullscreenBtn) {
+      if (this.isFullscreen()) {
+        fullscreenBtn.textContent = '退出全螢幕';
+      } else {
+        fullscreenBtn.textContent = '全螢幕';
+      }
     }
   };
   
