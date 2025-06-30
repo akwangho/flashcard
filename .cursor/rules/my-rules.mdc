@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+寫出能在ipad 4正常執行的ES5兼容的完整版本

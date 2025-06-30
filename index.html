@@ -3,17 +3,61 @@
 <head>
   <base target="_top">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <!-- 為舊版瀏覽器添加兼容性支援 -->
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-touch-fullscreen" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- 防止iPad縮放和選擇 -->
+  <meta name="msapplication-tap-highlight" content="no">
+  <meta name="theme-color" content="#1a1a1a">
   <title>英文單字閃卡</title>
   <?!= include('style'); ?>
 </head>
 <body>
   <div id="app">
     <div id="loading">
-      <p>Ready</p>
+      <p>載入中...</p>
+      <p><small>如果長時間停留在此畫面，可能是瀏覽器兼容性問題</small></p>
+      
+      <!-- 語音啟用按鈕（適用於舊版瀏覽器） -->
+      <div id="speech-activation-container" style="display: none; margin-top: 30px;">
+        <div style="background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 12px; margin: 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          <div style="font-size: 18px; color: #333; margin-bottom: 15px;">
+            🔊 語音功能需要您的互動才能啟用
+          </div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 20px;">
+            點擊下方按鈕以啟用英文單字發音功能
+          </div>
+          <button id="activate-speech-btn" style="
+            font-size: 18px; 
+            padding: 15px 30px; 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+          " onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
+            ▶️ 啟用語音播放
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 錯誤顯示區域 -->
+    <div id="error" style="display: none; padding: 20px; background: #ffebee; border: 1px solid #f44336; border-radius: 8px; margin: 20px; color: #333;">
+      <h2 style="color: #f44336; margin-top: 0;">發生錯誤</h2>
+      <p>載入時發生問題，請檢查您的網路連接或重新整理頁面。</p>
     </div>
     
     <div id="flashcard" style="display: none;">
+      
+      
       <div class="card-container">
         <div class="card-section" id="english-section">
           <div class="word" id="english-word"></div>
@@ -29,16 +73,26 @@
         <span id="difficult-star">★</span>
       </div>
       
+      <!-- 恢復按鈕 -->
+      <div id="restore-btn-container" class="restore-btn-container" style="display: none;">
+        <button id="restore-btn" class="restore-btn">
+          <span class="restore-icon">↶</span>
+          <span class="restore-text">恢復單字</span>
+        </button>
+      </div>
+      
       <div class="controls-wrapper">
         <div class="controls">
           <button id="prev-btn">上一個</button>
           <button id="next-btn">下一個</button>
+          <button id="voice-toggle-btn" title="切換語音播放">🔊</button>
+          <button id="pause-btn" title="暫停/恢復">⏸️</button>
           
           <!-- 新增選單系統 -->
           <div class="menu-container">
             <button id="menu-btn" class="menu-toggle">選單 ▼</button>
             <div class="menu-dropdown" id="menu-dropdown">
-              <button id="restart-btn" class="menu-item">重新開始</button>
+              <button id="restart-btn" class="menu-item">重新載入單字</button>
               <label class="menu-item" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                 <input type="checkbox" id="show-difficult-only" style="width:16px;height:16px;">
                 只顯示不熟單字
@@ -65,7 +119,7 @@
           <div class="setting-group">
             <label for="sheet-id-input">Google Sheet ID 或 URL</label>
             <div class="setting-control">
-              <input type="text" id="sheet-id-input" placeholder="請輸入 Google Sheet ID 或完整 URL">
+              <input type="text" id="sheet-id-input" placeholder="請輸入 Google Sheet ID 或完整 URL" value="1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM">
               <!-- 浮動提示容器 -->
               <div id="sheet-id-tooltip" class="sheet-id-tooltip" style="display:none;">
                 <small style="color: #888;">
@@ -198,6 +252,20 @@
               <input type="text" id="export-sheet-name" placeholder="請輸入工作表名稱">
               <div id="sheet-name-hint" class="sheet-name-hint normal">
                 💡 如果工作表已存在，系統會詢問您是否要覆寫
+              </div>
+            </div>
+          </div>
+          
+          <!-- 匯出進度顯示 -->
+          <div class="setting-group" id="export-progress-container" style="display: none;">
+            <label>匯出進度</label>
+            <div class="export-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" id="export-progress-fill"></div>
+              </div>
+              <div class="progress-text">
+                <span id="export-progress-text">準備中...</span>
+                <span id="export-progress-count"></span>
               </div>
             </div>
           </div>
