@@ -299,6 +299,19 @@
       fontSizeValue.textContent = this.settings.fontSize + 'px';
     }
     if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+    
+    // 應用圖片縮放設定（永遠使用不裁切模式）
+    this.applyImageFitMode();
+  };
+  
+  // 應用圖片縮放設定（永遠使用不裁切模式）
+  FlashcardApp.prototype.applyImageFitMode = function() {
+    var flashcardDiv = document.getElementById('flashcard');
+    if (flashcardDiv) {
+      // 永遠使用contain模式（不裁切）
+      flashcardDiv.classList.add('image-fit-contain');
+      flashcardDiv.classList.remove('image-fit-cover');
+    }
   };
   
   // 載入單字
