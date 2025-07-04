@@ -73,6 +73,7 @@
     this.navigationHistory = [];
       this.pendingRemoval = null;
     this.isPaused = false;
+    this.userPaused = false;
     this.pausedTimestamp = null;
     this.remainingTime = 0;
     
@@ -82,7 +83,7 @@
     
     // 設定
     this.settings = {
-      delayTime: 1,
+      delayTime: 4.5,
       fontSize: 96,
       reverseMode: false
     };
@@ -116,6 +117,10 @@
     this.preloadedImages = {};
     this.currentPreloadingImage = null;
 
+    // 防止螢幕關閉相關
+    this.wakeLock = null;
+    this.noSleepVideo = null;
+    this.keepScreenAwake = false;
     
     // 啟動初始化
     this.init();
@@ -159,6 +164,9 @@
     // 初始化按鈕狀態
     this.updateVoiceButtonState();
     this.updatePauseButtonState();
+    
+    // 啟用防止螢幕關閉功能
+    this.enableKeepScreenAwake();
   };
   
   // 檢測舊版瀏覽器
@@ -613,6 +621,8 @@
     this.removedWords = [];
     this.navigationHistory = [];
     this.pendingRemoval = null;
+    this.userPaused = false;
+    this.isPaused = false;
     this.hideRestoreButton();
           
           if (this.currentWords.length === 0) {
@@ -1105,25 +1115,29 @@
   
   // 恢復計時器
   FlashcardApp.prototype.resumeTimer = function() {
-    this.isPaused = false;
-    
-
+    // 只有在用戶沒有手動暫停的情況下才恢復計時器
+    if (!this.userPaused) {
+      this.isPaused = false;
+    }
     
     var self = this;
-    if (this.showingChinese) {
-      this.displayTimer = setTimeout(function() {
-        self.nextWord();
-      }, this.settings.delayTime * 1000);
-    } else if (!this.isTransitioning && !this.isProcessingClick) {
-      var currentWord = this.currentWords[this.currentIndex];
-      if (currentWord) {
+    if (!this.isPaused) {
+      if (this.showingChinese) {
         this.displayTimer = setTimeout(function() {
-          self.showSecondPartAndScheduleNext();
+          self.nextWord();
         }, this.settings.delayTime * 1000);
+      } else if (!this.isTransitioning && !this.isProcessingClick) {
+        var currentWord = this.currentWords[this.currentIndex];
+        if (currentWord) {
+          this.displayTimer = setTimeout(function() {
+            self.showSecondPartAndScheduleNext();
+          }, this.settings.delayTime * 1000);
+        }
       }
     }
     
-
+    // 更新UI狀態
+    this.updatePauseButtonState();
   };
   
   // 開啟Google Sheet設定
@@ -1903,13 +1917,16 @@
   
   // 切換暫停/恢復
   FlashcardApp.prototype.togglePause = function() {
-    if (this.isPaused) {
+    if (this.userPaused) {
+      // 用戶手動恢復
+      this.userPaused = false;
       this.resumeTimer();
-      this.updatePauseButtonState();
     } else {
+      // 用戶手動暫停
+      this.userPaused = true;
       this.pauseTimer();
-      this.updatePauseButtonState();
     }
+    this.updatePauseButtonState();
   };
   
   // 進入全螢幕模式
@@ -2052,20 +2069,27 @@
   FlashcardApp.prototype.updatePauseButtonState = function() {
     var pauseBtn = document.getElementById('pause-btn');
     var controlsWrapper = document.getElementById('controls-wrapper');
+    var pausedIndicator = document.getElementById('paused-indicator');
     
     if (pauseBtn) {
-      if (this.isPaused) {
+      if (this.userPaused) {
         pauseBtn.textContent = '▶️';
         pauseBtn.title = '目前暫停中（點擊恢復）';
         pauseBtn.style.opacity = '0.6';
         
-
+        // 顯示「已暫停」指示器
+        if (pausedIndicator) {
+          pausedIndicator.style.display = 'flex';
+        }
       } else {
         pauseBtn.textContent = '⏸️';
         pauseBtn.title = '目前運行中（點擊暫停）';
         pauseBtn.style.opacity = '1';
         
-
+        // 隱藏「已暫停」指示器
+        if (pausedIndicator) {
+          pausedIndicator.style.display = 'none';
+        }
       }
     }
   };
@@ -2205,7 +2229,9 @@
     
     // 確保「已暫停」消失
     var pausedIndicator = document.getElementById('paused-indicator');
-      if (pausedIndicator) pausedIndicator.remove();
+    if (pausedIndicator) {
+      pausedIndicator.style.display = 'none';
+    }
     
     // 隱藏進度顯示
     this.hideExportProgress();
@@ -3902,6 +3928,183 @@ FlashcardApp.prototype.processBatch = function() {
     });
   };
   
+  // 防止螢幕關閉功能
+  FlashcardApp.prototype.enableKeepScreenAwake = function() {
+    console.log('啟用防止螢幕關閉功能');
+    
+    // 嘗試使用Wake Lock API（新版瀏覽器）
+    if (this.tryWakeLockAPI()) {
+      console.log('使用Wake Lock API防止螢幕關閉');
+      return;
+    }
+    
+    // 使用NoSleep.js方法（播放無聲視頻）
+    if (this.tryNoSleepVideo()) {
+      console.log('使用無聲視頻防止螢幕關閉');
+      return;
+    }
+    
+    // 備用方案：定期執行操作
+    this.tryKeepAliveMethod();
+    console.log('使用定期執行操作防止螢幕關閉');
+  };
+  
+  // 嘗試使用Wake Lock API
+  FlashcardApp.prototype.tryWakeLockAPI = function() {
+    if ('wakeLock' in navigator) {
+      var self = this;
+      
+      navigator.wakeLock.request('screen').then(function(wakeLock) {
+        self.wakeLock = wakeLock;
+        console.log('Wake Lock API 已啟用');
+        
+        // 監聽頁面可見性變化
+        document.addEventListener('visibilitychange', function() {
+          if (self.wakeLock !== null && document.visibilityState === 'visible') {
+            // 頁面重新可見時重新請求Wake Lock
+            navigator.wakeLock.request('screen').then(function(wakeLock) {
+              self.wakeLock = wakeLock;
+            }).catch(function(error) {
+              console.log('重新請求Wake Lock失敗:', error);
+            });
+          }
+        });
+        
+        return true;
+      }).catch(function(error) {
+        console.log('Wake Lock API 請求失敗:', error);
+        return false;
+      });
+      
+      return true;
+    }
+    return false;
+  };
+  
+  // 嘗試使用NoSleep視頻方法
+  FlashcardApp.prototype.tryNoSleepVideo = function() {
+    try {
+      // 創建無聲視頻元素
+      var video = document.createElement('video');
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
+      video.setAttribute('loop', '');
+      video.style.position = 'fixed';
+      video.style.top = '0';
+      video.style.left = '0';
+      video.style.width = '1px';
+      video.style.height = '1px';
+      video.style.opacity = '0';
+      video.style.pointerEvents = 'none';
+      video.style.zIndex = '-1';
+      
+      // 創建無聲視頻數據URL（1x1像素，極短的無聲視頻）
+      var videoDataUrl = 'data:video/mp4;base64,AAAAIGZ0eXBtcDQyAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAr1tZGF0AAACrgYF//+q3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE0OCByMjYwMSBNIGU5YjVmMzMgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDE2IC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MSByZWY9MyBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgzOjB4MTEzIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0xIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS0yIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBicmFtZXM9MyBiX3B5cmFtaWQ9MiBiX2FkYXB0PTEgYl9iaWFzPTAgZGlyZWN0PTEgd2VpZ2h0Yj0xIG9wZW5fZ29wPTAgd2VpZ2h0cD0yIGtleWludD0yNTAga2V5aW50X21pbj0yNSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTQwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAFZliIQL8mKAAKvMnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycH//2Q==';
+      
+      video.src = videoDataUrl;
+      
+      // 添加到DOM
+      document.body.appendChild(video);
+      this.noSleepVideo = video;
+      
+      // 嘗試播放
+      var self = this;
+      video.play().then(function() {
+        console.log('NoSleep視頻已開始播放');
+        self.keepScreenAwake = true;
+      }).catch(function(error) {
+        console.log('NoSleep視頻播放失敗:', error);
+        // 清理失敗的視頻元素
+        if (self.noSleepVideo && self.noSleepVideo.parentNode) {
+          self.noSleepVideo.parentNode.removeChild(self.noSleepVideo);
+        }
+        self.noSleepVideo = null;
+        return false;
+      });
+      
+      return true;
+    } catch (error) {
+      console.log('創建NoSleep視頻失敗:', error);
+      return false;
+    }
+  };
+  
+  // 備用方案：定期執行操作
+  FlashcardApp.prototype.tryKeepAliveMethod = function() {
+    var self = this;
+    
+    // 每30秒執行一次操作來保持活動狀態
+    setInterval(function() {
+      if (self.keepScreenAwake !== false) {
+        // 創建一個極小的音頻上下文並立即關閉
+        try {
+          var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          var oscillator = audioContext.createOscillator();
+          var gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          // 設置極低的音量
+          gainNode.gain.value = 0.001;
+          
+          // 播放極短的無聲音頻
+          oscillator.frequency.value = 20000; // 人耳聽不到的高頻
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.001);
+          
+          // 關閉音頻上下文
+          setTimeout(function() {
+            audioContext.close();
+          }, 10);
+        } catch (error) {
+          // 靜默忽略錯誤
+        }
+        
+        // 觸發一個極小的DOM操作
+        try {
+          var dummyDiv = document.createElement('div');
+          dummyDiv.style.position = 'fixed';
+          dummyDiv.style.top = '-1px';
+          dummyDiv.style.left = '-1px';
+          dummyDiv.style.width = '1px';
+          dummyDiv.style.height = '1px';
+          dummyDiv.style.opacity = '0';
+          document.body.appendChild(dummyDiv);
+          
+          setTimeout(function() {
+            if (dummyDiv.parentNode) {
+              dummyDiv.parentNode.removeChild(dummyDiv);
+            }
+          }, 1);
+        } catch (error) {
+          // 靜默忽略錯誤
+        }
+      }
+    }, 30000); // 每30秒執行一次
+  };
+  
+  // 禁用防止螢幕關閉功能
+  FlashcardApp.prototype.disableKeepScreenAwake = function() {
+    console.log('禁用防止螢幕關閉功能');
+    this.keepScreenAwake = false;
+    
+    // 釋放Wake Lock
+    if (this.wakeLock) {
+      this.wakeLock.release();
+      this.wakeLock = null;
+    }
+    
+    // 停止NoSleep視頻
+    if (this.noSleepVideo) {
+      this.noSleepVideo.pause();
+      if (this.noSleepVideo.parentNode) {
+        this.noSleepVideo.parentNode.removeChild(this.noSleepVideo);
+      }
+      this.noSleepVideo = null;
+    }
+  };
+  
   // 全域變數
   var app;
   
@@ -3919,6 +4122,13 @@ FlashcardApp.prototype.processBatch = function() {
         }
       };
     }
+    
+    // 頁面卸載時清理資源
+    window.addEventListener('beforeunload', function() {
+      if (app && typeof app.disableKeepScreenAwake === 'function') {
+        app.disableKeepScreenAwake();
+      }
+    });
     } catch (error) {
       console.error('應用啟動失敗:', error);
       var loadingDiv = document.getElementById('loading');

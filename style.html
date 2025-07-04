@@ -1522,6 +1522,56 @@
   }
   
   /* ==========================================================================
+     PAUSED INDICATOR
+     ========================================================================== */
+  
+  .paused-indicator {
+    position: fixed;
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 2px solid var(--warning-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    animation: fadeInSlide var(--transition-normal) ease-out;
+  }
+  
+  .paused-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+  
+  .paused-icon {
+    font-size: var(--font-lg);
+    color: var(--warning-color);
+  }
+  
+  .paused-text {
+    font-size: var(--font-md);
+    color: var(--text-color);
+    font-weight: bold;
+  }
+  
+  /* 動畫效果 */
+  @keyframes fadeInSlide {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  /* ==========================================================================
      NOTIFICATIONS & PROCESSING
      ========================================================================== */
   
