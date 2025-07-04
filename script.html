@@ -2728,14 +2728,33 @@ FlashcardApp.prototype.processBatch = function() {
     }
   };
   
-  // Sheet設定相關（完整實現）
+    // Sheet設定相關（完整實現）
   FlashcardApp.prototype.loadSheetsList = function() {
+    // 檢查是否需要使用預設表單
+    var sheetIdInput = document.getElementById('sheet-id-input');
+    if (sheetIdInput && (!sheetIdInput.value || sheetIdInput.value.trim() === '')) {
+      var useDefault = confirm('Google Sheet 欄位是空的。\n\n是否要使用預設的範例表單？\n\n預設表單包含常用的英文單字範例，可以直接開始使用。');
+      
+      if (useDefault) {
+        // 填入預設ID
+        var defaultSheetId = '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
+        sheetIdInput.value = defaultSheetId;
+        console.log('用戶選擇使用預設表單，已填入預設ID:', defaultSheetId);
+      } else {
+        // 用戶拒絕使用預設表單
+        console.log('用戶拒絕使用預設表單');
+        alert('請輸入您的 Google Sheet ID 或 URL');
+        sheetIdInput.focus();
+        return;
+      }
+    }
+
     var input = this.validateAndGetSheetInput();
     if (!input) return;
-  
+
     var elements = this.validateSheetUIElements();
     if (!elements) return;
-  
+
     try {
       var sheetId = this.extractSheetId(input);
       this.updateSheetLoadingUI(elements, true);
