@@ -90,11 +90,14 @@
     
     this.voiceSettings = {
       enabled: true,
+      japaneseEnabled: true,
       rate: 0.8,
       pitch: 1,
       volume: 1,
       lang: 'en-US',
-      voiceURI: ''
+      voiceURI: '',
+      japaneseLang: 'ja-JP',
+      japaneseVoiceURI: ''
     };
     
     this.sheetSettings = {
@@ -695,7 +698,7 @@
       } else {
         firstElement.textContent = currentWord.english;
         setTimeout(function() {
-          self.speakEnglishWord(currentWord.english);
+          self.speakWord(currentWord.english);
         }, 500);
       }
       firstElement.classList.add('show');
@@ -1361,7 +1364,7 @@
       if (this.settings.reverseMode) {
         var self = this;
         setTimeout(function() {
-          self.speakEnglishWord(currentWord.english);
+          self.speakWord(currentWord.english);
         }, 500);
       }
     }
@@ -1516,7 +1519,7 @@
     
     if (this.settings.reverseMode) {
       setTimeout(function() {
-        self.speakEnglishWord(currentWord.english);
+        self.speakWord(currentWord.english);
       }, 500);
     }
   };
@@ -1649,6 +1652,20 @@
     console.log('已增強滑塊交互體驗:', slider.id);
   };
   
+  // 檢測日文字符
+  FlashcardApp.prototype.isJapaneseText = function(text) {
+    if (!text) return false;
+    
+    // 日文字符範圍：
+    // 平假名: \u3040-\u309f
+    // 片假名: \u30a0-\u30ff
+    // 漢字: \u4e00-\u9faf
+    // 全角標點: \u3000-\u303f
+    var japanesePattern = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\u3000-\u303f]/;
+    
+    return japanesePattern.test(text);
+  };
+
   // 語音播放
   FlashcardApp.prototype.speakEnglishWord = function(text) {
     if (!this.voiceSettings.enabled) return;
@@ -1707,6 +1724,80 @@
       this.speechSynthesis.speak(utterance);
     } catch (error) {
       console.log('語音播放失敗:', error);
+    }
+  };
+  
+  // 日文語音播放
+  FlashcardApp.prototype.speakJapaneseWord = function(text) {
+    if (!this.voiceSettings.japaneseEnabled) return;
+    if (!text) return;
+    
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過播放');
+      return;
+    }
+    
+    try {
+      console.log('播放日文語音:', text);
+      this.speechSynthesis.cancel();
+      
+      var utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.voiceSettings.rate;
+      utterance.pitch = this.voiceSettings.pitch;
+      utterance.volume = this.voiceSettings.volume;
+      utterance.lang = this.voiceSettings.japaneseLang;
+      
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      if (this.voiceSettings.japaneseVoiceURI) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === this.voiceSettings.japaneseVoiceURI) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (!selectedVoice) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].lang.indexOf('ja-') === 0 || 
+              voices[i].name.toLowerCase().indexOf('japanese') !== -1) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      
+      // 為舊版瀏覽器添加錯誤處理
+      utterance.onerror = function(event) {
+        console.log('日文語音播放錯誤:', event.error);
+      };
+      
+      utterance.onstart = function() {
+        console.log('日文語音開始播放:', text);
+      };
+      
+      this.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.log('日文語音播放失敗:', error);
+    }
+  };
+  
+  // 智能語音播放（自動檢測語言）
+  FlashcardApp.prototype.speakWord = function(text) {
+    if (!text) return;
+    
+    if (this.isJapaneseText(text)) {
+      // 文本包含日文字符，使用日文語音
+      this.speakJapaneseWord(text);
+    } else {
+      // 文本不包含日文字符，使用英文語音
+      this.speakEnglishWord(text);
     }
   };
   
@@ -2120,10 +2211,12 @@
       this.pauseTimer();
       
       var speechEnabledSetting = document.getElementById('speech-enabled-setting');
+      var japaneseSpeechEnabledSetting = document.getElementById('japanese-speech-enabled-setting');
       var voiceRateSetting = document.getElementById('voice-rate-setting');
       var voiceRateValue = document.getElementById('voice-rate-value');
       
       if (speechEnabledSetting) speechEnabledSetting.checked = this.voiceSettings.enabled;
+      if (japaneseSpeechEnabledSetting) japaneseSpeechEnabledSetting.checked = this.voiceSettings.japaneseEnabled;
       if (voiceRateSetting) voiceRateSetting.value = this.voiceSettings.rate;
       if (voiceRateValue) {
         // 修復浮點數精度問題
@@ -2147,10 +2240,13 @@
   
   FlashcardApp.prototype.saveVoiceSettingsAndClose = function() {
     var speechEnabledSetting = document.getElementById('speech-enabled-setting');
+    var japaneseSpeechEnabledSetting = document.getElementById('japanese-speech-enabled-setting');
     var voiceRateSetting = document.getElementById('voice-rate-setting');
     var voiceSelectSetting = document.getElementById('voice-select-setting');
+    var japaneseVoiceSelectSetting = document.getElementById('japanese-voice-select-setting');
     
     if (speechEnabledSetting) this.voiceSettings.enabled = speechEnabledSetting.checked;
+    if (japaneseSpeechEnabledSetting) this.voiceSettings.japaneseEnabled = japaneseSpeechEnabledSetting.checked;
     if (voiceRateSetting) this.voiceSettings.rate = parseFloat(voiceRateSetting.value);
     
     if (voiceSelectSetting) {
@@ -2165,6 +2261,18 @@
       }
     }
     
+    if (japaneseVoiceSelectSetting) {
+      var selectedJapaneseVoiceURI = japaneseVoiceSelectSetting.value;
+      this.voiceSettings.japaneseVoiceURI = selectedJapaneseVoiceURI;
+      var voices = this.speechSynthesis.getVoices();
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === selectedJapaneseVoiceURI) {
+          this.voiceSettings.japaneseLang = voices[i].lang;
+          break;
+        }
+      }
+    }
+    
     this.saveSettings();
     this.updateVoiceButtonState();
     this.closeVoiceSettings();
@@ -2172,27 +2280,53 @@
   
   FlashcardApp.prototype.populateVoiceSelect = function() {
     var voiceSelect = document.getElementById('voice-select-setting');
-    if (!voiceSelect) return;
-    
-    voiceSelect.innerHTML = '';
+    var japaneseVoiceSelect = document.getElementById('japanese-voice-select-setting');
     var voices = this.speechSynthesis.getVoices();
-    var englishVoices = voices.filter(function(v) { 
-      return v.lang && v.lang.indexOf('en') === 0; 
-    });
     
-    for (var i = 0; i < englishVoices.length; i++) {
-      var voice = englishVoices[i];
-      var option = document.createElement('option');
-      option.value = voice.voiceURI;
-      option.textContent = voice.name + ' (' + voice.lang + ')';
-      if (voice.voiceURI === this.voiceSettings.voiceURI) {
-        option.selected = true;
+    // 填充英文語音選項
+    if (voiceSelect) {
+      voiceSelect.innerHTML = '';
+      var englishVoices = voices.filter(function(v) { 
+        return v.lang && v.lang.indexOf('en') === 0; 
+      });
+      
+      for (var i = 0; i < englishVoices.length; i++) {
+        var voice = englishVoices[i];
+        var option = document.createElement('option');
+        option.value = voice.voiceURI;
+        option.textContent = voice.name + ' (' + voice.lang + ')';
+        if (voice.voiceURI === this.voiceSettings.voiceURI) {
+          option.selected = true;
+        }
+        voiceSelect.appendChild(option);
       }
-      voiceSelect.appendChild(option);
+      
+      if (!voiceSelect.value && englishVoices.length > 0) {
+        voiceSelect.value = englishVoices[0].voiceURI;
+      }
     }
     
-    if (!voiceSelect.value && englishVoices.length > 0) {
-      voiceSelect.value = englishVoices[0].voiceURI;
+    // 填充日文語音選項
+    if (japaneseVoiceSelect) {
+      japaneseVoiceSelect.innerHTML = '';
+      var japaneseVoices = voices.filter(function(v) { 
+        return v.lang && v.lang.indexOf('ja') === 0; 
+      });
+      
+      for (var i = 0; i < japaneseVoices.length; i++) {
+        var voice = japaneseVoices[i];
+        var option = document.createElement('option');
+        option.value = voice.voiceURI;
+        option.textContent = voice.name + ' (' + voice.lang + ')';
+        if (voice.voiceURI === this.voiceSettings.japaneseVoiceURI) {
+          option.selected = true;
+        }
+        japaneseVoiceSelect.appendChild(option);
+      }
+      
+      if (!japaneseVoiceSelect.value && japaneseVoices.length > 0) {
+        japaneseVoiceSelect.value = japaneseVoices[0].voiceURI;
+      }
     }
   };
   
