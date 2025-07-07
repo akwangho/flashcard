@@ -925,38 +925,102 @@
     }
   };
   
-  // 鍵盤監聽器
+    // 鍵盤監聽器 - iPad 4 兼容版本
   FlashcardApp.prototype.setupKeyboardListeners = function() {
     var self = this;
     
-    document.addEventListener('keydown', function(e) {
-      if (self.isPaused) return;
-  
-      var keyActions = {
-        'Enter': function() { self.toggleDifficultCurrentWord(); },
-        'KeyS': function() { self.toggleDifficultCurrentWord(); },
-        'Space': function() { self.onWordClick(); },
-        'KeyD': function() { self.onWordClick(); },
-        'KeyR': function() { self.restart(); }, // 重新載入單字
-        'ArrowLeft': function() { self.previousWord(); },
-        'ArrowUp': function() { self.previousWord(); },
-        'ArrowRight': function() { self.nextWord(); },
-        'ArrowDown': function() { self.nextWord(); },
-        'Escape': function() {
-          self.closeSettings();
-          self.closeVoiceSettings();
-          self.closeExportModal();
-          self.closeOverwriteConfirmModal();
-          self.closeDuplicateModal();
-          self.closeMenu();
-        }
-      };
-  
-      if (keyActions[e.code]) {
-        e.preventDefault();
-        keyActions[e.code]();
-      }
+    // iPad 4 兼容性改進：確保 body 元素可以接收鍵盤事件
+    var body = document.body;
+    
+    // 設置 tabindex 屬性，讓 body 可以被聚焦
+    body.setAttribute('tabindex', '0');
+    
+    // 自動聚焦到 body 元素
+    body.focus();
+    
+    // 加入點擊事件監聽器，確保點擊後重新聚焦到 body
+    body.addEventListener('click', function() {
+      body.focus();
     });
+    
+    // 鍵盤事件處理函數 - 使用 ES5 兼容語法
+    function handleKeyDown(e) {
+      if (self.isPaused) return;
+      
+             // 取得按鍵信息，兼容舊版瀏覽器
+       e = e || window.event;
+       var keyCode = e.keyCode || e.which;
+       var code = e.code || '';
+       var key = e.key || '';
+       
+       // 處理特殊按鍵對應
+       var keyActions = {};
+       
+       // Enter 鍵 (keyCode 13)
+       if (keyCode === 13 || code === 'Enter') {
+         keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
+       }
+       // B/S 鍵 (keyCode 66/83)
+       else if (keyCode === 83 || code === 'KeyS' || keyCode === 66 || code === 'KeyB') {
+         keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
+       }
+       // 空格鍵 (keyCode 32)
+       else if (keyCode === 32 || code === 'Space') {
+         keyActions['action'] = function() { self.onWordClick(); };
+       }
+       // D 鍵 (keyCode 68)
+       else if (keyCode === 68 || code === 'KeyD') {
+         keyActions['action'] = function() { self.onWordClick(); };
+       }
+       // R 鍵 (keyCode 82)
+       else if (keyCode === 82 || code === 'KeyR') {
+         keyActions['action'] = function() { self.restart(); };
+       }
+       // 左方向鍵 (keyCode 37, ArrowLeft, 或 iPad 4 的 UIKeyInputLeftArrow)
+       else if (keyCode === 37 || code === 'ArrowLeft' || key === 'UIKeyInputLeftArrow') {
+         keyActions['action'] = function() { self.previousWord(); };
+       }
+       // 上方向鍵 (keyCode 38, ArrowUp, 或 iPad 4 的 UIKeyInputUpArrow)
+       else if (keyCode === 38 || code === 'ArrowUp' || key === 'UIKeyInputUpArrow') {
+         keyActions['action'] = function() { self.previousWord(); };
+       }
+       // 右方向鍵 (keyCode 39, ArrowRight, 或 iPad 4 的 UIKeyInputRightArrow)
+       else if (keyCode === 39 || code === 'ArrowRight' || key === 'UIKeyInputRightArrow') {
+         keyActions['action'] = function() { self.nextWord(); };
+       }
+       // 下方向鍵 (keyCode 40, ArrowDown, 或 iPad 4 的 UIKeyInputDownArrow)
+       else if (keyCode === 40 || code === 'ArrowDown' || key === 'UIKeyInputDownArrow') {
+         keyActions['action'] = function() { self.nextWord(); };
+       }
+       // Escape 鍵 (keyCode 27)
+       else if (keyCode === 27 || code === 'Escape') {
+         keyActions['action'] = function() {
+           self.closeSettings();
+           self.closeVoiceSettings();
+           self.closeExportModal();
+           self.closeOverwriteConfirmModal();
+           self.closeDuplicateModal();
+           self.closeMenu();
+         };
+       }
+      
+      // 執行對應的動作
+      if (keyActions['action']) {
+        // 防止預設行為
+        if (e.preventDefault) {
+          e.preventDefault();
+        } else {
+          e.returnValue = false; // IE8 及更早版本
+        }
+        
+        keyActions['action']();
+      }
+    }
+    
+    // 監聽整個 document 的鍵盤事件
+    document.addEventListener('keydown', handleKeyDown);
+    
+    console.log('鍵盤事件監聽器已設置 (iPad 4 兼容版本)');
   };
   
   // 進度區和匯出監聽器
