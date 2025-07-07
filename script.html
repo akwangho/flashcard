@@ -90,7 +90,6 @@
     
     this.voiceSettings = {
       enabled: true,
-      japaneseEnabled: true,
       rate: 0.8,
       pitch: 1,
       volume: 1,
@@ -1098,7 +1097,9 @@
       pitch: 1,
       volume: 1,
       lang: 'en-US',
-      voiceURI: ''
+      voiceURI: '',
+      japaneseLang: 'ja-JP',
+      japaneseVoiceURI: ''
     };
     this.applySettings();
       this.saveSettings();
@@ -1729,7 +1730,7 @@
   
   // 日文語音播放
   FlashcardApp.prototype.speakJapaneseWord = function(text) {
-    if (!this.voiceSettings.japaneseEnabled) return;
+    if (!this.voiceSettings.enabled) return;
     if (!text) return;
     
     // 舊版瀏覽器檢查用戶交互狀態
@@ -2211,12 +2212,10 @@
       this.pauseTimer();
       
       var speechEnabledSetting = document.getElementById('speech-enabled-setting');
-      var japaneseSpeechEnabledSetting = document.getElementById('japanese-speech-enabled-setting');
       var voiceRateSetting = document.getElementById('voice-rate-setting');
       var voiceRateValue = document.getElementById('voice-rate-value');
       
       if (speechEnabledSetting) speechEnabledSetting.checked = this.voiceSettings.enabled;
-      if (japaneseSpeechEnabledSetting) japaneseSpeechEnabledSetting.checked = this.voiceSettings.japaneseEnabled;
       if (voiceRateSetting) voiceRateSetting.value = this.voiceSettings.rate;
       if (voiceRateValue) {
         // 修復浮點數精度問題
@@ -2240,13 +2239,11 @@
   
   FlashcardApp.prototype.saveVoiceSettingsAndClose = function() {
     var speechEnabledSetting = document.getElementById('speech-enabled-setting');
-    var japaneseSpeechEnabledSetting = document.getElementById('japanese-speech-enabled-setting');
     var voiceRateSetting = document.getElementById('voice-rate-setting');
     var voiceSelectSetting = document.getElementById('voice-select-setting');
     var japaneseVoiceSelectSetting = document.getElementById('japanese-voice-select-setting');
     
     if (speechEnabledSetting) this.voiceSettings.enabled = speechEnabledSetting.checked;
-    if (japaneseSpeechEnabledSetting) this.voiceSettings.japaneseEnabled = japaneseSpeechEnabledSetting.checked;
     if (voiceRateSetting) this.voiceSettings.rate = parseFloat(voiceRateSetting.value);
     
     if (voiceSelectSetting) {
