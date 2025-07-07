@@ -956,12 +956,12 @@
        // 處理特殊按鍵對應
        var keyActions = {};
        
-       // Enter 鍵 (keyCode 13)
-       if (keyCode === 13 || code === 'Enter') {
+       // Enter 鍵 (keyCode 13, 或 iPad 4 的 UIKeyInputUpArrow)
+       if (keyCode === 13 || code === 'Enter' || key === 'UIKeyInputUpArrow') {
          keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
        }
-       // B/S 鍵 (keyCode 66/83)
-       else if (keyCode === 83 || code === 'KeyS' || keyCode === 66 || code === 'KeyB') {
+       // B/S 鍵 (keyCode 66/83, ArrowDown, 或 iPad 4 的 UIKeyInputDownArrow)
+       else if (keyCode === 83 || code === 'KeyS' || keyCode === 66 || code === 'KeyB' || key === 'UIKeyInputDownArrow') {
          keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
        }
        // 空格鍵 (keyCode 32)
@@ -980,16 +980,16 @@
        else if (keyCode === 37 || code === 'ArrowLeft' || key === 'UIKeyInputLeftArrow') {
          keyActions['action'] = function() { self.previousWord(); };
        }
-       // 上方向鍵 (keyCode 38, ArrowUp, 或 iPad 4 的 UIKeyInputUpArrow)
-       else if (keyCode === 38 || code === 'ArrowUp' || key === 'UIKeyInputUpArrow') {
+       // 上方向鍵 (keyCode 38, ArrowUp)
+       else if (keyCode === 38 || code === 'ArrowUp') {
          keyActions['action'] = function() { self.previousWord(); };
        }
        // 右方向鍵 (keyCode 39, ArrowRight, 或 iPad 4 的 UIKeyInputRightArrow)
        else if (keyCode === 39 || code === 'ArrowRight' || key === 'UIKeyInputRightArrow') {
          keyActions['action'] = function() { self.nextWord(); };
        }
-       // 下方向鍵 (keyCode 40, ArrowDown, 或 iPad 4 的 UIKeyInputDownArrow)
-       else if (keyCode === 40 || code === 'ArrowDown' || key === 'UIKeyInputDownArrow') {
+       // 下方向鍵 (keyCode 40)
+       else if (keyCode === 40 || code === 'ArrowDown') {
          keyActions['action'] = function() { self.nextWord(); };
        }
        // Escape 鍵 (keyCode 27)
