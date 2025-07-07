@@ -960,21 +960,9 @@
        if (keyCode === 13 || code === 'Enter' || key === 'UIKeyInputUpArrow') {
          keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
        }
-       // B/S 鍵 (keyCode 66/83, ArrowDown, 或 iPad 4 的 UIKeyInputDownArrow)
-       else if (keyCode === 83 || code === 'KeyS' || keyCode === 66 || code === 'KeyB' || key === 'UIKeyInputDownArrow') {
-         keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
-       }
-       // 空格鍵 (keyCode 32)
-       else if (keyCode === 32 || code === 'Space') {
+       // 空格鍵 (keyCode 32, 或 iPad 4 的 UIKeyInputDownArrow)
+       else if (keyCode === 32 || code === 'Space' || key === 'UIKeyInputDownArrow') {
          keyActions['action'] = function() { self.onWordClick(); };
-       }
-       // D 鍵 (keyCode 68)
-       else if (keyCode === 68 || code === 'KeyD') {
-         keyActions['action'] = function() { self.onWordClick(); };
-       }
-       // R 鍵 (keyCode 82)
-       else if (keyCode === 82 || code === 'KeyR') {
-         keyActions['action'] = function() { self.restart(); };
        }
        // 左方向鍵 (keyCode 37, ArrowLeft, 或 iPad 4 的 UIKeyInputLeftArrow)
        else if (keyCode === 37 || code === 'ArrowLeft' || key === 'UIKeyInputLeftArrow') {
