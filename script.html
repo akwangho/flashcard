@@ -4381,6 +4381,20 @@ FlashcardApp.prototype.processBatch = function() {
       return;
     }
     
+    // 檢查當前可用的單字（考慮篩選條件和暫時刪除）
+    var availableWords = this.getCurrentAvailableWords();
+    if (availableWords.length === 0) {
+      var message = this.getNoWordsMessage();
+      alert(message);
+      return;
+    }
+    
+    // 檢查快速測驗的單字數量
+    if (type === 'quick' && availableWords.length < 3) {
+      alert('可用單字太少（少於3個），無法進行測驗。請增加更多單字或調整篩選條件。');
+      return;
+    }
+    
     // 暫停閃卡播放
     this.pauseTimer();
     
@@ -4394,7 +4408,8 @@ FlashcardApp.prototype.processBatch = function() {
       answers: [],
       score: 0,
       startTime: new Date(),
-      endTime: null
+      endTime: null,
+      availableWords: availableWords
     };
     
     // 生成測驗題目
@@ -4404,25 +4419,46 @@ FlashcardApp.prototype.processBatch = function() {
     this.showQuizModal(type);
   };
   
+  // 獲取當前可用的單字（考慮篩選和刪除狀態）
+  FlashcardApp.prototype.getCurrentAvailableWords = function() {
+    // 使用 currentWords，它已經考慮了：
+    // 1. "只顯示不熟單字" 的篩選
+    // 2. 暫時刪除的單字
+    return this.currentWords ? this.currentWords.slice() : [];
+  };
+  
+  // 獲取沒有可用單字時的提示信息
+  FlashcardApp.prototype.getNoWordsMessage = function() {
+    if (this.showDifficultOnly) {
+      return '沒有不熟單字可以測驗！\n\n請先學習一些單字，或取消「只顯示不熟單字」選項。';
+    } else if (this.currentWords && this.currentWords.length === 0 && this.words && this.words.length > 0) {
+      return '所有單字都已被暫時移除！\n\n請點擊「恢復單字」按鈕或重新載入單字。';
+    } else {
+      return '沒有單字可以測驗！請先載入單字。';
+    }
+  };
+  
   // 生成測驗題目
   FlashcardApp.prototype.generateQuestions = function(type) {
     console.log('生成測驗題目，類型:', type);
     
-    var availableWords = this.words.slice(); // 複製陣列
-    var questionCount = type === 'quick' ? 10 : availableWords.length;
+    // 使用當前可用的單字（已考慮篩選條件和刪除狀態）
+    var availableWords = this.quizState.availableWords.slice();
+    var questionCount = type === 'quick' ? Math.min(10, availableWords.length) : availableWords.length;
     
     // 快速測驗只取部分單字
-    if (type === 'quick') {
+    if (type === 'quick' && availableWords.length > 10) {
       // 隨機洗牌並取前10個
       this.shuffleArray(availableWords);
-      availableWords = availableWords.slice(0, Math.min(10, availableWords.length));
+      availableWords = availableWords.slice(0, 10);
     }
     
     // 生成題目
     this.quizState.questions = [];
     for (var i = 0; i < availableWords.length; i++) {
       var word = availableWords[i];
-      var question = this.createQuestion(word, availableWords);
+      // 使用所有原始單字作為選項池（確保有足夠的錯誤選項）
+      var question = this.createQuestion(word, this.words);
       if (question) {
         this.quizState.questions.push(question);
       }
@@ -4490,6 +4526,7 @@ FlashcardApp.prototype.processBatch = function() {
     var questionCount = document.getElementById('quiz-question-count');
     var introTitle = document.getElementById('quiz-intro-title');
     var introDescription = document.getElementById('quiz-intro-description');
+    var scopeInfo = document.getElementById('quiz-scope-info');
     
     if (modal) {
       modal.style.display = 'flex';
@@ -4503,17 +4540,36 @@ FlashcardApp.prototype.processBatch = function() {
       questionCount.textContent = this.quizState.questions.length;
     }
     if (introTitle) {
-      introTitle.textContent = type === 'quick' ? '準備開始快速測驗！' : '準備開始完整測驗！';
+      var titleText = type === 'quick' ? '準備開始快速測驗！' : '準備開始完整測驗！';
+      introTitle.textContent = titleText;
     }
     if (introDescription) {
       var description = type === 'quick' ? 
         '快速檢測你對英文單字的掌握程度！' : 
-        '全面測試你學習的所有英文單字！';
+        '全面測試你學習的英文單字！';
       introDescription.textContent = description;
+    }
+    if (scopeInfo) {
+      scopeInfo.textContent = this.getQuizScopeText();
     }
     
     // 顯示開始畫面
     this.showQuizScreen('start');
+  };
+  
+  // 獲取測驗範圍文字
+  FlashcardApp.prototype.getQuizScopeText = function() {
+    var questionCount = this.quizState.questions.length;
+    
+    // 根據當前狀態返回範圍說明
+    if (this.showDifficultOnly) {
+      return '📚 測驗範圍：不熟單字 (' + questionCount + ' 題)';
+    } else if (this.currentWords.length < this.words.length) {
+      var removedCount = this.words.length - this.currentWords.length;
+      return '📖 測驗範圍：剩餘單字 (' + questionCount + ' 題，已排除 ' + removedCount + ' 個)';
+    } else {
+      return '📗 測驗範圍：所有單字 (' + questionCount + ' 題)';
+    }
   };
   
   // 關閉測驗模態框
@@ -4930,7 +4986,37 @@ FlashcardApp.prototype.processBatch = function() {
   // 重新開始測驗
   FlashcardApp.prototype.restartQuiz = function() {
     console.log('重新開始測驗');
+    
+    // 重新獲取當前可用的單字（可能已經變化）
+    var availableWords = this.getCurrentAvailableWords();
+    if (availableWords.length === 0) {
+      var message = this.getNoWordsMessage();
+      alert(message);
+      this.closeQuizModal();
+      return;
+    }
+    
+    // 檢查快速測驗的單字數量
+    if (this.quizState.type === 'quick' && availableWords.length < 3) {
+      alert('可用單字太少（少於3個），無法進行測驗。請增加更多單字或調整篩選條件。');
+      this.closeQuizModal();
+      return;
+    }
+    
+    // 更新可用單字
+    this.quizState.availableWords = availableWords;
+    
+    // 重新生成題目
     this.generateQuestions(this.quizState.type);
+    
+    // 重新設置狀態
+    this.quizState.currentQuestionIndex = 0;
+    this.quizState.selectedAnswer = null;
+    this.quizState.answers = [];
+    this.quizState.score = 0;
+    this.quizState.startTime = new Date();
+    this.quizState.endTime = null;
+    
     this.showQuizScreen('start');
   };
   
