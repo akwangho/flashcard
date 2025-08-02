@@ -105,6 +105,8 @@
                 <input type="checkbox" id="show-difficult-only" style="width:16px;height:16px;">
                 只顯示不熟單字
               </label>
+              <button id="quick-quiz-btn" class="menu-item">🎯 快速測驗 (10題)</button>
+              <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
               <button id="export-btn" class="menu-item">匯出單字</button>
               <button id="sheet-settings-btn" class="menu-item">單字檔設定</button>
               <button id="voice-settings-btn" class="menu-item">語音設定</button>
@@ -352,6 +354,114 @@
           <button id="confirm-duplicate-action" class="primary-btn" style="display: none;">確認操作</button>
           <button id="next-duplicate" class="primary-btn" style="display: none;">下一個</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 測驗模態框 -->
+  <div id="quiz-modal" class="modal" style="display: none;">
+    <div class="modal-content quiz-modal-content">
+      <div class="modal-header">
+        <h2 id="quiz-title">🎯 快速測驗</h2>
+        <button id="close-quiz" class="close-btn">×</button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- 測驗開始畫面 -->
+        <div id="quiz-start-screen" class="quiz-screen">
+          <div class="quiz-intro">
+            <div class="quiz-icon">🎓</div>
+            <h3 id="quiz-intro-title">準備開始測驗！</h3>
+            <p id="quiz-intro-description">測試一下你的英文單字掌握程度吧！</p>
+            <div class="quiz-info">
+              <div class="quiz-info-item">
+                <span class="quiz-info-label">題目數量：</span>
+                <span id="quiz-question-count">10</span> 題
+              </div>
+              <div class="quiz-info-item">
+                <span class="quiz-info-label">答題方式：</span>
+                <span>選擇題（4選1）</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 測驗進行畫面 -->
+        <div id="quiz-progress-screen" class="quiz-screen" style="display: none;">
+          <div class="quiz-progress-header">
+            <div class="quiz-progress-info">
+              <span id="quiz-current-number">1</span> / <span id="quiz-total-number">10</span>
+            </div>
+            <div class="quiz-score-info">
+              得分：<span id="quiz-current-score">0</span>
+            </div>
+          </div>
+          
+          <div class="quiz-progress-bar">
+            <div class="quiz-progress-fill" id="quiz-progress-fill"></div>
+          </div>
+          
+          <div class="quiz-question-container">
+            <div class="quiz-question-type" id="quiz-question-type">英文翻譯</div>
+            <div class="quiz-question" id="quiz-question">請選擇正確的中文意思</div>
+            <div class="quiz-word" id="quiz-word">apple</div>
+          </div>
+          
+          <div class="quiz-options" id="quiz-options">
+            <!-- 選項將由JS動態生成 -->
+          </div>
+          
+          <!-- 答題回饋 -->
+          <div id="quiz-feedback" class="quiz-feedback" style="display: none;">
+            <div class="quiz-feedback-content">
+              <div class="quiz-feedback-result" id="quiz-feedback-result">✅ 答對了！</div>
+              <div class="quiz-feedback-explanation" id="quiz-feedback-explanation">apple 的意思是「蘋果」</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 測驗結果畫面 -->
+        <div id="quiz-result-screen" class="quiz-screen" style="display: none;">
+          <div class="quiz-result-header">
+            <div class="quiz-result-icon" id="quiz-result-icon">🎉</div>
+            <h3 id="quiz-result-title">測驗完成！</h3>
+          </div>
+          
+          <div class="quiz-result-score">
+            <div class="quiz-score-circle">
+              <div class="quiz-score-number" id="quiz-final-score">80</div>
+              <div class="quiz-score-label">分</div>
+            </div>
+            <div class="quiz-score-details">
+              <div class="quiz-score-detail">
+                正確：<span id="quiz-correct-count">8</span> 題
+              </div>
+              <div class="quiz-score-detail">
+                錯誤：<span id="quiz-wrong-count">2</span> 題
+              </div>
+            </div>
+          </div>
+          
+          <div class="quiz-result-message" id="quiz-result-message">
+            太棒了！你的英文單字掌握得很好！
+          </div>
+          
+          <!-- 錯題回顧 -->
+          <div id="quiz-wrong-review" class="quiz-wrong-review" style="display: none;">
+            <h4>錯題回顧 📖</h4>
+            <div class="quiz-wrong-list" id="quiz-wrong-list">
+              <!-- 錯題將由JS動態生成 -->
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button id="quiz-cancel" class="secondary-btn">取消</button>
+        <button id="quiz-start" class="primary-btn">開始測驗</button>
+        <button id="quiz-next" class="primary-btn" style="display: none;">下一題</button>
+        <button id="quiz-restart" class="primary-btn" style="display: none;">再來一次</button>
+        <button id="quiz-finish" class="secondary-btn" style="display: none;">結束</button>
       </div>
     </div>
   </div>

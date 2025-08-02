@@ -124,6 +124,19 @@
     this.noSleepVideo = null;
     this.keepScreenAwake = false;
     
+    // 測驗相關屬性
+    this.quizState = {
+      isActive: false,
+      type: 'quick', // 'quick' or 'full'
+      questions: [],
+      currentQuestionIndex: 0,
+      selectedAnswer: null,
+      answers: [],
+      score: 0,
+      startTime: null,
+      endTime: null
+    };
+    
     // 啟動初始化
     this.init();
   }
@@ -507,6 +520,14 @@
           console.log('匯出按鈕被點擊');
           self.closeMenu();
           self.openExportModal();
+        } else if (e.target.id === 'quick-quiz-btn') {
+          console.log('快速測驗按鈕被點擊');
+          self.closeMenu();
+          self.startQuiz('quick');
+        } else if (e.target.id === 'full-quiz-btn') {
+          console.log('完整測驗按鈕被點擊');
+          self.closeMenu();
+          self.startQuiz('full');
         }
         return;
       }
@@ -923,6 +944,9 @@
         if (e.target === overwriteModal) self.closeOverwriteConfirmModal();
       });
     }
+    
+    // 測驗模態框
+    this.setupQuizListeners();
   };
   
     // 鍵盤監聽器 - iPad 4 兼容版本
@@ -4298,6 +4322,616 @@ FlashcardApp.prototype.processBatch = function() {
         }
       }
     }, 30000); // 每30秒執行一次
+  };
+  
+  // ==========================================================================
+  // 測驗功能相關方法 (Quiz Functions)
+  // ==========================================================================
+  
+  // 設置測驗模態框事件監聽器
+  FlashcardApp.prototype.setupQuizListeners = function() {
+    var self = this;
+    
+    // 測驗模態框元素
+    var quizModal = document.getElementById('quiz-modal');
+    var closeQuizBtn = document.getElementById('close-quiz');
+    var quizCancelBtn = document.getElementById('quiz-cancel');
+    var quizStartBtn = document.getElementById('quiz-start');
+    var quizNextBtn = document.getElementById('quiz-next');
+    var quizRestartBtn = document.getElementById('quiz-restart');
+    var quizFinishBtn = document.getElementById('quiz-finish');
+    
+    // 關閉按鈕事件
+    if (closeQuizBtn) {
+      closeQuizBtn.addEventListener('click', function() { self.closeQuizModal(); });
+    }
+    if (quizCancelBtn) {
+      quizCancelBtn.addEventListener('click', function() { self.closeQuizModal(); });
+    }
+    
+    // 測驗流程按鈕事件
+    if (quizStartBtn) {
+      quizStartBtn.addEventListener('click', function() { self.beginQuiz(); });
+    }
+    if (quizNextBtn) {
+      quizNextBtn.addEventListener('click', function() { self.nextQuestion(); });
+    }
+    if (quizRestartBtn) {
+      quizRestartBtn.addEventListener('click', function() { self.restartQuiz(); });
+    }
+    if (quizFinishBtn) {
+      quizFinishBtn.addEventListener('click', function() { self.closeQuizModal(); });
+    }
+    
+    // 模態框點擊外部關閉
+    if (quizModal) {
+      quizModal.addEventListener('click', function(e) {
+        if (e.target === quizModal) self.closeQuizModal();
+      });
+    }
+  };
+  
+  // 開始測驗
+  FlashcardApp.prototype.startQuiz = function(type) {
+    console.log('開始測驗，類型:', type);
+    
+    // 檢查是否有單字可以測驗
+    if (!this.words || this.words.length === 0) {
+      alert('沒有單字可以測驗！請先載入單字。');
+      return;
+    }
+    
+    // 暫停閃卡播放
+    this.pauseTimer();
+    
+    // 設置測驗狀態
+    this.quizState = {
+      isActive: true,
+      type: type,
+      questions: [],
+      currentQuestionIndex: 0,
+      selectedAnswer: null,
+      answers: [],
+      score: 0,
+      startTime: new Date(),
+      endTime: null
+    };
+    
+    // 生成測驗題目
+    this.generateQuestions(type);
+    
+    // 顯示測驗模態框
+    this.showQuizModal(type);
+  };
+  
+  // 生成測驗題目
+  FlashcardApp.prototype.generateQuestions = function(type) {
+    console.log('生成測驗題目，類型:', type);
+    
+    var availableWords = this.words.slice(); // 複製陣列
+    var questionCount = type === 'quick' ? 10 : availableWords.length;
+    
+    // 快速測驗只取部分單字
+    if (type === 'quick') {
+      // 隨機洗牌並取前10個
+      this.shuffleArray(availableWords);
+      availableWords = availableWords.slice(0, Math.min(10, availableWords.length));
+    }
+    
+    // 生成題目
+    this.quizState.questions = [];
+    for (var i = 0; i < availableWords.length; i++) {
+      var word = availableWords[i];
+      var question = this.createQuestion(word, availableWords);
+      if (question) {
+        this.quizState.questions.push(question);
+      }
+    }
+    
+    console.log('生成了', this.quizState.questions.length, '道題目');
+  };
+  
+  // 創建單個題目
+  FlashcardApp.prototype.createQuestion = function(targetWord, allWords) {
+    // 隨機決定題型：英譯中 或 中譯英
+    var isEnglishToChinese = Math.random() < 0.5;
+    
+    var question = {
+      word: targetWord,
+      type: isEnglishToChinese ? 'en-zh' : 'zh-en',
+      question: isEnglishToChinese ? targetWord.english : targetWord.chinese,
+      correctAnswer: isEnglishToChinese ? targetWord.chinese : targetWord.english,
+      options: []
+    };
+    
+    // 生成錯誤選項
+    var wrongOptions = [];
+    var attempts = 0;
+    var maxAttempts = 100;
+    
+    while (wrongOptions.length < 3 && attempts < maxAttempts) {
+      attempts++;
+      var randomWord = allWords[Math.floor(Math.random() * allWords.length)];
+      var wrongAnswer = isEnglishToChinese ? randomWord.chinese : randomWord.english;
+      
+      // 確保錯誤選項不重複且不等於正確答案
+      if (wrongAnswer !== question.correctAnswer && 
+          wrongOptions.indexOf(wrongAnswer) === -1) {
+        wrongOptions.push(wrongAnswer);
+      }
+    }
+    
+    // 如果沒有足夠的錯誤選項，補充一些通用選項
+    while (wrongOptions.length < 3) {
+      var genericOptions = isEnglishToChinese ? 
+        ['桌子', '電腦', '書本', '水果', '動物', '顏色', '天氣', '時間'] :
+        ['table', 'computer', 'book', 'fruit', 'animal', 'color', 'weather', 'time'];
+      
+      for (var i = 0; i < genericOptions.length && wrongOptions.length < 3; i++) {
+        var option = genericOptions[i];
+        if (option !== question.correctAnswer && wrongOptions.indexOf(option) === -1) {
+          wrongOptions.push(option);
+        }
+      }
+      break; // 避免無限循環
+    }
+    
+    // 組合所有選項並洗牌
+    question.options = [question.correctAnswer].concat(wrongOptions);
+    this.shuffleArray(question.options);
+    
+    return question;
+  };
+  
+  // 顯示測驗模態框
+  FlashcardApp.prototype.showQuizModal = function(type) {
+    var modal = document.getElementById('quiz-modal');
+    var title = document.getElementById('quiz-title');
+    var questionCount = document.getElementById('quiz-question-count');
+    var introTitle = document.getElementById('quiz-intro-title');
+    var introDescription = document.getElementById('quiz-intro-description');
+    
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+    
+    // 設置標題和說明
+    if (title) {
+      title.textContent = type === 'quick' ? '🎯 快速測驗' : '📝 完整測驗';
+    }
+    if (questionCount) {
+      questionCount.textContent = this.quizState.questions.length;
+    }
+    if (introTitle) {
+      introTitle.textContent = type === 'quick' ? '準備開始快速測驗！' : '準備開始完整測驗！';
+    }
+    if (introDescription) {
+      var description = type === 'quick' ? 
+        '快速檢測你對英文單字的掌握程度！' : 
+        '全面測試你學習的所有英文單字！';
+      introDescription.textContent = description;
+    }
+    
+    // 顯示開始畫面
+    this.showQuizScreen('start');
+  };
+  
+  // 關閉測驗模態框
+  FlashcardApp.prototype.closeQuizModal = function() {
+    var modal = document.getElementById('quiz-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+    
+    // 重置測驗狀態
+    this.quizState.isActive = false;
+    
+    // 恢復閃卡播放
+    this.resumeTimer();
+  };
+  
+  // 顯示測驗畫面
+  FlashcardApp.prototype.showQuizScreen = function(screenType) {
+    // 隱藏所有畫面
+    var screens = ['quiz-start-screen', 'quiz-progress-screen', 'quiz-result-screen'];
+    for (var i = 0; i < screens.length; i++) {
+      var screen = document.getElementById(screens[i]);
+      if (screen) {
+        screen.style.display = 'none';
+      }
+    }
+    
+    // 隱藏所有按鈕
+    var buttons = ['quiz-start', 'quiz-next', 'quiz-restart', 'quiz-finish'];
+    for (var i = 0; i < buttons.length; i++) {
+      var btn = document.getElementById(buttons[i]);
+      if (btn) {
+        btn.style.display = 'none';
+      }
+    }
+    
+    // 顯示指定畫面和相應按鈕
+    var targetScreen = document.getElementById('quiz-' + screenType + '-screen');
+    if (targetScreen) {
+      targetScreen.style.display = 'block';
+    }
+    
+    // 根據畫面類型顯示相應按鈕
+    if (screenType === 'start') {
+      var startBtn = document.getElementById('quiz-start');
+      if (startBtn) {
+        startBtn.style.display = 'inline-block';
+      }
+    } else if (screenType === 'progress') {
+      var nextBtn = document.getElementById('quiz-next');
+      if (nextBtn) {
+        nextBtn.style.display = 'inline-block';
+        nextBtn.style.display = 'none'; // 初始隱藏，答題後顯示
+      }
+    } else if (screenType === 'result') {
+      var restartBtn = document.getElementById('quiz-restart');
+      var finishBtn = document.getElementById('quiz-finish');
+      if (restartBtn) {
+        restartBtn.style.display = 'inline-block';
+      }
+      if (finishBtn) {
+        finishBtn.style.display = 'inline-block';
+      }
+    }
+  };
+  
+  // 開始答題
+  FlashcardApp.prototype.beginQuiz = function() {
+    console.log('開始答題');
+    
+    if (this.quizState.questions.length === 0) {
+      alert('沒有題目可以測驗！');
+      return;
+    }
+    
+    this.quizState.currentQuestionIndex = 0;
+    this.quizState.answers = [];
+    this.quizState.score = 0;
+    
+    this.showQuizScreen('progress');
+    this.showQuestion();
+  };
+  
+  // 顯示當前題目
+  FlashcardApp.prototype.showQuestion = function() {
+    var currentQuestion = this.quizState.questions[this.quizState.currentQuestionIndex];
+    if (!currentQuestion) return;
+    
+    console.log('顯示題目:', this.quizState.currentQuestionIndex + 1);
+    
+    // 更新進度信息
+    var currentNum = document.getElementById('quiz-current-number');
+    var totalNum = document.getElementById('quiz-total-number');
+    var currentScore = document.getElementById('quiz-current-score');
+    var progressFill = document.getElementById('quiz-progress-fill');
+    
+    if (currentNum) {
+      currentNum.textContent = this.quizState.currentQuestionIndex + 1;
+    }
+    if (totalNum) {
+      totalNum.textContent = this.quizState.questions.length;
+    }
+    if (currentScore) {
+      currentScore.textContent = this.quizState.score;
+    }
+    if (progressFill) {
+      var progress = (this.quizState.currentQuestionIndex / this.quizState.questions.length) * 100;
+      progressFill.style.width = progress + '%';
+    }
+    
+    // 更新題目內容
+    var questionType = document.getElementById('quiz-question-type');
+    var questionText = document.getElementById('quiz-question');
+    var quizWord = document.getElementById('quiz-word');
+    
+    if (questionType) {
+      questionType.textContent = currentQuestion.type === 'en-zh' ? '英文翻譯' : '中文翻譯';
+    }
+    if (questionText) {
+      questionText.textContent = currentQuestion.type === 'en-zh' ? 
+        '請選擇正確的中文意思' : '請選擇正確的英文單字';
+    }
+    if (quizWord) {
+      quizWord.textContent = currentQuestion.question;
+    }
+    
+    // 生成選項按鈕
+    this.renderQuizOptions(currentQuestion);
+    
+    // 隱藏回饋和下一題按鈕
+    var feedback = document.getElementById('quiz-feedback');
+    var nextBtn = document.getElementById('quiz-next');
+    if (feedback) {
+      feedback.style.display = 'none';
+    }
+    if (nextBtn) {
+      nextBtn.style.display = 'none';
+    }
+    
+    // 重置選擇狀態
+    this.quizState.selectedAnswer = null;
+  };
+  
+  // 渲染測驗選項
+  FlashcardApp.prototype.renderQuizOptions = function(question) {
+    var optionsContainer = document.getElementById('quiz-options');
+    if (!optionsContainer) return;
+    
+    optionsContainer.innerHTML = '';
+    
+    var self = this;
+    var letters = ['A', 'B', 'C', 'D'];
+    
+    for (var i = 0; i < question.options.length; i++) {
+      var option = question.options[i];
+      var optionBtn = document.createElement('button');
+      optionBtn.className = 'quiz-option';
+      optionBtn.innerHTML = '<span class="quiz-option-letter">' + letters[i] + '</span>' + option;
+      optionBtn.setAttribute('data-answer', option);
+      
+      (function(answer) {
+        optionBtn.addEventListener('click', function() {
+          self.selectAnswer(answer);
+        });
+      })(option);
+      
+      optionsContainer.appendChild(optionBtn);
+    }
+  };
+  
+  // 選擇答案
+  FlashcardApp.prototype.selectAnswer = function(selectedAnswer) {
+    console.log('選擇答案:', selectedAnswer);
+    
+    if (this.quizState.selectedAnswer !== null) {
+      return; // 已經選擇過答案
+    }
+    
+    this.quizState.selectedAnswer = selectedAnswer;
+    
+    var currentQuestion = this.quizState.questions[this.quizState.currentQuestionIndex];
+    var isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+    
+    // 記錄答案
+    this.quizState.answers.push({
+      question: currentQuestion,
+      selectedAnswer: selectedAnswer,
+      isCorrect: isCorrect
+    });
+    
+    if (isCorrect) {
+      this.quizState.score += 10; // 每題10分
+    }
+    
+    // 更新選項樣式
+    this.updateOptionStyles(currentQuestion.correctAnswer, selectedAnswer);
+    
+    // 顯示回饋
+    this.showAnswerFeedback(isCorrect, currentQuestion);
+    
+    // 如果是錯誤答案，標記為困難單字
+    if (!isCorrect) {
+      this.markWordAsDifficult(currentQuestion.word);
+    }
+    
+    // 顯示下一題按鈕或結束測驗
+    this.showNextButton();
+  };
+  
+  // 更新選項樣式
+  FlashcardApp.prototype.updateOptionStyles = function(correctAnswer, selectedAnswer) {
+    var options = document.querySelectorAll('.quiz-option');
+    
+    for (var i = 0; i < options.length; i++) {
+      var option = options[i];
+      var optionAnswer = option.getAttribute('data-answer');
+      
+      option.classList.add('disabled');
+      
+      if (optionAnswer === correctAnswer) {
+        option.classList.add('correct');
+      } else if (optionAnswer === selectedAnswer) {
+        option.classList.add('wrong');
+      }
+    }
+  };
+  
+  // 顯示答案回饋
+  FlashcardApp.prototype.showAnswerFeedback = function(isCorrect, question) {
+    var feedback = document.getElementById('quiz-feedback');
+    var feedbackResult = document.getElementById('quiz-feedback-result');
+    var feedbackExplanation = document.getElementById('quiz-feedback-explanation');
+    
+    if (!feedback) return;
+    
+    feedback.className = 'quiz-feedback ' + (isCorrect ? 'correct' : 'wrong');
+    feedback.style.display = 'block';
+    
+    if (feedbackResult) {
+      feedbackResult.textContent = isCorrect ? '✅ 答對了！' : '❌ 答錯了！';
+    }
+    
+    if (feedbackExplanation) {
+      var explanation = question.word.english + ' 的意思是「' + question.word.chinese + '」';
+      feedbackExplanation.textContent = explanation;
+    }
+    
+    // 播放語音（如果是英文單字）
+    if (this.voiceSettings.enabled) {
+      var self = this;
+      setTimeout(function() {
+        self.speakWord(question.word.english);
+      }, 500);
+    }
+  };
+  
+  // 顯示下一題按鈕
+  FlashcardApp.prototype.showNextButton = function() {
+    var nextBtn = document.getElementById('quiz-next');
+    if (nextBtn) {
+      var isLastQuestion = this.quizState.currentQuestionIndex >= this.quizState.questions.length - 1;
+      nextBtn.textContent = isLastQuestion ? '查看結果' : '下一題';
+      nextBtn.style.display = 'inline-block';
+    }
+  };
+  
+  // 下一題或顯示結果
+  FlashcardApp.prototype.nextQuestion = function() {
+    this.quizState.currentQuestionIndex++;
+    
+    if (this.quizState.currentQuestionIndex >= this.quizState.questions.length) {
+      // 測驗結束，顯示結果
+      this.showQuizResult();
+    } else {
+      // 顯示下一題
+      this.showQuestion();
+    }
+  };
+  
+  // 顯示測驗結果
+  FlashcardApp.prototype.showQuizResult = function() {
+    console.log('顯示測驗結果');
+    
+    this.quizState.endTime = new Date();
+    
+    var totalQuestions = this.quizState.questions.length;
+    var correctCount = this.quizState.answers.filter(function(a) { return a.isCorrect; }).length;
+    var wrongCount = totalQuestions - correctCount;
+    var finalScore = Math.round((correctCount / totalQuestions) * 100);
+    
+    // 更新結果顯示
+    var resultIcon = document.getElementById('quiz-result-icon');
+    var resultTitle = document.getElementById('quiz-result-title');
+    var finalScoreElement = document.getElementById('quiz-final-score');
+    var correctCountElement = document.getElementById('quiz-correct-count');
+    var wrongCountElement = document.getElementById('quiz-wrong-count');
+    var resultMessage = document.getElementById('quiz-result-message');
+    
+    if (resultIcon) {
+      if (finalScore >= 90) {
+        resultIcon.textContent = '🏆';
+      } else if (finalScore >= 80) {
+        resultIcon.textContent = '🎉';
+      } else if (finalScore >= 70) {
+        resultIcon.textContent = '👏';
+      } else {
+        resultIcon.textContent = '💪';
+      }
+    }
+    
+    if (resultTitle) {
+      resultTitle.textContent = '測驗完成！';
+    }
+    
+    if (finalScoreElement) {
+      finalScoreElement.textContent = finalScore;
+    }
+    
+    if (correctCountElement) {
+      correctCountElement.textContent = correctCount;
+    }
+    
+    if (wrongCountElement) {
+      wrongCountElement.textContent = wrongCount;
+    }
+    
+    if (resultMessage) {
+      var message = this.getResultMessage(finalScore);
+      resultMessage.textContent = message;
+    }
+    
+    // 顯示錯題回顧
+    this.showWrongReview();
+    
+    this.showQuizScreen('result');
+  };
+  
+  // 獲取結果評語
+  FlashcardApp.prototype.getResultMessage = function(score) {
+    if (score >= 90) {
+      return '太棒了！你是英文單字小高手！🏆';
+    } else if (score >= 80) {
+      return '很好！你的英文單字掌握得不錯！👍';
+    } else if (score >= 70) {
+      return '不錯哦！繼續努力就會更棒！💪';
+    } else if (score >= 60) {
+      return '還可以！多多練習會進步的！📚';
+    } else {
+      return '加油！多讀多練習一定會進步的！🌟';
+    }
+  };
+  
+  // 顯示錯題回顧
+  FlashcardApp.prototype.showWrongReview = function() {
+    var wrongAnswers = this.quizState.answers.filter(function(a) { return !a.isCorrect; });
+    var wrongReview = document.getElementById('quiz-wrong-review');
+    var wrongList = document.getElementById('quiz-wrong-list');
+    
+    if (wrongAnswers.length === 0) {
+      if (wrongReview) {
+        wrongReview.style.display = 'none';
+      }
+      return;
+    }
+    
+    if (wrongReview) {
+      wrongReview.style.display = 'block';
+    }
+    
+    if (wrongList) {
+      wrongList.innerHTML = '';
+      
+      for (var i = 0; i < wrongAnswers.length; i++) {
+        var answer = wrongAnswers[i];
+        var item = document.createElement('div');
+        item.className = 'quiz-wrong-item';
+        
+        item.innerHTML = 
+          '<div class="quiz-wrong-word">' + answer.question.word.english + '</div>' +
+          '<div>' +
+            '<div class="quiz-wrong-answer">你的答案：' + answer.selectedAnswer + '</div>' +
+            '<div class="quiz-wrong-correct">正確答案：' + answer.question.correctAnswer + '</div>' +
+          '</div>';
+        
+        wrongList.appendChild(item);
+      }
+    }
+  };
+  
+  // 標記單字為困難
+  FlashcardApp.prototype.markWordAsDifficult = function(word) {
+    if (!this.difficultWords.includes(word.id)) {
+      this.difficultWords.push(word.id);
+      console.log('標記困難單字:', word.english);
+      
+      // 同步到後端
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        var rowIndex = word.originalRowIndex;
+        if (rowIndex === undefined) {
+          rowIndex = this.words.findIndex(function(w) {
+            return w.english === word.english && w.chinese === word.chinese;
+          });
+        }
+        
+        if (rowIndex !== -1) {
+          var sheetId = this.sheetSettings.sheetId;
+          var sheetName = word.sheetName || 'Sheet1';
+          google.script.run.markWordAsDifficult(sheetId, sheetName, rowIndex, '*');
+        }
+      }
+    }
+  };
+  
+  // 重新開始測驗
+  FlashcardApp.prototype.restartQuiz = function() {
+    console.log('重新開始測驗');
+    this.generateQuestions(this.quizState.type);
+    this.showQuizScreen('start');
   };
   
   // 禁用防止螢幕關閉功能
