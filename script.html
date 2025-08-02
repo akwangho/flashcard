@@ -4681,17 +4681,8 @@ FlashcardApp.prototype.processBatch = function() {
     }
     
     // 更新題目內容
-    var questionType = document.getElementById('quiz-question-type');
-    var questionText = document.getElementById('quiz-question');
     var quizWord = document.getElementById('quiz-word');
     
-    if (questionType) {
-      questionType.textContent = currentQuestion.type === 'en-zh' ? '英文翻譯' : '中文翻譯';
-    }
-    if (questionText) {
-      questionText.textContent = currentQuestion.type === 'en-zh' ? 
-        '請選擇正確的中文意思' : '請選擇正確的英文單字';
-    }
     if (quizWord) {
       quizWord.textContent = currentQuestion.question;
     }
