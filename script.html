@@ -4335,7 +4335,6 @@ FlashcardApp.prototype.processBatch = function() {
     // 測驗模態框元素
     var quizModal = document.getElementById('quiz-modal');
     var closeQuizBtn = document.getElementById('close-quiz');
-    var quizCancelBtn = document.getElementById('quiz-cancel');
     var quizStartBtn = document.getElementById('quiz-start');
     var quizNextBtn = document.getElementById('quiz-next');
     var quizRestartBtn = document.getElementById('quiz-restart');
@@ -4344,9 +4343,6 @@ FlashcardApp.prototype.processBatch = function() {
     // 關閉按鈕事件
     if (closeQuizBtn) {
       closeQuizBtn.addEventListener('click', function() { self.closeQuizModal(); });
-    }
-    if (quizCancelBtn) {
-      quizCancelBtn.addEventListener('click', function() { self.closeQuizModal(); });
     }
     
     // 測驗流程按鈕事件
