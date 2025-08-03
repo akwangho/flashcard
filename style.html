@@ -789,6 +789,61 @@
     color: #FFFFFF !important; /* White text when focused */
   }
   
+  /* Font family select styles */
+  select {
+    padding: 8px 12px;
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    font-size: var(--font-sm);
+    font-family: inherit;
+    outline: none;
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    min-width: 200px;
+    position: relative;
+    z-index: 2100; /* 確保下拉選單在模態框之上 */
+  }
+
+  select:focus {
+    border-color: var(--primary-color);
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(255, 255, 0, 0.2);
+  }
+
+  select option {
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    padding: 8px;
+  }
+
+  /* Font preview component */
+  .font-preview {
+    background-color: rgba(255, 255, 0, 0.1);
+    border: 1px solid rgba(255, 255, 0, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+    text-align: center;
+  }
+
+  .preview-english {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.2;
+  }
+
+  .preview-chinese {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--primary-color);
+    line-height: 1.2;
+  }
+
   /* Switch component */
   .switch {
     position: relative;

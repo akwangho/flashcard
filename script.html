@@ -85,7 +85,21 @@
     this.settings = {
       delayTime: 4.5,
       fontSize: 96,
-      reverseMode: false
+      reverseMode: false,
+      fontFamily: 'system-default'
+    };
+    
+    // 字型映射表（iPad 4 兼容）
+    this.fontFamilyMap = {
+      'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
+      'microsoft-yahei': "'Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS', Arial, sans-serif",
+      'songti': "'STSong', 'SimSun', 'Times New Roman', serif",
+      'kaiti': "'STKaiti', 'KaiTi', 'BiauKai', 'Times New Roman', serif",
+      'arial': "Arial, 'Helvetica Neue', Helvetica, sans-serif",
+      'helvetica': "'Helvetica Neue', Helvetica, Arial, sans-serif",
+      'times': "'Times New Roman', Times, serif",
+      'courier': "'Courier New', Courier, monospace",
+      'verdana': "Verdana, Geneva, sans-serif"
     };
     
     this.voiceSettings = {
@@ -299,12 +313,17 @@
     var chineseWord = document.getElementById('chinese-word');
     var loadingText = document.querySelector('#loading p');
     
+    // 應用字體大小
     if (englishWord) englishWord.style.fontSize = this.settings.fontSize + 'px';
     if (chineseWord) chineseWord.style.fontSize = this.settings.fontSize + 'px';
     if (loadingText) loadingText.style.fontSize = this.settings.fontSize + 'px';
     
+    // 應用字型
+    this.applyFontFamily();
+    
     var delaySlider = document.getElementById('delay-setting');
     var fontSizeSlider = document.getElementById('font-size-setting');
+    var fontFamilySelect = document.getElementById('font-family-setting');
     var reverseToggle = document.getElementById('reverse-setting');
     var delayValue = document.getElementById('delay-value');
     var fontSizeValue = document.getElementById('font-size-value');
@@ -321,7 +340,13 @@
       fontSizeSlider.value = this.settings.fontSize;
       fontSizeValue.textContent = this.settings.fontSize + 'px';
     }
+    if (fontFamilySelect) {
+      fontFamilySelect.value = this.settings.fontFamily;
+    }
     if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+    
+    // 更新字型預覽
+    this.updateFontPreview();
     
     // 應用圖片縮放設定（永遠使用不裁切模式）
     this.applyImageFitMode();
@@ -335,6 +360,86 @@
       flashcardDiv.classList.add('image-fit-contain');
       flashcardDiv.classList.remove('image-fit-cover');
     }
+  };
+  
+  // 應用字型設定
+  FlashcardApp.prototype.applyFontFamily = function() {
+    var fontFamily = this.fontFamilyMap[this.settings.fontFamily] || this.fontFamilyMap['system-default'];
+    
+    // 應用到主要元素
+    var elements = [
+      document.getElementById('english-word'),
+      document.getElementById('chinese-word'),
+      document.querySelector('#loading p'),
+      document.body // 應用到整個body作為fallback
+    ];
+    
+    for (var i = 0; i < elements.length; i++) {
+      if (elements[i]) {
+        elements[i].style.fontFamily = fontFamily;
+      }
+    }
+    
+    console.log('已應用字型:', this.settings.fontFamily, '→', fontFamily);
+  };
+  
+  // 更新字型預覽
+  FlashcardApp.prototype.updateFontPreview = function() {
+    var previewEnglish = document.querySelector('.preview-english');
+    var previewChinese = document.querySelector('.preview-chinese');
+    var fontFamily = this.fontFamilyMap[this.settings.fontFamily] || this.fontFamilyMap['system-default'];
+    
+    if (previewEnglish) {
+      previewEnglish.style.fontFamily = fontFamily;
+    }
+    if (previewChinese) {
+      previewChinese.style.fontFamily = fontFamily;
+    }
+  };
+  
+  // 保護select元素不受全域事件干擾
+  FlashcardApp.prototype.protectSelectElement = function(selectElement) {
+    if (!selectElement) return;
+    
+    console.log('為select元素添加保護:', selectElement.id || selectElement.className);
+    
+    // 阻止所有可能導致問題的事件冒泡
+    var eventsToProtect = ['click', 'mousedown', 'mouseup', 'focus', 'blur'];
+    
+    for (var i = 0; i < eventsToProtect.length; i++) {
+      var eventType = eventsToProtect[i];
+      
+      (function(eventName) {
+        selectElement.addEventListener(eventName, function(e) {
+          console.log('Select ' + eventName + ' 事件，阻止冒泡');
+          e.stopPropagation();
+          
+          // 對於focus事件，確保select獲得焦點
+          if (eventName === 'focus') {
+            console.log('Select獲得焦點');
+          }
+          // 對於blur事件，記錄失去焦點
+          else if (eventName === 'blur') {
+            console.log('Select失去焦點');
+          }
+        }, true); // 使用捕獲階段
+      })(eventType);
+    }
+    
+    // 特別處理鍵盤事件
+    selectElement.addEventListener('keydown', function(e) {
+      console.log('Select keydown 事件:', e.keyCode);
+      e.stopPropagation();
+      // 不調用preventDefault，讓select正常處理鍵盤輸入
+    }, true);
+    
+    selectElement.addEventListener('keyup', function(e) {
+      e.stopPropagation();
+    }, true);
+    
+    // 確保select元素有正確的樣式
+    selectElement.style.position = 'relative';
+    selectElement.style.zIndex = '2100';
   };
   
   // 載入單字
@@ -481,8 +586,34 @@
       return;
     }
     
-    // 使用委派事件監聽
+        // 使用委派事件監聽
     document.addEventListener('click', function(e) {
+      // 檢查是否點擊了select相關元素，如果是則不處理任何選單邏輯
+      var target = e.target;
+      var isSelectRelated = false;
+      
+      // 向上遍歷DOM樹檢查是否點擊了select或其相關元素
+      var element = target;
+      while (element && element !== document.body) {
+        if (element.tagName === 'SELECT' || 
+            element.tagName === 'OPTION' ||
+            (element.classList && (
+              element.classList.contains('modal') ||
+              element.classList.contains('modal-content') ||
+              element.classList.contains('setting-control') ||
+              element.classList.contains('font-preview')))) {
+          isSelectRelated = true;
+          break;
+        }
+        element = element.parentElement;
+      }
+      
+      // 如果點擊的是select相關元素，直接返回，不處理選單邏輯
+      if (isSelectRelated) {
+        console.log('點擊了select相關元素，跳過選單處理');
+        return;
+      }
+      
       // 處理選單按鈕點擊
       if (e.target.id === 'menu-btn' || e.target.closest('#menu-btn')) {
         console.log('選單按鈕被點擊');
@@ -495,7 +626,7 @@
       if (e.target.closest('#menu-dropdown')) {
         console.log('點擊選單下拉選項');
         e.stopPropagation();
-  
+
         if (e.target.id === 'restart-btn') {
           console.log('重新開始按鈕被點擊');
           self.closeMenu();
@@ -531,8 +662,8 @@
         }
         return;
       }
-  
-      // 點擊其他地方關閉選單
+
+      // 點擊其他地方關閉選單（但排除select相關元素）
       self.closeMenu();
     });
   
@@ -827,7 +958,27 @@
     }
     if (settingsModal) {
       settingsModal.addEventListener('click', function(e) {
-        if (e.target === settingsModal) self.closeSettings();
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        // 向上遍歷DOM樹檢查是否點擊了select或其相關元素
+        var element = target;
+        while (element && element !== settingsModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control') ||
+              element.classList.contains('font-preview')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        // 只有點擊模態框背景且不是select相關元素時才關閉
+        if (e.target === settingsModal && !isSelectRelated) {
+          self.closeSettings();
+        }
       });
     }
     
@@ -858,12 +1009,46 @@
         // 即時預覽字體大小
         var englishWord = document.getElementById('english-word');
         var chineseWord = document.getElementById('chinese-word');
+        var previewEnglish = document.querySelector('.preview-english');
+        var previewChinese = document.querySelector('.preview-chinese');
+        
         if (englishWord) englishWord.style.fontSize = e.target.value + 'px';
         if (chineseWord) chineseWord.style.fontSize = e.target.value + 'px';
+        if (previewEnglish) previewEnglish.style.fontSize = Math.max(16, e.target.value * 0.2) + 'px';
+        if (previewChinese) previewChinese.style.fontSize = Math.max(14, e.target.value * 0.18) + 'px';
       });
       
       // 增強觸控體驗：點擊軌道直接設置值
       this.enhanceSliderInteraction(fontSizeSlider, 'font-size-value', 'px');
+    }
+    
+    // 字型選擇器事件監聽
+    var fontFamilySelect = document.getElementById('font-family-setting');
+    if (fontFamilySelect) {
+      var self = this;
+      
+      // 保護select元素不受全域事件干擾
+      this.protectSelectElement(fontFamilySelect);
+      
+      fontFamilySelect.addEventListener('change', function(e) {
+        console.log('字型選擇改變:', e.target.value);
+        
+        // 即時預覽字型效果
+        var selectedFont = e.target.value;
+        var fontFamily = self.fontFamilyMap[selectedFont] || self.fontFamilyMap['system-default'];
+        
+        // 更新主要元素的字型
+        var englishWord = document.getElementById('english-word');
+        var chineseWord = document.getElementById('chinese-word');
+        if (englishWord) englishWord.style.fontFamily = fontFamily;
+        if (chineseWord) chineseWord.style.fontFamily = fontFamily;
+        
+        // 更新預覽
+        var previewEnglish = document.querySelector('.preview-english');
+        var previewChinese = document.querySelector('.preview-chinese');
+        if (previewEnglish) previewEnglish.style.fontFamily = fontFamily;
+        if (previewChinese) previewChinese.style.fontFamily = fontFamily;
+      });
     }
     
     // Google Sheet 設定模態框
@@ -887,7 +1072,24 @@
     }
     if (sheetSettingsModal) {
       sheetSettingsModal.addEventListener('click', function(e) {
-        if (e.target === sheetSettingsModal) self.closeSheetSettings();
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== sheetSettingsModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === sheetSettingsModal && !isSelectRelated) {
+          self.closeSheetSettings();
+        }
       });
     }
     
@@ -909,7 +1111,24 @@
     }
     if (voiceSettingsModal) {
       voiceSettingsModal.addEventListener('click', function(e) {
-        if (e.target === voiceSettingsModal) self.closeVoiceSettings();
+        // 檢查點擊目標，排除select元素及其相關元素（與主設定模態框相同的邏輯）
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== voiceSettingsModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === voiceSettingsModal && !isSelectRelated) {
+          self.closeVoiceSettings();
+        }
       });
     }
     if (voiceRateSlider) {
@@ -933,7 +1152,24 @@
     var exportModal = document.getElementById('export-modal');
     if (exportModal) {
       exportModal.addEventListener('click', function(e) {
-        if (e.target === exportModal) self.closeExportModal();
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== exportModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === exportModal && !isSelectRelated) {
+          self.closeExportModal();
+        }
       });
     }
     
@@ -941,7 +1177,24 @@
     var overwriteModal = document.getElementById('overwrite-confirm-modal');
     if (overwriteModal) {
       overwriteModal.addEventListener('click', function(e) {
-        if (e.target === overwriteModal) self.closeOverwriteConfirmModal();
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== overwriteModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === overwriteModal && !isSelectRelated) {
+          self.closeOverwriteConfirmModal();
+        }
       });
     }
     
@@ -962,8 +1215,34 @@
     // 自動聚焦到 body 元素
     body.focus();
     
-    // 加入點擊事件監聽器，確保點擊後重新聚焦到 body
-    body.addEventListener('click', function() {
+    // 加入點擊事件監聽器，確保點擊後重新聚焦到 body（但排除表單控件）
+    body.addEventListener('click', function(e) {
+      // 檢查點擊目標是否為表單控件
+      var target = e.target;
+      if (target && (
+          target.tagName === 'SELECT' ||
+          target.tagName === 'OPTION' ||
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.contentEditable === 'true'
+      )) {
+        console.log('點擊了表單控件，不重新聚焦到body:', target.tagName);
+        return; // 不重新聚焦，讓表單控件保持焦點
+      }
+      
+      // 檢查是否點擊了表單控件的容器
+      var element = target;
+      while (element && element !== body) {
+        if (element.classList && (
+            element.classList.contains('setting-control') ||
+            element.classList.contains('font-preview')
+        )) {
+          console.log('點擊了表單控件容器，不重新聚焦到body');
+          return;
+        }
+        element = element.parentElement;
+      }
+      
       body.focus();
     });
     
@@ -974,6 +1253,18 @@
     var keyCode = e.keyCode || e.which;
     var code = e.code || '';
     var key = e.key || '';
+    
+    // 檢查當前焦點是否在select元素或其他表單控件上
+    var activeElement = document.activeElement;
+    if (activeElement && (
+        activeElement.tagName === 'SELECT' ||
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true'
+    )) {
+      console.log('焦點在表單控件上，跳過鍵盤快捷鍵處理:', activeElement.tagName);
+      return; // 不處理任何鍵盤快捷鍵，讓表單控件正常工作
+    }
     
     // B 鍵 (keyCode 66) - 暫停/繼續功能，在任何狀態下都能使用
     if (keyCode === 66 || code === 'KeyB') {
@@ -1157,19 +1448,23 @@
   FlashcardApp.prototype.saveSettingsAndClose = function() {
     var delaySlider = document.getElementById('delay-setting');
     var fontSizeSlider = document.getElementById('font-size-setting');
+    var fontFamilySelect = document.getElementById('font-family-setting');
     var reverseToggle = document.getElementById('reverse-setting');
     
     var oldReverseMode = this.settings.reverseMode;
+    var oldFontFamily = this.settings.fontFamily;
     
     if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
     if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
+    if (fontFamilySelect) this.settings.fontFamily = fontFamilySelect.value;
     if (reverseToggle) this.settings.reverseMode = reverseToggle.checked;
     
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
     
-    if (oldReverseMode !== this.settings.reverseMode) {
+    // 如果翻譯模式或字型改變，重新顯示當前單字
+    if (oldReverseMode !== this.settings.reverseMode || oldFontFamily !== this.settings.fontFamily) {
       this.redisplayCurrentWord();
     }
   };
@@ -1179,7 +1474,8 @@
     this.settings = {
       delayTime: 3,
       fontSize: 96,
-      reverseMode: false
+      reverseMode: false,
+      fontFamily: 'system-default'
     };
     this.voiceSettings = {
       enabled: true,
@@ -2372,6 +2668,9 @@
     
     // 填充英文語音選項
     if (voiceSelect) {
+      // 保護select元素
+      this.protectSelectElement(voiceSelect);
+      
       voiceSelect.innerHTML = '';
       var englishVoices = voices.filter(function(v) { 
         return v.lang && v.lang.indexOf('en') === 0; 
@@ -2395,6 +2694,9 @@
     
     // 填充日文語音選項
     if (japaneseVoiceSelect) {
+      // 保護select元素
+      this.protectSelectElement(japaneseVoiceSelect);
+      
       japaneseVoiceSelect.innerHTML = '';
       var japaneseVoices = voices.filter(function(v) { 
         return v.lang && v.lang.indexOf('ja') === 0; 
@@ -4362,7 +4664,24 @@ FlashcardApp.prototype.processBatch = function() {
     // 模態框點擊外部關閉
     if (quizModal) {
       quizModal.addEventListener('click', function(e) {
-        if (e.target === quizModal) self.closeQuizModal();
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== quizModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === quizModal && !isSelectRelated) {
+          self.closeQuizModal();
+        }
       });
     }
   };
