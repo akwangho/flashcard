@@ -397,6 +397,12 @@
     }
   };
   
+  // 判斷是否在測驗進行中
+  FlashcardApp.prototype.isQuizInProgress = function() {
+    var progressScreen = document.getElementById('quiz-progress-screen');
+    return progressScreen && progressScreen.style.display !== 'none';
+  };
+  
   // 保護select元素不受全域事件干擾
   FlashcardApp.prototype.protectSelectElement = function(selectElement) {
     if (!selectElement) return;
@@ -4661,9 +4667,15 @@ FlashcardApp.prototype.processBatch = function() {
       quizFinishBtn.addEventListener('click', function() { self.closeQuizModal(); });
     }
     
-    // 模態框點擊外部關閉
+    // 模態框點擊外部關閉（但在測驗進行中禁用）
     if (quizModal) {
       quizModal.addEventListener('click', function(e) {
+        // 檢查是否在測驗進行中
+        if (self.isQuizInProgress()) {
+          console.log('測驗進行中，禁用背景點擊關閉');
+          return; // 測驗進行中不允許背景點擊關閉
+        }
+        
         // 檢查點擊目標，排除select元素及其相關元素
         var target = e.target;
         var isSelectRelated = false;
@@ -4680,6 +4692,7 @@ FlashcardApp.prototype.processBatch = function() {
         }
         
         if (e.target === quizModal && !isSelectRelated) {
+          console.log('非測驗進行中，允許背景點擊關閉');
           self.closeQuizModal();
         }
       });
@@ -4759,12 +4772,17 @@ FlashcardApp.prototype.processBatch = function() {
     
     // 使用當前可用的單字（已考慮篩選條件和刪除狀態）
     var availableWords = this.quizState.availableWords.slice();
+    
+    // 所有測驗類型都隨機化順序
+    console.log('洗牌前單字順序:', availableWords.map(function(w, i) { return i + ':' + w.english; }).slice(0, 5));
+    this.shuffleArray(availableWords);
+    console.log('洗牌後單字順序:', availableWords.map(function(w, i) { return i + ':' + w.english; }).slice(0, 5));
+    
+    // 根據測驗類型決定題目數量
     var questionCount = type === 'quick' ? Math.min(10, availableWords.length) : availableWords.length;
     
-    // 快速測驗只取部分單字
+    // 快速測驗只取前N個（已隨機洗牌）
     if (type === 'quick' && availableWords.length > 10) {
-      // 隨機洗牌並取前10個
-      this.shuffleArray(availableWords);
       availableWords = availableWords.slice(0, 10);
     }
     
