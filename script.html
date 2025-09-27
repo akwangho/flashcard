@@ -576,6 +576,16 @@
       restoreBtn.addEventListener('click', function() { self.cancelRemoval(); });
     }
     
+    // 為暫停指示器添加點擊事件，讓用戶可以點擊"已暫停"來結束暫停
+    var pausedIndicator = document.getElementById('paused-indicator');
+    if (pausedIndicator) {
+      pausedIndicator.addEventListener('click', function() { 
+        if (self.userPaused) {
+          self.togglePause(); 
+        }
+      });
+    }
+    
 
   };
   
@@ -2564,6 +2574,7 @@
         // 顯示「已暫停」指示器
         if (pausedIndicator) {
           pausedIndicator.style.display = 'flex';
+          pausedIndicator.title = '點擊此處恢復播放';
         }
       } else {
         pauseBtn.textContent = '⏸️';
@@ -2573,6 +2584,7 @@
         // 隱藏「已暫停」指示器
         if (pausedIndicator) {
           pausedIndicator.style.display = 'none';
+          pausedIndicator.title = '';
         }
       }
     }
@@ -2760,6 +2772,7 @@
     var pausedIndicator = document.getElementById('paused-indicator');
     if (pausedIndicator) {
       pausedIndicator.style.display = 'none';
+      pausedIndicator.title = '';
     }
     
     // 隱藏進度顯示
