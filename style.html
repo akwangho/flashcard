@@ -1649,14 +1649,26 @@
     }
   }
   
+  /* 左側滑入動畫 */
+  @keyframes fadeInSlideLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
   /* ==========================================================================
      MUTED INDICATOR
      ========================================================================== */
   
   .muted-indicator {
     position: fixed;
-    top: calc(var(--spacing-lg) + 60px); /* 放在暫停指示器下方 */
-    right: var(--spacing-lg);
+    top: var(--spacing-lg); /* 移到左上角，與暫停指示器同一高度 */
+    left: var(--spacing-lg); /* 改為左側定位 */
     z-index: 9999;
     background-color: rgba(0, 0, 0, 0.9);
     border: 2px solid #ff9800; /* 橙色邊框，區別於暫停的黃色 */
@@ -1667,7 +1679,7 @@
     gap: var(--spacing-sm);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
-    animation: fadeInSlide var(--transition-normal) ease-out;
+    animation: fadeInSlideLeft var(--transition-normal) ease-out; /* 使用左側滑入動畫 */
     cursor: pointer;
     transition: all var(--transition-normal);
     user-select: none;
