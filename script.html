@@ -86,7 +86,8 @@
       delayTime: 4.5,
       fontSize: 96,
       reverseMode: false,
-      fontFamily: 'system-default'
+      fontFamily: 'system-default',
+      delaySpeechInNormalMode: false
     };
     
     // 字型映射表（iPad 4 兼容）
@@ -325,6 +326,7 @@
     var fontSizeSlider = document.getElementById('font-size-setting');
     var fontFamilySelect = document.getElementById('font-family-setting');
     var reverseToggle = document.getElementById('reverse-setting');
+    var delaySpeechToggle = document.getElementById('delay-speech-setting');
     var delayValue = document.getElementById('delay-value');
     var fontSizeValue = document.getElementById('font-size-value');
     
@@ -344,6 +346,7 @@
       fontFamilySelect.value = this.settings.fontFamily;
     }
     if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+    if (delaySpeechToggle) delaySpeechToggle.checked = this.settings.delaySpeechInNormalMode;
     
     // 更新字型預覽
     this.updateFontPreview();
@@ -579,7 +582,14 @@
     // 為暫停指示器添加點擊事件，讓用戶可以點擊"已暫停"來結束暫停
     var pausedIndicator = document.getElementById('paused-indicator');
     if (pausedIndicator) {
-      pausedIndicator.addEventListener('click', function() { 
+      pausedIndicator.addEventListener('click', function(e) { 
+        // 阻止事件冒泡，避免觸發 flashcard 的點擊事件
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        } else {
+          e.cancelBubble = true; // IE8 及更早版本
+        }
+        
         if (self.userPaused) {
           self.togglePause(); 
         }
@@ -864,9 +874,12 @@
         firstElement.textContent = currentWord.chinese;
       } else {
         firstElement.textContent = currentWord.english;
-        setTimeout(function() {
-          self.speakWord(currentWord.english);
-        }, 500);
+        // 只有在未啟用延遲發音時才立即播放語音
+        if (!self.settings.delaySpeechInNormalMode) {
+          setTimeout(function() {
+            self.speakWord(currentWord.english);
+          }, 500);
+        }
       }
       firstElement.classList.add('show');
       
@@ -1336,7 +1349,11 @@
         self.closeMenu();
       };
     }
-      
+    // F5 鍵 (keyCode 116) 跟 S 鍵 (keyCode 83)  - 標注不熟單字
+    else if (keyCode === 116 || code === 'F5' || keyCode === 83 || code === 'KeyS') {
+      keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
+    }
+
       // 執行對應的動作
       if (keyActions['action']) {
         // 防止預設行為
@@ -1466,6 +1483,7 @@
     var fontSizeSlider = document.getElementById('font-size-setting');
     var fontFamilySelect = document.getElementById('font-family-setting');
     var reverseToggle = document.getElementById('reverse-setting');
+    var delaySpeechToggle = document.getElementById('delay-speech-setting');
     
     var oldReverseMode = this.settings.reverseMode;
     var oldFontFamily = this.settings.fontFamily;
@@ -1474,6 +1492,7 @@
     if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
     if (fontFamilySelect) this.settings.fontFamily = fontFamilySelect.value;
     if (reverseToggle) this.settings.reverseMode = reverseToggle.checked;
+    if (delaySpeechToggle) this.settings.delaySpeechInNormalMode = delaySpeechToggle.checked;
     
     this.saveSettings();
     this.applySettings();
@@ -1491,7 +1510,8 @@
       delayTime: 3,
       fontSize: 96,
       reverseMode: false,
-      fontFamily: 'system-default'
+      fontFamily: 'system-default',
+      delaySpeechInNormalMode: false
     };
     this.voiceSettings = {
       enabled: true,
@@ -1673,6 +1693,10 @@
           element.classList.contains('controls-wrapper') ||
           element.classList.contains('progress') ||
           element.classList.contains('restore-btn-container') ||
+          element.classList.contains('paused-indicator') ||
+          element.classList.contains('paused-content') ||
+          element.classList.contains('paused-icon') ||
+          element.classList.contains('paused-text') ||
           element.tagName === 'BUTTON')) {
         return; // 如果點擊的是控制元素，不處理
       }
@@ -1765,6 +1789,12 @@
       }
       
       if (this.settings.reverseMode) {
+        var self = this;
+        setTimeout(function() {
+          self.speakWord(currentWord.english);
+        }, 500);
+      } else if (this.settings.delaySpeechInNormalMode) {
+        // 在正常模式下，如果啟用了延遲發音，則在用戶點擊顯示中文翻譯時播放英文語音
         var self = this;
         setTimeout(function() {
           self.speakWord(currentWord.english);
@@ -1921,6 +1951,11 @@
     }, this.settings.delayTime * 1000);
     
     if (this.settings.reverseMode) {
+      setTimeout(function() {
+        self.speakWord(currentWord.english);
+      }, 500);
+    } else if (this.settings.delaySpeechInNormalMode) {
+      // 在正常模式下，如果啟用了延遲發音，則在中文翻譯出現時播放英文語音
       setTimeout(function() {
         self.speakWord(currentWord.english);
       }, 500);
