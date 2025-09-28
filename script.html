@@ -987,7 +987,7 @@
     var settingsModal = document.getElementById('settings-modal');
     var closeSettings = document.getElementById('close-settings');
     var saveSettings = document.getElementById('save-settings');
-    var resetSettings = document.getElementById('reset-settings');
+    var cancelSettings = document.getElementById('cancel-settings');
     var delaySlider = document.getElementById('delay-setting');
     var fontSizeSlider = document.getElementById('font-size-setting');
     
@@ -997,8 +997,8 @@
     if (saveSettings) {
       saveSettings.addEventListener('click', function() { self.saveSettingsAndClose(); });
     }
-    if (resetSettings) {
-      resetSettings.addEventListener('click', function() { self.resetSettings(); });
+    if (cancelSettings) {
+      cancelSettings.addEventListener('click', function() { self.closeSettings(); });
     }
     if (settingsModal) {
       settingsModal.addEventListener('click', function(e) {
