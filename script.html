@@ -596,6 +596,21 @@
       });
     }
     
+    // 為靜音指示器添加點擊事件，讓用戶可以點擊"已靜音"來切換靜音狀態
+    var mutedIndicator = document.getElementById('muted-indicator');
+    if (mutedIndicator) {
+      mutedIndicator.addEventListener('click', function(e) { 
+        // 阻止事件冒泡，避免觸發 flashcard 的點擊事件
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        } else {
+          e.cancelBubble = true; // IE8 及更早版本
+        }
+        
+        self.toggleVoice(); 
+      });
+    }
+    
 
   };
   
@@ -1697,6 +1712,10 @@
           element.classList.contains('paused-content') ||
           element.classList.contains('paused-icon') ||
           element.classList.contains('paused-text') ||
+          element.classList.contains('muted-indicator') ||
+          element.classList.contains('muted-content') ||
+          element.classList.contains('muted-icon') ||
+          element.classList.contains('muted-text') ||
           element.tagName === 'BUTTON')) {
         return; // 如果點擊的是控制元素，不處理
       }
@@ -2440,6 +2459,23 @@
         voiceBtn.textContent = '🔇';
         voiceBtn.title = '語音播放：關閉（點擊開啟）';
         voiceBtn.style.opacity = '0.6';
+      }
+    }
+    
+    // 更新靜音指示器的顯示狀態
+    this.updateMutedIndicator();
+  };
+  
+  // 更新靜音指示器的顯示狀態
+  FlashcardApp.prototype.updateMutedIndicator = function() {
+    var mutedIndicator = document.getElementById('muted-indicator');
+    if (mutedIndicator) {
+      if (!this.voiceSettings.enabled) {
+        // 語音關閉時顯示靜音指示器
+        mutedIndicator.style.display = 'flex';
+      } else {
+        // 語音開啟時隱藏靜音指示器
+        mutedIndicator.style.display = 'none';
       }
     }
   };
