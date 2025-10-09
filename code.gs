@@ -38,25 +38,36 @@
     }
   }
 
-  /**
-  * 計算工作表中的有效單字數量
-  */
-  function countValidWords(sheet) {
-    try {
-      const data = sheet.getDataRange().getValues();
-      let wordCount = 0;
-      
-      for (let i = 0; i < data.length; i++) {
-        if (data[i][0] && data[i][1]) { // 確保英文和中文欄位都有資料
-          wordCount++;
-        }
-      }
-      return wordCount;
-    } catch (dataError) {
-      console.error('讀取工作表資料時發生錯誤:', sheet.getName(), dataError);
-      return 0;
+/**
+* 計算工作表中的有效單字數量
+* 直接讀取第1行第6欄（F1）的值，該欄位應包含自動計算的行數
+* 如果讀取不到或值無效，返回 null
+*/
+function countValidWords(sheet) {
+  try {
+    // 讀取第1行第6欄（F1）的值
+    const countValue = sheet.getRange(1, 6).getValue();
+    
+    // 檢查值是否存在
+    if (countValue === null || countValue === undefined || countValue === '') {
+      console.log('工作表', sheet.getName(), '的 F1 欄位無值');
+      return null;
     }
+    
+    // 轉換為數字並驗證
+    const wordCount = Number(countValue);
+    if (isNaN(wordCount) || wordCount < 0) {
+      console.log('工作表', sheet.getName(), '的 F1 欄位值無效:', countValue);
+      return null;
+    }
+    
+    console.log('工作表', sheet.getName(), '從 F1 讀取到行數:', wordCount);
+    return Math.floor(wordCount); // 取整數
+  } catch (dataError) {
+    console.error('讀取工作表 F1 欄位時發生錯誤:', sheet.getName(), dataError);
+    return null;
   }
+}
 
   /**
   * 建立單字物件
@@ -146,7 +157,11 @@
         console.log('處理工作表:', sheetName);
         
         const wordCount = countValidWords(sheet);
-        console.log('工作表', sheetName, '有', wordCount, '個單字');
+        if (wordCount === null) {
+          console.log('工作表', sheetName, '的單字數無法取得（F1 欄位無值或無效）');
+        } else {
+          console.log('工作表', sheetName, '有', wordCount, '個單字');
+        }
         
         sheetsList.push({
           name: sheetName,

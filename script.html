@@ -3623,7 +3623,13 @@ FlashcardApp.prototype.processBatch = function() {
       
       var sheetCount = document.createElement('div');
       sheetCount.className = 'sheet-count';
-      sheetCount.textContent = sheet.wordCount + ' 個單字';
+      // 如果 wordCount 為 null 或 undefined，顯示 '-'，表示該工作表的 F1 欄位需要設置
+      if (sheet.wordCount === null || sheet.wordCount === undefined) {
+        sheetCount.textContent = '-';
+        sheetCount.style.color = '#888'; // 使用灰色表示無資料
+      } else {
+        sheetCount.textContent = sheet.wordCount + ' 個單字';
+      }
       
       sheetInfo.appendChild(sheetName);
       sheetInfo.appendChild(sheetCount);
