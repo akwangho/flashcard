@@ -308,61 +308,50 @@
     localStorage.setItem('flashcard-sheet-settings', JSON.stringify(this.sheetSettings));
   };
   
-  // 載入Sheet歷史記錄
+  // 獲取預設Sheet列表
+  FlashcardApp.prototype.getDefaultSheets = function() {
+    return [
+      {
+        id: '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM',
+        name: 'WordGo Data Sheet',
+        isDefault: true
+      },
+      {
+        id: '1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg',
+        name: '小學生教育部規定1200單字',
+        isDefault: true
+      }
+    ];
+  };
+  
+  // 檢查是否為預設Sheet
+  FlashcardApp.prototype.isDefaultSheet = function(sheetId) {
+    var defaultSheets = this.getDefaultSheets();
+    for (var i = 0; i < defaultSheets.length; i++) {
+      if (defaultSheets[i].id === sheetId) {
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  // 載入Sheet歷史記錄（不包含預設檔案）
   FlashcardApp.prototype.loadSheetHistory = function() {
     try {
       var history = JSON.parse(localStorage.getItem('flashcard-sheet-history') || '[]');
       
-      // 確保預設檔案存在於歷史記錄中
-      var defaultSheets = [
-        {
-          id: '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM',
-          name: 'WordGo Data Sheet',
-          isDefault: true
-        },
-        {
-          id: '1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg',
-          name: '小學生教育部規定1200單字',
-          isDefault: true
+      // 過濾掉任何可能混入的預設檔案
+      var filteredHistory = [];
+      for (var i = 0; i < history.length; i++) {
+        if (!this.isDefaultSheet(history[i].id)) {
+          filteredHistory.push(history[i]);
         }
-      ];
-      
-      // 將預設檔案添加到歷史記錄的開頭（如果尚未存在）
-      for (var i = defaultSheets.length - 1; i >= 0; i--) {
-        var defaultSheet = defaultSheets[i];
-        var existingIndex = -1;
-        
-        for (var j = 0; j < history.length; j++) {
-          if (history[j].id === defaultSheet.id) {
-            existingIndex = j;
-            break;
-          }
-        }
-        
-        if (existingIndex !== -1) {
-          // 如果已存在，移除舊的
-          history.splice(existingIndex, 1);
-        }
-        
-        // 添加到開頭並標記為預設
-        history.unshift(defaultSheet);
       }
       
-      return history;
+      return filteredHistory;
     } catch (e) {
-      console.log('載入Sheet歷史記錄失敗，返回預設值');
-      return [
-        {
-          id: '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM',
-          name: 'WordGo Data Sheet',
-          isDefault: true
-        },
-        {
-          id: '1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg',
-          name: '小學生教育部規定1200單字',
-          isDefault: true
-        }
-      ];
+      console.log('載入Sheet歷史記錄失敗，返回空陣列');
+      return [];
     }
   };
   
@@ -380,45 +369,32 @@
     try {
       console.log('添加到歷史記錄:', sheetId, sheetName);
       
+      // 檢查是否為預設檔案，如果是則不添加
+      if (this.isDefaultSheet(sheetId)) {
+        console.log('這是預設檔案，不添加到歷史記錄');
+        return;
+      }
+      
       var history = this.loadSheetHistory();
       
-      // 檢查是否已存在（非預設項目）
+      // 檢查是否已存在
       var existingIndex = -1;
       for (var i = 0; i < history.length; i++) {
-        if (history[i].id === sheetId && !history[i].isDefault) {
+        if (history[i].id === sheetId) {
           existingIndex = i;
           break;
         }
       }
       
       if (existingIndex !== -1) {
-        // 如果已存在，更新名稱並移到最前面（預設項目之後）
+        // 如果已存在，更新名稱並移到最前面
         history[existingIndex].name = sheetName;
+        history[existingIndex].lastUsed = new Date().toISOString();
         var item = history.splice(existingIndex, 1)[0];
-        
-        // 找到第一個非預設項目的位置
-        var insertPosition = 0;
-        for (var i = 0; i < history.length; i++) {
-          if (!history[i].isDefault) {
-            insertPosition = i;
-            break;
-          }
-          insertPosition = i + 1;
-        }
-        
-        history.splice(insertPosition, 0, item);
+        history.unshift(item);
       } else {
-        // 新項目，添加到預設項目之後
-        var insertPosition = 0;
-        for (var i = 0; i < history.length; i++) {
-          if (!history[i].isDefault) {
-            insertPosition = i;
-            break;
-          }
-          insertPosition = i + 1;
-        }
-        
-        history.splice(insertPosition, 0, {
+        // 新項目，添加到最前面
+        history.unshift({
           id: sheetId,
           name: sheetName,
           isDefault: false,
@@ -426,29 +402,9 @@
         });
       }
       
-      // 限制歷史記錄數量（保留預設項目 + 最近10個）
-      var defaultCount = 0;
-      for (var i = 0; i < history.length; i++) {
-        if (history[i].isDefault) {
-          defaultCount++;
-        }
-      }
-      
-      if (history.length > defaultCount + 10) {
-        // 只保留預設項目和最近的10個
-        var newHistory = [];
-        var nonDefaultCount = 0;
-        
-        for (var i = 0; i < history.length; i++) {
-          if (history[i].isDefault) {
-            newHistory.push(history[i]);
-          } else if (nonDefaultCount < 10) {
-            newHistory.push(history[i]);
-            nonDefaultCount++;
-          }
-        }
-        
-        history = newHistory;
+      // 限制歷史記錄數量為10個
+      if (history.length > 10) {
+        history = history.slice(0, 10);
       }
       
       this.saveSheetHistory(history);
@@ -460,40 +416,42 @@
   
   // 顯示Sheet歷史記錄
   FlashcardApp.prototype.displaySheetHistory = function() {
-    var historyList = document.getElementById('sheet-history-list');
-    if (!historyList) {
-      console.error('找不到sheet-history-list元素');
+    // 顯示預設檔案
+    this.displayDefaultSheets();
+    
+    // 顯示最近使用的檔案
+    this.displayRecentSheets();
+  };
+  
+  // 顯示預設檔案列表
+  FlashcardApp.prototype.displayDefaultSheets = function() {
+    var defaultList = document.getElementById('default-sheets-list');
+    if (!defaultList) {
+      console.error('找不到default-sheets-list元素');
       return;
     }
     
-    var history = this.loadSheetHistory();
-    console.log('顯示歷史記錄，總數:', history.length);
-    
-    if (history.length === 0) {
-      historyList.innerHTML = '<div class="sheet-history-empty">尚無使用記錄</div>';
-      return;
-    }
+    var defaultSheets = this.getDefaultSheets();
+    console.log('顯示預設檔案，總數:', defaultSheets.length);
     
     var html = '';
-    for (var i = 0; i < history.length; i++) {
-      var item = history[i];
-      var itemClass = item.isDefault ? 'sheet-history-item default-sheet' : 'sheet-history-item';
-      var badge = item.isDefault ? '<span class="sheet-history-badge">預設</span>' : '';
+    for (var i = 0; i < defaultSheets.length; i++) {
+      var item = defaultSheets[i];
       
-      html += '<div class="' + itemClass + '" data-sheet-id="' + item.id + '">';
+      html += '<div class="sheet-history-item default-sheet" data-sheet-id="' + item.id + '">';
       html += '  <div class="sheet-history-info">';
       html += '    <div class="sheet-history-name">' + item.name + '</div>';
       html += '    <div class="sheet-history-id">' + item.id + '</div>';
       html += '  </div>';
-      html += badge;
+      html += '  <span class="sheet-history-badge">預設</span>';
       html += '</div>';
     }
     
-    historyList.innerHTML = html;
+    defaultList.innerHTML = html;
     
     // 添加點擊事件
     var self = this;
-    var items = historyList.querySelectorAll('.sheet-history-item');
+    var items = defaultList.querySelectorAll('.sheet-history-item');
     for (var i = 0; i < items.length; i++) {
       (function(item) {
         item.addEventListener('click', function() {
@@ -501,6 +459,90 @@
           self.selectSheetFromHistory(sheetId);
         });
       })(items[i]);
+    }
+  };
+  
+  // 顯示最近使用的檔案列表
+  FlashcardApp.prototype.displayRecentSheets = function() {
+    var recentList = document.getElementById('recent-sheets-list');
+    if (!recentList) {
+      console.error('找不到recent-sheets-list元素');
+      return;
+    }
+    
+    var history = this.loadSheetHistory();
+    console.log('顯示最近使用的檔案，總數:', history.length);
+    
+    if (history.length === 0) {
+      recentList.innerHTML = '<div class="sheet-history-empty">尚無使用記錄</div>';
+      return;
+    }
+    
+    var html = '';
+    for (var i = 0; i < history.length; i++) {
+      var item = history[i];
+      
+      html += '<div class="sheet-history-item recent-sheet" data-sheet-id="' + item.id + '">';
+      html += '  <div class="sheet-history-info">';
+      html += '    <div class="sheet-history-name">' + item.name + '</div>';
+      html += '    <div class="sheet-history-id">' + item.id + '</div>';
+      html += '  </div>';
+      html += '  <button class="sheet-history-delete" data-sheet-id="' + item.id + '" title="刪除">🗑️</button>';
+      html += '</div>';
+    }
+    
+    recentList.innerHTML = html;
+    
+    // 添加點擊事件（選擇檔案）
+    var self = this;
+    var items = recentList.querySelectorAll('.sheet-history-item');
+    for (var i = 0; i < items.length; i++) {
+      (function(item) {
+        item.addEventListener('click', function(e) {
+          // 如果點擊的是刪除按鈕，不執行選擇操作
+          if (e.target.classList.contains('sheet-history-delete')) {
+            return;
+          }
+          var sheetId = item.getAttribute('data-sheet-id');
+          self.selectSheetFromHistory(sheetId);
+        });
+      })(items[i]);
+    }
+    
+    // 添加刪除按鈕事件
+    var deleteButtons = recentList.querySelectorAll('.sheet-history-delete');
+    for (var i = 0; i < deleteButtons.length; i++) {
+      (function(button) {
+        button.addEventListener('click', function(e) {
+          e.stopPropagation(); // 防止觸發父元素的點擊事件
+          var sheetId = button.getAttribute('data-sheet-id');
+          self.removeFromSheetHistory(sheetId);
+        });
+      })(deleteButtons[i]);
+    }
+  };
+  
+  // 從歷史記錄中刪除
+  FlashcardApp.prototype.removeFromSheetHistory = function(sheetId) {
+    try {
+      console.log('從歷史記錄刪除:', sheetId);
+      
+      var history = this.loadSheetHistory();
+      var newHistory = [];
+      
+      for (var i = 0; i < history.length; i++) {
+        if (history[i].id !== sheetId) {
+          newHistory.push(history[i]);
+        }
+      }
+      
+      this.saveSheetHistory(newHistory);
+      console.log('已刪除，剩餘記錄數:', newHistory.length);
+      
+      // 重新顯示列表
+      this.displayRecentSheets();
+    } catch (e) {
+      console.error('刪除歷史記錄失敗:', e);
     }
   };
   
