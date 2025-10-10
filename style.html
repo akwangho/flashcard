@@ -1319,6 +1319,77 @@
   }
   
   /* ==========================================================================
+     SHEET HISTORY LIST
+     ========================================================================== */
+  
+  .sheet-history-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+  
+  .sheet-history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px var(--spacing-md);
+    border-bottom: 1px solid rgba(255, 255, 0, 0.2);
+    cursor: pointer;
+    transition: background-color var(--transition-normal);
+  }
+  
+  .sheet-history-item:last-child {
+    border-bottom: none;
+  }
+  
+  .sheet-history-item:hover {
+    background-color: rgba(255, 255, 0, 0.1);
+  }
+  
+  .sheet-history-item.default-sheet {
+    background-color: rgba(135, 206, 235, 0.05);
+    border-left: 3px solid var(--light-blue);
+  }
+  
+  .sheet-history-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .sheet-history-name {
+    font-weight: bold;
+    color: var(--text-color);
+    font-size: var(--font-md);
+  }
+  
+  .sheet-history-id {
+    color: var(--gray-color);
+    font-size: var(--font-xs);
+    font-family: monospace;
+  }
+  
+  .sheet-history-badge {
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-xs);
+    font-weight: bold;
+    background-color: rgba(135, 206, 235, 0.2);
+    color: var(--light-blue);
+  }
+  
+  .sheet-history-empty {
+    text-align: center;
+    color: var(--gray-color);
+    font-style: italic;
+    padding: var(--spacing-lg);
+    font-size: var(--font-sm);
+  }
+  
+  /* ==========================================================================
      DUPLICATE WORD PROCESSING
      ========================================================================== */
   
