@@ -1439,6 +1439,15 @@
         }
       });
       
+      // 當用戶松開滑杆時，播放示例語音
+      voiceRateSlider.addEventListener('change', function(e) {
+        // 獲取當前選擇的英文語音
+        var voiceSelect = document.getElementById('voice-select-setting');
+        if (voiceSelect && voiceSelect.value) {
+          self.previewVoice(voiceSelect.value, 'Hello, this is a sample voice.');
+        }
+      });
+      
       // 增強觸控體驗：點擊軌道直接設置值
       this.enhanceSliderInteraction(voiceRateSlider, 'voice-rate-value');
     }
@@ -2966,6 +2975,62 @@
     }
   };
   
+  // 預覽語音 - 播放示例文字
+  FlashcardApp.prototype.previewVoice = function(voiceURI, sampleText) {
+    try {
+      // 檢查語音合成API是否可用
+      if (!this.speechSynthesis) {
+        console.warn('語音合成API不可用');
+        return;
+      }
+      
+      // 停止當前正在播放的語音
+      this.speechSynthesis.cancel();
+      
+      // 獲取當前設定的語音速度
+      var voiceRateSetting = document.getElementById('voice-rate-setting');
+      var rate = voiceRateSetting ? parseFloat(voiceRateSetting.value) : this.voiceSettings.rate;
+      
+      console.log('預覽語音:', voiceURI, '示例文字:', sampleText, '速度:', rate);
+      
+      // 創建語音utterance
+      var utterance = new SpeechSynthesisUtterance(sampleText);
+      utterance.rate = rate;
+      utterance.pitch = this.voiceSettings.pitch || 1;
+      utterance.volume = this.voiceSettings.volume || 1;
+      
+      // 尋找指定的語音
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === voiceURI) {
+          selectedVoice = voices[i];
+          break;
+        }
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+        console.log('使用語音:', selectedVoice.name, '語言:', selectedVoice.lang);
+      } else {
+        console.warn('找不到指定的語音:', voiceURI);
+      }
+      
+      // 播放語音
+      this.speechSynthesis.speak(utterance);
+      
+      // 添加錯誤處理
+      utterance.onerror = function(event) {
+        console.error('語音播放錯誤:', event.error);
+      };
+      
+    } catch (error) {
+      console.error('預覽語音時發生錯誤:', error);
+    }
+  };
+  
   FlashcardApp.prototype.saveVoiceSettingsAndClose = function() {
     var speechEnabledSetting = document.getElementById('speech-enabled-setting');
     var voiceRateSetting = document.getElementById('voice-rate-setting');
@@ -3008,6 +3073,7 @@
     var voiceSelect = document.getElementById('voice-select-setting');
     var japaneseVoiceSelect = document.getElementById('japanese-voice-select-setting');
     var voices = this.speechSynthesis.getVoices();
+    var self = this;
     
     // 填充英文語音選項
     if (voiceSelect) {
@@ -3033,6 +3099,12 @@
       if (!voiceSelect.value && englishVoices.length > 0) {
         voiceSelect.value = englishVoices[0].voiceURI;
       }
+      
+      // 添加change事件監聽器 - 切換時播放示例語音
+      voiceSelect.addEventListener('change', function() {
+        var selectedVoiceURI = voiceSelect.value;
+        self.previewVoice(selectedVoiceURI, 'Hello, this is a sample voice for English pronunciation.');
+      });
     }
     
     // 填充日文語音選項
@@ -3059,6 +3131,12 @@
       if (!japaneseVoiceSelect.value && japaneseVoices.length > 0) {
         japaneseVoiceSelect.value = japaneseVoices[0].voiceURI;
       }
+      
+      // 添加change事件監聽器 - 切換時播放示例語音
+      japaneseVoiceSelect.addEventListener('change', function() {
+        var selectedVoiceURI = japaneseVoiceSelect.value;
+        self.previewVoice(selectedVoiceURI, 'こんにちは、これは日本語の音声サンプルです。');
+      });
     }
   };
   
