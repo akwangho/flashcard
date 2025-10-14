@@ -2464,7 +2464,7 @@
         
         var letter = letters[currentLetterIndex];
         var utterance = new SpeechSynthesisUtterance(letter);
-        utterance.rate = self.voiceSettings.rate * 0.8; // 字母拼讀速度稍慢一點
+        utterance.rate = 1; // 英文字母簡單易懂，固定使用正常速度
         utterance.pitch = self.voiceSettings.pitch;
         utterance.volume = self.voiceSettings.volume;
         utterance.lang = self.voiceSettings.lang;
@@ -2673,7 +2673,7 @@
       this.speechSynthesis.cancel();
       
       var utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = this.voiceSettings.rate;
+      utterance.rate = 1; // 中文為母語，固定使用正常速度
       utterance.pitch = this.voiceSettings.pitch;
       utterance.volume = this.voiceSettings.volume;
       utterance.lang = this.voiceSettings.chineseLang;
