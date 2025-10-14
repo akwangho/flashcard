@@ -111,7 +111,11 @@
       lang: 'en-US',
       voiceURI: '',
       japaneseLang: 'ja-JP',
-      japaneseVoiceURI: ''
+      japaneseVoiceURI: '',
+      spellOutLetters: false,
+      chineseEnabled: false,
+      chineseLang: 'zh-TW',
+      chineseVoiceURI: ''
     };
     
     this.sheetSettings = {
@@ -1138,6 +1142,10 @@
       
       if (self.settings.reverseMode) {
         firstElement.textContent = currentWord.chinese;
+        // 反向模式：先顯示中文，播放中文語音
+        setTimeout(function() {
+          self.speakChineseWord(currentWord.chinese);
+        }, 500);
       } else {
         firstElement.textContent = currentWord.english;
         // 只有在未啟用延遲發音時才立即播放語音
@@ -1796,7 +1804,11 @@
       lang: 'en-US',
       voiceURI: '',
       japaneseLang: 'ja-JP',
-      japaneseVoiceURI: ''
+      japaneseVoiceURI: '',
+      spellOutLetters: false,
+      chineseEnabled: false,
+      chineseLang: 'zh-TW',
+      chineseVoiceURI: ''
     };
     this.applySettings();
       this.saveSettings();
@@ -2070,17 +2082,25 @@
         flashcardDiv.classList.remove('has-image');
       }
       
+      var self = this;
+      
       if (this.settings.reverseMode) {
-        var self = this;
+        // 反向模式：用戶點擊顯示英文，播放英文語音
         setTimeout(function() {
           self.speakWord(currentWord.english);
         }, 500);
-      } else if (this.settings.delaySpeechInNormalMode) {
-        // 在正常模式下，如果啟用了延遲發音，則在用戶點擊顯示中文翻譯時播放英文語音
-        var self = this;
+      } else {
+        // 正常模式：用戶點擊顯示中文，播放中文語音
         setTimeout(function() {
-          self.speakWord(currentWord.english);
+          self.speakChineseWord(currentWord.chinese);
         }, 500);
+        
+        // 如果啟用了延遲發音，也在此時播放英文語音
+        if (this.settings.delaySpeechInNormalMode) {
+          setTimeout(function() {
+            self.speakWord(currentWord.english);
+          }, 500);
+        }
       }
     }
     
@@ -2233,14 +2253,22 @@
     }, this.settings.delayTime * 1000);
     
     if (this.settings.reverseMode) {
+      // 反向模式：第二部分顯示英文，播放英文語音
       setTimeout(function() {
         self.speakWord(currentWord.english);
       }, 500);
-    } else if (this.settings.delaySpeechInNormalMode) {
-      // 在正常模式下，如果啟用了延遲發音，則在中文翻譯出現時播放英文語音
+    } else {
+      // 正常模式：第二部分顯示中文，播放中文語音
       setTimeout(function() {
-        self.speakWord(currentWord.english);
+        self.speakChineseWord(currentWord.chinese);
       }, 500);
+      
+      // 如果啟用了延遲發音，也在此時播放英文語音
+      if (this.settings.delaySpeechInNormalMode) {
+        setTimeout(function() {
+          self.speakWord(currentWord.english);
+        }, 500);
+      }
     }
   };
   
@@ -2386,7 +2414,110 @@
     return japanesePattern.test(text);
   };
 
-  // 語音播放
+  // 逐字母拼讀英文單字
+  FlashcardApp.prototype.speakEnglishLetters = function(text, callback) {
+    if (!this.voiceSettings.enabled || !this.voiceSettings.spellOutLetters) {
+      if (callback) callback();
+      return;
+    }
+    if (!text) {
+      if (callback) callback();
+      return;
+    }
+    
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過字母拼讀');
+      if (callback) callback();
+      return;
+    }
+    
+    try {
+      // 提取純英文字母
+      var letters = [];
+      for (var i = 0; i < text.length; i++) {
+        var char = text.charAt(i);
+        if (/[a-zA-Z]/.test(char)) {
+          letters.push(char.toLowerCase());
+        }
+      }
+      
+      if (letters.length === 0) {
+        if (callback) callback();
+        return;
+      }
+      
+      console.log('拼讀字母:', letters.join('-'));
+      
+      var self = this;
+      var currentLetterIndex = 0;
+      
+      // 遞迴函數：逐個唸字母
+      var speakNextLetter = function() {
+        if (currentLetterIndex >= letters.length) {
+          // 所有字母都唸完了，執行回調
+          if (callback) {
+            setTimeout(callback, 100); // 字母拼讀和單字發音之間留一點間隔
+          }
+          return;
+        }
+        
+        var letter = letters[currentLetterIndex];
+        var utterance = new SpeechSynthesisUtterance(letter);
+        utterance.rate = self.voiceSettings.rate * 0.8; // 字母拼讀速度稍慢一點
+        utterance.pitch = self.voiceSettings.pitch;
+        utterance.volume = self.voiceSettings.volume;
+        utterance.lang = self.voiceSettings.lang;
+        
+        // 選擇語音
+        var voices = self.speechSynthesis.getVoices();
+        var selectedVoice = null;
+        if (self.voiceSettings.voiceURI) {
+          for (var i = 0; i < voices.length; i++) {
+            if (voices[i].voiceURI === self.voiceSettings.voiceURI) {
+              selectedVoice = voices[i];
+              break;
+            }
+          }
+        }
+        
+        if (!selectedVoice) {
+          for (var i = 0; i < voices.length; i++) {
+            if (voices[i].lang.indexOf('en-') === 0) {
+              selectedVoice = voices[i];
+              break;
+            }
+          }
+        }
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+        
+        // 當這個字母唸完後，繼續下一個
+        utterance.onend = function() {
+          currentLetterIndex++;
+          setTimeout(speakNextLetter, 10); // 字母之間間隔10ms
+        };
+        
+        utterance.onerror = function(event) {
+          console.log('字母拼讀錯誤:', event.error);
+          currentLetterIndex++;
+          setTimeout(speakNextLetter, 10);
+        };
+        
+        self.speechSynthesis.speak(utterance);
+      };
+      
+      speakNextLetter();
+      
+    } catch (error) {
+      console.log('字母拼讀失敗:', error);
+      if (callback) callback();
+    }
+  };
+
+  // 語音播放（英文單字）
   FlashcardApp.prototype.speakEnglishWord = function(text) {
     if (!this.voiceSettings.enabled) return;
     if (!text) return;
@@ -2397,9 +2528,27 @@
       return;
     }
     
+    var self = this;
+    
+    // 如果啟用了字母拼讀，先拼讀字母，然後再唸單字
+    if (this.voiceSettings.spellOutLetters) {
+      this.speakEnglishLetters(text, function() {
+        // 字母拼讀完成後，唸完整單字
+        self.speakEnglishWordOnly(text);
+      });
+    } else {
+      // 直接唸單字
+      this.speakEnglishWordOnly(text);
+    }
+  };
+
+  // 只唸英文單字（不拼讀字母）
+  FlashcardApp.prototype.speakEnglishWordOnly = function(text) {
+    if (!this.voiceSettings.enabled) return;
+    if (!text) return;
+    
     try {
-      console.log('播放語音:', text);
-      this.speechSynthesis.cancel();
+      console.log('播放英文語音:', text);
       
       var utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = this.voiceSettings.rate;
@@ -2434,16 +2583,16 @@
       
       // 為舊版瀏覽器添加錯誤處理
       utterance.onerror = function(event) {
-        console.log('語音播放錯誤:', event.error);
+        console.log('英文語音播放錯誤:', event.error);
       };
       
       utterance.onstart = function() {
-        console.log('語音開始播放:', text);
+        console.log('英文語音開始播放:', text);
       };
       
       this.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.log('語音播放失敗:', error);
+      console.log('英文語音播放失敗:', error);
     }
   };
   
@@ -2508,7 +2657,68 @@
     }
   };
   
-  // 智能語音播放（自動檢測語言）
+  // 中文語音播放
+  FlashcardApp.prototype.speakChineseWord = function(text) {
+    if (!this.voiceSettings.chineseEnabled) return;
+    if (!text) return;
+    
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過播放');
+      return;
+    }
+    
+    try {
+      console.log('播放中文語音:', text);
+      this.speechSynthesis.cancel();
+      
+      var utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.voiceSettings.rate;
+      utterance.pitch = this.voiceSettings.pitch;
+      utterance.volume = this.voiceSettings.volume;
+      utterance.lang = this.voiceSettings.chineseLang;
+      
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      if (this.voiceSettings.chineseVoiceURI) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === this.voiceSettings.chineseVoiceURI) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (!selectedVoice) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].lang.indexOf('zh-') === 0 || 
+              voices[i].name.toLowerCase().indexOf('chinese') !== -1) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      
+      // 為舊版瀏覽器添加錯誤處理
+      utterance.onerror = function(event) {
+        console.log('中文語音播放錯誤:', event.error);
+      };
+      
+      utterance.onstart = function() {
+        console.log('中文語音開始播放:', text);
+      };
+      
+      this.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.log('中文語音播放失敗:', error);
+    }
+  };
+  
+  // 智能語音播放（自動檢測語言 - 僅用於英文/日文單字）
   FlashcardApp.prototype.speakWord = function(text) {
     if (!text) return;
     
@@ -2516,7 +2726,7 @@
       // 文本包含日文字符，使用日文語音
       this.speakJapaneseWord(text);
     } else {
-      // 文本不包含日文字符，使用英文語音
+      // 文本為英文，使用英文語音（可能包含字母拼讀）
       this.speakEnglishWord(text);
     }
   };
@@ -2952,6 +3162,8 @@
       var speechEnabledSetting = document.getElementById('speech-enabled-setting');
       var voiceRateSetting = document.getElementById('voice-rate-setting');
       var voiceRateValue = document.getElementById('voice-rate-value');
+      var spellOutLettersSetting = document.getElementById('spell-out-letters-setting');
+      var chineseSpeechEnabledSetting = document.getElementById('chinese-speech-enabled-setting');
       
       if (speechEnabledSetting) speechEnabledSetting.checked = this.voiceSettings.enabled;
       if (voiceRateSetting) voiceRateSetting.value = this.voiceSettings.rate;
@@ -2962,6 +3174,8 @@
         var formattedRate = parseFloat(this.voiceSettings.rate.toFixed(decimalPlaces));
         voiceRateValue.textContent = formattedRate;
       }
+      if (spellOutLettersSetting) spellOutLettersSetting.checked = this.voiceSettings.spellOutLetters || false;
+      if (chineseSpeechEnabledSetting) chineseSpeechEnabledSetting.checked = this.voiceSettings.chineseEnabled || false;
       
       this.populateVoiceSelect();
     }
@@ -3036,9 +3250,14 @@
     var voiceRateSetting = document.getElementById('voice-rate-setting');
     var voiceSelectSetting = document.getElementById('voice-select-setting');
     var japaneseVoiceSelectSetting = document.getElementById('japanese-voice-select-setting');
+    var spellOutLettersSetting = document.getElementById('spell-out-letters-setting');
+    var chineseSpeechEnabledSetting = document.getElementById('chinese-speech-enabled-setting');
+    var chineseVoiceSelectSetting = document.getElementById('chinese-voice-select-setting');
     
     if (speechEnabledSetting) this.voiceSettings.enabled = speechEnabledSetting.checked;
     if (voiceRateSetting) this.voiceSettings.rate = parseFloat(voiceRateSetting.value);
+    if (spellOutLettersSetting) this.voiceSettings.spellOutLetters = spellOutLettersSetting.checked;
+    if (chineseSpeechEnabledSetting) this.voiceSettings.chineseEnabled = chineseSpeechEnabledSetting.checked;
     
     if (voiceSelectSetting) {
       var selectedVoiceURI = voiceSelectSetting.value;
@@ -3059,6 +3278,18 @@
       for (var i = 0; i < voices.length; i++) {
         if (voices[i].voiceURI === selectedJapaneseVoiceURI) {
           this.voiceSettings.japaneseLang = voices[i].lang;
+          break;
+        }
+      }
+    }
+    
+    if (chineseVoiceSelectSetting) {
+      var selectedChineseVoiceURI = chineseVoiceSelectSetting.value;
+      this.voiceSettings.chineseVoiceURI = selectedChineseVoiceURI;
+      var voices = this.speechSynthesis.getVoices();
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === selectedChineseVoiceURI) {
+          this.voiceSettings.chineseLang = voices[i].lang;
           break;
         }
       }
@@ -3136,6 +3367,39 @@
       japaneseVoiceSelect.addEventListener('change', function() {
         var selectedVoiceURI = japaneseVoiceSelect.value;
         self.previewVoice(selectedVoiceURI, 'こんにちは、これは日本語の音声サンプルです。');
+      });
+    }
+    
+    // 填充中文語音選項
+    var chineseVoiceSelect = document.getElementById('chinese-voice-select-setting');
+    if (chineseVoiceSelect) {
+      // 保護select元素
+      this.protectSelectElement(chineseVoiceSelect);
+      
+      chineseVoiceSelect.innerHTML = '';
+      var chineseVoices = voices.filter(function(v) { 
+        return v.lang && (v.lang.indexOf('zh') === 0 || v.lang.indexOf('cmn') === 0 || v.lang.indexOf('yue') === 0); 
+      });
+      
+      for (var i = 0; i < chineseVoices.length; i++) {
+        var voice = chineseVoices[i];
+        var option = document.createElement('option');
+        option.value = voice.voiceURI;
+        option.textContent = voice.name + ' (' + voice.lang + ')';
+        if (voice.voiceURI === this.voiceSettings.chineseVoiceURI) {
+          option.selected = true;
+        }
+        chineseVoiceSelect.appendChild(option);
+      }
+      
+      if (!chineseVoiceSelect.value && chineseVoices.length > 0) {
+        chineseVoiceSelect.value = chineseVoices[0].voiceURI;
+      }
+      
+      // 添加change事件監聽器 - 切換時播放示例語音
+      chineseVoiceSelect.addEventListener('change', function() {
+        var selectedVoiceURI = chineseVoiceSelect.value;
+        self.previewVoice(selectedVoiceURI, '你好，這是中文語音範例。');
       });
     }
   };
