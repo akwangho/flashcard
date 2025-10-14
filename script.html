@@ -81,6 +81,9 @@
     this.speechActivated = false;
     this.isLegacyBrowser = false;
     
+    // 中文語音等待定時器
+    this.chineseWaitInterval = null;
+    
     // 設定
     this.settings = {
       delayTime: 4.5,
@@ -2668,9 +2671,41 @@
       return;
     }
     
+    var self = this;
+    
+    // 清理之前的等待定時器（如果存在）
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
+    // 如果正在播放英文或日文語音（包括字母拼讀），等待播放完成
+    if (this.speechSynthesis.speaking) {
+      console.log('等待英文/日文語音播放完成後再播放中文...');
+      
+      // 使用輪詢檢查語音是否播放完成
+      this.chineseWaitInterval = setInterval(function() {
+        if (!self.speechSynthesis.speaking) {
+          clearInterval(self.chineseWaitInterval);
+          self.chineseWaitInterval = null;
+          console.log('英文/日文語音播放完成，現在播放中文');
+          self.speakChineseWordNow(text);
+        }
+      }, 100); // 每100ms檢查一次
+      
+      return;
+    }
+    
+    // 如果沒有語音正在播放，直接播放中文
+    this.speakChineseWordNow(text);
+  };
+  
+  // 立即播放中文語音（內部函數）
+  FlashcardApp.prototype.speakChineseWordNow = function(text) {
+    if (!text) return;
+    
     try {
       console.log('播放中文語音:', text);
-      this.speechSynthesis.cancel();
       
       var utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1; // 中文為母語，固定使用正常速度
@@ -2751,6 +2786,12 @@
         clearTimeout(this.displayTimer);
     }
     
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
     this.speechSynthesis.cancel();
     
     this.isTransitioning = true;
@@ -2798,6 +2839,12 @@
     
     if (this.displayTimer) {
       clearTimeout(this.displayTimer);
+    }
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
     }
     
     this.speechSynthesis.cancel();
@@ -2879,6 +2926,13 @@
     if (this.displayTimer) {
       clearTimeout(this.displayTimer);
     }
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
     this.speechSynthesis.cancel();
     this.pendingRemoval = null;
     this.closeMenu();
@@ -2916,6 +2970,12 @@
     
     // 停止當前播放的語音
     if (!this.voiceSettings.enabled) {
+      // 清理中文語音等待定時器
+      if (this.chineseWaitInterval) {
+        clearInterval(this.chineseWaitInterval);
+        this.chineseWaitInterval = null;
+      }
+      
       this.speechSynthesis.cancel();
     }
   };
@@ -3141,6 +3201,12 @@
       this.displayTimer = null;
     }
     
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
     this.speechSynthesis.cancel();
     
     this.showingChinese = false;
@@ -3196,6 +3262,12 @@
       if (!this.speechSynthesis) {
         console.warn('語音合成API不可用');
         return;
+      }
+      
+      // 清理中文語音等待定時器
+      if (this.chineseWaitInterval) {
+        clearInterval(this.chineseWaitInterval);
+        this.chineseWaitInterval = null;
       }
       
       // 停止當前正在播放的語音
@@ -4402,6 +4474,12 @@ FlashcardApp.prototype.processBatch = function() {
   
   FlashcardApp.prototype.showDuplicateModal = function() {
     console.log('顯示重複處理模態框');
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
     
     // 停止任何正在播放的語音
     if (this.speechSynthesis) {
