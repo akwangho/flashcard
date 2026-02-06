@@ -3243,6 +3243,9 @@
       if (spellOutLettersSetting) spellOutLettersSetting.checked = this.voiceSettings.spellOutLetters || false;
       if (chineseSpeechEnabledSetting) chineseSpeechEnabledSetting.checked = this.voiceSettings.chineseEnabled || false;
       
+      var delaySpeechToggle = document.getElementById('delay-speech-setting');
+      if (delaySpeechToggle) delaySpeechToggle.checked = this.settings.delaySpeechInNormalMode;
+      
       this.populateVoiceSelect();
     }
   };
