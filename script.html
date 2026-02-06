@@ -1769,7 +1769,6 @@
     var fontSizeSlider = document.getElementById('font-size-setting');
     var fontFamilySelect = document.getElementById('font-family-setting');
     var reverseToggle = document.getElementById('reverse-setting');
-    var delaySpeechToggle = document.getElementById('delay-speech-setting');
     
     var oldReverseMode = this.settings.reverseMode;
     var oldFontFamily = this.settings.fontFamily;
@@ -1778,7 +1777,6 @@
     if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
     if (fontFamilySelect) this.settings.fontFamily = fontFamilySelect.value;
     if (reverseToggle) this.settings.reverseMode = reverseToggle.checked;
-    if (delaySpeechToggle) this.settings.delaySpeechInNormalMode = delaySpeechToggle.checked;
     
     this.saveSettings();
     this.applySettings();
@@ -3328,11 +3326,13 @@
     var spellOutLettersSetting = document.getElementById('spell-out-letters-setting');
     var chineseSpeechEnabledSetting = document.getElementById('chinese-speech-enabled-setting');
     var chineseVoiceSelectSetting = document.getElementById('chinese-voice-select-setting');
+    var delaySpeechToggle = document.getElementById('delay-speech-setting');
     
     if (speechEnabledSetting) this.voiceSettings.enabled = speechEnabledSetting.checked;
     if (voiceRateSetting) this.voiceSettings.rate = parseFloat(voiceRateSetting.value);
     if (spellOutLettersSetting) this.voiceSettings.spellOutLetters = spellOutLettersSetting.checked;
     if (chineseSpeechEnabledSetting) this.voiceSettings.chineseEnabled = chineseSpeechEnabledSetting.checked;
+    if (delaySpeechToggle) this.settings.delaySpeechInNormalMode = delaySpeechToggle.checked;
     
     if (voiceSelectSetting) {
       var selectedVoiceURI = voiceSelectSetting.value;
