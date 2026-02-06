@@ -1,0 +1,772 @@
+# OpenSpec: 英文單字閃卡應用程式
+
+> **版本**: 1.0.0
+> **最後更新**: 2026-02-06
+> **原始平台**: Google Apps Script (HTML Service)
+> **目標相容性**: iPad 4 (ES5 JavaScript)
+
+---
+
+## 1. 專案概述
+
+### 1.1 應用程式名稱
+英文單字閃卡 (English Vocabulary Flashcard)
+
+### 1.2 應用程式描述
+這是一個以 Google Apps Script 為後端、Google Sheets 為資料來源的英文單字學習閃卡應用程式。使用者可以從 Google 試算表載入英文-中文單字對，透過自動輪播閃卡的方式學習英文單字。應用程式支援語音朗讀、測驗模式、不熟單字標記、單字匯出等豐富功能，並針對 iPad 4 等舊版裝置做了完整的相容性處理。
+
+### 1.3 目標使用者
+- 學習英文單字的中文母語使用者（主要為台灣繁體中文使用者）
+- 使用平板裝置（尤其是 iPad）學習的學生
+
+### 1.4 核心價值
+- 自動輪播閃卡，無需手動操作即可持續學習
+- 整合 Google Sheets 作為單字資料庫，方便管理和共享單字
+- 多語言語音朗讀（英文、日文、中文）
+- 測驗系統驗證學習成效
+- 完整的 iPad 4 / 舊版瀏覽器相容性
+
+---
+
+## 2. 技術架構
+
+### 2.1 架構模式
+- **前後端分離的 Google Apps Script 應用程式**
+- 後端：Google Apps Script (server-side JavaScript)
+- 前端：HTML + CSS + JavaScript (ES5)
+- 資料儲存：Google Sheets
+- 本地儲存：LocalStorage（使用者設定持久化）
+
+### 2.2 技術堆疊
+
+| 層級 | 技術 | 說明 |
+|------|------|------|
+| 後端 | Google Apps Script | 伺服器端邏輯、Google Sheets API 操作 |
+| 前端框架 | 原生 JavaScript (ES5) | 使用 Prototype-based OOP 模式 |
+| 前端標記 | HTML5 | Google Apps Script HTML Service 的模板系統 |
+| 樣式 | CSS3 | 含 CSS 變數，有硬編碼 fallback |
+| 語音 | Web Speech API (SpeechSynthesis) | 英文/日文/中文語音朗讀 |
+| 資料 | Google Sheets API | 透過 SpreadsheetApp 讀寫 |
+| 本地持久化 | LocalStorage | 儲存使用者偏好設定 |
+
+### 2.3 檔案結構
+
+```
+flashcard/
+├── index.html        # 主要 HTML 結構（含所有模態框）
+├── script.html       # 前端 JavaScript 應用邏輯（約 6,176 行）
+├── style.html        # CSS 樣式定義（約 2,439 行）
+└── code.gs           # Google Apps Script 後端程式碼（約 758 行）
+```
+
+### 2.4 前端架構
+
+- **設計模式**: 單一建構函式 `FlashcardApp`，所有方法掛載於 `FlashcardApp.prototype`
+- **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
+- **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
+
+### 2.5 ES5 相容性需求（重要限制）
+
+由於需要在 iPad 4（iOS 10 及以下）上運行，必須遵守以下限制：
+- **禁止使用** `let`、`const`、箭頭函式、模板字串、解構賦值、展開運算子、Promise、async/await、class 語法
+- **必須使用** `var`、`function` 宣告、字串串接、`for` 迴圈
+- **必須提供 Polyfills**: `Array.prototype.forEach`、`Array.prototype.filter`、`Array.prototype.map`、`Array.prototype.find`、`Array.prototype.includes`
+
+---
+
+## 3. 資料模型
+
+### 3.1 單字物件 (Word Object)
+
+```javascript
+{
+  id: Number,                // 唯一識別碼（載入時依序產生）
+  english: String,           // 英文單字
+  chinese: String,           // 中文翻譯
+  difficult: Boolean,        // 是否標記為不熟單字（來源：Google Sheet 第 3 欄為 '*'）
+  image: String,             // 圖片 URL（來源：Google Sheet 第 4 欄）
+  imageFormula: String,      // 圖片顯示公式（來源：Google Sheet 第 5 欄）
+  sheetName: String,         // 來源工作表名稱
+  originalRowIndex: Number   // 在來源工作表中的原始列索引（0-based）
+}
+```
+
+### 3.2 Google Sheet 資料格式
+
+每個工作表的欄位配置：
+
+| 欄位 | 內容 | 必填 |
+|------|------|------|
+| A 欄 (第 1 欄) | 英文單字 | 是 |
+| B 欄 (第 2 欄) | 中文翻譯 | 是 |
+| C 欄 (第 3 欄) | 不熟標記（`*` 代表不熟） | 否 |
+| D 欄 (第 4 欄) | 圖片 URL | 否 |
+| E 欄 (第 5 欄) | 圖片顯示公式 | 否 |
+| F 欄 (F1 格) | 該工作表的有效單字數量（自動計算公式） | 否 |
+
+### 3.3 應用程式設定 (Settings)
+
+#### 3.3.1 一般設定 (`flashcard-settings` in LocalStorage)
+
+```javascript
+{
+  delayTime: Number,             // 單字卡延遲時間（秒），範圍 1-10，預設 4.5，步進 0.5
+  fontSize: Number,              // 字體大小（px），範圍 20-120，預設 96，步進 4
+  reverseMode: Boolean,          // 反向模式（先顯示中文），預設 false
+  fontFamily: String,            // 字型代碼，預設 'system-default'
+  delaySpeechInNormalMode: Boolean  // 延遲發音模式，預設 false
+}
+```
+
+#### 3.3.2 語音設定 (`flashcard-voice-settings` in LocalStorage)
+
+```javascript
+{
+  enabled: Boolean,          // 啟用英日文發音，預設 true
+  rate: Number,              // 發音速度，範圍 0.1-1.0，預設 0.8，步進 0.1
+  pitch: Number,             // 音調，預設 1
+  volume: Number,            // 音量，預設 1
+  lang: String,              // 英文語音語系，預設 'en-US'
+  voiceURI: String,          // 選定的英文語音 URI
+  japaneseLang: String,      // 日文語音語系，預設 'ja-JP'
+  japaneseVoiceURI: String,  // 選定的日文語音 URI
+  spellOutLetters: Boolean,  // 唸出每一個英文字母，預設 false
+  chineseEnabled: Boolean,   // 啟用中文發音，預設 false
+  chineseLang: String,       // 中文語音語系，預設 'zh-TW'
+  chineseVoiceURI: String    // 選定的中文語音 URI
+}
+```
+
+#### 3.3.3 試算表設定 (`flashcard-sheet-settings` in LocalStorage)
+
+```javascript
+{
+  sheetId: String,           // Google Sheet ID
+  selectedSheets: Array      // 已選擇的工作表名稱陣列
+}
+```
+
+#### 3.3.4 試算表歷史記錄 (`flashcard-sheet-history` in LocalStorage)
+
+```javascript
+[
+  {
+    id: String,              // Google Sheet ID
+    name: String,            // 試算表名稱
+    isDefault: Boolean,      // 是否為預設（歷史記錄中一律為 false）
+    lastUsed: String         // 最後使用時間（ISO 格式）
+  }
+]
+// 最多保存 10 筆，不包含預設試算表
+```
+
+### 3.4 測驗狀態 (Quiz State)
+
+```javascript
+{
+  isActive: Boolean,           // 測驗是否進行中
+  type: String,                // 'quick'（快速 10 題）或 'full'（全部）
+  questions: Array,            // 題目陣列
+  currentQuestionIndex: Number,// 目前題目索引
+  selectedAnswer: String,      // 已選答案
+  answers: Array,              // 作答記錄
+  score: Number,               // 目前分數
+  startTime: Date,             // 開始時間
+  endTime: Date,               // 結束時間
+  availableWords: Array        // 可用單字（已考慮篩選）
+}
+```
+
+### 3.5 測驗題目物件 (Question Object)
+
+```javascript
+{
+  word: Object,              // 原始單字物件
+  type: String,              // 'en-zh'（英翻中）或 'zh-en'（中翻英），隨機決定
+  question: String,          // 題目文字
+  correctAnswer: String,     // 正確答案
+  options: Array             // 4 個選項（含正確答案，隨機排列）
+}
+```
+
+### 3.6 字型映射表
+
+| 代碼 | 字型名稱 | CSS font-family |
+|------|----------|-----------------|
+| `system-default` | 系統預設 | `'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif` |
+| `microsoft-yahei` | 微軟正黑體 | `'Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS', Arial, sans-serif` |
+| `songti` | 宋體 | `'STSong', 'SimSun', 'Times New Roman', serif` |
+| `kaiti` | 楷體 | `'STKaiti', 'KaiTi', 'BiauKai', 'Times New Roman', serif` |
+| `arial` | Arial | `Arial, 'Helvetica Neue', Helvetica, sans-serif` |
+| `helvetica` | Helvetica | `'Helvetica Neue', Helvetica, Arial, sans-serif` |
+| `times` | Times New Roman | `'Times New Roman', Times, serif` |
+| `courier` | Courier New | `'Courier New', Courier, monospace` |
+| `verdana` | Verdana | `Verdana, Geneva, sans-serif` |
+
+---
+
+## 4. 功能規格
+
+### 4.1 閃卡核心功能
+
+#### 4.1.1 自動輪播單字卡
+- **描述**: 應用程式自動依序顯示單字卡，先顯示第一語言（預設英文），延遲指定秒數後顯示第二語言（預設中文），再延遲後自動切換到下一個單字
+- **行為流程**:
+  1. 載入單字後，先執行隨機洗牌（Fisher-Yates 演算法）
+  2. 顯示第一語言（帶有 100ms 的淡入動畫）
+  3. 等待「延遲時間」秒數
+  4. 顯示第二語言（淡入動畫）+ 同時顯示圖片（若有）
+  5. 再等待「延遲時間」秒數
+  6. 自動切換到下一個單字
+  7. 循環結束後重新洗牌並開始新回合
+- **延遲時間**: 可設定 1 至 10 秒，步進 0.5 秒，預設 4.5 秒
+
+#### 4.1.2 反向模式
+- **描述**: 切換顯示順序，先顯示中文翻譯，再顯示英文單字
+- **行為**: 開啟後第一語言變為中文、第二語言變為英文；語音播放順序也相應調整
+
+#### 4.1.3 單字卡點擊互動
+- **描述**: 使用者點擊單字卡區域時觸發特殊行為
+- **行為流程**:
+  1. 若尚未顯示第二語言 → 立即顯示第二語言 + 圖片
+  2. 單字文字變為灰色 (`#666666`) 表示「已看過/準備移除」
+  3. 出現「恢復單字」按鈕
+  4. 等待延遲時間後，自動將該單字從當前輪次中暫時移除
+  5. 若在等待期間使用者點擊「恢復單字」按鈕 → 取消移除，恢復正常播放
+- **特殊情況**: 若當前只剩 1 個單字，點擊時卡片閃紅色提示，不執行移除
+
+#### 4.1.4 單字暫時移除與恢復
+- **描述**: 使用者可以透過點擊單字卡來暫時移除已熟悉的單字
+- **移除**: 被移除的單字存入 `removedWords` 陣列，不再出現在當前輪次
+- **恢復**: 開始新回合時，所有已移除的單字會自動恢復
+
+#### 4.1.5 上一個/下一個導覽
+- **描述**: 使用者可以手動切換到上一個或下一個單字
+- **上一個**: 從導覽歷史堆疊中取出前一個狀態恢復（包含索引和已移除的單字）
+- **下一個**: 停止當前計時器，直接跳到下一個單字
+- **自動循環**: 到達最後一個單字時自動回到第一個
+
+#### 4.1.6 進度顯示
+- **描述**: 在單字卡下方顯示當前進度，格式為「目前序號/總數」
+- **範例**: `3/25`
+
+### 4.2 不熟單字（困難標記）功能
+
+#### 4.2.1 標記/取消標記不熟單字
+- **描述**: 使用者可以點擊進度區域的星號 ★ 來標記或取消標記當前單字為不熟單字
+- **視覺回饋**: 已標記的不熟單字星號顯示為金色，未標記為灰色
+- **同步到後端**: 標記狀態會即時透過 `google.script.run.markWordAsDifficult()` 寫回 Google Sheet 的第 3 欄
+
+#### 4.2.2 只顯示不熟單字篩選
+- **描述**: 選單中的核取方塊「只顯示不熟單字」，開啟後只輪播已標記為不熟的單字
+- **行為**: 篩選後重新洗牌並從頭開始；若沒有不熟單字，彈出提示並自動關閉篩選
+
+### 4.3 Google Sheets 整合
+
+#### 4.3.1 單字檔設定介面
+- **描述**: 模態框形式的設定介面，讓使用者選擇要載入的 Google Sheet 和工作表
+- **介面元素**:
+  - 預設單字檔清單（硬編碼的預設 Google Sheet 列表）
+  - 最近使用的非預設單字檔清單（最多 10 筆）
+  - Google Sheet ID 或 URL 輸入框（支援完整 URL 自動提取 ID）
+  - 「載入工作表清單」按鈕
+  - 工作表多選列表（含單字數量顯示）
+
+#### 4.3.2 預設單字檔
+- **描述**: 應用程式內建的預設 Google Sheet 列表
+- **預設項目**:
+  1. `WordGo Data Sheet` (ID: `1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM`)
+  2. `小學生教育部規定1200單字` (ID: `1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg`)
+
+#### 4.3.3 最近使用記錄
+- **描述**: 自動記錄使用者最近使用的非預設 Google Sheet（最多 10 筆）
+- **功能**: 點擊即可快速切換、可刪除歷史記錄
+- **儲存位置**: LocalStorage (`flashcard-sheet-history`)
+
+#### 4.3.4 工作表選擇
+- **描述**: 載入 Google Sheet 後，顯示所有工作表供使用者勾選
+- **顯示資訊**: 工作表名稱、單字數量（讀取 F1 格的值）
+- **多選**: 可同時選擇多個工作表，合併載入所有單字
+
+#### 4.3.5 Google Sheet ID 提取
+- **描述**: 支援從完整的 Google Sheets URL 中自動提取 Sheet ID
+- **支援格式**:
+  - 純 Sheet ID: `1ABC123DEF456`
+  - 完整 URL: `https://docs.google.com/spreadsheets/d/SHEET_ID/edit`
+- **提取邏輯**: 使用正規表達式 `/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/` 匹配
+
+### 4.4 語音功能
+
+#### 4.4.1 英文語音朗讀
+- **描述**: 使用 Web Speech API (SpeechSynthesis) 朗讀英文單字
+- **播放時機**:
+  - 正常模式：英文出現時播放（除非啟用延遲發音）
+  - 反向模式：英文出現在第二部分時播放
+- **語音選擇**: 可在語音設定中選擇不同的英文腔調
+
+#### 4.4.2 日文語音朗讀
+- **描述**: 自動偵測單字是否包含日文字符（平假名、片假名、特定漢字範圍），若是則使用日文語音播放
+- **偵測邏輯**: 使用正規表達式檢查 Unicode 範圍 `[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]`
+
+#### 4.4.3 中文語音朗讀
+- **描述**: 可選啟用中文翻譯的語音朗讀
+- **播放時機**: 顯示中文翻譯時播放
+- **等待機制**: 若英文/日文語音尚在播放，會以 100ms 輪詢等待播放完成後再播放中文
+- **語速**: 中文語音固定使用正常速度 (rate = 1)
+
+#### 4.4.4 字母拼讀功能
+- **描述**: 啟用後，在唸英文單字之前，會先逐字母拼讀（例如：h-e-l-l-o）
+- **實作方式**: 將每個字母以 SSML 風格逐一播放，非字母字元（空格、連字號等）跳過
+- **順序**: 字母拼讀 → 完整單字朗讀
+
+#### 4.4.5 延遲發音模式
+- **描述**: 啟用後，在正常模式下，英文單字出現時不發音，而是在中文翻譯出現時才播放英文語音
+- **用途**: 讓使用者先看英文自行思考，翻譯出現時再聽發音確認
+
+#### 4.4.6 靜音/取消靜音
+- **描述**: 點擊語音按鈕或靜音指示器可切換語音開關
+- **視覺回饋**: 靜音時顯示 🔇 圖示和「已靜音」提示；按鈕顯示 🔇（靜音）或 🔊（開啟）
+
+#### 4.4.7 舊版瀏覽器語音啟用
+- **描述**: 在舊版瀏覽器（iOS 10 及以下、Chrome 80 以下、Safari 12 及以下）中，語音功能需要使用者先點擊按鈕互動才能啟用
+- **流程**: 載入畫面顯示「啟用語音播放」按鈕 → 使用者點擊 → 執行靜音測試語音 → 語音功能啟用
+
+### 4.5 暫停功能
+
+#### 4.5.1 暫停/繼續
+- **描述**: 暫停單字卡自動輪播
+- **暫停行為**: 記錄剩餘時間，停止計時器，顯示「已暫停」指示器
+- **繼續行為**: 根據剩餘時間恢復計時器，隱藏指示器
+- **指示器互動**: 點擊「已暫停」指示器可恢復播放
+- **按鈕圖示**: 播放中顯示 ⏸️，暫停中顯示 ▶️
+
+### 4.6 測驗系統
+
+#### 4.6.1 快速測驗
+- **描述**: 從當前可用單字中隨機抽取 10 題進行測驗
+- **條件**: 可用單字至少需要 3 個以上
+- **開始時自動暫停閃卡播放**
+
+#### 4.6.2 完整測驗
+- **描述**: 使用當前所有可用單字進行測驗
+
+#### 4.6.3 測驗題目生成
+- **題型**: 隨機在「英翻中」和「中翻英」之間選擇（各 50% 機率）
+- **選項**: 4 個選項（1 個正確 + 3 個隨機錯誤選項），隨機排列
+- **錯誤選項來源**: 從所有已載入的單字中隨機抽取（確保不重複、不等於正確答案）
+- **備用選項**: 若錯誤選項不足，使用預設通用選項補充
+
+#### 4.6.4 測驗流程
+1. **開始畫面**: 顯示測驗類型、題目數量、測驗範圍
+2. **答題畫面**: 顯示題目 → 4 個選項按鈕 → 使用者點選 → 顯示正確/錯誤回饋 → 下一題
+3. **結果畫面**: 顯示分數（百分制）、正確/錯誤題數、鼓勵訊息、錯題回顧
+
+#### 4.6.5 答題回饋
+- **正確**: 綠色框 ✅ + 「答對了！」
+- **錯誤**: 紅色框 ❌ + 「答錯了！」+ 正確答案提示
+- **選項樣式**: 正確選項變綠色，錯誤選取變紅色
+
+#### 4.6.6 成績評語
+- 100 分: 「滿分！太厲害了！你完全掌握了這些單字！」
+- 80-99 分: 「太棒了！你的英文單字掌握得很好！」
+- 60-79 分: 「不錯哦！再多練習幾次就更熟了！」
+- 40-59 分: 「加油！多複習幾次就會進步的！」
+- 0-39 分: 「別灰心！持續學習就會越來越好！」
+
+#### 4.6.7 錯題回顧
+- **描述**: 測驗結束後顯示所有答錯的題目
+- **內容**: 原始題目、使用者的錯誤答案、正確答案
+- **操作**: 可點擊「標記為不熟」將錯誤單字加入不熟清單
+
+#### 4.6.8 測驗範圍顯示
+- 若開啟「只顯示不熟單字」: 顯示「⭐ 測驗範圍：不熟單字」
+- 若有暫時移除的單字: 顯示「📗 測驗範圍：剩餘單字（已排除 X 個已移除單字）」
+- 預設: 顯示「📗 測驗範圍：所有單字」
+
+### 4.7 匯出功能
+
+#### 4.7.1 匯出單字到新工作表
+- **描述**: 將當前的單字匯出到同一 Google Sheet 的新工作表
+- **匯出類型**:
+  - **剩餘單字**: 匯出當前輪次中尚未被移除的所有單字
+  - **不熟單字**: 只匯出被標記為不熟的單字
+- **匯出資料欄位**: 英文、中文、不熟標記、圖片 URL
+
+#### 4.7.2 工作表名稱
+- **預設命名規則**: `已匯出_YYYYMMDD_HHMMSS`（使用當前時間戳）
+- **使用者可自訂名稱**
+
+#### 4.7.3 覆寫保護
+- **描述**: 若目標工作表名稱已存在，顯示覆寫確認對話框
+- **選項**:
+  - 「使用不同名稱」: 自動建議替代名稱（原名稱加上 `_1`, `_2` 等後綴）
+  - 「覆寫現有工作表」: 刪除舊工作表後重新建立
+
+#### 4.7.4 批次匯出
+- **描述**: 單字以批次方式匯出（每批 50 個），顯示進度條
+- **進度顯示**: 進度條 + 百分比 + 已處理/總數
+
+### 4.8 重複單字處理
+
+#### 4.8.1 自動偵測重複單字
+- **描述**: 載入多個工作表時，自動偵測英文相同（不分大小寫）的重複單字
+- **偵測時機**: 每次載入單字時自動執行
+
+#### 4.8.2 自動處理（記憶體模式）
+- **描述**: 初次載入時自動在記憶體中處理重複，不修改 Google Sheet
+- **處理規則**:
+  - **中文翻譯相同**: 保留第一個工作表的單字，移除其他重複項
+  - **中文翻譯不同**: 將所有翻譯合併到第一個工作表的單字中（格式：`1. 翻譯A\n2. 翻譯B`），移除其他重複項
+- **通知**: 處理完成後顯示通知，包含處理前後的單字數量
+
+#### 4.8.3 手動處理
+- **描述**: 若使用者選擇手動處理，顯示重複單字處理模態框
+- **處理選項（每組重複）**:
+  - **保留第一個，刪除其他**: 保留第一個出現的，刪除其餘（會修改 Google Sheet）
+  - **合併定義**: 將所有翻譯合併到一個單字中（會修改 Google Sheet）
+  - **跳過，稍後處理**: 在記憶體中自動處理，不修改 Google Sheet
+
+### 4.9 設定介面
+
+#### 4.9.1 一般設定模態框
+- **單字卡延遲時間**: 滑桿，1-10 秒，步進 0.5 秒
+- **字體大小**: 滑桿，20-120px，步進 4px，即時預覽
+- **字型選擇**: 下拉選單，9 種字型，含即時預覽區域
+- **先顯示中文翻譯**: 開關（反向模式）
+
+#### 4.9.2 語音設定模態框
+- **啟用英日文發音**: 開關
+- **發音速度**: 滑桿，0.1-1.0，步進 0.1
+- **英文語音腔調**: 下拉選單（動態取得系統可用語音）
+- **日文語音腔調**: 下拉選單
+- **延遲發音模式**: 開關（顯示英文時不發音，等中文出現才發音）
+- **唸出每一個英文字母**: 開關（拼讀功能）
+- **啟用中文發音**: 開關
+- **中文語音腔調**: 下拉選單
+
+### 4.10 畫面與 UI 功能
+
+#### 4.10.1 視覺主題
+- **配色**: 深色主題 — 黑色背景 (`#000000`)、黃色主文字 (`#FFFF00`)、白色輔助文字
+- **字體**: 預設使用微軟正黑體 / PingFang TC / Helvetica Neue / Arial
+
+#### 4.10.2 全螢幕模式
+- **描述**: 支援各種瀏覽器的全螢幕 API
+- **相容性**: 支援 `requestFullscreen`、`webkitRequestFullscreen`、`mozRequestFullScreen`、`msRequestFullscreen`
+- **行為**: 進入全螢幕後按鈕文字變為「退出全螢幕」
+
+#### 4.10.3 圖片顯示
+- **描述**: 若單字含有圖片 URL，在顯示中文翻譯時同時顯示圖片
+- **顯示方式**: 設為 `flashcard` 容器的背景圖片，使用 `contain` 模式（不裁切）
+- **預加載**: 當前單字和下一個單字的圖片會提前預加載
+- **文字處理**: 有圖片時，文字加上半透明黑色背景以確保可讀性
+
+#### 4.10.4 防止螢幕休眠
+- **描述**: 透過多種方式嘗試防止裝置螢幕自動關閉
+- **方法（依優先順序嘗試）**:
+  1. **Wake Lock API**: 現代瀏覽器原生 API
+  2. **NoSleep Video**: 建立不可見的迴圈影片持續播放
+  3. **Keep-Alive**: 每 30 秒發送微小的 AJAX 請求
+
+#### 4.10.5 響應式設計
+- **描述**: 支援手機和平板裝置的不同螢幕尺寸
+- **觸控優化**: 按鈕尺寸適合觸控操作
+- **防止縮放**: 設定 `user-scalable=no`、`maximum-scale=1.0`
+
+#### 4.10.6 模態框系統
+- **描述**: 所有設定和功能介面使用模態框呈現
+- **共通行為**:
+  - 點擊背景（模態框外部）可關閉
+  - 有關閉按鈕 (×)、取消按鈕、確認按鈕
+  - 開啟模態框時暫停閃卡播放，關閉時恢復
+
+### 4.11 鍵盤快捷鍵
+
+| 按鍵 | 功能 |
+|------|------|
+| 空白鍵 / Enter | 暫停/繼續，或在已暫停時跳到下一個 |
+| 右方向鍵 | 下一個單字 |
+| 左方向鍵 | 上一個單字 |
+| `M` 鍵 | 切換靜音/取消靜音 |
+| `F` 鍵 | 切換全螢幕 |
+| `D` 鍵 | 標記/取消標記不熟單字 |
+| `R` 鍵 | 恢復單字（取消移除） |
+| Escape | 關閉選單或結束全螢幕 |
+
+> **注意**: 模態框開啟時，鍵盤快捷鍵不生效（避免干擾輸入）
+
+### 4.12 選單系統
+
+#### 4.12.1 下拉選單
+- **描述**: 主介面底部的「選單 ▼」按鈕，點擊展開下拉選單
+- **選單項目**:
+  1. 全螢幕
+  2. 重新載入單字
+  3. 只顯示不熟單字（核取方塊）
+  4. 快速測驗（10 題）
+  5. 完整測驗
+  6. 匯出單字
+  7. 單字檔設定
+  8. 語音設定
+  9. 設定
+- **行為**: 點擊選單外部自動關閉
+
+---
+
+## 5. 後端 API（Google Apps Script 函式）
+
+### 5.1 HTML 服務
+
+| 函式 | 說明 |
+|------|------|
+| `doGet()` | 建立並回傳 HTML 頁面（使用模板引擎） |
+| `include(filename)` | 載入並嵌入指定的 HTML 檔案（用於模板） |
+
+### 5.2 單字載入
+
+| 函式 | 參數 | 回傳 | 說明 |
+|------|------|------|------|
+| `getWordsFromSheet()` | 無 | `Array<Word>` | 從預設工作表載入單字（向下相容） |
+| `getWordsFromSheets(sheetId, sheetNames)` | Sheet ID, 工作表名稱陣列 | `Array<Word>` | 從指定的多個工作表載入單字 |
+| `getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle)` | Sheet ID, 工作表名稱陣列, 是否自動處理 | `Object` | 載入單字並偵測/處理重複 |
+| `getDemoWords()` | 無 | `Array<Word>` | 取得示例資料（載入失敗時的備援） |
+
+### 5.3 工作表管理
+
+| 函式 | 參數 | 回傳 | 說明 |
+|------|------|------|------|
+| `getSheetsList(sheetId)` | Sheet ID | `{spreadsheetName, sheets: [{name, wordCount}]}` | 取得工作表清單和各工作表的單字數 |
+| `checkSheetExists(sheetName, targetSheetId)` | 工作表名稱, Sheet ID | `Boolean` | 檢查工作表是否已存在 |
+
+### 5.4 單字操作
+
+| 函式 | 參數 | 回傳 | 說明 |
+|------|------|------|------|
+| `markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult)` | Sheet ID, 工作表名稱, 列索引, 是否困難 | `Boolean` | 標記/取消標記不熟單字（寫入第 3 欄） |
+| `exportWordsToSheet(words, sheetName, targetSheetId, overwrite, isFirstBatch)` | 單字陣列, 工作表名稱, Sheet ID, 是否覆寫, 是否首批 | `Object` | 匯出單字到新工作表 |
+
+### 5.5 重複單字處理
+
+| 函式 | 參數 | 回傳 | 說明 |
+|------|------|------|------|
+| `detectDuplicateWords(allWords)` | 全部單字陣列 | `Array<DuplicateGroup>` | 偵測重複單字（英文不分大小寫） |
+| `handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords)` | Sheet ID, 保留單字, 刪除單字陣列 | `Object` | 保留一個，刪除其他（修改 Sheet） |
+| `handleDuplicateWordMerge(sheetId, targetWord, mergeWords)` | Sheet ID, 目標單字, 合併來源陣列 | `Object` | 合併定義（修改 Sheet） |
+| `autoHandleSkippedDuplicatesInMemory(allWords, duplicates)` | 全部單字, 重複組 | `Object` | 在記憶體中自動處理重複（不修改 Sheet） |
+| `autoHandleSkippedDuplicates(sheetId, duplicates)` | Sheet ID, 重複組 | `Object` | 自動處理重複（修改 Sheet） |
+
+### 5.6 工具函式
+
+| 函式 | 說明 |
+|------|------|
+| `validateAndCleanSheetId(sheetId)` | 驗證和清理 Sheet ID |
+| `openSpreadsheetSafely(sheetId)` | 安全地開啟 Google Spreadsheet（含錯誤處理） |
+| `countValidWords(sheet)` | 讀取工作表 F1 格的值作為有效單字數 |
+| `createWordObject(rowData, id, sheetName, rowIndex)` | 從列資料建立單字物件 |
+| `findWordRowIndex(sheet, englishWord, chineseWord)` | 根據英文和中文在工作表中尋找列索引 |
+
+---
+
+## 6. UI 元素清單
+
+### 6.1 主畫面
+
+| 元素 ID | 類型 | 說明 |
+|---------|------|------|
+| `app` | div | 應用程式根容器 |
+| `loading` | div | 載入中畫面 |
+| `speech-activation-container` | div | 語音啟用按鈕容器（舊版瀏覽器） |
+| `activate-speech-btn` | button | 語音啟用按鈕 |
+| `error` | div | 錯誤顯示區域 |
+| `flashcard` | div | 閃卡主容器 |
+| `paused-indicator` | div | 已暫停指示器 |
+| `muted-indicator` | div | 已靜音指示器 |
+| `english-word` | div | 英文單字顯示區 |
+| `chinese-word` | div | 中文翻譯顯示區 |
+| `progress-text` | span | 進度文字 |
+| `difficult-star` | span | 不熟標記星號 ★ |
+| `restore-btn-container` | div | 恢復按鈕容器 |
+| `restore-btn` | button | 恢復單字按鈕 |
+
+### 6.2 控制按鈕
+
+| 元素 ID | 說明 |
+|---------|------|
+| `prev-btn` | 上一個按鈕 |
+| `next-btn` | 下一個按鈕 |
+| `voice-toggle-btn` | 語音切換按鈕 |
+| `pause-btn` | 暫停/繼續按鈕 |
+| `menu-btn` | 選單按鈕 |
+
+### 6.3 模態框
+
+| 模態框 ID | 說明 |
+|-----------|------|
+| `sheet-settings-modal` | 單字檔設定 |
+| `settings-modal` | 一般設定 |
+| `voice-settings-modal` | 語音設定 |
+| `export-modal` | 匯出單字 |
+| `overwrite-confirm-modal` | 覆寫確認 |
+| `duplicate-words-modal` | 重複單字處理 |
+| `quiz-modal` | 測驗系統 |
+
+---
+
+## 7. CSS 樣式規格
+
+### 7.1 CSS 變數（含 fallback）
+
+應用程式使用 CSS 變數（CSS Custom Properties），同時為不支援 CSS 變數的舊版瀏覽器提供硬編碼的 fallback 值。
+
+**重要**: 所有使用 `var()` 的屬性，都必須在同一選擇器或父層先定義不使用 `var()` 的硬編碼 fallback。
+
+### 7.2 主要色彩
+
+| 變數名稱 | 值 | 用途 |
+|----------|-----|------|
+| `--primary-color` | `#FFFF00` | 主色（黃色，用於單字文字） |
+| `--bg-color` | `#000000` | 背景色（黑色） |
+| `--text-color` | `#FFFFFF` | 一般文字色（白色） |
+| `--gray-color` | `#888888` | 灰色（輔助文字） |
+| `--success-color` | `#00FF00` | 成功色（綠色） |
+| `--error-color` | `#FF6B6B` | 錯誤色（紅色） |
+| `--warning-color` | `#FFA500` | 警告色（橘色） |
+
+### 7.3 動畫效果
+
+| 動畫 | 說明 |
+|------|------|
+| `.word.show` | 單字淡入動畫（opacity 0→1 + translateY 微移） |
+| `.card-section.clicked` | 點擊閃爍效果（背景色變化） |
+| 模態框開啟 | 淡入 + 從上方滑入 |
+| 進度條 | 平滑寬度過渡 |
+
+### 7.4 響應式斷點
+
+- 主要針對平板裝置（iPad）最佳化
+- 使用 `viewport` meta 標籤控制縮放
+- 按鈕和觸控元素有足夠的點擊區域
+
+---
+
+## 8. 初始化與啟動流程
+
+### 8.1 完整啟動序列
+
+```
+1. HTML 載入完成
+2. 建立 FlashcardApp 實例
+3. FlashcardApp.init() 執行：
+   ├── 3a. loadSettings()        → 從 LocalStorage 載入一般設定和語音設定
+   ├── 3b. loadSheetSettings()   → 從 LocalStorage 載入試算表設定
+   ├── 3c. detectLegacyBrowser() → 偵測是否為舊版瀏覽器
+   ├── 3d. setupEventListeners() → 設定所有事件監聽器
+   │   ├── setupCoreListeners()
+   │   ├── setupMenuListeners()
+   │   ├── setupModalListeners()
+   │   ├── setupKeyboardListeners()
+   │   ├── setupProgressAndExportListeners()
+   │   └── setupQuizListeners()
+   └── 3e. 判斷是否有已設定的 Google Sheet
+       ├── 有 → loadWords() → handleLoadingComplete()
+       │   ├── 舊版瀏覽器 → showSpeechActivation() → 使用者點擊 → activateSpeech()
+       │   └── 新版瀏覽器 → hideLoading() → applySettings() → startNewRound()
+       └── 無 → handleLoadingComplete(false, true)
+           └── hideLoading() → openSheetSettings()
+```
+
+### 8.2 單字載入流程
+
+```
+1. loadWords(isInitialLoad, callback)
+2. 呼叫 google.script.run.getWordsFromSheetsWithDuplicateDetection()
+3. 後端處理：
+   ├── 3a. getWordsFromSheets() → 從多個工作表載入所有單字
+   ├── 3b. detectDuplicateWords() → 偵測重複
+   └── 3c. 若 autoHandle=true 且有重複 → autoHandleSkippedDuplicatesInMemory()
+4. 前端處理回傳結果：
+   ├── 4a. 自動處理完成 → 顯示通知 → callback(false)
+   ├── 4b. 有重複需手動處理 → showDuplicateModal() → callback(true)
+   └── 4c. 無重複 → callback(false)
+5. handleLoadingComplete() → startNewRound()
+```
+
+---
+
+## 9. 特殊注意事項
+
+### 9.1 iPad 4 相容性
+
+- 所有 JavaScript 必須是 ES5 語法
+- 必須包含 Array Polyfills（forEach、filter、map、find、includes）
+- CSS 變數必須有硬編碼 fallback
+- Web Speech API 在 iOS 10 以下需要使用者互動才能啟用
+- 觸控事件需特別處理（`stopPropagation` 使用 `cancelBubble` 作為 fallback）
+
+### 9.2 Google Apps Script 限制
+
+- 前端透過 `google.script.run` 呼叫後端函式（非同步）
+- 使用 `.withSuccessHandler()` 和 `.withFailureHandler()` 處理回呼
+- HTML Service 透過 `HtmlService.createTemplateFromFile()` 和 `<?!= include() ?>` 引入子檔案
+- 後端 ES6 語法（`const`、`let`、箭頭函式等）是允許的（在 Google 伺服器端執行）
+
+### 9.3 錯誤處理策略
+
+- 載入單字失敗時，自動使用 `getDemoWords()` 示例資料
+- 所有後端函式都有 try-catch 包裝
+- 語音功能失敗不影響核心閃卡功能
+- 網路錯誤時顯示錯誤畫面，提供重新載入按鈕
+
+### 9.4 效能考量
+
+- 圖片使用預加載（當前 + 下一張）
+- 批次匯出以避免一次性處理大量資料
+- 語音播放使用佇列管理，避免重疊
+- 計時器統一管理，避免記憶體洩漏
+
+---
+
+## 10. 預設配置值一覽
+
+| 配置項 | 預設值 |
+|--------|--------|
+| 延遲時間 | 4.5 秒 |
+| 字體大小 | 96px |
+| 字型 | 系統預設 |
+| 反向模式 | 關閉 |
+| 延遲發音 | 關閉 |
+| 英日文語音 | 開啟 |
+| 語音速度 | 0.8 |
+| 字母拼讀 | 關閉 |
+| 中文語音 | 關閉 |
+| 中文語音語系 | zh-TW |
+| 英文語音語系 | en-US |
+| 日文語音語系 | ja-JP |
+| 歷史記錄上限 | 10 筆 |
+| 快速測驗題數 | 10 題 |
+| 批次匯出數量 | 每批 50 個 |
+| 防螢幕休眠 Keep-Alive 間隔 | 30 秒 |
+
+---
+
+## 11. 待移植/重建清單
+
+以下是在新平台重建此應用程式時需要實作的所有模組：
+
+- [ ] **後端資料層**: Google Sheets 讀取/寫入（或替代資料來源）
+- [ ] **單字載入與洗牌**: Fisher-Yates 隨機洗牌演算法
+- [ ] **閃卡輪播引擎**: 自動計時、雙階段顯示（第一語言→第二語言）
+- [ ] **點擊互動與暫時移除**: 點擊標灰→延遲移除→恢復機制
+- [ ] **導覽系統**: 上一個/下一個，含導覽歷史堆疊
+- [ ] **不熟標記系統**: 星號標記、篩選、同步到後端
+- [ ] **語音系統**: 英文/日文/中文朗讀、字母拼讀、延遲發音
+- [ ] **設定系統**: 一般設定、語音設定、試算表設定，LocalStorage 持久化
+- [ ] **測驗系統**: 題目生成、四選一、計分、錯題回顧
+- [ ] **匯出系統**: 批次匯出、覆寫保護、進度顯示
+- [ ] **重複單字偵測與處理**: 自動/手動、記憶體/Sheet 兩種模式
+- [ ] **UI 系統**: 深色主題、模態框、選單、響應式設計
+- [ ] **圖片系統**: 背景圖片顯示、預加載
+- [ ] **防螢幕休眠**: Wake Lock / NoSleep Video / Keep-Alive
+- [ ] **全螢幕支援**: 多瀏覽器相容的全螢幕 API
+- [ ] **鍵盤快捷鍵**: 空白鍵、方向鍵、M/F/D/R/Escape
+- [ ] **舊版瀏覽器相容**: ES5 polyfills、語音啟用流程、CSS fallback
