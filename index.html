@@ -85,7 +85,13 @@
       
       <div class="progress" id="progress-area">
         <span id="progress-text">0/0</span>
-        <span id="difficult-star">★</span>
+        <span id="difficulty-display" class="difficulty-display"><span class="difficulty-star-icon">★</span><span id="difficulty-level">0</span></span>
+      </div>
+      
+      <!-- 篩選指示器 -->
+      <div id="active-filters" class="active-filters" style="display: none;">
+        <span id="active-filters-text"></span>
+        <button id="clear-filters-btn" class="clear-filters-btn">✕ 清除</button>
       </div>
       
       <!-- 恢復按鈕 -->
@@ -103,22 +109,27 @@
           <button id="voice-toggle-btn" title="切換語音播放">🔊</button>
           <button id="pause-btn" title="暫停/恢復">⏸️</button>
           
-          <!-- 新增選單系統 -->
+          <!-- 選單系統（分類整理） -->
           <div class="menu-container">
             <button id="menu-btn" class="menu-toggle">選單 ▼</button>
             <div class="menu-dropdown" id="menu-dropdown">
-              <button id="fullscreen-btn" class="menu-item">全螢幕</button>
-              <button id="restart-btn" class="menu-item">重新載入單字</button>
-              <label class="menu-item" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                <input type="checkbox" id="show-difficult-only" style="width:16px;height:16px;">
-                只顯示不熟單字
-              </label>
+              <div class="menu-section-title">篩選</div>
+              <button id="difficulty-filter-btn" class="menu-item">⭐ 不熟程度篩選</button>
+              <button id="review-filter-btn" class="menu-item">📅 複習時間篩選</button>
+              <div class="menu-divider"></div>
+              <div class="menu-section-title">學習</div>
               <button id="quick-quiz-btn" class="menu-item">🎯 快速測驗 (10題)</button>
               <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
-              <button id="export-btn" class="menu-item">匯出單字</button>
-              <button id="sheet-settings-btn" class="menu-item">單字檔設定</button>
-              <button id="voice-settings-btn" class="menu-item">語音設定</button>
-              <button id="settings-btn" class="menu-item">設定</button>
+              <div class="menu-divider"></div>
+              <div class="menu-section-title">工具</div>
+              <button id="export-btn" class="menu-item">📤 匯出單字</button>
+              <button id="restart-btn" class="menu-item">🔄 重新載入單字</button>
+              <div class="menu-divider"></div>
+              <div class="menu-section-title">設定</div>
+              <button id="sheet-settings-btn" class="menu-item">📋 單字檔設定</button>
+              <button id="voice-settings-btn" class="menu-item">🔊 語音設定</button>
+              <button id="settings-btn" class="menu-item">⚙️ 一般設定</button>
+              <button id="fullscreen-btn" class="menu-item">📺 全螢幕</button>
             </div>
           </div>
         </div>
@@ -172,7 +183,7 @@
           <div class="setting-group" id="sheets-selection-group" style="display: none;">
             <label>選擇工作表 <span id="selected-count">(已選 0 個)</span></label>
             <div class="setting-help" style="margin-bottom: 10px;">
-              <small style="color: #888;">💡 提示：單字數顯示為 "-" 表示該工作表的 F1 欄位未設置或無效，請手動設置該欄位的計算公式</small>
+              <small style="color: #888;">💡 提示：單字數顯示為 "-" 表示該工作表的 A2 欄位未設置或無效，請手動設置該欄位的計算公式</small>
             </div>
             <div class="sheets-list" id="sheets-list">
               <!-- 工作表清單將在這裡動態生成 -->
@@ -355,7 +366,7 @@
             <label>匯出內容</label>
             <div class="setting-control">
               <label><input type="radio" name="export-type" id="export-type-remaining" value="remaining" checked> 剩餘單字</label>
-              <label><input type="radio" name="export-type" id="export-type-difficult" value="difficult"> 不熟單字</label>
+              <label><input type="radio" name="export-type" id="export-type-difficult" value="difficult"> 不熟單字（★1 以上）</label>
             </div>
           </div>
           <div class="setting-group">
@@ -450,6 +461,106 @@
           <button id="confirm-duplicate-action" class="primary-btn" style="display: none;">確認操作</button>
           <button id="next-duplicate" class="primary-btn" style="display: none;">下一個</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 不熟程度篩選模態框 -->
+  <div id="difficulty-filter-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⭐ 不熟程度篩選</h2>
+        <button id="close-difficulty-filter" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <div class="review-filter-options" id="difficulty-filter-options">
+            <label class="review-filter-option">
+              <input type="radio" name="difficulty-filter" value="0" checked>
+              <span class="review-filter-label">全部（不篩選）</span>
+              <span class="review-filter-count" id="diff-count-0"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="difficulty-filter" value="1">
+              <span class="review-filter-label">★ 1 以上</span>
+              <span class="review-filter-count" id="diff-count-1"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="difficulty-filter" value="3">
+              <span class="review-filter-label">★★★ 3 以上</span>
+              <span class="review-filter-count" id="diff-count-3"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="difficulty-filter" value="5">
+              <span class="review-filter-label">★★★★★ 5 以上</span>
+              <span class="review-filter-count" id="diff-count-5"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="difficulty-filter" value="7">
+              <span class="review-filter-label">★★★★★★★ 7 以上</span>
+              <span class="review-filter-count" id="diff-count-7"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="difficulty-filter" value="10">
+              <span class="review-filter-label">★★★★★★★★★★ 10（最不熟）</span>
+              <span class="review-filter-count" id="diff-count-10"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-difficulty-filter" class="secondary-btn">取消</button>
+        <button id="apply-difficulty-filter" class="primary-btn">套用篩選</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 複習時間篩選模態框 -->
+  <div id="review-filter-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📅 複習時間篩選</h2>
+        <button id="close-review-filter" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <div class="review-filter-options" id="review-filter-options">
+            <label class="review-filter-option">
+              <input type="radio" name="review-filter" value="all" checked>
+              <span class="review-filter-label">全部（不篩選）</span>
+              <span class="review-filter-count" id="review-count-all"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="review-filter" value="never">
+              <span class="review-filter-label">從未複習過</span>
+              <span class="review-filter-count" id="review-count-never"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="review-filter" value="2weeks">
+              <span class="review-filter-label">超過 2 週未複習</span>
+              <span class="review-filter-count" id="review-count-2weeks"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="review-filter" value="1month">
+              <span class="review-filter-label">超過 1 個月未複習</span>
+              <span class="review-filter-count" id="review-count-1month"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="review-filter" value="3months">
+              <span class="review-filter-label">超過 3 個月未複習</span>
+              <span class="review-filter-count" id="review-count-3months"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="review-filter" value="6months">
+              <span class="review-filter-label">超過 6 個月未複習</span>
+              <span class="review-filter-count" id="review-count-6months"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-review-filter" class="secondary-btn">取消</button>
+        <button id="apply-review-filter" class="primary-btn">套用篩選</button>
       </div>
     </div>
   </div>

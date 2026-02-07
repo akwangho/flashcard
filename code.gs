@@ -40,46 +40,73 @@
 
 /**
 * 計算工作表中的有效單字數量
-* 直接讀取第1行第6欄（F1）的值，該欄位應包含自動計算的行數
+* 讀取第2行第1欄（A2）的值，該欄位應包含總數
 * 如果讀取不到或值無效，返回 null
 */
 function countValidWords(sheet) {
   try {
-    // 讀取第1行第6欄（F1）的值
-    const countValue = sheet.getRange(1, 6).getValue();
+    // 讀取第2行第1欄（A2）的值
+    const countValue = sheet.getRange(2, 1).getValue();
     
     // 檢查值是否存在
     if (countValue === null || countValue === undefined || countValue === '') {
-      console.log('工作表', sheet.getName(), '的 F1 欄位無值');
+      console.log('工作表', sheet.getName(), '的 A2 欄位無值');
       return null;
     }
     
     // 轉換為數字並驗證
     const wordCount = Number(countValue);
     if (isNaN(wordCount) || wordCount < 0) {
-      console.log('工作表', sheet.getName(), '的 F1 欄位值無效:', countValue);
+      console.log('工作表', sheet.getName(), '的 A2 欄位值無效:', countValue);
       return null;
     }
     
-    console.log('工作表', sheet.getName(), '從 F1 讀取到行數:', wordCount);
+    console.log('工作表', sheet.getName(), '從 A2 讀取到行數:', wordCount);
     return Math.floor(wordCount); // 取整數
   } catch (dataError) {
-    console.error('讀取工作表 F1 欄位時發生錯誤:', sheet.getName(), dataError);
+    console.error('讀取工作表 A2 欄位時發生錯誤:', sheet.getName(), dataError);
     return null;
   }
 }
 
   /**
   * 建立單字物件
+  * 新版格式：A=總數, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期
   */
   function createWordObject(rowData, id, sheetName, rowIndex) {
+    // 計算不熟程度（數 * 的數量，0-10）
+    let difficultyLevel = 0;
+    if (rowData[3]) {
+      const diffStr = rowData[3].toString().trim();
+      for (let i = 0; i < diffStr.length; i++) {
+        if (diffStr[i] === '*') difficultyLevel++;
+      }
+      if (difficultyLevel > 10) difficultyLevel = 10;
+    }
+
+    // 讀取 G 欄（第7欄，index 6）的最後複習日期
+    let lastReviewDate = '';
+    if (rowData.length > 6 && rowData[6]) {
+      const rawValue = rowData[6];
+      // 如果是 Date 物件，轉換為 YYYY-MM-DD 格式
+      if (rawValue instanceof Date) {
+        const year = rawValue.getFullYear();
+        const month = String(rawValue.getMonth() + 1).padStart(2, '0');
+        const day = String(rawValue.getDate()).padStart(2, '0');
+        lastReviewDate = year + '-' + month + '-' + day;
+      } else {
+        lastReviewDate = rawValue.toString().trim();
+      }
+    }
+
     return {
       id: id,
-      english: rowData[0].toString().trim(),
-      chinese: rowData[1].toString().trim(),
-      difficult: rowData[2] && rowData[2].toString().trim() === '*',
-      image: rowData[3] ? rowData[3].toString().trim() : '', // 第4列：圖片URL
-      imageFormula: rowData[4] ? rowData[4].toString().trim() : '', // 第5列：圖片顯示公式
+      english: rowData[1].toString().trim(),       // B 欄：單字
+      chinese: rowData[2].toString().trim(),       // C 欄：翻譯
+      difficultyLevel: difficultyLevel,            // D 欄：不熟程度（0-10）
+      image: rowData[4] ? rowData[4].toString().trim() : '',       // E 欄：圖片URL
+      imageFormula: rowData[5] ? rowData[5].toString().trim() : '', // F 欄：圖片顯示公式
+      lastReviewDate: lastReviewDate,              // G 欄：最後複習日期
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
@@ -90,13 +117,13 @@ function countValidWords(sheet) {
   */
   function getDemoWords() {
     return [
-      {id: 0, english: 'Hello', chinese: '你好', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 0},
-      {id: 1, english: 'World', chinese: '世界', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 1},
-      {id: 2, english: 'Apple', chinese: '蘋果', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 2},
-      {id: 3, english: 'Book', chinese: '書', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 3},
-      {id: 4, english: 'Computer', chinese: '電腦', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 4},
-      {id: 5, english: 'Friend', chinese: '朋友', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 5},
-      {id: 6, english: 'Happy', chinese: '快樂', difficult: false, image: '', imageFormula: '', sheetName: 'Demo', originalRowIndex: 6}
+      {id: 0, english: 'Hello', chinese: '你好', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 2},
+      {id: 1, english: 'World', chinese: '世界', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 3},
+      {id: 2, english: 'Apple', chinese: '蘋果', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 4},
+      {id: 3, english: 'Book', chinese: '書', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 5},
+      {id: 4, english: 'Computer', chinese: '電腦', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 6},
+      {id: 5, english: 'Friend', chinese: '朋友', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 7},
+      {id: 6, english: 'Happy', chinese: '快樂', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 8}
     ];
   }
 
@@ -106,9 +133,10 @@ function countValidWords(sheet) {
   function findWordRowIndex(sheet, englishWord, chineseWord) {
     const data = sheet.getDataRange().getValues();
     
-    for (let i = 0; i < data.length; i++) {
-      const rowEnglish = data[i][0] ? data[i][0].toString().trim() : '';
-      const rowChinese = data[i][1] ? data[i][1].toString().trim() : '';
+    // 從第2行開始搜尋（跳過標題列），B欄=單字，C欄=翻譯
+    for (let i = 1; i < data.length; i++) {
+      const rowEnglish = data[i][1] ? data[i][1].toString().trim() : '';
+      const rowChinese = data[i][2] ? data[i][2].toString().trim() : '';
       
       if (rowEnglish.toLowerCase() === englishWord.toLowerCase().trim() && 
           rowChinese.toLowerCase() === chineseWord.toLowerCase().trim()) {
@@ -158,7 +186,7 @@ function countValidWords(sheet) {
         
         const wordCount = countValidWords(sheet);
         if (wordCount === null) {
-          console.log('工作表', sheetName, '的單字數無法取得（F1 欄位無值或無效）');
+          console.log('工作表', sheetName, '的單字數無法取得（A2 欄位無值或無效）');
         } else {
           console.log('工作表', sheetName, '有', wordCount, '個單字');
         }
@@ -212,8 +240,9 @@ function countValidWords(sheet) {
         const data = sheet.getDataRange().getValues();
         let sheetWordCount = 0;
         
-        for (let j = 0; j < data.length; j++) {
-          if (data[j][0] && data[j][1]) { // 確保兩欄都有資料
+        // 從第2行開始（跳過標題列），檢查 B欄(單字) 和 C欄(翻譯) 是否有資料
+        for (let j = 1; j < data.length; j++) {
+          if (data[j][1] && data[j][2]) {
             allWords.push(createWordObject(data[j], currentId++, sheetName, j));
             sheetWordCount++;
           }
@@ -245,11 +274,12 @@ function countValidWords(sheet) {
   }
 
   /**
-  * 標註/取消標註不熟單字
+  * 更新單字不熟程度（多層級 0-10）
+  * difficultyLevel: 0 表示已熟悉，1-10 表示不熟程度（* 的數量）
   */
-  function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
+  function updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel) {
     try {
-      console.log('標註單字，Sheet ID:', sheetId, '工作表:', sheetName, '行索引:', rowIndex, '是否困難:', isDifficult);
+      console.log('更新不熟程度，Sheet ID:', sheetId, '工作表:', sheetName, '行索引:', rowIndex, '不熟程度:', difficultyLevel);
       
       if (!sheetId || !sheetName) {
         console.error('缺少必要參數：sheetId 或 sheetName');
@@ -265,20 +295,31 @@ function countValidWords(sheet) {
       }
       
       const row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
-      const col = 3; // 第三欄
+      const col = 4; // D 欄（第四欄）
       
-      if (isDifficult) {
-        sheet.getRange(row, col).setValue('*');
-      } else {
-        sheet.getRange(row, col).setValue('');
+      // 產生對應數量的 * 符號
+      let stars = '';
+      const level = Math.max(0, Math.min(10, parseInt(difficultyLevel) || 0));
+      for (let i = 0; i < level; i++) {
+        stars += '*';
       }
       
-      console.log('成功標註單字');
+      sheet.getRange(row, col).setValue(stars);
+      
+      console.log('成功更新不熟程度為', level);
       return true;
     } catch (error) {
-      console.error('標註單字失敗:', error);
+      console.error('更新不熟程度失敗:', error);
       return false;
     }
+  }
+
+  /**
+  * 向後兼容：舊版 markWordAsDifficult 轉接到新版
+  */
+  function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
+    const level = isDifficult ? 1 : 0;
+    return updateWordDifficulty(sheetId, sheetName, rowIndex, level);
   }
 
   /**
@@ -335,17 +376,30 @@ function countValidWords(sheet) {
         targetSheet = ss.insertSheet(sheetName);
       }
       
+      // 寫入標題列（如果是新工作表或覆寫模式）
+      if (isFirstBatch || overwrite || !sheetExists) {
+        targetSheet.appendRow(['總數', '單字', '翻譯', '不熟程度', '圖片URL']);
+      }
+      
       // 寫入資料
       console.log('開始寫入', words.length, '個單字');
       for (let i = 0; i < words.length; i++) {
         const w = words[i];
         const imageUrl = w.image || '';
         
+        // 產生不熟程度星號
+        let stars = '';
+        const level = w.difficultyLevel || 0;
+        for (let j = 0; j < level; j++) {
+          stars += '*';
+        }
+        
         targetSheet.appendRow([
-          w.english || '',           // 第1列：英文
-          w.chinese || '',           // 第2列：中文
-          w.difficult ? '*' : '',    // 第3列：難度標記
-          imageUrl                   // 第4列：圖片URL
+          (i === 0 && (isFirstBatch || overwrite || !sheetExists)) ? words.length : '',  // A 欄：第一個資料列放總數
+          w.english || '',           // B 欄：單字
+          w.chinese || '',           // C 欄：翻譯
+          stars,                     // D 欄：不熟程度
+          imageUrl                   // E 欄：圖片URL
         ]);
       }
       
@@ -372,6 +426,69 @@ function countValidWords(sheet) {
         error: 'EXPORT_ERROR',
         message: '匯出失敗：' + error.message
       };
+    }
+  }
+
+  // ===========================================
+  // 複習日期更新
+  // ===========================================
+
+  /**
+  * 批次更新複習日期到 Google Sheet G 欄（第7欄）
+  * @param {string} sheetId - Google Sheet ID
+  * @param {Array} updates - 更新陣列，每項 { sheetName, rowIndex, date }
+  * @returns {Object} 結果物件
+  */
+  function batchUpdateReviewDates(sheetId, updates) {
+    try {
+      console.log('批次更新複習日期，Sheet ID:', sheetId, '更新數量:', updates.length);
+
+      if (!updates || updates.length === 0) {
+        return { success: true, updatedCount: 0 };
+      }
+
+      const cleanSheetId = validateAndCleanSheetId(sheetId);
+      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
+
+      // 按工作表名稱分組
+      const groupedBySheet = {};
+      for (let i = 0; i < updates.length; i++) {
+        const update = updates[i];
+        if (!groupedBySheet[update.sheetName]) {
+          groupedBySheet[update.sheetName] = [];
+        }
+        groupedBySheet[update.sheetName].push(update);
+      }
+
+      let updatedCount = 0;
+
+      for (const sheetName in groupedBySheet) {
+        const sheetUpdates = groupedBySheet[sheetName];
+        const sheet = spreadsheet.getSheetByName(sheetName);
+
+        if (!sheet) {
+          console.error('找不到工作表:', sheetName);
+          continue;
+        }
+
+        for (let i = 0; i < sheetUpdates.length; i++) {
+          try {
+            const update = sheetUpdates[i];
+            const row = update.rowIndex + 1; // 轉換為 1-based
+            const col = 7; // G 欄
+            sheet.getRange(row, col).setValue(update.date);
+            updatedCount++;
+          } catch (cellError) {
+            console.error('更新單一複習日期失敗:', sheetUpdates[i], cellError);
+          }
+        }
+      }
+
+      console.log('成功更新', updatedCount, '個複習日期');
+      return { success: true, updatedCount: updatedCount };
+    } catch (error) {
+      console.error('批次更新複習日期失敗:', error);
+      return { success: false, error: error.message, updatedCount: 0 };
     }
   }
 
@@ -497,7 +614,7 @@ function countValidWords(sheet) {
         
         if (foundRowIndex !== -1) {
           const targetRow = foundRowIndex + 1; // 轉換為1-based索引
-          targetSheet.getRange(targetRow, 2).setValue(mergedDefinition); // 第2欄是中文定義
+          targetSheet.getRange(targetRow, 3).setValue(mergedDefinition); // C 欄（第3欄）是中文定義
           console.log('已更新目標定義:', targetWord.sheetName, '第', targetRow, '行');
         } else {
           console.error('找不到目標單字:', targetWord.english, '-', targetWord.chinese);

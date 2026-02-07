@@ -127,8 +127,7 @@
     };
     
     // 功能狀態
-    this.difficultWords = [];
-    this.showDifficultOnly = false;
+    this.difficultyFilter = 0; // 0=不篩選, 1-10=最低不熟程度
     this.availableSheets = [];
     this.listenersSetup = false;
     this.currentSpreadsheetName = null;
@@ -136,6 +135,12 @@
     this.currentDuplicateIndex = 0;
     this.duplicateProcessingResults = [];
     this.progressTimer = null;
+    
+    // 複習時間篩選相關
+    this.reviewFilter = 'all'; // 'all', 'never', '2weeks', '1month', '3months', '6months'
+    this.reviewedInSession = {}; // key: "sheetName:rowIndex", value: "YYYY-MM-DD"
+    this.reviewSyncPending = false;
+    this.reviewSyncThreshold = 20; // 每累積 20 個就同步一次
     
     // 圖片預加載管理
     this.preloadedImages = {};
@@ -727,7 +732,6 @@
           
           if (result && result.words && result.words.length > 0) {
             self.words = result.words;
-            self.difficultWords = self.words.filter(function(w) { return w.difficult; }).map(function(w) { return w.id; });
             
             if (result.autoHandled) {
               console.log('重複單字已自動處理:', result.autoResults);
@@ -767,7 +771,6 @@
         .withSuccessHandler(function(words) {
           if (words && words.length > 0) {
             self.words = words;
-            self.difficultWords = words.filter(function(w) { return w.difficult; }).map(function(w) { return w.id; });
             callback(false);
           } else {
             throw new Error('沒有找到單字資料');
@@ -950,6 +953,14 @@
           console.log('匯出按鈕被點擊');
           self.closeMenu();
           self.openExportModal();
+        } else if (e.target.id === 'difficulty-filter-btn') {
+          console.log('不熟程度篩選按鈕被點擊');
+          self.closeMenu();
+          self.openDifficultyFilterModal();
+        } else if (e.target.id === 'review-filter-btn') {
+          console.log('複習時間篩選按鈕被點擊');
+          self.closeMenu();
+          self.openReviewFilterModal();
         } else if (e.target.id === 'quick-quiz-btn') {
           console.log('快速測驗按鈕被點擊');
           self.closeMenu();
@@ -1063,13 +1074,7 @@
   // 開始新回合
   FlashcardApp.prototype.startNewRound = function() {
     this.shuffleArray(this.words);
-    if (this.showDifficultOnly) {
-      this.currentWords = this.words.filter(function(w) { 
-        return this.difficultWords.includes(w.id); 
-      }, this);
-        } else {
-      this.currentWords = this.words.slice();
-    }
+    this.currentWords = this.applyAllFilters(this.words);
     this.currentIndex = 0;
     this.removedWords = [];
     this.navigationHistory = [];
@@ -1078,22 +1083,32 @@
     this.isPaused = false;
     this.hideRestoreButton();
           
-          if (this.currentWords.length === 0) {
-      if (this.showDifficultOnly) {
-        alert('沒有不熟單字！');
-        this.showDifficultOnly = false;
-        var checkbox = document.getElementById('show-difficult-only');
-        if (checkbox) checkbox.checked = false;
-        this.currentWords = this.words.slice();
-          }
+    if (this.currentWords.length === 0) {
+      if (this.difficultyFilter > 0 || this.reviewFilter !== 'all') {
+        var filterMsg = '';
+        if (this.difficultyFilter > 0 && this.reviewFilter !== 'all') {
+          filterMsg = '沒有同時符合「不熟程度」和「複習時間」兩個篩選條件的單字！';
+        } else if (this.difficultyFilter > 0) {
+          filterMsg = '沒有符合不熟程度 ★' + this.difficultyFilter + ' 以上的單字！';
+        } else {
+          filterMsg = '沒有符合複習時間篩選條件的單字！';
         }
+        alert(filterMsg);
+        this.difficultyFilter = 0;
+        this.reviewFilter = 'all';
+        this.updateDifficultyFilterButtonText();
+        this.updateReviewFilterButtonText();
+        this.currentWords = this.words.slice();
+      }
+    }
         
-        this.displayCurrentWord();
-        this.updateButtonStates();
+    this.displayCurrentWord();
+    this.updateButtonStates();
     this.updateVoiceButtonState();
     this.updatePauseButtonState();
     this.updateFullscreenButtonText();
-    this.renderDifficultStar();
+    this.renderDifficultyLevel();
+    this.updateActiveFilterDisplay();
   };
   
   // 洗牌
@@ -1178,7 +1193,7 @@
       
     }, 100);
     
-    this.renderDifficultStar();
+    this.renderDifficultyLevel();
     this.updateProgress();
     this.updateButtonStates();
   };
@@ -1221,6 +1236,8 @@
       this.closeMenu();
     } else {
       console.log('開啟選單');
+      // 開啟選單時同步複習日期
+      this.syncReviewDates();
       menuBtn.classList.add('active');
       menuDropdown.classList.add('show');
     }
@@ -1632,12 +1649,13 @@
         self.closeExportModal();
         self.closeOverwriteConfirmModal();
         self.closeDuplicateModal();
+        self.closeDifficultyFilterModal();
         self.closeMenu();
       };
     }
-    // F5 鍵 (keyCode 116) 跟 S 鍵 (keyCode 83)  - 標注不熟單字
+    // F5 鍵 (keyCode 116) 跟 S 鍵 (keyCode 83)  - 增加不熟程度
     else if (keyCode === 116 || code === 'F5' || keyCode === 83 || code === 'KeyS') {
-      keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
+      keyActions['action'] = function() { self.increaseDifficulty(); };
     }
 
       // 執行對應的動作
@@ -1664,33 +1682,29 @@
     console.log('設置進度區和匯出事件監聽器...');
     var self = this;
   
-    // 修復：進度區點擊標註/取消不熟單字
+    // 進度區點擊：增加不熟程度
     var progressArea = document.getElementById('progress-area');
     if (progressArea) {
-      // 移除舊的事件監聽器
       var newProgressArea = progressArea.cloneNode(true);
       progressArea.parentNode.replaceChild(newProgressArea, progressArea);
   
-      newProgressArea.addEventListener('click', function() {
-        console.log('進度區被點擊，切換困難單字狀態');
-        self.toggleDifficultCurrentWord();
+      newProgressArea.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'clear-filters-btn') return;
+        console.log('進度區被點擊，增加不熟程度');
+        self.increaseDifficulty();
       });
       console.log('進度區事件監聽器設置完成');
-      } else {
+    } else {
       console.error('找不到 progress-area 元素');
     }
-  
-    // 只顯示不熟單字checkbox
-    var showDifficultCheckbox = document.getElementById('show-difficult-only');
-    if (showDifficultCheckbox) {
-      showDifficultCheckbox.addEventListener('change', function(e) {
-        console.log('切換只顯示不熟單字:', e.target.checked);
-        self.showDifficultOnly = e.target.checked;
-        self.filterWordsByDifficult();
+
+    // 篩選指示器的清除按鈕
+    var clearFiltersBtn = document.getElementById('clear-filters-btn');
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        self.clearAllFilters();
       });
-      console.log('不熟單字過濾器事件監聽器設置完成');
-    } else {
-      console.error('找不到 show-difficult-only 元素');
     }
   
     // 匯出相關事件
@@ -1892,84 +1906,89 @@
     }
   };
   
-  // 標註困難單字
-  FlashcardApp.prototype.toggleDifficultCurrentWord = function() {
+  // 增加不熟程度（+1，最高10）
+  FlashcardApp.prototype.increaseDifficulty = function() {
     if (this.currentWords.length === 0) return;
     
     var currentWord = this.currentWords[this.currentIndex];
-      if (!currentWord) return;
-      
-    var id = currentWord.id;
-    var isDifficult = this.difficultWords.includes(id);
+    if (!currentWord) return;
     
-      if (isDifficult) {
-      this.difficultWords = this.difficultWords.filter(function(did) { return did !== id; });
-        } else {
-        this.difficultWords.push(id);
-      }
-      
-      // 後端同步
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
-      var rowIndex = currentWord.originalRowIndex;
-        if (rowIndex === undefined) {
-        rowIndex = this.words.findIndex(function(w) {
-          return w.english === currentWord.english && w.chinese === currentWord.chinese;
-        });
-        }
-        
-        if (rowIndex !== -1) {
+    // 增加不熟程度
+    var newLevel = Math.min(10, (currentWord.difficultyLevel || 0) + 1);
+    currentWord.difficultyLevel = newLevel;
+    
+    // 同步到 words 主陣列
+    var mainWord = this.words.find(function(w) { return w.id === currentWord.id; });
+    if (mainWord) mainWord.difficultyLevel = newLevel;
+    
+    // 後端同步
+    this.syncDifficultyToBackend(currentWord);
+    
+    this.renderDifficultyLevel();
+    console.log('增加不熟程度:', currentWord.english, '→ ★' + newLevel);
+  };
+
+  // 減少不熟程度（-1，最低0）
+  FlashcardApp.prototype.decreaseDifficulty = function(word) {
+    if (!word) return;
+    
+    var newLevel = Math.max(0, (word.difficultyLevel || 0) - 1);
+    word.difficultyLevel = newLevel;
+    
+    // 同步到 words 主陣列
+    var mainWord = this.words.find(function(w) { return w.id === word.id; });
+    if (mainWord) mainWord.difficultyLevel = newLevel;
+    
+    // 後端同步
+    this.syncDifficultyToBackend(word);
+    
+    console.log('減少不熟程度:', word.english, '→ ★' + newLevel);
+  };
+
+  // 同步不熟程度到後端
+  FlashcardApp.prototype.syncDifficultyToBackend = function(word) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      var rowIndex = word.originalRowIndex;
+      if (rowIndex !== undefined && rowIndex !== -1) {
         var sheetId = this.sheetSettings.sheetId;
-        var sheetName = currentWord.sheetName || 'Sheet1';
-        var markValue = isDifficult ? '' : '*';
-          console.log('標註單字:', currentWord.english, '行索引:', rowIndex, '標記值:', markValue);
-          google.script.run.markWordAsDifficult(sheetId, sheetName, rowIndex, markValue);
-        }
+        var sheetName = word.sheetName || 'Sheet1';
+        google.script.run.updateWordDifficulty(sheetId, sheetName, rowIndex, word.difficultyLevel);
       }
-  
-    // 處理「只顯示不熟單字」模式
-      if (this.showDifficultOnly && isDifficult) {
-        this.currentWords.splice(this.currentIndex, 1);
-        
-        if (this.currentIndex >= this.currentWords.length) {
-          this.currentIndex = 0;
-        }
-        
-        if (this.currentWords.length === 0) {
-          alert('恭喜！沒有不熟單字了！');
-          this.showDifficultOnly = false;
-        var checkbox = document.getElementById('show-difficult-only');
-        if (checkbox) checkbox.checked = false;
-          this.startNewRound();
-        } else {
-          this.displayCurrentWord();
-        }
-      } else {
-        this.renderDifficultStar();
-      }
+    }
+  };
+
+  // 向後兼容：toggleDifficultCurrentWord
+  FlashcardApp.prototype.toggleDifficultCurrentWord = function() {
+    this.increaseDifficulty();
   };
   
-  // 渲染困難星星
-  FlashcardApp.prototype.renderDifficultStar = function() {
+  // 渲染不熟程度顯示
+  FlashcardApp.prototype.renderDifficultyLevel = function() {
     var currentWord = this.currentWords[this.currentIndex];
-    var star = document.getElementById('difficult-star');
-    if (star && currentWord && this.difficultWords.includes(currentWord.id)) {
-        star.classList.add('visible');
-    } else if (star) {
-        star.classList.remove('visible');
-      }
+    var display = document.getElementById('difficulty-display');
+    var levelEl = document.getElementById('difficulty-level');
+    
+    if (!display || !levelEl) return;
+    
+    var level = (currentWord && currentWord.difficultyLevel) ? currentWord.difficultyLevel : 0;
+    levelEl.textContent = level;
+    
+    // 移除所有等級 class
+    for (var i = 0; i <= 10; i++) {
+      display.className = display.className.replace('difficulty-level-' + i, '').trim();
+    }
+    display.className = display.className.replace(/\s+/g, ' ').trim();
+    display.classList.add('difficulty-display');
+    display.classList.add('difficulty-level-' + level);
   };
     
-  // 過濾困難單字
-  FlashcardApp.prototype.filterWordsByDifficult = function() {
-      if (this.showDifficultOnly) {
-      var self = this;
-      this.currentWords = this.words.filter(function(w) { return self.difficultWords.includes(w.id); });
-        this.currentIndex = 0;
-      } else {
-      this.currentWords = this.words.slice();
-        this.currentIndex = 0;
-      }
-      this.displayCurrentWord();
+  // 重新套用篩選（用於切換篩選條件後）
+  FlashcardApp.prototype.reapplyFilters = function() {
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+    this.displayCurrentWord();
+    this.updateActiveFilterDisplay();
   };
   
   // 處理flashcard點擊事件（檢查點擊位置）
@@ -1992,6 +2011,7 @@
           element.classList.contains('muted-content') ||
           element.classList.contains('muted-icon') ||
           element.classList.contains('muted-text') ||
+          element.classList.contains('active-filters') ||
           element.tagName === 'BUTTON')) {
         return; // 如果點擊的是控制元素，不處理
       }
@@ -2071,6 +2091,9 @@
       chineseElement.classList.add('show');
       this.showingChinese = true;
       
+      // 標記該單字為已複習
+      this.markWordAsReviewed(currentWord);
+      
       // 同時顯示圖片（如果有的話）- 使用預加載的圖片
       var flashcardDiv = document.getElementById('flashcard');
       var hasImage = currentWord.image && currentWord.image !== '';
@@ -2140,6 +2163,9 @@
     
     var word = this.pendingRemoval.word;
     var index = this.pendingRemoval.index;
+    
+    // 暫時移除單字時，減少不熟程度 -1
+    this.decreaseDifficulty(word);
     
     this.removedWords.push(word);
     this.currentWords.splice(index, 1);
@@ -2247,6 +2273,9 @@
     chineseElement.textContent = secondText;
     chineseElement.classList.add('show');
     this.showingChinese = true;
+    
+    // 標記該單字為已複習
+    this.markWordAsReviewed(currentWord);
     
     // 設定下一個單字的計時器
     this.displayTimer = setTimeout(function() {
@@ -2821,7 +2850,7 @@
       self.isTransitioning = false;
       
     }, 300);
-    this.renderDifficultStar();
+    this.renderDifficultyLevel();
   };
   
   // 上一個單字
@@ -2894,7 +2923,7 @@
       self.isTransitioning = false;
       
     }, 300);
-    this.renderDifficultStar();
+    this.renderDifficultyLevel();
   };
   
   // 儲存導航狀態
@@ -3769,9 +3798,8 @@ FlashcardApp.prototype.processBatch = function() {
     var exportWords = [];
     
       if (type === 'difficult') {
-      var self = this;
       exportWords = this.words.filter(function(w) { 
-        return self.difficultWords.includes(w.id); 
+        return (w.difficultyLevel || 0) >= 1; 
       });
       } else {
         exportWords = this.currentWords;
@@ -3784,9 +3812,9 @@ FlashcardApp.prototype.processBatch = function() {
       exportData.push({
         english: w.english,
         chinese: w.chinese,
-        difficult: this.difficultWords.includes(w.id),
-        image: w.image || '',        // 第4列：圖片URL
-        imageFormula: w.imageFormula || ''  // 第5列：圖片顯示公式
+        difficultyLevel: w.difficultyLevel || 0,
+        image: w.image || '',        // E 欄：圖片URL
+        imageFormula: w.imageFormula || ''  // F 欄：圖片顯示公式
       });
     }
       
@@ -4606,7 +4634,6 @@ FlashcardApp.prototype.processBatch = function() {
         if (result.success) {
           // 更新當前單字陣列
           this.words = result.processedWords;
-        this.difficultWords = this.words.filter(function(w) { return w.difficult; }).map(function(w) { return w.id; });
           
           // 顯示成功結果
         var modal = document.getElementById('duplicate-words-modal');
@@ -5250,6 +5277,518 @@ FlashcardApp.prototype.processBatch = function() {
     });
   };
   
+  // ===========================================
+  // 複習時間篩選功能
+  // ===========================================
+
+  // 取得今天的日期字串 YYYY-MM-DD（ES5 兼容）
+  FlashcardApp.prototype.getTodayDateString = function() {
+    var now = new Date();
+    var year = now.getFullYear();
+    var month = now.getMonth() + 1;
+    var day = now.getDate();
+    if (month < 10) month = '0' + month;
+    if (day < 10) day = '0' + day;
+    return year + '-' + month + '-' + day;
+  };
+
+  // 標記單字為已複習（記錄到記憶體，稍後批次同步）
+  FlashcardApp.prototype.markWordAsReviewed = function(word) {
+    if (!word || !word.sheetName || word.sheetName === 'Demo') return;
+    
+    var key = word.sheetName + ':' + word.originalRowIndex;
+    var today = this.getTodayDateString();
+    
+    // 避免同一輪重複記錄
+    if (this.reviewedInSession[key] === today) return;
+    
+    this.reviewedInSession[key] = today;
+    
+    // 同時更新記憶體中的 word 物件
+    word.lastReviewDate = today;
+    
+    // 檢查是否達到同步閾值
+    var count = 0;
+    for (var k in this.reviewedInSession) {
+      if (this.reviewedInSession.hasOwnProperty(k)) {
+        count++;
+      }
+    }
+    
+    if (count >= this.reviewSyncThreshold && !this.reviewSyncPending) {
+      console.log('已複習單字達到', this.reviewSyncThreshold, '個，自動同步');
+      this.syncReviewDates();
+    }
+  };
+
+  // 批次同步複習日期到 Google Sheet
+  FlashcardApp.prototype.syncReviewDates = function() {
+    var keys = [];
+    for (var k in this.reviewedInSession) {
+      if (this.reviewedInSession.hasOwnProperty(k)) {
+        keys.push(k);
+      }
+    }
+    
+    if (keys.length === 0 || this.reviewSyncPending) return;
+    if (!this.sheetSettings.sheetId) return;
+    
+    console.log('同步複習日期，數量:', keys.length);
+    this.reviewSyncPending = true;
+    
+    var updates = [];
+    for (var i = 0; i < keys.length; i++) {
+      var parts = keys[i].split(':');
+      updates.push({
+        sheetName: parts[0],
+        rowIndex: parseInt(parts[1], 10),
+        date: this.reviewedInSession[keys[i]]
+      });
+    }
+    
+    var self = this;
+    var currentBatch = {}; // 保存目前這批的 keys
+    for (var j = 0; j < keys.length; j++) {
+      currentBatch[keys[j]] = true;
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        console.log('複習日期同步結果:', result);
+        self.reviewSyncPending = false;
+        
+        // 只清除已成功同步的項目
+        if (result && result.success) {
+          for (var k in currentBatch) {
+            if (currentBatch.hasOwnProperty(k)) {
+              delete self.reviewedInSession[k];
+            }
+          }
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('複習日期同步失敗:', error);
+        self.reviewSyncPending = false;
+      })
+      .batchUpdateReviewDates(this.sheetSettings.sheetId, updates);
+  };
+
+  // 套用所有篩選條件（不熟單字 + 複習時間）
+  FlashcardApp.prototype.applyAllFilters = function(words) {
+    var filtered = words.slice();
+    var self = this;
+    
+    // 篩選 1：不熟程度篩選
+    if (this.difficultyFilter > 0) {
+      filtered = filtered.filter(function(w) {
+        return (w.difficultyLevel || 0) >= self.difficultyFilter;
+      });
+    }
+    
+    // 篩選 2：複習時間篩選
+    if (this.reviewFilter !== 'all') {
+      var cutoffDate = this.getFilterCutoffDate(this.reviewFilter);
+      filtered = filtered.filter(function(w) {
+        if (self.reviewFilter === 'never') {
+          return !w.lastReviewDate || w.lastReviewDate === '';
+        }
+        // 從未複習的單字也包含在時間篩選中（視為更久沒複習）
+        if (!w.lastReviewDate || w.lastReviewDate === '') {
+          return true;
+        }
+        // 比較日期字串 YYYY-MM-DD（字串比較即可）
+        return w.lastReviewDate < cutoffDate;
+      });
+    }
+    
+    return filtered;
+  };
+
+  // 取得篩選截止日期
+  FlashcardApp.prototype.getFilterCutoffDate = function(filterType) {
+    var now = new Date();
+    var cutoff;
+    
+    switch (filterType) {
+      case '2weeks':
+        cutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+        break;
+      case '1month':
+        cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '3months':
+        cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case '6months':
+        cutoff = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        return '9999-12-31'; // 不篩選
+    }
+    
+    var year = cutoff.getFullYear();
+    var month = cutoff.getMonth() + 1;
+    var day = cutoff.getDate();
+    if (month < 10) month = '0' + month;
+    if (day < 10) day = '0' + day;
+    return year + '-' + month + '-' + day;
+  };
+
+  // 計算各複習時間篩選條件符合的單字數量
+  FlashcardApp.prototype.countWordsForFilter = function(filterType) {
+    var words = this.words;
+    
+    // 如果同時啟用了不熟程度篩選，先套用
+    if (this.difficultyFilter > 0) {
+      var minLevel = this.difficultyFilter;
+      words = words.filter(function(w) {
+        return (w.difficultyLevel || 0) >= minLevel;
+      });
+    }
+    
+    if (filterType === 'all') {
+      return words.length;
+    }
+    
+    if (filterType === 'never') {
+      return words.filter(function(w) {
+        return !w.lastReviewDate || w.lastReviewDate === '';
+      }).length;
+    }
+    
+    var cutoffDate = this.getFilterCutoffDate(filterType);
+    return words.filter(function(w) {
+      if (!w.lastReviewDate || w.lastReviewDate === '') return true;
+      return w.lastReviewDate < cutoffDate;
+    }).length;
+  };
+
+  // 開啟複習時間篩選模態框
+  FlashcardApp.prototype.openReviewFilterModal = function() {
+    console.log('開啟複習時間篩選模態框');
+    this.pauseTimer();
+    
+    var modal = document.getElementById('review-filter-modal');
+    if (!modal) return;
+    
+    // 更新各選項的單字數量
+    var filters = ['all', 'never', '2weeks', '1month', '3months', '6months'];
+    for (var i = 0; i < filters.length; i++) {
+      var countEl = document.getElementById('review-count-' + filters[i]);
+      if (countEl) {
+        var count = this.countWordsForFilter(filters[i]);
+        countEl.textContent = '(' + count + ' 個)';
+      }
+    }
+    
+    // 設定目前選中的篩選條件
+    var radios = modal.querySelectorAll('input[name="review-filter"]');
+    for (var j = 0; j < radios.length; j++) {
+      radios[j].checked = (radios[j].value === this.reviewFilter);
+    }
+    
+    modal.style.display = 'flex';
+    
+    // 設置模態框事件（如果尚未設置）
+    this.setupReviewFilterListeners();
+  };
+
+  // 關閉複習時間篩選模態框
+  FlashcardApp.prototype.closeReviewFilterModal = function() {
+    var modal = document.getElementById('review-filter-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+    this.resumeTimer();
+  };
+
+  // 設置複習篩選模態框事件監聽器
+  FlashcardApp.prototype.setupReviewFilterListeners = function() {
+    if (this._reviewFilterListenersSetup) return;
+    this._reviewFilterListenersSetup = true;
+    
+    var self = this;
+    var modal = document.getElementById('review-filter-modal');
+    var closeBtn = document.getElementById('close-review-filter');
+    var cancelBtn = document.getElementById('cancel-review-filter');
+    var applyBtn = document.getElementById('apply-review-filter');
+    
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self.closeReviewFilterModal(); });
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() { self.closeReviewFilterModal(); });
+    }
+    if (applyBtn) {
+      applyBtn.addEventListener('click', function() { self.applyReviewFilterFromModal(); });
+    }
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          self.closeReviewFilterModal();
+        }
+      });
+    }
+  };
+
+  // 從模態框套用篩選條件
+  FlashcardApp.prototype.applyReviewFilterFromModal = function() {
+    var modal = document.getElementById('review-filter-modal');
+    if (!modal) return;
+    
+    var radios = modal.querySelectorAll('input[name="review-filter"]');
+    var selectedFilter = 'all';
+    for (var i = 0; i < radios.length; i++) {
+      if (radios[i].checked) {
+        selectedFilter = radios[i].value;
+        break;
+      }
+    }
+    
+    console.log('套用複習時間篩選:', selectedFilter);
+    this.reviewFilter = selectedFilter;
+    
+    // 更新選單中的篩選按鈕文字（顯示目前的篩選狀態）
+    this.updateReviewFilterButtonText();
+    
+    this.closeReviewFilterModal();
+    
+    // 重新套用篩選並開始新回合
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+    
+    if (this.currentWords.length === 0) {
+      var filterMsg = '沒有符合篩選條件的單字！篩選已重設為「全部」。';
+      alert(filterMsg);
+      this.reviewFilter = 'all';
+      this.updateReviewFilterButtonText();
+      this.currentWords = this.applyAllFilters(this.words);
+    }
+    
+    this.displayCurrentWord();
+    this.updateButtonStates();
+    this.renderDifficultyLevel();
+    this.updateActiveFilterDisplay();
+  };
+
+  // 更新選單中篩選按鈕的文字
+  FlashcardApp.prototype.updateReviewFilterButtonText = function() {
+    var btn = document.getElementById('review-filter-btn');
+    if (!btn) return;
+    
+    var labels = {
+      'all': '📅 複習時間篩選',
+      'never': '📅 篩選：從未複習',
+      '2weeks': '📅 篩選：超過2週',
+      '1month': '📅 篩選：超過1個月',
+      '3months': '📅 篩選：超過3個月',
+      '6months': '📅 篩選：超過6個月'
+    };
+    
+    btn.textContent = labels[this.reviewFilter] || labels['all'];
+    
+    // 如果有篩選條件啟用，在按鈕上加上標記
+    if (this.reviewFilter !== 'all') {
+      btn.style.color = '#FFA500';
+    } else {
+      btn.style.color = '';
+    }
+  };
+
+  // ===================================================================
+  // 不熟程度篩選模態框
+  // ===================================================================
+
+  // 開啟不熟程度篩選模態框
+  FlashcardApp.prototype.openDifficultyFilterModal = function() {
+    console.log('開啟不熟程度篩選模態框');
+    this.pauseTimer();
+    
+    var modal = document.getElementById('difficulty-filter-modal');
+    if (!modal) return;
+    
+    // 更新各選項的單字數量
+    var levels = [0, 1, 3, 5, 7, 10];
+    for (var i = 0; i < levels.length; i++) {
+      var countEl = document.getElementById('diff-count-' + levels[i]);
+      if (countEl) {
+        var count = this.countWordsForDifficultyFilter(levels[i]);
+        countEl.textContent = '(' + count + ' 個)';
+      }
+    }
+    
+    // 設定目前選中的篩選條件
+    var radios = modal.querySelectorAll('input[name="difficulty-filter"]');
+    for (var j = 0; j < radios.length; j++) {
+      radios[j].checked = (parseInt(radios[j].value) === this.difficultyFilter);
+    }
+    
+    modal.style.display = 'flex';
+    this.setupDifficultyFilterListeners();
+  };
+
+  // 關閉不熟程度篩選模態框
+  FlashcardApp.prototype.closeDifficultyFilterModal = function() {
+    var modal = document.getElementById('difficulty-filter-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+    this.resumeTimer();
+  };
+
+  // 設置不熟程度篩選模態框事件監聽器
+  FlashcardApp.prototype.setupDifficultyFilterListeners = function() {
+    if (this._difficultyFilterListenersSetup) return;
+    this._difficultyFilterListenersSetup = true;
+    
+    var self = this;
+    var modal = document.getElementById('difficulty-filter-modal');
+    var closeBtn = document.getElementById('close-difficulty-filter');
+    var cancelBtn = document.getElementById('cancel-difficulty-filter');
+    var applyBtn = document.getElementById('apply-difficulty-filter');
+    
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self.closeDifficultyFilterModal(); });
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() { self.closeDifficultyFilterModal(); });
+    }
+    if (applyBtn) {
+      applyBtn.addEventListener('click', function() { self.applyDifficultyFilterFromModal(); });
+    }
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          self.closeDifficultyFilterModal();
+        }
+      });
+    }
+  };
+
+  // 從模態框套用不熟程度篩選
+  FlashcardApp.prototype.applyDifficultyFilterFromModal = function() {
+    var modal = document.getElementById('difficulty-filter-modal');
+    if (!modal) return;
+    
+    var radios = modal.querySelectorAll('input[name="difficulty-filter"]');
+    var selectedFilter = 0;
+    for (var i = 0; i < radios.length; i++) {
+      if (radios[i].checked) {
+        selectedFilter = parseInt(radios[i].value);
+        break;
+      }
+    }
+    
+    console.log('套用不熟程度篩選:', selectedFilter);
+    this.difficultyFilter = selectedFilter;
+    
+    this.updateDifficultyFilterButtonText();
+    this.closeDifficultyFilterModal();
+    
+    // 重新套用篩選
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+    
+    if (this.currentWords.length === 0) {
+      alert('沒有符合篩選條件的單字！篩選已重設為「全部」。');
+      this.difficultyFilter = 0;
+      this.updateDifficultyFilterButtonText();
+      this.currentWords = this.applyAllFilters(this.words);
+    }
+    
+    this.displayCurrentWord();
+    this.updateButtonStates();
+    this.renderDifficultyLevel();
+    this.updateActiveFilterDisplay();
+  };
+
+  // 計算不熟程度篩選的單字數量
+  FlashcardApp.prototype.countWordsForDifficultyFilter = function(minLevel) {
+    var words = this.words;
+    
+    // 如果同時啟用了複習時間篩選，先套用
+    if (this.reviewFilter !== 'all') {
+      var self = this;
+      var cutoffDate = this.getFilterCutoffDate(this.reviewFilter);
+      words = words.filter(function(w) {
+        if (self.reviewFilter === 'never') {
+          return !w.lastReviewDate || w.lastReviewDate === '';
+        }
+        if (!w.lastReviewDate || w.lastReviewDate === '') return true;
+        return w.lastReviewDate < cutoffDate;
+      });
+    }
+    
+    if (minLevel === 0) {
+      return words.length;
+    }
+    
+    return words.filter(function(w) {
+      return (w.difficultyLevel || 0) >= minLevel;
+    }).length;
+  };
+
+  // 更新不熟程度篩選按鈕文字
+  FlashcardApp.prototype.updateDifficultyFilterButtonText = function() {
+    var btn = document.getElementById('difficulty-filter-btn');
+    if (!btn) return;
+    
+    if (this.difficultyFilter > 0) {
+      btn.textContent = '⭐ 篩選：★' + this.difficultyFilter + ' 以上';
+      btn.style.color = '#FFA500';
+    } else {
+      btn.textContent = '⭐ 不熟程度篩選';
+      btn.style.color = '';
+    }
+  };
+
+  // ===================================================================
+  // 篩選指示器
+  // ===================================================================
+
+  // 更新篩選指示器
+  FlashcardApp.prototype.updateActiveFilterDisplay = function() {
+    var container = document.getElementById('active-filters');
+    var textEl = document.getElementById('active-filters-text');
+    if (!container || !textEl) return;
+    
+    var parts = [];
+    
+    if (this.difficultyFilter > 0) {
+      parts.push('⭐ ★' + this.difficultyFilter + '+');
+    }
+    
+    if (this.reviewFilter !== 'all') {
+      var reviewLabels = {
+        'never': '📅 從未複習',
+        '2weeks': '📅 >2週',
+        '1month': '📅 >1月',
+        '3months': '📅 >3月',
+        '6months': '📅 >6月'
+      };
+      parts.push(reviewLabels[this.reviewFilter] || '');
+    }
+    
+    if (parts.length > 0) {
+      textEl.textContent = '篩選: ' + parts.join(' | ') + ' (' + this.currentWords.length + '個)';
+      container.style.display = 'flex';
+    } else {
+      container.style.display = 'none';
+    }
+  };
+
+  // 清除所有篩選
+  FlashcardApp.prototype.clearAllFilters = function() {
+    console.log('清除所有篩選條件');
+    this.difficultyFilter = 0;
+    this.reviewFilter = 'all';
+    this.updateDifficultyFilterButtonText();
+    this.updateReviewFilterButtonText();
+    this.reapplyFilters();
+  };
+
   // 防止螢幕關閉功能
   FlashcardApp.prototype.enableKeepScreenAwake = function() {
     console.log('啟用防止螢幕關閉功能');
@@ -5531,8 +6070,8 @@ FlashcardApp.prototype.processBatch = function() {
   
   // 獲取沒有可用單字時的提示信息
   FlashcardApp.prototype.getNoWordsMessage = function() {
-    if (this.showDifficultOnly) {
-      return '沒有不熟單字可以測驗！\n\n請先學習一些單字，或取消「只顯示不熟單字」選項。';
+    if (this.difficultyFilter > 0) {
+      return '沒有符合不熟程度 ★' + this.difficultyFilter + ' 以上的單字可以測驗！\n\n請調整篩選條件。';
     } else if (this.currentWords && this.currentWords.length === 0 && this.words && this.words.length > 0) {
       return '所有單字都已被暫時移除！\n\n請點擊「恢復單字」按鈕或重新載入單字。';
     } else {
@@ -5667,10 +6206,24 @@ FlashcardApp.prototype.processBatch = function() {
   // 獲取測驗範圍文字
   FlashcardApp.prototype.getQuizScopeText = function() {
     var questionCount = this.quizState.questions.length;
+    var filterLabels = {
+      'never': '從未複習',
+      '2weeks': '超過2週未複習',
+      '1month': '超過1個月未複習',
+      '3months': '超過3個月未複習',
+      '6months': '超過6個月未複習'
+    };
     
-    // 根據當前狀態返回範圍說明
-    if (this.showDifficultOnly) {
-      return '📚 測驗範圍：不熟單字 (' + questionCount + ' 題)';
+    var parts = [];
+    if (this.difficultyFilter > 0) {
+      parts.push('★' + this.difficultyFilter + ' 以上');
+    }
+    if (this.reviewFilter !== 'all') {
+      parts.push(filterLabels[this.reviewFilter] || '');
+    }
+    
+    if (parts.length > 0) {
+      return '📚 測驗範圍：' + parts.join(' + ') + ' (' + questionCount + ' 題)';
     } else if (this.currentWords.length < this.words.length) {
       var removedCount = this.words.length - this.currentWords.length;
       return '📖 測驗範圍：剩餘單字 (' + questionCount + ' 題，已排除 ' + removedCount + ' 個)';
@@ -6057,28 +6610,19 @@ FlashcardApp.prototype.processBatch = function() {
     }
   };
   
-  // 標記單字為困難
+  // 標記單字為困難（測驗答錯時呼叫）- 增加不熟程度 +1
   FlashcardApp.prototype.markWordAsDifficult = function(word) {
-    if (!this.difficultWords.includes(word.id)) {
-      this.difficultWords.push(word.id);
-      console.log('標記困難單字:', word.english);
-      
-      // 同步到後端
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
-        var rowIndex = word.originalRowIndex;
-        if (rowIndex === undefined) {
-          rowIndex = this.words.findIndex(function(w) {
-            return w.english === word.english && w.chinese === word.chinese;
-          });
-        }
-        
-        if (rowIndex !== -1) {
-          var sheetId = this.sheetSettings.sheetId;
-          var sheetName = word.sheetName || 'Sheet1';
-          google.script.run.markWordAsDifficult(sheetId, sheetName, rowIndex, '*');
-        }
-      }
-    }
+    var newLevel = Math.min(10, (word.difficultyLevel || 0) + 1);
+    word.difficultyLevel = newLevel;
+    
+    // 同步到 words 主陣列
+    var mainWord = this.words.find(function(w) { return w.id === word.id; });
+    if (mainWord) mainWord.difficultyLevel = newLevel;
+    
+    console.log('測驗答錯，增加不熟程度:', word.english, '→ ★' + newLevel);
+    
+    // 同步到後端
+    this.syncDifficultyToBackend(word);
   };
   
   // 重新開始測驗
@@ -6157,10 +6701,15 @@ FlashcardApp.prototype.processBatch = function() {
       };
     }
     
-    // 頁面卸載時清理資源
+    // 頁面卸載時清理資源並同步複習日期
     window.addEventListener('beforeunload', function() {
-      if (app && typeof app.disableKeepScreenAwake === 'function') {
-        app.disableKeepScreenAwake();
+      if (app) {
+        if (typeof app.syncReviewDates === 'function') {
+          app.syncReviewDates();
+        }
+        if (typeof app.disableKeepScreenAwake === 'function') {
+          app.disableKeepScreenAwake();
+        }
       }
     });
     } catch (error) {
