@@ -3,4 +3,5 @@ description:
 globs: 
 alwaysApply: true
 ---
-寫出能在ipad 4正常執行的ES5兼容的完整版本
+- 寫出能在ipad 4正常執行的ES5兼容的完整版本
+- 每次新增、修改功能或調整程式碼時，都要記得更改OpenSpec.md
