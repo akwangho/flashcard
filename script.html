@@ -2225,6 +2225,10 @@
     if (restoreBtnContainer) {
       restoreBtnContainer.style.display = 'block';
     }
+    var progressArea = document.getElementById('progress-area');
+    if (progressArea) {
+      progressArea.classList.add('progress-shifted');
+    }
   };
   
   // 隱藏恢復按鈕
@@ -2232,6 +2236,10 @@
     var restoreBtnContainer = document.getElementById('restore-btn-container');
     if (restoreBtnContainer) {
       restoreBtnContainer.style.display = 'none';
+    }
+    var progressArea = document.getElementById('progress-area');
+    if (progressArea) {
+      progressArea.classList.remove('progress-shifted');
     }
   };
   

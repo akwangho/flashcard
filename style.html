@@ -343,6 +343,10 @@
     .restore-text {
       font-size: 14px;
     }
+
+    .progress.progress-shifted {
+      bottom: 70px;
+    }
   }
 
   /* ==========================================================================
@@ -369,6 +373,11 @@
   
   .progress:hover {
     color: var(--primary-color);
+  }
+
+  .progress.progress-shifted {
+    bottom: 80px;
+    transition: bottom 0.3s ease, color var(--transition-normal);
   }
   
   .controls-wrapper {
