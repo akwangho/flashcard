@@ -1387,6 +1387,82 @@
   }
   
   /* ==========================================================================
+     EDIT WORD MODAL
+     ========================================================================== */
+
+  .edit-word-sheet-info {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .edit-word-sheet-label {
+    color: #999;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .edit-word-sheet-value {
+    color: #FFA500;
+    font-weight: bold;
+    font-size: 14px;
+    word-break: break-all;
+  }
+
+  .edit-word-difficulty-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .edit-word-difficulty-control input[type="range"] {
+    flex: 1;
+  }
+
+  .edit-word-difficulty-value {
+    min-width: 40px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 16px;
+    color: #FFA500;
+  }
+
+  /* 編輯模態框內的文字輸入框加寬 */
+  #edit-word-modal .setting-control input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 圖片預覽區域 */
+  .edit-word-image-preview {
+    margin-top: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    text-align: center;
+  }
+
+  .edit-word-image-preview img {
+    max-width: 100%;
+    max-height: 200px;
+    display: block;
+    margin: 0 auto;
+    object-fit: contain;
+  }
+
+  .edit-word-image-preview-error {
+    padding: 16px;
+    color: #ff6b6b;
+    font-size: 13px;
+  }
+
+  /* ==========================================================================
      TOOLTIP & SPECIAL COMPONENTS
      ========================================================================== */
   

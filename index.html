@@ -122,6 +122,7 @@
               <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
               <div class="menu-divider"></div>
               <div class="menu-section-title">工具</div>
+              <button id="edit-word-btn" class="menu-item">✏️ 編輯當前單字</button>
               <button id="export-btn" class="menu-item">📤 匯出單字</button>
               <button id="restart-btn" class="menu-item">🔄 重新載入單字</button>
               <div class="menu-divider"></div>
@@ -461,6 +462,55 @@
           <button id="confirm-duplicate-action" class="primary-btn" style="display: none;">確認操作</button>
           <button id="next-duplicate" class="primary-btn" style="display: none;">下一個</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 編輯單字模態框 -->
+  <div id="edit-word-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>✏️ 編輯單字</h2>
+        <button id="close-edit-word" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group edit-word-sheet-info">
+          <span class="edit-word-sheet-label">工作表：</span>
+          <span id="edit-word-sheet-name" class="edit-word-sheet-value"></span>
+        </div>
+        <div class="setting-group">
+          <label for="edit-word-english">單字</label>
+          <div class="setting-control">
+            <input type="text" id="edit-word-english" placeholder="英文單字" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="setting-group">
+          <label for="edit-word-chinese">翻譯</label>
+          <div class="setting-control">
+            <input type="text" id="edit-word-chinese" placeholder="中文翻譯" autocomplete="off">
+          </div>
+        </div>
+        <div class="setting-group">
+          <label for="edit-word-difficulty">不熟程度</label>
+          <div class="setting-control edit-word-difficulty-control">
+            <input type="range" id="edit-word-difficulty" min="0" max="10" value="0" step="1">
+            <span id="edit-word-difficulty-value" class="edit-word-difficulty-value">★0</span>
+          </div>
+        </div>
+        <div class="setting-group">
+          <label for="edit-word-image">圖片 URL</label>
+          <div class="setting-control">
+            <input type="text" id="edit-word-image" placeholder="圖片網址（可留空）" autocomplete="off">
+          </div>
+          <div id="edit-word-image-preview" class="edit-word-image-preview" style="display: none;">
+            <img id="edit-word-image-preview-img" src="" alt="圖片預覽">
+            <div id="edit-word-image-preview-error" class="edit-word-image-preview-error" style="display: none;">圖片載入失敗</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-edit-word" class="secondary-btn">取消</button>
+        <button id="save-edit-word" class="primary-btn">儲存</button>
       </div>
     </div>
   </div>

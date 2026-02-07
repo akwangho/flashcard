@@ -961,6 +961,10 @@
           console.log('複習時間篩選按鈕被點擊');
           self.closeMenu();
           self.openReviewFilterModal();
+        } else if (e.target.id === 'edit-word-btn') {
+          console.log('編輯單字按鈕被點擊');
+          self.closeMenu();
+          self.openEditWordModal();
         } else if (e.target.id === 'quick-quiz-btn') {
           console.log('快速測驗按鈕被點擊');
           self.closeMenu();
@@ -1236,6 +1240,13 @@
       this.closeMenu();
     } else {
       console.log('開啟選單');
+      // 記住開啟選單前的暫停狀態
+      this._wasPausedBeforeMenu = this.userPaused;
+      if (!this.userPaused) {
+        this.userPaused = true;
+        this.pauseTimer();
+        this.updatePauseButtonState();
+      }
       // 開啟選單時同步複習日期
       this.syncReviewDates();
       menuBtn.classList.add('active');
@@ -1250,9 +1261,18 @@
     var menuDropdown = document.getElementById('menu-dropdown');
     
     if (menuBtn && menuDropdown) {
+      var wasOpen = menuDropdown.classList.contains('show');
       console.log('關閉選單');
       menuBtn.classList.remove('active');
       menuDropdown.classList.remove('show');
+
+      // 只有選單確實是開啟狀態才恢復暫停
+      if (wasOpen && !this._wasPausedBeforeMenu) {
+        this.userPaused = false;
+        this.updatePauseButtonState();
+        this.resumeTimer();
+      }
+      this._wasPausedBeforeMenu = undefined;
     }
   };
   
@@ -1650,12 +1670,17 @@
         self.closeOverwriteConfirmModal();
         self.closeDuplicateModal();
         self.closeDifficultyFilterModal();
+        self.closeEditWordModal();
         self.closeMenu();
       };
     }
     // F5 鍵 (keyCode 116) 跟 S 鍵 (keyCode 83)  - 增加不熟程度
     else if (keyCode === 116 || code === 'F5' || keyCode === 83 || code === 'KeyS') {
       keyActions['action'] = function() { self.increaseDifficulty(); };
+    }
+    // E 鍵 (keyCode 69) - 編輯當前單字
+    else if (keyCode === 69 || code === 'KeyE') {
+      keyActions['action'] = function() { self.openEditWordModal(); };
     }
 
       // 執行對應的動作
@@ -5795,6 +5820,276 @@ FlashcardApp.prototype.processBatch = function() {
     this.updateDifficultyFilterButtonText();
     this.updateReviewFilterButtonText();
     this.reapplyFilters();
+  };
+
+  // ==========================================================================
+  // 編輯單字功能
+  // ==========================================================================
+
+  // 開啟編輯單字模態框
+  FlashcardApp.prototype.openEditWordModal = function() {
+    var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord) {
+      alert('目前沒有可編輯的單字');
+      return;
+    }
+
+    // 記住編輯前的暫停狀態，編輯完成後恢復
+    this._wasPausedBeforeEdit = this.userPaused;
+    if (!this.userPaused) {
+      this.userPaused = true;
+      this.pauseTimer();
+      this.updatePauseButtonState();
+    }
+
+    // 設置初始事件監聽器（只需一次）
+    this.setupEditWordListeners();
+
+    // 填入當前單字資料
+    var englishInput = document.getElementById('edit-word-english');
+    var chineseInput = document.getElementById('edit-word-chinese');
+    var difficultyInput = document.getElementById('edit-word-difficulty');
+    var difficultyValue = document.getElementById('edit-word-difficulty-value');
+    var imageInput = document.getElementById('edit-word-image');
+    var sheetNameEl = document.getElementById('edit-word-sheet-name');
+
+    if (englishInput) englishInput.value = currentWord.english || '';
+    if (chineseInput) chineseInput.value = currentWord.chinese || '';
+    if (difficultyInput) {
+      difficultyInput.value = currentWord.difficultyLevel || 0;
+    }
+    if (difficultyValue) {
+      var level = currentWord.difficultyLevel || 0;
+      difficultyValue.textContent = '★' + level;
+      this.updateEditWordDifficultyColor(level);
+    }
+    if (imageInput) imageInput.value = currentWord.image || '';
+    if (sheetNameEl) sheetNameEl.textContent = currentWord.sheetName || '未知';
+
+    // 更新圖片預覽
+    this.updateEditWordImagePreview(currentWord.image || '');
+
+    // 記住正在編輯的單字 ID
+    this._editingWordId = currentWord.id;
+
+    var modal = document.getElementById('edit-word-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+  };
+
+  // 關閉編輯單字模態框
+  FlashcardApp.prototype.closeEditWordModal = function() {
+    var modal = document.getElementById('edit-word-modal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+    this._editingWordId = undefined;
+
+    // 恢復編輯前的暫停狀態
+    if (!this._wasPausedBeforeEdit) {
+      this.userPaused = false;
+      this.updatePauseButtonState();
+      this.resumeTimer();
+    }
+    this._wasPausedBeforeEdit = undefined;
+  };
+
+  // 更新不熟程度滑桿的顯示顏色
+  FlashcardApp.prototype.updateEditWordDifficultyColor = function(level) {
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    if (!valueEl) return;
+
+    // 移除舊的顏色 class
+    for (var i = 0; i <= 10; i++) {
+      valueEl.className = valueEl.className.replace('difficulty-level-' + i, '').trim();
+    }
+    valueEl.className = (valueEl.className + ' difficulty-level-' + level).trim();
+  };
+
+  // 設置編輯單字模態框事件監聽器
+  FlashcardApp.prototype.setupEditWordListeners = function() {
+    if (this._editWordListenersSetup) return;
+    this._editWordListenersSetup = true;
+
+    var self = this;
+    var modal = document.getElementById('edit-word-modal');
+    var closeBtn = document.getElementById('close-edit-word');
+    var cancelBtn = document.getElementById('cancel-edit-word');
+    var saveBtn = document.getElementById('save-edit-word');
+    var difficultyInput = document.getElementById('edit-word-difficulty');
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self.closeEditWordModal(); });
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() { self.closeEditWordModal(); });
+    }
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function() { self.saveEditWord(); });
+    }
+    if (difficultyInput) {
+      difficultyInput.addEventListener('input', function() {
+        var val = parseInt(this.value) || 0;
+        var valueEl = document.getElementById('edit-word-difficulty-value');
+        if (valueEl) {
+          valueEl.textContent = '★' + val;
+          self.updateEditWordDifficultyColor(val);
+        }
+      });
+      // 相容舊版瀏覽器
+      difficultyInput.addEventListener('change', function() {
+        var val = parseInt(this.value) || 0;
+        var valueEl = document.getElementById('edit-word-difficulty-value');
+        if (valueEl) {
+          valueEl.textContent = '★' + val;
+          self.updateEditWordDifficultyColor(val);
+        }
+      });
+    }
+    // 圖片 URL 輸入框變更時更新預覽
+    var imageInput = document.getElementById('edit-word-image');
+    if (imageInput) {
+      var previewTimer = null;
+      var handleImageChange = function() {
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = setTimeout(function() {
+          self.updateEditWordImagePreview(imageInput.value.trim());
+        }, 500);
+      };
+      imageInput.addEventListener('input', handleImageChange);
+      imageInput.addEventListener('change', handleImageChange);
+    }
+
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          self.closeEditWordModal();
+        }
+      });
+    }
+  };
+
+  // 更新編輯模態框的圖片預覽
+  FlashcardApp.prototype.updateEditWordImagePreview = function(url) {
+    var previewContainer = document.getElementById('edit-word-image-preview');
+    var previewImg = document.getElementById('edit-word-image-preview-img');
+    var previewError = document.getElementById('edit-word-image-preview-error');
+    if (!previewContainer || !previewImg || !previewError) return;
+
+    if (!url) {
+      previewContainer.style.display = 'none';
+      previewImg.src = '';
+      return;
+    }
+
+    // 顯示預覽區、隱藏錯誤
+    previewContainer.style.display = 'block';
+    previewError.style.display = 'none';
+    previewImg.style.display = 'block';
+
+    previewImg.onload = function() {
+      previewImg.style.display = 'block';
+      previewError.style.display = 'none';
+    };
+    previewImg.onerror = function() {
+      previewImg.style.display = 'none';
+      previewError.style.display = 'block';
+    };
+
+    previewImg.src = url;
+  };
+
+  // 儲存編輯的單字
+  FlashcardApp.prototype.saveEditWord = function() {
+    var self = this;
+    var wordId = this._editingWordId;
+    if (wordId === undefined) return;
+
+    var englishInput = document.getElementById('edit-word-english');
+    var chineseInput = document.getElementById('edit-word-chinese');
+    var difficultyInput = document.getElementById('edit-word-difficulty');
+    var imageInput = document.getElementById('edit-word-image');
+
+    var newEnglish = englishInput ? englishInput.value.trim() : '';
+    var newChinese = chineseInput ? chineseInput.value.trim() : '';
+    var newDifficulty = difficultyInput ? (parseInt(difficultyInput.value) || 0) : 0;
+    var newImage = imageInput ? imageInput.value.trim() : '';
+
+    if (!newEnglish || !newChinese) {
+      alert('單字和翻譯不能為空');
+      return;
+    }
+
+    // 找到原始單字
+    var word = null;
+    var wordIdx = -1;
+    for (var i = 0; i < this.words.length; i++) {
+      if (this.words[i].id === wordId) {
+        word = this.words[i];
+        wordIdx = i;
+        break;
+      }
+    }
+
+    if (!word) {
+      alert('找不到要編輯的單字');
+      this.closeEditWordModal();
+      return;
+    }
+
+    // 準備更新的屬性
+    var properties = {
+      english: newEnglish,
+      chinese: newChinese,
+      difficultyLevel: newDifficulty,
+      imageUrl: newImage
+    };
+
+    // 更新本地資料（主陣列）
+    word.english = newEnglish;
+    word.chinese = newChinese;
+    word.difficultyLevel = newDifficulty;
+    word.image = newImage;
+
+    // 同步更新 currentWords 中的對應項目
+    for (var j = 0; j < this.currentWords.length; j++) {
+      if (this.currentWords[j].id === wordId) {
+        this.currentWords[j].english = newEnglish;
+        this.currentWords[j].chinese = newChinese;
+        this.currentWords[j].difficultyLevel = newDifficulty;
+        this.currentWords[j].image = newImage;
+        break;
+      }
+    }
+
+    // 呼叫後端更新 Google Sheet
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      var rowIndex = word.originalRowIndex;
+      if (rowIndex !== undefined && rowIndex !== -1) {
+        var sheetId = this.sheetSettings.sheetId;
+        var sheetName = word.sheetName || 'Sheet1';
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success) {
+              console.log('單字屬性已同步到後端');
+            } else {
+              console.error('後端更新失敗:', result ? result.error : '未知錯誤');
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.error('後端更新單字屬性失敗:', error);
+          })
+          .updateWordProperties(sheetId, sheetName, rowIndex, properties);
+      }
+    }
+
+    // 更新畫面顯示
+    this.displayCurrentWord();
+    this.renderDifficultyLevel();
+
+    this.closeEditWordModal();
+    console.log('單字已更新:', newEnglish, '-', newChinese, '★' + newDifficulty);
   };
 
   // 防止螢幕關閉功能

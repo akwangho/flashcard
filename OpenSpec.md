@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.2.0
+> **版本**: 1.3.0
 > **最後更新**: 2026-02-06
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -510,6 +510,7 @@ flashcard/
 | `F` 鍵 | 切換全螢幕 |
 | `D` 鍵 | 增加不熟程度 +1 |
 | `R` 鍵 | 恢復單字（取消移除） |
+| `E` 鍵 | 開啟編輯當前單字模態框 |
 | Escape | 關閉選單或結束全螢幕 |
 
 > **注意**: 模態框開啟時，鍵盤快捷鍵不生效（避免干擾輸入）
@@ -557,13 +558,14 @@ flashcard/
     3. 🎯 快速測驗 (10 題)
     4. 📝 完整測驗
   - **工具**
-    5. 📤 匯出單字
-    6. 🔄 重新載入單字
+    5. ✏️ 編輯當前單字
+    6. 📤 匯出單字
+    7. 🔄 重新載入單字
   - **設定**
-    7. 📋 單字檔設定
-    8. 🔊 語音設定
-    9. ⚙️ 一般設定
-    10. 📺 全螢幕
+    8. 📋 單字檔設定
+    9. 🔊 語音設定
+    10. ⚙️ 一般設定
+    11. 📺 全螢幕
 - **分隔線**: 各分類之間以細線分隔，分類標題以灰色小字顯示
 - **行為**: 點擊選單外部自動關閉
 
@@ -571,6 +573,29 @@ flashcard/
 - **描述**: 當有任何篩選條件啟用時，在主畫面進度區域上方顯示篩選狀態
 - **格式**: `篩選: ⭐ ★5+ | 📅 >2週 (42個)`
 - **清除按鈕**: 提供「✕ 清除」按鈕一鍵清除所有篩選
+
+### 4.14 即時編輯單字
+
+#### 4.14.1 功能描述
+- **描述**: 在閃卡執行中直接編輯當前顯示的單字，無需切換到 Google Sheets
+- **觸發方式**: 選單「✏️ 編輯當前單字」或鍵盤快捷鍵 `E`
+- **開啟時暫停計時器**: 編輯模態框開啟時自動暫停閃卡輪播
+
+#### 4.14.2 可編輯欄位
+| 欄位 | 對應 Google Sheet 欄位 | 說明 |
+|------|------------------------|------|
+| 單字 | B 欄 | 英文單字（文字輸入框） |
+| 翻譯 | C 欄 | 中文翻譯（文字輸入框） |
+| 不熟程度 | D 欄 | 0-10 滑桿，即時顯示 ★N 及顏色變化 |
+| 圖片 URL | E 欄 | 圖片網址（文字輸入框，可留空） |
+
+#### 4.14.3 唯讀資訊
+- **工作表名稱**: 顯示該單字所屬的工作表名稱（不可編輯）
+
+#### 4.14.4 儲存行為
+- **前端同步**: 儲存時立即更新 `words` 和 `currentWords` 陣列中的對應項目，並重新渲染畫面
+- **後端同步**: 透過 `google.script.run.updateWordProperties()` 非同步寫回 Google Sheet
+- **驗證**: 單字和翻譯不能為空
 
 ---
 
@@ -603,6 +628,7 @@ flashcard/
 
 | 函式 | 參數 | 回傳 | 說明 |
 |------|------|------|------|
+| `updateWordProperties(sheetId, sheetName, rowIndex, properties)` | Sheet ID, 工作表名稱, 列索引, 屬性物件 `{english, chinese, difficultyLevel, imageUrl}` | `Object` | 更新單字的多個屬性（B/C/D/E 欄） |
 | `updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel)` | Sheet ID, 工作表名稱, 列索引, 不熟程度 (0-10) | `Boolean` | 更新不熟程度（寫入 D 欄，產生對應數量的 `*` 符號） |
 | `markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult)` | Sheet ID, 工作表名稱, 列索引, 是否困難 | `Boolean` | 向後兼容函式，轉接到 `updateWordDifficulty` |
 | `batchUpdateReviewDates(sheetId, updates)` | Sheet ID, 更新陣列 `[{sheetName, rowIndex, date}]` | `Object` | 批次更新複習日期（寫入 G 欄） |
@@ -676,6 +702,7 @@ flashcard/
 | `overwrite-confirm-modal` | 覆寫確認 |
 | `duplicate-words-modal` | 重複單字處理 |
 | `quiz-modal` | 測驗系統 |
+| `edit-word-modal` | 編輯當前單字 |
 | `difficulty-filter-modal` | 不熟程度篩選 |
 | `review-filter-modal` | 複習時間篩選 |
 
@@ -835,6 +862,7 @@ flashcard/
 - [ ] **設定系統**: 一般設定、語音設定、試算表設定，LocalStorage 持久化
 - [ ] **測驗系統**: 題目生成、四選一、計分、錯題回顧
 - [ ] **匯出系統**: 批次匯出、覆寫保護、進度顯示
+- [ ] **即時編輯單字**: 編輯模態框、前後端同步更新、工作表名稱顯示
 - [ ] **重複單字偵測與處理**: 自動/手動、記憶體/Sheet 兩種模式
 - [ ] **UI 系統**: 深色主題、模態框、選單、響應式設計
 - [ ] **圖片系統**: 背景圖片顯示、預加載

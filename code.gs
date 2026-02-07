@@ -315,6 +315,68 @@ function countValidWords(sheet) {
   }
 
   /**
+  * 更新單字屬性（單字、翻譯、不熟程度、圖片URL）
+  * @param {string} sheetId - Google Sheet ID
+  * @param {string} sheetName - 工作表名稱
+  * @param {number} rowIndex - 列索引（0-based）
+  * @param {Object} properties - 要更新的屬性 { english, chinese, difficultyLevel, imageUrl }
+  * @returns {Object} 結果物件
+  */
+  function updateWordProperties(sheetId, sheetName, rowIndex, properties) {
+    try {
+      console.log('更新單字屬性，Sheet ID:', sheetId, '工作表:', sheetName, '行索引:', rowIndex);
+      
+      if (!sheetId || !sheetName) {
+        return { success: false, error: '缺少必要參數：sheetId 或 sheetName' };
+      }
+      
+      var spreadsheet = openSpreadsheetSafely(sheetId.trim());
+      var sheet = spreadsheet.getSheetByName(sheetName);
+      
+      if (!sheet) {
+        return { success: false, error: '找不到工作表：' + sheetName };
+      }
+      
+      var row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
+      
+      // 更新 B 欄：單字
+      if (properties.english !== undefined && properties.english !== null) {
+        sheet.getRange(row, 2).setValue(properties.english.toString().trim());
+        console.log('已更新單字:', properties.english);
+      }
+      
+      // 更新 C 欄：翻譯
+      if (properties.chinese !== undefined && properties.chinese !== null) {
+        sheet.getRange(row, 3).setValue(properties.chinese.toString().trim());
+        console.log('已更新翻譯:', properties.chinese);
+      }
+      
+      // 更新 D 欄：不熟程度（產生對應數量的 * 符號）
+      if (properties.difficultyLevel !== undefined && properties.difficultyLevel !== null) {
+        var level = Math.max(0, Math.min(10, parseInt(properties.difficultyLevel) || 0));
+        var stars = '';
+        for (var i = 0; i < level; i++) {
+          stars += '*';
+        }
+        sheet.getRange(row, 4).setValue(stars);
+        console.log('已更新不熟程度:', level);
+      }
+      
+      // 更新 E 欄：圖片URL
+      if (properties.imageUrl !== undefined && properties.imageUrl !== null) {
+        sheet.getRange(row, 5).setValue(properties.imageUrl.toString().trim());
+        console.log('已更新圖片URL:', properties.imageUrl);
+      }
+      
+      console.log('成功更新單字屬性');
+      return { success: true };
+    } catch (error) {
+      console.error('更新單字屬性失敗:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
   * 向後兼容：舊版 markWordAsDifficult 轉接到新版
   */
   function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
