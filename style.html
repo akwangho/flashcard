@@ -622,7 +622,11 @@
     width: 90%;
     max-width: 500px;
     max-height: 90vh;
-    overflow-y: auto;
+    display: flex;
+    display: -webkit-flex;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+    overflow: hidden;
   }
   
   .modal-header {
@@ -631,10 +635,10 @@
     align-items: center;
     padding: var(--spacing-lg);
     border-bottom: 2px solid var(--primary-color);
-    position: sticky;
-    top: 0;
+    background-color: #1a1a1a;
     background-color: var(--bg-color);
-    z-index: 10;
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
   }
   
   .modal-header h2 {
@@ -668,6 +672,11 @@
   .modal-body {
     padding: var(--spacing-lg);
     color: var(--primary-color);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+    min-height: 0;
   }
   
   .modal-body p, .modal-body div, .modal-body span {
@@ -964,9 +973,10 @@
     gap: var(--spacing-md);
     padding: var(--spacing-lg);
     border-top: 2px solid var(--primary-color);
-    position: sticky;
-    bottom: 0;
+    background-color: #1a1a1a;
     background-color: var(--bg-color);
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
     z-index: 10;
   }
   
