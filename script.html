@@ -1251,6 +1251,8 @@
       this.syncReviewDates();
       menuBtn.classList.add('active');
       menuDropdown.classList.add('show');
+      // 捲到選單底部，讓靠近按鈕的項目先顯示
+      menuDropdown.scrollTop = menuDropdown.scrollHeight;
     }
   };
   
