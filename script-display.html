@@ -237,6 +237,31 @@
     display.classList.add(cls);
   };
     
+  // 渲染不熟程度預覽（暫時刪除時立即顯示減少後的數字）
+  FlashcardApp.prototype.renderDifficultyLevelPreview = function(level) {
+    var display = document.getElementById('difficulty-display');
+    var levelEl = document.getElementById('difficulty-level');
+    
+    if (!display || !levelEl) return;
+    
+    // -1 顯示為 ✓ 符號，其他顯示數字
+    if (level === -1) {
+      levelEl.textContent = '✓';
+    } else {
+      levelEl.textContent = level;
+    }
+    
+    // 移除所有等級 class（包含 n1 代表 -1）
+    display.className = display.className.replace('difficulty-level-n1', '').trim();
+    for (var i = 0; i <= 10; i++) {
+      display.className = display.className.replace('difficulty-level-' + i, '').trim();
+    }
+    display.className = display.className.replace(/\s+/g, ' ').trim();
+    display.classList.add('difficulty-display');
+    var cls = level === -1 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
+    display.classList.add(cls);
+  };
+
   // 重新套用篩選（用於切換篩選條件後）
   FlashcardApp.prototype.reapplyFilters = function() {
     this.currentWords = this.applyAllFilters(this.words);
@@ -396,12 +421,21 @@
       })(sections[i]);
     }
     
+    // 記錄原始不熟程度，以便取消時恢復
+    var originalDifficultyLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    // 預覽減少後的不熟程度（最低 0）
+    var previewLevel = Math.max(0, originalDifficultyLevel - 1);
+
     this.pendingRemoval = {
       word: currentWord,
       index: this.currentIndex,
       originalEnglishColor: englishElement.style.color,
-      originalChineseColor: chineseElement.style.color
+      originalChineseColor: chineseElement.style.color,
+      originalDifficultyLevel: originalDifficultyLevel
     };
+    
+    // 立即在 UI 上顯示減少後的不熟程度（提升 UX）
+    this.renderDifficultyLevelPreview(previewLevel);
     
     this.showRestoreButton();
     this.updateButtonStates();
@@ -451,6 +485,11 @@
     
     englishElement.style.color = '';
     chineseElement.style.color = '';
+    
+    // 恢復原本的不熟程度顯示
+    if (this.pendingRemoval.originalDifficultyLevel !== undefined) {
+      this.renderDifficultyLevelPreview(this.pendingRemoval.originalDifficultyLevel);
+    }
     
     this.pendingRemoval = null;
     this.hideRestoreButton();

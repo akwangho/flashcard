@@ -849,8 +849,8 @@
       return;
     }
     
-    // 如果已暫停，除了 B 鍵外不處理其他按鍵
-    if (self.isPaused) return;
+    // 如果已暫停，除了 B 鍵和 E 鍵（編輯單字）外不處理其他按鍵
+    if (self.isPaused && keyCode !== 69 && code !== 'KeyE') return;
     
     // 處理特殊按鍵對應
     var keyActions = {};
