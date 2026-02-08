@@ -1,0 +1,25 @@
+# Git
+.git/**
+.gitignore
+
+# Cursor IDE
+.cursor/**
+
+# Node.js
+node_modules/**
+package.json
+package-lock.json
+
+# Testing
+test/**
+jest.config.js
+
+# Documentation
+OpenSpec.md
+README.md
+
+# Scripts
+deploy.sh
+
+# OS files
+.DS_Store

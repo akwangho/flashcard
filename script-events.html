@@ -1,0 +1,1000 @@
+<!-- script-events.html -->
+<script>
+  // 設置事件監聽器
+  FlashcardApp.prototype.setupEventListeners = function() {
+    console.log('設置事件監聽器...');
+  
+    if (this.listenersSetup) {
+      console.log('事件監聽器已設置，跳過重複設置');
+        return;
+      }
+      
+    this.setupCoreListeners();
+    this.setupMenuListeners();
+    this.setupModalListeners();
+    this.setupKeyboardListeners();
+    this.setupProgressAndExportListeners();
+  
+    this.listenersSetup = true;
+    console.log('所有事件監聽器設置完成');
+  };
+  
+  // 核心監聽器
+  FlashcardApp.prototype.setupCoreListeners = function() {
+    var self = this;
+    
+    var flashcardDiv = document.getElementById('flashcard');
+    var nextBtn = document.getElementById('next-btn');
+    var prevBtn = document.getElementById('prev-btn');
+    
+    // 在整個flashcard區域添加點擊事件，但排除下方區域
+    if (flashcardDiv) {
+      flashcardDiv.addEventListener('click', function(e) { 
+        self.handleFlashcardClick(e); 
+      });
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', function() { self.nextWord(); });
+    }
+    if (prevBtn) {
+      prevBtn.addEventListener('click', function() { self.previousWord(); });
+    }
+    // 移除 restartBtn 的直接事件綁定，因為它已經在選單委派事件中處理了
+    
+    // 新增按鈕事件監聽器
+    var voiceToggleBtn = document.getElementById('voice-toggle-btn');
+    var pauseBtn = document.getElementById('pause-btn');
+    var restoreBtn = document.getElementById('restore-btn');
+    
+    if (voiceToggleBtn) {
+      voiceToggleBtn.addEventListener('click', function() { self.toggleVoice(); });
+    }
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', function() { self.togglePause(); });
+    }
+    if (restoreBtn) {
+      restoreBtn.addEventListener('click', function() { self.cancelRemoval(); });
+    }
+    
+    // 為暫停指示器添加點擊事件，讓用戶可以點擊"已暫停"來結束暫停
+    var pausedIndicator = document.getElementById('paused-indicator');
+    if (pausedIndicator) {
+      pausedIndicator.addEventListener('click', function(e) { 
+        // 阻止事件冒泡，避免觸發 flashcard 的點擊事件
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        } else {
+          e.cancelBubble = true; // IE8 及更早版本
+        }
+        
+        if (self.userPaused) {
+          self.togglePause(); 
+        }
+      });
+    }
+    
+    // 為靜音指示器添加點擊事件，讓用戶可以點擊"已靜音"來切換靜音狀態
+    var mutedIndicator = document.getElementById('muted-indicator');
+    if (mutedIndicator) {
+      mutedIndicator.addEventListener('click', function(e) { 
+        // 阻止事件冒泡，避免觸發 flashcard 的點擊事件
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        } else {
+          e.cancelBubble = true; // IE8 及更早版本
+        }
+        
+        self.toggleVoice(); 
+      });
+    }
+    
+
+  };
+  
+  // 選單監聽器
+  FlashcardApp.prototype.setupMenuListeners = function() {
+    console.log('設定選單事件監聽器...');
+    
+    var self = this;
+    var menuBtn = document.getElementById('menu-btn');
+    var menuDropdown = document.getElementById('menu-dropdown');
+    
+    if (!menuBtn || !menuDropdown) {
+      console.error('找不到選單元素');
+      return;
+    }
+    
+        // 使用委派事件監聽
+    document.addEventListener('click', function(e) {
+      // 檢查是否點擊了select相關元素，如果是則不處理任何選單邏輯
+      var target = e.target;
+      var isSelectRelated = false;
+      
+      // 向上遍歷DOM樹檢查是否點擊了select或其相關元素
+      var element = target;
+      while (element && element !== document.body) {
+        if (element.tagName === 'SELECT' || 
+            element.tagName === 'OPTION' ||
+            (element.classList && (
+              element.classList.contains('modal') ||
+              element.classList.contains('modal-content') ||
+              element.classList.contains('setting-control') ||
+              element.classList.contains('font-preview')))) {
+          isSelectRelated = true;
+          break;
+        }
+        element = element.parentElement;
+      }
+      
+      // 如果點擊的是select相關元素，直接返回，不處理選單邏輯
+      if (isSelectRelated) {
+        console.log('點擊了select相關元素，跳過選單處理');
+        return;
+      }
+      
+      // 處理選單按鈕點擊
+      if (e.target.id === 'menu-btn' || e.target.closest('#menu-btn')) {
+        console.log('選單按鈕被點擊');
+        e.stopPropagation();
+        self.toggleMenu();
+        return;
+      }
+      
+      // 處理選單項目點擊
+      if (e.target.closest('#menu-dropdown')) {
+        console.log('點擊選單下拉選項');
+        e.stopPropagation();
+
+        if (e.target.id === 'restart-btn') {
+          console.log('重新開始按鈕被點擊');
+          self.closeMenu();
+          self.confirmRestart();
+        } else if (e.target.id === 'fullscreen-btn') {
+          console.log('全螢幕按鈕被點擊');
+          self.closeMenu();
+          self.toggleFullscreen();
+        } else if (e.target.id === 'sheet-settings-btn') {
+          console.log('Google Sheet 設定按鈕被點擊');
+          self.closeMenu();
+          self.openSheetSettings();
+        } else if (e.target.id === 'voice-settings-btn') {
+          console.log('語音設定按鈕被點擊');
+          self.closeMenu();
+          self.openVoiceSettings();
+        } else if (e.target.id === 'settings-btn') {
+          console.log('設定按鈕被點擊');
+          self.closeMenu();
+          self.openSettings();
+        } else if (e.target.id === 'export-btn') {
+          console.log('匯出按鈕被點擊');
+          self.closeMenu();
+          self.openExportModal();
+        } else if (e.target.id === 'difficulty-filter-btn') {
+          console.log('不熟程度篩選按鈕被點擊');
+          self.closeMenu();
+          self.openDifficultyFilterModal();
+        } else if (e.target.id === 'review-filter-btn') {
+          console.log('複習時間篩選按鈕被點擊');
+          self.closeMenu();
+          self.openReviewFilterModal();
+        } else if (e.target.id === 'edit-word-btn') {
+          console.log('編輯單字按鈕被點擊');
+          self.closeMenu();
+          self.openEditWordModal();
+        } else if (e.target.id === 'quick-quiz-btn') {
+          console.log('快速測驗按鈕被點擊');
+          self.closeMenu();
+          self.startQuiz('quick');
+        } else if (e.target.id === 'full-quiz-btn') {
+          console.log('完整測驗按鈕被點擊');
+          self.closeMenu();
+          self.startQuiz('full');
+        }
+        return;
+      }
+
+      // 點擊其他地方關閉選單（但排除select相關元素）
+      self.closeMenu();
+    });
+  
+    console.log('選單事件監聽器設定完成');
+  };
+  
+
+  
+  // 顯示語音啟用界面
+  FlashcardApp.prototype.showSpeechActivation = function() {
+    console.log('顯示語音啟用界面 (舊版瀏覽器)');
+    var activationContainer = document.getElementById('speech-activation-container');
+    if (activationContainer) {
+      activationContainer.style.display = 'block';
+    }
+    
+    // 設置語音啟用按鈕事件
+    var activateBtn = document.getElementById('activate-speech-btn');
+    var self = this;
+    if (activateBtn) {
+      activateBtn.addEventListener('click', function() {
+        self.activateSpeech();
+      });
+    }
+  };
+  
+  // 啟用語音功能
+  FlashcardApp.prototype.activateSpeech = function() {
+    console.log('用戶點擊啟用語音按鈕');
+    
+    // 測試語音功能是否可用
+    try {
+      var testUtterance = new SpeechSynthesisUtterance('');
+      testUtterance.volume = 0; // 靜音測試
+      this.speechSynthesis.speak(testUtterance);
+      
+      this.speechActivated = true;
+      console.log('語音功能已啟用');
+      
+      // 隱藏語音啟用界面
+      var activationContainer = document.getElementById('speech-activation-container');
+      if (activationContainer) {
+        activationContainer.style.display = 'none';
+      }
+      
+      // 進入主畫面
+      this.hideLoading();
+      this.applySettings();
+      
+      if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+        this.startNewRound();
+      } else {
+        this.openSheetSettings();
+      }
+      
+    } catch (error) {
+      console.error('語音啟用失敗:', error);
+      alert('語音功能啟用失敗，但程式仍可正常使用');
+      this.speechActivated = false;
+      
+      // 仍然進入主畫面
+      var activationContainer = document.getElementById('speech-activation-container');
+      if (activationContainer) {
+        activationContainer.style.display = 'none';
+      }
+      this.hideLoading();
+      this.applySettings();
+      
+      if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+        this.startNewRound();
+      } else {
+        this.openSheetSettings();
+      }
+    }
+  };
+  
+  // 隱藏載入畫面
+  FlashcardApp.prototype.hideLoading = function() {
+    var loadingDiv = document.getElementById('loading');
+    var flashcardDiv = document.getElementById('flashcard');
+    if (loadingDiv) loadingDiv.style.display = 'none';
+    if (flashcardDiv) flashcardDiv.style.display = 'flex';
+    
+    // 更新按鈕狀態
+    this.updateVoiceButtonState();
+    this.updatePauseButtonState();
+    this.updateFullscreenButtonText();
+  };
+  
+  // 顯示錯誤
+  FlashcardApp.prototype.showError = function() {
+    var loadingDiv = document.getElementById('loading');
+    var errorDiv = document.getElementById('error');
+    if (loadingDiv) loadingDiv.style.display = 'none';
+    if (errorDiv) errorDiv.style.display = 'block';
+  };
+  
+  // 開始新回合
+  FlashcardApp.prototype.startNewRound = function() {
+    this.shuffleArray(this.words);
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+    this.navigationHistory = [];
+    this.pendingRemoval = null;
+    this.userPaused = false;
+    this.isPaused = false;
+    this.hideRestoreButton();
+          
+    if (this.currentWords.length === 0) {
+      if (this.difficultyFilter > 0 || this.reviewFilter !== 'all') {
+        var filterMsg = '';
+        if (this.difficultyFilter > 0 && this.reviewFilter !== 'all') {
+          filterMsg = '沒有同時符合「不熟程度」和「複習時間」兩個篩選條件的單字！';
+        } else if (this.difficultyFilter > 0) {
+          filterMsg = '沒有符合不熟程度 ★' + this.difficultyFilter + ' 以上的單字！';
+        } else {
+          filterMsg = '沒有符合複習時間篩選條件的單字！';
+        }
+        alert(filterMsg);
+        this.difficultyFilter = 0;
+        this.reviewFilter = 'all';
+        this.updateDifficultyFilterButtonText();
+        this.updateReviewFilterButtonText();
+        this.currentWords = this.words.slice();
+      }
+    }
+        
+    this.displayCurrentWord();
+    this.updateButtonStates();
+    this.updateVoiceButtonState();
+    this.updatePauseButtonState();
+    this.updateFullscreenButtonText();
+    this.renderDifficultyLevel();
+    this.updateActiveFilterDisplay();
+  };
+  
+  // 洗牌
+  FlashcardApp.prototype.shuffleArray = function(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = array[i];
+      array[i] = array[j];
+      array[j] = temp;
+    }
+  };
+  
+  // 顯示當前單字
+  FlashcardApp.prototype.displayCurrentWord = function() {
+    if (this.currentWords.length === 0) {
+      this.startNewRound();
+      return;
+    }
+    
+    var currentWord = this.currentWords[this.currentIndex];
+    var englishElement = document.getElementById('english-word');
+    var chineseElement = document.getElementById('chinese-word');
+    this.showingChinese = false;
+    this.isTransitioning = false;
+    this.isProcessingClick = false;
+      this.pendingRemoval = null;
+      this.hideRestoreButton();
+      
+      if (this.displayTimer) {
+        clearTimeout(this.displayTimer);
+      }
+      
+    englishElement.classList.remove('show');
+    chineseElement.classList.remove('show');
+    
+    englishElement.style.color = '';
+    chineseElement.style.color = '';
+    
+    // 先清除背景圖片（圖片將在中文翻譯出現時才顯示）
+    var flashcardDiv = document.getElementById('flashcard');
+    if (flashcardDiv) {
+      flashcardDiv.style.backgroundImage = '';
+      flashcardDiv.classList.remove('has-image');
+    }
+    
+    var self = this;
+    setTimeout(function() {
+      var firstElement = document.getElementById('english-word');
+      
+      if (self.settings.reverseMode) {
+        firstElement.textContent = currentWord.chinese;
+        // 反向模式：先顯示中文，播放中文語音
+        setTimeout(function() {
+          self.speakChineseWord(currentWord.chinese);
+        }, 500);
+      } else {
+        firstElement.textContent = currentWord.english;
+        // 只有在未啟用延遲發音時才立即播放語音
+        if (!self.settings.delaySpeechInNormalMode) {
+          setTimeout(function() {
+            self.speakWord(currentWord.english);
+          }, 500);
+        }
+      }
+      firstElement.classList.add('show');
+      
+      // 預加載當前單字的圖片（如果有的話）
+      if (currentWord.image && currentWord.image !== '') {
+        self.preloadImage(currentWord.image);
+      }
+      
+      // 預加載下一個單字的圖片（提前準備）
+      var nextIndex = (self.currentIndex + 1) % self.currentWords.length;
+      var nextWord = self.currentWords[nextIndex];
+      if (nextWord && nextWord.image && nextWord.image !== '') {
+        self.preloadImage(nextWord.image);
+      }
+  
+      self.displayTimer = setTimeout(function() {
+        self.showSecondPartAndScheduleNext();
+      }, self.settings.delayTime * 1000);
+      
+    }, 100);
+    
+    this.renderDifficultyLevel();
+    this.updateProgress();
+    this.updateButtonStates();
+  };
+  
+  // 更新進度
+  FlashcardApp.prototype.updateProgress = function() {
+    var progressText = document.getElementById('progress-text');
+    if (progressText) {
+      var current = this.currentIndex + 1;
+      var total = this.currentWords.length;
+      progressText.textContent = current + '/' + total;
+    }
+  };
+  
+  // 更新按鈕狀態
+  FlashcardApp.prototype.updateButtonStates = function() {
+    var prevBtn = document.getElementById('prev-btn');
+    if (prevBtn) {
+      var isFirstWord = this.currentIndex === 0;
+      var hasPendingRemoval = this.pendingRemoval !== null;
+      prevBtn.disabled = (isFirstWord && !hasPendingRemoval) || this.navigationHistory.length === 0;
+    }
+  };
+  
+  // 切換選單
+  FlashcardApp.prototype.toggleMenu = function() {
+    console.log('toggleMenu 被調用');
+    var menuBtn = document.getElementById('menu-btn');
+    var menuDropdown = document.getElementById('menu-dropdown');
+    
+    if (!menuBtn || !menuDropdown) {
+      console.error('選單元素不存在，無法切換');
+        return;
+      }
+      
+    var isOpen = menuDropdown.classList.contains('show');
+    console.log('選單目前狀態:', isOpen ? '開啟' : '關閉');
+    
+    if (isOpen) {
+      this.closeMenu();
+    } else {
+      console.log('開啟選單');
+      // 記住開啟選單前的暫停狀態
+      this._wasPausedBeforeMenu = this.userPaused;
+      if (!this.userPaused) {
+        this.userPaused = true;
+        this.pauseTimer();
+        this.updatePauseButtonState();
+      }
+      // 開啟選單時同步複習日期
+      this.syncReviewDates();
+      menuBtn.classList.add('active');
+      menuDropdown.classList.add('show');
+      // 捲到選單底部，讓靠近按鈕的項目先顯示
+      menuDropdown.scrollTop = menuDropdown.scrollHeight;
+    }
+  };
+  
+  // 關閉選單
+  FlashcardApp.prototype.closeMenu = function() {
+    console.log('closeMenu 被調用');
+    var menuBtn = document.getElementById('menu-btn');
+    var menuDropdown = document.getElementById('menu-dropdown');
+    
+    if (menuBtn && menuDropdown) {
+      var wasOpen = menuDropdown.classList.contains('show');
+      console.log('關閉選單');
+      menuBtn.classList.remove('active');
+      menuDropdown.classList.remove('show');
+
+      // 只有選單確實是開啟狀態才恢復暫停
+      if (wasOpen && !this._wasPausedBeforeMenu) {
+        this.userPaused = false;
+        this.updatePauseButtonState();
+        this.resumeTimer();
+      }
+      this._wasPausedBeforeMenu = undefined;
+    }
+  };
+  
+
+  
+  // 模態框監聽器
+  FlashcardApp.prototype.setupModalListeners = function() {
+    var self = this;
+    
+    // 主設定模態框
+    var settingsModal = document.getElementById('settings-modal');
+    var closeSettings = document.getElementById('close-settings');
+    var saveSettings = document.getElementById('save-settings');
+    var cancelSettings = document.getElementById('cancel-settings');
+    var delaySlider = document.getElementById('delay-setting');
+    var fontSizeSlider = document.getElementById('font-size-setting');
+    
+    if (closeSettings) {
+      closeSettings.addEventListener('click', function() { self.closeSettings(); });
+    }
+    if (saveSettings) {
+      saveSettings.addEventListener('click', function() { self.saveSettingsAndClose(); });
+    }
+    if (cancelSettings) {
+      cancelSettings.addEventListener('click', function() { self.closeSettings(); });
+    }
+    if (settingsModal) {
+      settingsModal.addEventListener('click', function(e) {
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        // 向上遍歷DOM樹檢查是否點擊了select或其相關元素
+        var element = target;
+        while (element && element !== settingsModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control') ||
+              element.classList.contains('font-preview')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        // 只有點擊模態框背景且不是select相關元素時才關閉
+        if (e.target === settingsModal && !isSelectRelated) {
+          self.closeSettings();
+        }
+      });
+    }
+    
+    // 修復：設定滑桿實時更新
+    if (delaySlider) {
+      delaySlider.addEventListener('input', function(e) {
+        var delayValue = document.getElementById('delay-value');
+        if (delayValue) {
+          // 修復浮點數精度問題
+          var value = parseFloat(e.target.value);
+          var step = parseFloat(e.target.step) || 0.5;
+          var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+          var formattedValue = parseFloat(value.toFixed(decimalPlaces));
+          delayValue.textContent = formattedValue;
+        }
+      });
+      
+      // 增強觸控體驗：點擊軌道直接設置值
+      this.enhanceSliderInteraction(delaySlider, 'delay-value');
+    }
+    
+    if (fontSizeSlider) {
+      fontSizeSlider.addEventListener('input', function(e) {
+        var fontSizeValue = document.getElementById('font-size-value');
+        if (fontSizeValue) {
+          fontSizeValue.textContent = e.target.value + 'px';
+        }
+        // 即時預覽字體大小
+        var englishWord = document.getElementById('english-word');
+        var chineseWord = document.getElementById('chinese-word');
+        var previewEnglish = document.querySelector('.preview-english');
+        var previewChinese = document.querySelector('.preview-chinese');
+        
+        if (englishWord) englishWord.style.fontSize = e.target.value + 'px';
+        if (chineseWord) chineseWord.style.fontSize = e.target.value + 'px';
+        if (previewEnglish) previewEnglish.style.fontSize = Math.max(16, e.target.value * 0.2) + 'px';
+        if (previewChinese) previewChinese.style.fontSize = Math.max(14, e.target.value * 0.18) + 'px';
+      });
+      
+      // 增強觸控體驗：點擊軌道直接設置值
+      this.enhanceSliderInteraction(fontSizeSlider, 'font-size-value', 'px');
+    }
+    
+    // 字型選擇器事件監聽
+    var fontFamilySelect = document.getElementById('font-family-setting');
+    if (fontFamilySelect) {
+      var self = this;
+      
+      // 保護select元素不受全域事件干擾
+      this.protectSelectElement(fontFamilySelect);
+      
+      fontFamilySelect.addEventListener('change', function(e) {
+        console.log('字型選擇改變:', e.target.value);
+        
+        // 即時預覽字型效果
+        var selectedFont = e.target.value;
+        var fontFamily = self.fontFamilyMap[selectedFont] || self.fontFamilyMap['system-default'];
+        
+        // 更新主要元素的字型
+        var englishWord = document.getElementById('english-word');
+        var chineseWord = document.getElementById('chinese-word');
+        if (englishWord) englishWord.style.fontFamily = fontFamily;
+        if (chineseWord) chineseWord.style.fontFamily = fontFamily;
+        
+        // 更新預覽
+        var previewEnglish = document.querySelector('.preview-english');
+        var previewChinese = document.querySelector('.preview-chinese');
+        if (previewEnglish) previewEnglish.style.fontFamily = fontFamily;
+        if (previewChinese) previewChinese.style.fontFamily = fontFamily;
+      });
+    }
+    
+    // Google Sheet 設定模態框
+    var sheetSettingsModal = document.getElementById('sheet-settings-modal');
+    var closeSheetSettings = document.getElementById('close-sheet-settings');
+    var cancelSheetSettings = document.getElementById('cancel-sheet-settings');
+    var saveSheetSettings = document.getElementById('save-sheet-settings');
+    var loadSheetsBtn = document.getElementById('load-sheets-btn');
+    
+    if (closeSheetSettings) {
+      closeSheetSettings.addEventListener('click', function() { self.closeSheetSettings(); });
+    }
+    if (cancelSheetSettings) {
+      cancelSheetSettings.addEventListener('click', function() { self.closeSheetSettings(); });
+    }
+    if (saveSheetSettings) {
+      saveSheetSettings.addEventListener('click', function() { self.saveSheetSettingsAndClose(); });
+    }
+    if (loadSheetsBtn) {
+      loadSheetsBtn.addEventListener('click', function() { self.loadSheetsList(); });
+    }
+    if (sheetSettingsModal) {
+      sheetSettingsModal.addEventListener('click', function(e) {
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== sheetSettingsModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === sheetSettingsModal && !isSelectRelated) {
+          self.closeSheetSettings();
+        }
+      });
+    }
+    
+    // 語音設定模態框
+    var voiceSettingsModal = document.getElementById('voice-settings-modal');
+    var closeVoiceSettings = document.getElementById('close-voice-settings');
+    var cancelVoiceSettings = document.getElementById('cancel-voice-settings');
+    var saveVoiceSettings = document.getElementById('save-voice-settings');
+    var voiceRateSlider = document.getElementById('voice-rate-setting');
+    
+    if (closeVoiceSettings) {
+      closeVoiceSettings.addEventListener('click', function() { self.closeVoiceSettings(); });
+    }
+    if (cancelVoiceSettings) {
+      cancelVoiceSettings.addEventListener('click', function() { self.closeVoiceSettings(); });
+    }
+    if (saveVoiceSettings) {
+      saveVoiceSettings.addEventListener('click', function() { self.saveVoiceSettingsAndClose(); });
+    }
+    if (voiceSettingsModal) {
+      voiceSettingsModal.addEventListener('click', function(e) {
+        // 檢查點擊目標，排除select元素及其相關元素（與主設定模態框相同的邏輯）
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== voiceSettingsModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === voiceSettingsModal && !isSelectRelated) {
+          self.closeVoiceSettings();
+        }
+      });
+    }
+    if (voiceRateSlider) {
+      voiceRateSlider.addEventListener('input', function(e) {
+        var voiceRateValue = document.getElementById('voice-rate-value');
+        if (voiceRateValue) {
+          // 修復浮點數精度問題
+          var value = parseFloat(e.target.value);
+          var step = parseFloat(e.target.step) || 0.1;
+          var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+          var formattedValue = parseFloat(value.toFixed(decimalPlaces));
+          voiceRateValue.textContent = formattedValue;
+        }
+      });
+      
+      // 當用戶松開滑杆時，播放示例語音
+      voiceRateSlider.addEventListener('change', function(e) {
+        // 獲取當前選擇的英文語音
+        var voiceSelect = document.getElementById('voice-select-setting');
+        if (voiceSelect && voiceSelect.value) {
+          self.previewVoice(voiceSelect.value, 'Hello, this is a sample voice.');
+        }
+      });
+      
+      // 增強觸控體驗：點擊軌道直接設置值
+      this.enhanceSliderInteraction(voiceRateSlider, 'voice-rate-value');
+    }
+    
+    // 匯出模態框
+    var exportModal = document.getElementById('export-modal');
+    if (exportModal) {
+      exportModal.addEventListener('click', function(e) {
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== exportModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === exportModal && !isSelectRelated) {
+          self.closeExportModal();
+        }
+      });
+    }
+    
+    // 覆寫確認模態框
+    var overwriteModal = document.getElementById('overwrite-confirm-modal');
+    if (overwriteModal) {
+      overwriteModal.addEventListener('click', function(e) {
+        // 檢查點擊目標，排除select元素及其相關元素
+        var target = e.target;
+        var isSelectRelated = false;
+        
+        var element = target;
+        while (element && element !== overwriteModal) {
+          if (element.tagName === 'SELECT' || 
+              element.tagName === 'OPTION' ||
+              element.classList.contains('setting-control')) {
+            isSelectRelated = true;
+            break;
+          }
+          element = element.parentElement;
+        }
+        
+        if (e.target === overwriteModal && !isSelectRelated) {
+          self.closeOverwriteConfirmModal();
+        }
+      });
+    }
+    
+    // 測驗模態框
+    this.setupQuizListeners();
+  };
+  
+    // 鍵盤監聽器 - iPad 4 兼容版本
+  FlashcardApp.prototype.setupKeyboardListeners = function() {
+    var self = this;
+    
+    // iPad 4 兼容性改進：確保 body 元素可以接收鍵盤事件
+    var body = document.body;
+    
+    // 設置 tabindex 屬性，讓 body 可以被聚焦
+    body.setAttribute('tabindex', '0');
+    
+    // 自動聚焦到 body 元素
+    body.focus();
+    
+    // 加入點擊事件監聽器，確保點擊後重新聚焦到 body（但排除表單控件）
+    body.addEventListener('click', function(e) {
+      // 檢查點擊目標是否為表單控件
+      var target = e.target;
+      if (target && (
+          target.tagName === 'SELECT' ||
+          target.tagName === 'OPTION' ||
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.contentEditable === 'true'
+      )) {
+        console.log('點擊了表單控件，不重新聚焦到body:', target.tagName);
+        return; // 不重新聚焦，讓表單控件保持焦點
+      }
+      
+      // 檢查是否點擊了表單控件的容器
+      var element = target;
+      while (element && element !== body) {
+        if (element.classList && (
+            element.classList.contains('setting-control') ||
+            element.classList.contains('font-preview')
+        )) {
+          console.log('點擊了表單控件容器，不重新聚焦到body');
+          return;
+        }
+        element = element.parentElement;
+      }
+      
+      body.focus();
+    });
+    
+      // 鍵盤事件處理函數 - 使用 ES5 兼容語法
+  function handleKeyDown(e) {
+    // 取得按鍵信息，兼容舊版瀏覽器
+    e = e || window.event;
+    var keyCode = e.keyCode || e.which;
+    var code = e.code || '';
+    var key = e.key || '';
+    
+    // 檢查當前焦點是否在select元素或其他表單控件上
+    var activeElement = document.activeElement;
+    if (activeElement && (
+        activeElement.tagName === 'SELECT' ||
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true'
+    )) {
+      console.log('焦點在表單控件上，跳過鍵盤快捷鍵處理:', activeElement.tagName);
+      return; // 不處理任何鍵盤快捷鍵，讓表單控件正常工作
+    }
+    
+    // B 鍵 (keyCode 66) - 暫停/繼續功能，在任何狀態下都能使用
+    if (keyCode === 66 || code === 'KeyB') {
+      // 防止預設行為
+      if (e.preventDefault) {
+        e.preventDefault();
+      } else {
+        e.returnValue = false; // IE8 及更早版本
+      }
+      
+      self.togglePause();
+      return;
+    }
+    
+    // 如果已暫停，除了 B 鍵外不處理其他按鍵
+    if (self.isPaused) return;
+    
+    // 處理特殊按鍵對應
+    var keyActions = {};
+    
+    // Enter 鍵 (keyCode 13, 或 iPad 4 的 UIKeyInputUpArrow)
+    if (keyCode === 13 || code === 'Enter' || key === 'UIKeyInputUpArrow') {
+      keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
+    }
+    // 空格鍵 (keyCode 32, 或 iPad 4 的 UIKeyInputDownArrow)
+    else if (keyCode === 32 || code === 'Space' || key === 'UIKeyInputDownArrow') {
+      keyActions['action'] = function() { self.onWordClick(); };
+    }
+    // 左方向鍵 (keyCode 37, ArrowLeft, 或 iPad 4 的 UIKeyInputLeftArrow)
+    else if (keyCode === 37 || code === 'ArrowLeft' || key === 'UIKeyInputLeftArrow') {
+      keyActions['action'] = function() { self.previousWord(); };
+    }
+    // 上方向鍵 (keyCode 38, ArrowUp)
+    else if (keyCode === 38 || code === 'ArrowUp') {
+      keyActions['action'] = function() { self.previousWord(); };
+    }
+    // 右方向鍵 (keyCode 39, ArrowRight, 或 iPad 4 的 UIKeyInputRightArrow)
+    else if (keyCode === 39 || code === 'ArrowRight' || key === 'UIKeyInputRightArrow') {
+      keyActions['action'] = function() { self.nextWord(); };
+    }
+    // 下方向鍵 (keyCode 40)
+    else if (keyCode === 40 || code === 'ArrowDown') {
+      keyActions['action'] = function() { self.nextWord(); };
+    }
+    // Escape 鍵 (keyCode 27)
+    else if (keyCode === 27 || code === 'Escape') {
+      keyActions['action'] = function() {
+        self.closeSettings();
+        self.closeVoiceSettings();
+        self.closeExportModal();
+        self.closeOverwriteConfirmModal();
+        self.closeDuplicateModal();
+        self.closeDifficultyFilterModal();
+        self.closeEditWordModal();
+        self.closeMenu();
+      };
+    }
+    // F5 鍵 (keyCode 116) 跟 S 鍵 (keyCode 83)  - 增加不熟程度
+    else if (keyCode === 116 || code === 'F5' || keyCode === 83 || code === 'KeyS') {
+      keyActions['action'] = function() { self.increaseDifficulty(); };
+    }
+    // E 鍵 (keyCode 69) - 編輯當前單字
+    else if (keyCode === 69 || code === 'KeyE') {
+      keyActions['action'] = function() { self.openEditWordModal(); };
+    }
+
+      // 執行對應的動作
+      if (keyActions['action']) {
+        // 防止預設行為
+        if (e.preventDefault) {
+          e.preventDefault();
+        } else {
+          e.returnValue = false; // IE8 及更早版本
+        }
+        
+        keyActions['action']();
+      }
+    }
+    
+    // 監聽整個 document 的鍵盤事件
+    document.addEventListener('keydown', handleKeyDown);
+    
+    console.log('鍵盤事件監聽器已設置 (iPad 4 兼容版本)');
+  };
+  
+  // 進度區和匯出監聽器
+  FlashcardApp.prototype.setupProgressAndExportListeners = function() {
+    console.log('設置進度區和匯出事件監聽器...');
+    var self = this;
+  
+    // 進度區點擊：增加不熟程度
+    var progressArea = document.getElementById('progress-area');
+    if (progressArea) {
+      var newProgressArea = progressArea.cloneNode(true);
+      progressArea.parentNode.replaceChild(newProgressArea, progressArea);
+  
+      newProgressArea.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'clear-filters-btn') return;
+        console.log('進度區被點擊，增加不熟程度');
+        self.increaseDifficulty();
+      });
+      console.log('進度區事件監聽器設置完成');
+    } else {
+      console.error('找不到 progress-area 元素');
+    }
+
+    // 篩選指示器的清除按鈕
+    var clearFiltersBtn = document.getElementById('clear-filters-btn');
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        self.clearAllFilters();
+      });
+    }
+  
+    // 匯出相關事件
+    var closeExportModal = document.getElementById('close-export-modal');
+    var cancelExport = document.getElementById('cancel-export');
+    var confirmExport = document.getElementById('confirm-export');
+  
+    if (closeExportModal) {
+      closeExportModal.addEventListener('click', function() { self.closeExportModal(); });
+    }
+    if (cancelExport) {
+      cancelExport.addEventListener('click', function() { self.closeExportModal(); });
+    }
+    if (confirmExport) {
+      confirmExport.addEventListener('click', function() { self.confirmExport(); });
+    }
+  
+    console.log('匯出相關事件監聽器設置完成');
+    
+    // 隱藏控制按鈕事件監聽器
+    this.setupHiddenControlListeners();
+  };
+  
+  // 設置隱藏控制按鈕監聽器
+  FlashcardApp.prototype.setupHiddenControlListeners = function() {
+    console.log('設置隱藏控制按鈕事件監聽器...');
+    var self = this;
+    
+
+    
+    
+    
+
+    
+    console.log('隱藏控制按鈕事件監聽器設置完成');
+  };
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+</script>

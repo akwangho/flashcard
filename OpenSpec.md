@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.3.0
-> **最後更新**: 2026-02-07
+> **版本**: 1.3.2
+> **最後更新**: 2026-02-08
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -53,19 +53,85 @@
 
 ```
 flashcard/
-├── index.html        # 主要 HTML 結構（含所有模態框）
-├── script.html       # 前端 JavaScript 應用邏輯（約 6,176 行）
-├── style.html        # CSS 樣式定義（約 2,439 行）
-└── code.gs           # Google Apps Script 後端程式碼（約 758 行）
+├── code.gs                # Google Apps Script 後端程式碼（約 758 行）
+├── index.html             # 主要 HTML 結構（含所有模態框）
+├── style.html             # CSS 樣式定義（約 2,439 行）
+│
+│   # 前端 JavaScript 模組（原 script.html 拆分為 10 個模組）
+├── script-polyfills.html  # ES5 Polyfills（forEach, filter, map, find, includes）
+├── script-core.html       # 建構函式、初始化、設定管理、單字載入
+├── script-events.html     # 事件監聽器設定、語音啟用、基本 UI 顯示
+├── script-display.html    # 設定模態框、計時器/暫停、不熟程度、閃卡互動、滑桿
+├── script-voice.html      # 語音朗讀（英/日/中）、導覽、全螢幕、語音設定
+├── script-export.html     # 匯出功能（批次匯出、覆寫處理）
+├── script-sheets.html     # Google Sheet 載入、驗證、工作表選擇
+├── script-duplicates.html # 重複單字偵測與處理
+├── script-filter.html     # 複習時間篩選、不熟程度篩選、編輯單字
+├── script-quiz.html       # 防螢幕關閉、測驗系統、全域初始化
+│
+│   # 部署與工具設定
+├── appsscript.json        # Google Apps Script 專案清單（clasp 用）
+├── .clasp.json            # clasp 專案設定（含 Script ID）
+├── .claspignore           # clasp 推送時排除的檔案
+├── package.json           # npm 腳本（部署指令 + Jest 測試）
+├── jest.config.js         # Jest 單元測試設定
+├── deploy.sh              # 部署腳本（首次設定 / 推送 / 拉取）
+├── .gitignore             # Git 忽略規則
+│
+│   # 測試
+├── test/setup.js          # 測試環境初始化（DOM 模擬、Mock）
+├── test/polyfills.test.js # Polyfills 單元測試
+├── test/core.test.js      # 核心功能單元測試
+├── test/voice.test.js     # 語音偵測單元測試
+├── test/sheets.test.js    # Sheet ID 解析單元測試
+├── test/filter.test.js    # 篩選邏輯單元測試
+├── test/quiz.test.js      # 測驗系統單元測試
+├── test/export.test.js    # 匯出功能單元測試
+├── test/duplicates.test.js# 重複處理單元測試
+│
+└── OpenSpec.md            # 專案規格說明文件
 ```
 
-### 2.4 前端架構
+### 2.4 部署方式
+
+使用 Google 官方 CLI 工具 **clasp** (Command Line Apps Script Projects) 進行本地開發與部署。
+
+#### 2.4.1 首次設定
+```bash
+bash deploy.sh setup
+```
+此指令會引導完成：安裝 clasp → 登入 Google 帳號 → 輸入 Script ID → 建立 `.clasp.json`
+
+#### 2.4.2 日常部署指令
+| 指令 | 說明 |
+|------|------|
+| `bash deploy.sh push` 或 `bash deploy.sh` | 推送程式碼到 Google Apps Script |
+| `bash deploy.sh pull` | 從 Google Apps Script 拉取程式碼（覆寫本地） |
+| `bash deploy.sh open` | 在瀏覽器開啟 Apps Script 編輯器 |
+| `bash deploy.sh web` | 在瀏覽器開啟 Web App |
+| `bash deploy.sh status` | 查看即將推送的檔案清單 |
+| `bash deploy.sh logs` | 查看 Apps Script 執行日誌 |
+
+#### 2.4.3 npm 腳本（替代方式）
+安裝依賴後 (`npm install`) 也可使用：
+| 指令 | 說明 |
+|------|------|
+| `npm run push` | 推送程式碼 |
+| `npm run push:watch` | 監聽檔案變更自動推送 |
+| `npm run pull` | 拉取程式碼 |
+| `npm run open` | 開啟編輯器 |
+| `npm run open:web` | 開啟 Web App |
+| `npm run deploy` | 推送並開啟 Web App |
+
+### 2.5 前端架構
 
 - **設計模式**: 單一建構函式 `FlashcardApp`，所有方法掛載於 `FlashcardApp.prototype`
+- **模組化**: 前端程式碼拆分為 10 個 HTML 模組檔案，透過 `<?!= include('filename'); ?>` 在 `index.html` 中按順序載入
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 99 個測試案例
 
-### 2.5 ES5 相容性需求（重要限制）
+### 2.6 ES5 相容性需求（重要限制）
 
 由於需要在 iPad 4（iOS 10 及以下）上運行，必須遵守以下限制：
 - **禁止使用** `let`、`const`、箭頭函式、模板字串、解構賦值、展開運算子、Promise、async/await、class 語法

@@ -1,0 +1,730 @@
+<!-- script-core.html -->
+<script>
+  
+  // 全域 FlashcardApp
+  function FlashcardApp() {
+    // 初始化屬性
+    this.words = [];
+    this.currentWords = [];
+    this.currentIndex = 0;
+      this.showingChinese = false;
+      this.isTransitioning = false;
+      this.isProcessingClick = false;
+    this.displayTimer = null;
+    this.speechSynthesis = window.speechSynthesis;
+    this.removedWords = [];
+    this.navigationHistory = [];
+      this.pendingRemoval = null;
+    this.isPaused = false;
+    this.userPaused = false;
+    this.pausedTimestamp = null;
+    this.remainingTime = 0;
+    
+    // 語音啟用狀態（適用於舊版瀏覽器）
+    this.speechActivated = false;
+    this.isLegacyBrowser = false;
+    
+    // 中文語音等待定時器
+    this.chineseWaitInterval = null;
+    
+    // 設定
+    this.settings = {
+      delayTime: 4.5,
+      fontSize: 96,
+      reverseMode: false,
+      fontFamily: 'system-default',
+      delaySpeechInNormalMode: false
+    };
+    
+    // 字型映射表（iPad 4 兼容）
+    this.fontFamilyMap = {
+      'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
+      'microsoft-yahei': "'Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS', Arial, sans-serif",
+      'songti': "'STSong', 'SimSun', 'Times New Roman', serif",
+      'kaiti': "'STKaiti', 'KaiTi', 'BiauKai', 'Times New Roman', serif",
+      'arial': "Arial, 'Helvetica Neue', Helvetica, sans-serif",
+      'helvetica': "'Helvetica Neue', Helvetica, Arial, sans-serif",
+      'times': "'Times New Roman', Times, serif",
+      'courier': "'Courier New', Courier, monospace",
+      'verdana': "Verdana, Geneva, sans-serif"
+    };
+    
+    this.voiceSettings = {
+      enabled: true,
+      rate: 0.8,
+      pitch: 1,
+      volume: 1,
+      lang: 'en-US',
+      voiceURI: '',
+      japaneseLang: 'ja-JP',
+      japaneseVoiceURI: '',
+      spellOutLetters: false,
+      chineseEnabled: false,
+      chineseLang: 'zh-TW',
+      chineseVoiceURI: ''
+    };
+    
+    this.sheetSettings = {
+      sheetId: '',
+      selectedSheets: []
+    };
+    
+    // 功能狀態
+    this.difficultyFilter = 0; // 0=不篩選, 1-10=最低不熟程度
+    this.availableSheets = [];
+    this.listenersSetup = false;
+    this.currentSpreadsheetName = null;
+    this.duplicateWords = [];
+    this.currentDuplicateIndex = 0;
+    this.duplicateProcessingResults = [];
+    this.progressTimer = null;
+    
+    // 複習時間篩選相關
+    this.reviewFilter = 'all'; // 'all', 'never', '2weeks', '1month', '3months', '6months'
+    this.reviewedInSession = {}; // key: "sheetName:rowIndex", value: "YYYY-MM-DD"
+    this.reviewSyncPending = false;
+    this.reviewSyncThreshold = 20; // 每累積 20 個就同步一次
+    
+    // 圖片預加載管理
+    this.preloadedImages = {};
+    this.currentPreloadingImage = null;
+
+    // 防止螢幕關閉相關
+    this.wakeLock = null;
+    this.noSleepVideo = null;
+    this.keepScreenAwake = false;
+    
+    // 測驗相關屬性
+    this.quizState = {
+      isActive: false,
+      type: 'quick', // 'quick' or 'full'
+      questions: [],
+      currentQuestionIndex: 0,
+      selectedAnswer: null,
+      answers: [],
+      score: 0,
+      startTime: null,
+      endTime: null
+    };
+    
+    // 啟動初始化
+    this.init();
+  }
+  
+  // 初始化方法
+  FlashcardApp.prototype.init = function() {
+    console.log('=== FlashcardApp 初始化開始 (ES5版本) ===');
+    try {
+      console.log('載入基本設定...');
+      this.loadSettings();
+      this.loadSheetSettings();
+      
+      console.log('Sheet 設定:', this.sheetSettings);
+      
+      // 檢測瀏覽器是否需要語音交互
+      this.detectLegacyBrowser();
+      
+      console.log('設定事件監聽器...');
+      this.setupEventListeners();
+      
+      // 檢查是否有已設定的 Google Sheet
+      if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+        console.log('發現已設定的 Google Sheet，載入單字...');
+        var self = this;
+        this.loadWords(true, function(hasDuplicates) {
+          self.handleLoadingComplete(hasDuplicates);
+        });
+        } else {
+        console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
+        this.handleLoadingComplete(false, true);
+        return;
+      }
+      
+      console.log('=== FlashcardApp 初始化完成 ===');
+    } catch (error) {
+      console.error('初始化錯誤:', error);
+      this.showError();
+    }
+    
+    // 初始化按鈕狀態
+    this.updateVoiceButtonState();
+    this.updatePauseButtonState();
+    
+    // 啟用防止螢幕關閉功能
+    this.enableKeepScreenAwake();
+  };
+  
+  // 檢測舊版瀏覽器
+  FlashcardApp.prototype.detectLegacyBrowser = function() {
+    var userAgent = navigator.userAgent;
+    var isIOS = /iPad|iPhone|iPod/.test(userAgent);
+    var iosVersion = null;
+    var isOldChrome = false;
+    
+    if (isIOS) {
+      var match = userAgent.match(/OS (\d+)_/);
+      if (match) {
+        iosVersion = parseInt(match[1]);
+      }
+    }
+    
+    // 檢測舊版Chrome（版本低於80）
+    var chromeMatch = userAgent.match(/Chrome\/(\d+)/);
+    if (chromeMatch) {
+      var chromeVersion = parseInt(chromeMatch[1]);
+      isOldChrome = chromeVersion < 80;
+    }
+    
+    // 檢測需要用戶交互才能播放語音的瀏覽器：
+    // 1. iPad/iOS 10及以下版本
+    // 2. 舊版Chrome（版本低於80）
+    // 3. Safari 12及以下版本
+    this.isLegacyBrowser = (isIOS && iosVersion && iosVersion <= 10) || 
+                          isOldChrome ||
+                          userAgent.indexOf('Safari') !== -1 && userAgent.indexOf('Chrome') === -1 && 
+                          userAgent.match(/Version\/(\d+)/) && parseInt(userAgent.match(/Version\/(\d+)/)[1]) <= 12;
+    
+    // 新版瀏覽器自動啟用語音
+    if (!this.isLegacyBrowser) {
+      this.speechActivated = true;
+    }
+    
+    console.log('瀏覽器檢測結果:', {
+      userAgent: userAgent,
+      isIOS: isIOS,
+      iosVersion: iosVersion,
+      isOldChrome: isOldChrome,
+      isLegacyBrowser: this.isLegacyBrowser,
+      speechActivated: this.speechActivated
+    });
+  };
+  
+  // 處理載入完成
+  FlashcardApp.prototype.handleLoadingComplete = function(hasDuplicates, shouldOpenSettings) {
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      // 舊版瀏覽器顯示語音啟用按鈕
+      this.showSpeechActivation();
+    } else {
+      // 新版瀏覽器或已啟用語音，直接進入主畫面
+      this.hideLoading();
+      this.applySettings();
+      
+      if (shouldOpenSettings) {
+        this.openSheetSettings();
+      } else if (!hasDuplicates) {
+        this.startNewRound();
+      }
+    }
+  };
+  
+  // 載入設定
+  FlashcardApp.prototype.loadSettings = function() {
+    try {
+      var savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
+      for (var key in savedSettings) {
+        if (savedSettings.hasOwnProperty(key) && this.settings.hasOwnProperty(key)) {
+          this.settings[key] = savedSettings[key];
+        }
+      }
+      
+      var savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
+      for (var key in savedVoiceSettings) {
+        if (savedVoiceSettings.hasOwnProperty(key) && this.voiceSettings.hasOwnProperty(key)) {
+          this.voiceSettings[key] = savedVoiceSettings[key];
+        }
+      }
+    } catch (e) {
+      console.log('載入設定失敗，使用預設值');
+    }
+  };
+  
+  // 載入Sheet設定
+  FlashcardApp.prototype.loadSheetSettings = function() {
+    try {
+      var savedSheetSettings = JSON.parse(localStorage.getItem('flashcard-sheet-settings') || '{}');
+      for (var key in savedSheetSettings) {
+        if (savedSheetSettings.hasOwnProperty(key) && this.sheetSettings.hasOwnProperty(key)) {
+          this.sheetSettings[key] = savedSheetSettings[key];
+        }
+      }
+    } catch (e) {
+      console.log('載入Sheet設定失敗');
+    }
+  };
+  
+  // 儲存設定
+  FlashcardApp.prototype.saveSettings = function() {
+    localStorage.setItem('flashcard-settings', JSON.stringify(this.settings));
+    localStorage.setItem('flashcard-voice-settings', JSON.stringify(this.voiceSettings));
+  };
+  
+  // 儲存Sheet設定
+  FlashcardApp.prototype.saveSheetSettings = function() {
+    localStorage.setItem('flashcard-sheet-settings', JSON.stringify(this.sheetSettings));
+  };
+  
+  // 獲取預設Sheet列表
+  FlashcardApp.prototype.getDefaultSheets = function() {
+    return [
+      {
+        id: '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM',
+        name: 'WordGo Data Sheet',
+        isDefault: true
+      },
+      {
+        id: '1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg',
+        name: '小學生教育部規定1200單字',
+        isDefault: true
+      }
+    ];
+  };
+  
+  // 檢查是否為預設Sheet
+  FlashcardApp.prototype.isDefaultSheet = function(sheetId) {
+    var defaultSheets = this.getDefaultSheets();
+    for (var i = 0; i < defaultSheets.length; i++) {
+      if (defaultSheets[i].id === sheetId) {
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  // 載入Sheet歷史記錄（不包含預設檔案）
+  FlashcardApp.prototype.loadSheetHistory = function() {
+    try {
+      var history = JSON.parse(localStorage.getItem('flashcard-sheet-history') || '[]');
+      
+      // 過濾掉任何可能混入的預設檔案
+      var filteredHistory = [];
+      for (var i = 0; i < history.length; i++) {
+        if (!this.isDefaultSheet(history[i].id)) {
+          filteredHistory.push(history[i]);
+        }
+      }
+      
+      return filteredHistory;
+    } catch (e) {
+      console.log('載入Sheet歷史記錄失敗，返回空陣列');
+      return [];
+    }
+  };
+  
+  // 儲存Sheet歷史記錄
+  FlashcardApp.prototype.saveSheetHistory = function(history) {
+    try {
+      localStorage.setItem('flashcard-sheet-history', JSON.stringify(history));
+    } catch (e) {
+      console.error('儲存Sheet歷史記錄失敗:', e);
+    }
+  };
+  
+  // 添加到Sheet歷史記錄
+  FlashcardApp.prototype.addToSheetHistory = function(sheetId, sheetName) {
+    try {
+      console.log('添加到歷史記錄:', sheetId, sheetName);
+      
+      // 檢查是否為預設檔案，如果是則不添加
+      if (this.isDefaultSheet(sheetId)) {
+        console.log('這是預設檔案，不添加到歷史記錄');
+        return;
+      }
+      
+      var history = this.loadSheetHistory();
+      
+      // 檢查是否已存在
+      var existingIndex = -1;
+      for (var i = 0; i < history.length; i++) {
+        if (history[i].id === sheetId) {
+          existingIndex = i;
+          break;
+        }
+      }
+      
+      if (existingIndex !== -1) {
+        // 如果已存在，更新名稱並移到最前面
+        history[existingIndex].name = sheetName;
+        history[existingIndex].lastUsed = new Date().toISOString();
+        var item = history.splice(existingIndex, 1)[0];
+        history.unshift(item);
+      } else {
+        // 新項目，添加到最前面
+        history.unshift({
+          id: sheetId,
+          name: sheetName,
+          isDefault: false,
+          lastUsed: new Date().toISOString()
+        });
+      }
+      
+      // 限制歷史記錄數量為10個
+      if (history.length > 10) {
+        history = history.slice(0, 10);
+      }
+      
+      this.saveSheetHistory(history);
+      console.log('歷史記錄已更新，總數:', history.length);
+    } catch (e) {
+      console.error('添加到歷史記錄失敗:', e);
+    }
+  };
+  
+  // 顯示Sheet歷史記錄
+  FlashcardApp.prototype.displaySheetHistory = function() {
+    // 顯示預設檔案
+    this.displayDefaultSheets();
+    
+    // 顯示最近使用的檔案
+    this.displayRecentSheets();
+  };
+  
+  // 顯示預設檔案列表
+  FlashcardApp.prototype.displayDefaultSheets = function() {
+    var defaultList = document.getElementById('default-sheets-list');
+    if (!defaultList) {
+      console.error('找不到default-sheets-list元素');
+      return;
+    }
+    
+    var defaultSheets = this.getDefaultSheets();
+    console.log('顯示預設檔案，總數:', defaultSheets.length);
+    
+    var html = '';
+    for (var i = 0; i < defaultSheets.length; i++) {
+      var item = defaultSheets[i];
+      
+      html += '<div class="sheet-history-item default-sheet" data-sheet-id="' + item.id + '">';
+      html += '  <div class="sheet-history-info">';
+      html += '    <div class="sheet-history-name">' + item.name + '</div>';
+      html += '    <div class="sheet-history-id">' + item.id + '</div>';
+      html += '  </div>';
+      html += '  <span class="sheet-history-badge">預設</span>';
+      html += '</div>';
+    }
+    
+    defaultList.innerHTML = html;
+    
+    // 添加點擊事件
+    var self = this;
+    var items = defaultList.querySelectorAll('.sheet-history-item');
+    for (var i = 0; i < items.length; i++) {
+      (function(item) {
+        item.addEventListener('click', function() {
+          var sheetId = item.getAttribute('data-sheet-id');
+          self.selectSheetFromHistory(sheetId);
+        });
+      })(items[i]);
+    }
+  };
+  
+  // 顯示最近使用的檔案列表
+  FlashcardApp.prototype.displayRecentSheets = function() {
+    var recentList = document.getElementById('recent-sheets-list');
+    if (!recentList) {
+      console.error('找不到recent-sheets-list元素');
+      return;
+    }
+    
+    var history = this.loadSheetHistory();
+    console.log('顯示最近使用的檔案，總數:', history.length);
+    
+    if (history.length === 0) {
+      recentList.innerHTML = '<div class="sheet-history-empty">尚無使用記錄</div>';
+      return;
+    }
+    
+    var html = '';
+    for (var i = 0; i < history.length; i++) {
+      var item = history[i];
+      
+      html += '<div class="sheet-history-item recent-sheet" data-sheet-id="' + item.id + '">';
+      html += '  <div class="sheet-history-info">';
+      html += '    <div class="sheet-history-name">' + item.name + '</div>';
+      html += '    <div class="sheet-history-id">' + item.id + '</div>';
+      html += '  </div>';
+      html += '  <button class="sheet-history-delete" data-sheet-id="' + item.id + '" title="刪除">🗑️</button>';
+      html += '</div>';
+    }
+    
+    recentList.innerHTML = html;
+    
+    // 添加點擊事件（選擇檔案）
+    var self = this;
+    var items = recentList.querySelectorAll('.sheet-history-item');
+    for (var i = 0; i < items.length; i++) {
+      (function(item) {
+        item.addEventListener('click', function(e) {
+          // 如果點擊的是刪除按鈕，不執行選擇操作
+          if (e.target.classList.contains('sheet-history-delete')) {
+            return;
+          }
+          var sheetId = item.getAttribute('data-sheet-id');
+          self.selectSheetFromHistory(sheetId);
+        });
+      })(items[i]);
+    }
+    
+    // 添加刪除按鈕事件
+    var deleteButtons = recentList.querySelectorAll('.sheet-history-delete');
+    for (var i = 0; i < deleteButtons.length; i++) {
+      (function(button) {
+        button.addEventListener('click', function(e) {
+          e.stopPropagation(); // 防止觸發父元素的點擊事件
+          var sheetId = button.getAttribute('data-sheet-id');
+          self.removeFromSheetHistory(sheetId);
+        });
+      })(deleteButtons[i]);
+    }
+  };
+  
+  // 從歷史記錄中刪除
+  FlashcardApp.prototype.removeFromSheetHistory = function(sheetId) {
+    try {
+      console.log('從歷史記錄刪除:', sheetId);
+      
+      var history = this.loadSheetHistory();
+      var newHistory = [];
+      
+      for (var i = 0; i < history.length; i++) {
+        if (history[i].id !== sheetId) {
+          newHistory.push(history[i]);
+        }
+      }
+      
+      this.saveSheetHistory(newHistory);
+      console.log('已刪除，剩餘記錄數:', newHistory.length);
+      
+      // 重新顯示列表
+      this.displayRecentSheets();
+    } catch (e) {
+      console.error('刪除歷史記錄失敗:', e);
+    }
+  };
+  
+  // 從歷史記錄選擇Sheet
+  FlashcardApp.prototype.selectSheetFromHistory = function(sheetId) {
+    console.log('從歷史記錄選擇Sheet:', sheetId);
+    
+    var sheetIdInput = document.getElementById('sheet-id-input');
+    if (sheetIdInput) {
+      sheetIdInput.value = sheetId;
+      
+      // 自動載入工作表清單
+      this.loadSheetsList();
+    }
+  };
+  
+  // 應用設定
+  FlashcardApp.prototype.applySettings = function() {
+    var englishWord = document.getElementById('english-word');
+    var chineseWord = document.getElementById('chinese-word');
+    var loadingText = document.querySelector('#loading p');
+    
+    // 應用字體大小
+    if (englishWord) englishWord.style.fontSize = this.settings.fontSize + 'px';
+    if (chineseWord) chineseWord.style.fontSize = this.settings.fontSize + 'px';
+    if (loadingText) loadingText.style.fontSize = this.settings.fontSize + 'px';
+    
+    // 應用字型
+    this.applyFontFamily();
+    
+    var delaySlider = document.getElementById('delay-setting');
+    var fontSizeSlider = document.getElementById('font-size-setting');
+    var fontFamilySelect = document.getElementById('font-family-setting');
+    var reverseToggle = document.getElementById('reverse-setting');
+    var delaySpeechToggle = document.getElementById('delay-speech-setting');
+    var delayValue = document.getElementById('delay-value');
+    var fontSizeValue = document.getElementById('font-size-value');
+    
+    if (delaySlider && delayValue) {
+      delaySlider.value = this.settings.delayTime;
+      // 修復浮點數精度問題
+      var step = parseFloat(delaySlider.step) || 0.5;
+      var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+      var formattedDelayTime = parseFloat(this.settings.delayTime.toFixed(decimalPlaces));
+      delayValue.textContent = formattedDelayTime;
+    }
+    if (fontSizeSlider && fontSizeValue) {
+      fontSizeSlider.value = this.settings.fontSize;
+      fontSizeValue.textContent = this.settings.fontSize + 'px';
+    }
+    if (fontFamilySelect) {
+      fontFamilySelect.value = this.settings.fontFamily;
+    }
+    if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+    if (delaySpeechToggle) delaySpeechToggle.checked = this.settings.delaySpeechInNormalMode;
+    
+    // 更新字型預覽
+    this.updateFontPreview();
+    
+    // 應用圖片縮放設定（永遠使用不裁切模式）
+    this.applyImageFitMode();
+  };
+  
+  // 應用圖片縮放設定（永遠使用不裁切模式）
+  FlashcardApp.prototype.applyImageFitMode = function() {
+    var flashcardDiv = document.getElementById('flashcard');
+    if (flashcardDiv) {
+      // 永遠使用contain模式（不裁切）
+      flashcardDiv.classList.add('image-fit-contain');
+      flashcardDiv.classList.remove('image-fit-cover');
+    }
+  };
+  
+  // 應用字型設定
+  FlashcardApp.prototype.applyFontFamily = function() {
+    var fontFamily = this.fontFamilyMap[this.settings.fontFamily] || this.fontFamilyMap['system-default'];
+    
+    // 應用到主要元素
+    var elements = [
+      document.getElementById('english-word'),
+      document.getElementById('chinese-word'),
+      document.querySelector('#loading p'),
+      document.body // 應用到整個body作為fallback
+    ];
+    
+    for (var i = 0; i < elements.length; i++) {
+      if (elements[i]) {
+        elements[i].style.fontFamily = fontFamily;
+      }
+    }
+    
+    console.log('已應用字型:', this.settings.fontFamily, '→', fontFamily);
+  };
+  
+  // 更新字型預覽
+  FlashcardApp.prototype.updateFontPreview = function() {
+    var previewEnglish = document.querySelector('.preview-english');
+    var previewChinese = document.querySelector('.preview-chinese');
+    var fontFamily = this.fontFamilyMap[this.settings.fontFamily] || this.fontFamilyMap['system-default'];
+    
+    if (previewEnglish) {
+      previewEnglish.style.fontFamily = fontFamily;
+    }
+    if (previewChinese) {
+      previewChinese.style.fontFamily = fontFamily;
+    }
+  };
+  
+  // 判斷是否在測驗進行中
+  FlashcardApp.prototype.isQuizInProgress = function() {
+    var progressScreen = document.getElementById('quiz-progress-screen');
+    return progressScreen && progressScreen.style.display !== 'none';
+  };
+  
+  // 保護select元素不受全域事件干擾
+  FlashcardApp.prototype.protectSelectElement = function(selectElement) {
+    if (!selectElement) return;
+    
+    console.log('為select元素添加保護:', selectElement.id || selectElement.className);
+    
+    // 阻止所有可能導致問題的事件冒泡
+    var eventsToProtect = ['click', 'mousedown', 'mouseup', 'focus', 'blur'];
+    
+    for (var i = 0; i < eventsToProtect.length; i++) {
+      var eventType = eventsToProtect[i];
+      
+      (function(eventName) {
+        selectElement.addEventListener(eventName, function(e) {
+          console.log('Select ' + eventName + ' 事件，阻止冒泡');
+          e.stopPropagation();
+          
+          // 對於focus事件，確保select獲得焦點
+          if (eventName === 'focus') {
+            console.log('Select獲得焦點');
+          }
+          // 對於blur事件，記錄失去焦點
+          else if (eventName === 'blur') {
+            console.log('Select失去焦點');
+          }
+        }, true); // 使用捕獲階段
+      })(eventType);
+    }
+    
+    // 特別處理鍵盤事件
+    selectElement.addEventListener('keydown', function(e) {
+      console.log('Select keydown 事件:', e.keyCode);
+      e.stopPropagation();
+      // 不調用preventDefault，讓select正常處理鍵盤輸入
+    }, true);
+    
+    selectElement.addEventListener('keyup', function(e) {
+      e.stopPropagation();
+    }, true);
+    
+    // 確保select元素有正確的樣式
+    selectElement.style.position = 'relative';
+    selectElement.style.zIndex = '2100';
+  };
+  
+  // 載入單字
+  FlashcardApp.prototype.loadWords = function(isInitialLoad, callback) {
+    var self = this;
+    callback = callback || function() {};
+    
+    // 清理先前預加載的圖片缓存
+    this.preloadedImages = {};
+    this.currentPreloadingImage = null;
+    
+    if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+      var autoHandle = isInitialLoad;
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('載入結果:', result);
+          
+          if (result && result.words && result.words.length > 0) {
+            self.words = result.words;
+            
+            if (result.autoHandled) {
+              console.log('重複單字已自動處理:', result.autoResults);
+              if (result.autoResults && result.autoResults.successCount > 0) {
+                self.showAutoProcessingNotification(result.autoResults);
+              }
+              callback(false);
+            } else if (result.hasDuplicates && result.duplicates.length > 0) {
+              console.log('發現重複單字需要手動處理:', result.duplicates);
+              self.duplicateWords = result.duplicates;
+              self.currentDuplicateIndex = 0;
+              self.duplicateProcessingResults = [];
+              
+              if (document.readyState === 'complete') {
+                self.showDuplicateModal();
+      } else {
+                window.addEventListener('load', function() {
+                  self.showDuplicateModal();
+                });
+              }
+              callback(true);
+        return;
+            } else {
+              callback(false);
+            }
+          } else {
+            throw new Error('沒有找到單字資料');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('載入單字失敗:', error);
+          self.showError();
+        })
+        .getWordsFromSheetsWithDuplicateDetection(this.sheetSettings.sheetId, this.sheetSettings.selectedSheets, autoHandle);
+    } else {
+      google.script.run
+        .withSuccessHandler(function(words) {
+          if (words && words.length > 0) {
+            self.words = words;
+            callback(false);
+          } else {
+            throw new Error('沒有找到單字資料');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('載入單字失敗:', error);
+          self.showError();
+        })
+        .getWordsFromSheet();
+    }
+  };
+  
+</script>

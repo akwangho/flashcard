@@ -1,0 +1,687 @@
+<!-- script-display.html -->
+<script>
+  // 開啟設定
+  FlashcardApp.prototype.openSettings = function() {
+    var settingsModal = document.getElementById('settings-modal');
+    if (settingsModal) {
+      settingsModal.style.display = 'flex';
+      this.pauseTimer();
+      this.applySettings();
+    }
+  };
+  
+  // 關閉設定
+  FlashcardApp.prototype.closeSettings = function(shouldRedisplay) {
+    var settingsModal = document.getElementById('settings-modal');
+    if (settingsModal) {
+      settingsModal.style.display = 'none';
+      this.resumeTimer();
+      
+      if (shouldRedisplay) {
+        this.redisplayCurrentWord();
+      }
+    }
+  };
+  
+  // 儲存設定並關閉
+  FlashcardApp.prototype.saveSettingsAndClose = function() {
+    var delaySlider = document.getElementById('delay-setting');
+    var fontSizeSlider = document.getElementById('font-size-setting');
+    var fontFamilySelect = document.getElementById('font-family-setting');
+    var reverseToggle = document.getElementById('reverse-setting');
+    
+    var oldReverseMode = this.settings.reverseMode;
+    var oldFontFamily = this.settings.fontFamily;
+    
+    if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
+    if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
+    if (fontFamilySelect) this.settings.fontFamily = fontFamilySelect.value;
+    if (reverseToggle) this.settings.reverseMode = reverseToggle.checked;
+    
+    this.saveSettings();
+    this.applySettings();
+    this.closeSettings();
+    
+    // 如果翻譯模式或字型改變，重新顯示當前單字
+    if (oldReverseMode !== this.settings.reverseMode || oldFontFamily !== this.settings.fontFamily) {
+      this.redisplayCurrentWord();
+    }
+  };
+  
+  // 重置設定
+  FlashcardApp.prototype.resetSettings = function() {
+    this.settings = {
+      delayTime: 3,
+      fontSize: 96,
+      reverseMode: false,
+      fontFamily: 'system-default',
+      delaySpeechInNormalMode: false
+    };
+    this.voiceSettings = {
+      enabled: true,
+      rate: 0.8,
+      pitch: 1,
+      volume: 1,
+      lang: 'en-US',
+      voiceURI: '',
+      japaneseLang: 'ja-JP',
+      japaneseVoiceURI: '',
+      spellOutLetters: false,
+      chineseEnabled: false,
+      chineseLang: 'zh-TW',
+      chineseVoiceURI: ''
+    };
+    this.applySettings();
+      this.saveSettings();
+    this.closeSettings();
+  };
+  
+  // 暫停計時器
+  FlashcardApp.prototype.pauseTimer = function() {
+    this.isPaused = true;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+
+  };
+  
+  // 恢復計時器
+  FlashcardApp.prototype.resumeTimer = function() {
+    // 只有在用戶沒有手動暫停的情況下才恢復計時器
+    if (!this.userPaused) {
+      this.isPaused = false;
+    }
+    
+    var self = this;
+    if (!this.isPaused) {
+      if (this.showingChinese) {
+        this.displayTimer = setTimeout(function() {
+          self.nextWord();
+        }, this.settings.delayTime * 1000);
+      } else if (!this.isTransitioning && !this.isProcessingClick) {
+        var currentWord = this.currentWords[this.currentIndex];
+        if (currentWord) {
+          this.displayTimer = setTimeout(function() {
+            self.showSecondPartAndScheduleNext();
+          }, this.settings.delayTime * 1000);
+        }
+      }
+    }
+    
+    // 更新UI狀態
+    this.updatePauseButtonState();
+  };
+  
+  // 開啟Google Sheet設定
+  FlashcardApp.prototype.openSheetSettings = function() {
+    console.log('開啟 Google Sheet 設定畫面');
+    var modal = document.getElementById('sheet-settings-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      
+      var sheetIdInput = document.getElementById('sheet-id-input');
+      if (sheetIdInput) {
+        sheetIdInput.value = this.sheetSettings.sheetId || '';
+      }
+      
+      var sheetsGroup = document.getElementById('sheets-selection-group');
+      if (sheetsGroup) {
+      sheetsGroup.style.display = 'none';
+      }
+      
+      var saveBtn = document.getElementById('save-sheet-settings');
+      if (saveBtn) {
+      saveBtn.disabled = true;
+      }
+      
+      // 顯示歷史記錄
+      this.displaySheetHistory();
+      
+      this.pauseTimer();
+    }
+  };
+  
+  // 關閉Google Sheet設定
+  FlashcardApp.prototype.closeSheetSettings = function() {
+    var modal = document.getElementById('sheet-settings-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      this.resumeTimer();
+    }
+  };
+  
+  // 增加不熟程度（+1，最高10）
+  FlashcardApp.prototype.increaseDifficulty = function() {
+    if (this.currentWords.length === 0) return;
+    
+    var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord) return;
+    
+    // 增加不熟程度
+    var newLevel = Math.min(10, (currentWord.difficultyLevel || 0) + 1);
+    currentWord.difficultyLevel = newLevel;
+    
+    // 同步到 words 主陣列
+    var mainWord = this.words.find(function(w) { return w.id === currentWord.id; });
+    if (mainWord) mainWord.difficultyLevel = newLevel;
+    
+    // 後端同步
+    this.syncDifficultyToBackend(currentWord);
+    
+    this.renderDifficultyLevel();
+    console.log('增加不熟程度:', currentWord.english, '→ ★' + newLevel);
+  };
+
+  // 減少不熟程度（-1，最低0）
+  FlashcardApp.prototype.decreaseDifficulty = function(word) {
+    if (!word) return;
+    
+    var newLevel = Math.max(0, (word.difficultyLevel || 0) - 1);
+    word.difficultyLevel = newLevel;
+    
+    // 同步到 words 主陣列
+    var mainWord = this.words.find(function(w) { return w.id === word.id; });
+    if (mainWord) mainWord.difficultyLevel = newLevel;
+    
+    // 後端同步
+    this.syncDifficultyToBackend(word);
+    
+    console.log('減少不熟程度:', word.english, '→ ★' + newLevel);
+  };
+
+  // 同步不熟程度到後端
+  FlashcardApp.prototype.syncDifficultyToBackend = function(word) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      var rowIndex = word.originalRowIndex;
+      if (rowIndex !== undefined && rowIndex !== -1) {
+        var sheetId = this.sheetSettings.sheetId;
+        var sheetName = word.sheetName || 'Sheet1';
+        google.script.run.updateWordDifficulty(sheetId, sheetName, rowIndex, word.difficultyLevel);
+      }
+    }
+  };
+
+  // 向後兼容：toggleDifficultCurrentWord
+  FlashcardApp.prototype.toggleDifficultCurrentWord = function() {
+    this.increaseDifficulty();
+  };
+  
+  // 渲染不熟程度顯示
+  FlashcardApp.prototype.renderDifficultyLevel = function() {
+    var currentWord = this.currentWords[this.currentIndex];
+    var display = document.getElementById('difficulty-display');
+    var levelEl = document.getElementById('difficulty-level');
+    
+    if (!display || !levelEl) return;
+    
+    var level = (currentWord && currentWord.difficultyLevel) ? currentWord.difficultyLevel : 0;
+    levelEl.textContent = level;
+    
+    // 移除所有等級 class
+    for (var i = 0; i <= 10; i++) {
+      display.className = display.className.replace('difficulty-level-' + i, '').trim();
+    }
+    display.className = display.className.replace(/\s+/g, ' ').trim();
+    display.classList.add('difficulty-display');
+    display.classList.add('difficulty-level-' + level);
+  };
+    
+  // 重新套用篩選（用於切換篩選條件後）
+  FlashcardApp.prototype.reapplyFilters = function() {
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+    this.displayCurrentWord();
+    this.updateActiveFilterDisplay();
+  };
+  
+  // 處理flashcard點擊事件（檢查點擊位置）
+  FlashcardApp.prototype.handleFlashcardClick = function(event) {
+    // 檢查點擊是否發生在控制按鈕或選單上（ES5兼容版本）
+    var target = event.target;
+    
+    // 向上遍历DOM树检查是否点击了控制元素
+    var element = target;
+    while (element && element !== event.currentTarget) {
+      if (element.classList && (
+          element.classList.contains('controls-wrapper') ||
+          element.classList.contains('progress') ||
+          element.classList.contains('restore-btn-container') ||
+          element.classList.contains('paused-indicator') ||
+          element.classList.contains('paused-content') ||
+          element.classList.contains('paused-icon') ||
+          element.classList.contains('paused-text') ||
+          element.classList.contains('muted-indicator') ||
+          element.classList.contains('muted-content') ||
+          element.classList.contains('muted-icon') ||
+          element.classList.contains('muted-text') ||
+          element.classList.contains('active-filters') ||
+          element.tagName === 'BUTTON')) {
+        return; // 如果點擊的是控制元素，不處理
+      }
+      element = element.parentElement;
+    }
+    
+    // 計算下方安全區域的高度
+    var flashcardRect = event.currentTarget.getBoundingClientRect();
+    var clickY = event.clientY;
+    var flashcardBottom = flashcardRect.bottom;
+    
+    // 動態計算下方安全區域高度
+    var progressElement = document.getElementById('progress-area');
+    var controlsWrapper = document.querySelector('.controls-wrapper');
+    var safeAreaHeight = 120; // 默認高度
+    
+    // 嘗試動態計算實際高度
+    try {
+      var progressHeight = progressElement ? progressElement.offsetHeight + 20 : 40; // 包含padding
+      var controlsHeight = controlsWrapper ? controlsWrapper.offsetHeight + 20 : 60; // 包含padding
+      safeAreaHeight = Math.max(progressHeight, controlsHeight) + 20; // 額外的安全邊距
+    } catch (e) {
+      console.log('無法動態計算安全區域高度，使用默認值');
+    }
+    
+    var safeAreaTop = flashcardBottom - safeAreaHeight;
+    
+    // 如果點擊位置在下方安全區域內，不觸發刪除功能
+    if (clickY >= safeAreaTop) {
+      console.log('點擊位置在安全區域內(Y:' + clickY + ', 安全區域起始:' + safeAreaTop + ')，不觸發刪除功能');
+      return;
+    }
+    
+    console.log('點擊位置在有效區域內(Y:' + clickY + ', 安全區域起始:' + safeAreaTop + ')，觸發刪除功能');
+    // 觸發單字點擊事件
+    this.onWordClick();
+  };
+  
+  // 單字點擊事件（刪除單字功能）
+  FlashcardApp.prototype.onWordClick = function() {
+    if (this.isTransitioning || this.isPaused) return;
+    
+    if (this.currentWords.length <= 1) {
+      var sections = document.querySelectorAll('.card-section');
+      for (var i = 0; i < sections.length; i++) {
+        sections[i].style.backgroundColor = 'rgba(255, 100, 100, 0.3)';
+        (function(section) {
+          setTimeout(function() {
+            section.style.backgroundColor = '';
+          }, 300);
+        })(sections[i]);
+      }
+      return;
+    }
+    
+    var currentWord = this.currentWords[this.currentIndex];
+    var englishElement = document.getElementById('english-word');
+    var chineseElement = document.getElementById('chinese-word');
+    
+    var isAlreadyMarked = englishElement.style.color === 'rgb(102, 102, 102)' || 
+                        englishElement.style.color === '#666666';
+    
+    if (isAlreadyMarked) {
+      this.nextWord();
+        return;
+      }
+      
+    this.isProcessingClick = true;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    if (!this.showingChinese) {
+      var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+      chineseElement.textContent = secondText;
+      chineseElement.classList.add('show');
+      this.showingChinese = true;
+      
+      // 標記該單字為已複習
+      this.markWordAsReviewed(currentWord);
+      
+      // 同時顯示圖片（如果有的話）- 使用預加載的圖片
+      var flashcardDiv = document.getElementById('flashcard');
+      var hasImage = currentWord.image && currentWord.image !== '';
+      if (hasImage) {
+        // 由於圖片已經預加載，可以直接設定，無需等待
+        flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+        flashcardDiv.classList.add('has-image');
+      } else {
+        flashcardDiv.style.backgroundImage = '';
+        flashcardDiv.classList.remove('has-image');
+      }
+      
+      var self = this;
+      
+      if (this.settings.reverseMode) {
+        // 反向模式：用戶點擊顯示英文，播放英文語音
+        setTimeout(function() {
+          self.speakWord(currentWord.english);
+        }, 500);
+      } else {
+        // 正常模式：用戶點擊顯示中文，播放中文語音
+        setTimeout(function() {
+          self.speakChineseWord(currentWord.chinese);
+        }, 500);
+        
+        // 如果啟用了延遲發音，也在此時播放英文語音
+        if (this.settings.delaySpeechInNormalMode) {
+          setTimeout(function() {
+            self.speakWord(currentWord.english);
+          }, 500);
+        }
+      }
+    }
+    
+    englishElement.style.color = '#666666';
+    chineseElement.style.color = '#666666';
+    
+    var sections = document.querySelectorAll('.card-section');
+    for (var i = 0; i < sections.length; i++) {
+      sections[i].classList.add('clicked');
+      (function(section) {
+        setTimeout(function() { 
+          section.classList.remove('clicked'); 
+        }, 500);
+      })(sections[i]);
+    }
+    
+    this.pendingRemoval = {
+      word: currentWord,
+      index: this.currentIndex,
+      originalEnglishColor: englishElement.style.color,
+      originalChineseColor: chineseElement.style.color
+    };
+    
+    this.showRestoreButton();
+    this.updateButtonStates();
+    
+    var self = this;
+    this.displayTimer = setTimeout(function() {
+      self.confirmRemoval();
+    }, this.settings.delayTime * 1000);
+  };
+  
+  // 確認移除單字
+  FlashcardApp.prototype.confirmRemoval = function() {
+    if (!this.pendingRemoval) return;
+    
+    var word = this.pendingRemoval.word;
+    var index = this.pendingRemoval.index;
+    
+    // 暫時移除單字時，減少不熟程度 -1
+    this.decreaseDifficulty(word);
+    
+    this.removedWords.push(word);
+    this.currentWords.splice(index, 1);
+    
+    if (this.currentIndex >= this.currentWords.length) {
+      this.currentIndex = 0;
+    }
+    
+    this.pendingRemoval = null;
+    this.hideRestoreButton();
+    
+    if (this.currentWords.length === 0) {
+      this.startNewRound();
+    } else {
+      this.displayCurrentWord();
+    }
+    
+    this.isProcessingClick = false;
+    this.updateButtonStates();
+  };
+  
+  // 取消移除
+  FlashcardApp.prototype.cancelRemoval = function() {
+    if (!this.pendingRemoval) return;
+    
+    var englishElement = document.getElementById('english-word');
+    var chineseElement = document.getElementById('chinese-word');
+    
+    englishElement.style.color = '';
+    chineseElement.style.color = '';
+    
+    this.pendingRemoval = null;
+    this.hideRestoreButton();
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    this.isProcessingClick = false;
+    this.updateButtonStates();
+    
+    var self = this;
+    if (this.showingChinese) {
+      this.displayTimer = setTimeout(function() {
+        self.nextWord();
+      }, this.settings.delayTime * 1000);
+      } else {
+      this.displayTimer = setTimeout(function() {
+        self.showSecondPartAndScheduleNext();
+      }, this.settings.delayTime * 1000);
+    }
+  };
+  
+  // 顯示恢復按鈕
+  FlashcardApp.prototype.showRestoreButton = function() {
+    var restoreBtnContainer = document.getElementById('restore-btn-container');
+    if (restoreBtnContainer) {
+      restoreBtnContainer.style.display = 'block';
+    }
+    var progressArea = document.getElementById('progress-area');
+    if (progressArea) {
+      progressArea.classList.add('progress-shifted');
+    }
+  };
+  
+  // 隱藏恢復按鈕
+  FlashcardApp.prototype.hideRestoreButton = function() {
+    var restoreBtnContainer = document.getElementById('restore-btn-container');
+    if (restoreBtnContainer) {
+      restoreBtnContainer.style.display = 'none';
+    }
+    var progressArea = document.getElementById('progress-area');
+    if (progressArea) {
+      progressArea.classList.remove('progress-shifted');
+    }
+  };
+  
+  // 顯示第二部分並安排下一個
+  FlashcardApp.prototype.showSecondPartAndScheduleNext = function() {
+    if (this.isPaused || this.showingChinese || !this.currentWords[this.currentIndex]) {
+      return;
+    }
+  
+        if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    // 清除中文延遲顯示計時器
+    if (this.chineseDelayTimer) {
+      clearTimeout(this.chineseDelayTimer);
+      this.chineseDelayTimer = null;
+    }
+
+    var currentWord = this.currentWords[this.currentIndex];
+    var chineseElement = document.getElementById('chinese-word');
+    var flashcardDiv = document.getElementById('flashcard');
+    
+    // 設定背景圖片（圖片佔滿整個畫面）- 使用預加載的圖片
+    var hasImage = currentWord.image && currentWord.image !== '';
+    if (hasImage) {
+      // 由於圖片已經預加載，可以直接設定，無需等待
+      flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+      flashcardDiv.classList.add('has-image');
+    } else {
+      flashcardDiv.style.backgroundImage = '';
+      flashcardDiv.classList.remove('has-image');
+    }
+    
+    var self = this;
+    var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+    
+    // 圖片和中文同時顯示（移除延遲）
+    chineseElement.textContent = secondText;
+    chineseElement.classList.add('show');
+    this.showingChinese = true;
+    
+    // 標記該單字為已複習
+    this.markWordAsReviewed(currentWord);
+    
+    // 設定下一個單字的計時器
+    this.displayTimer = setTimeout(function() {
+      self.nextWord();
+    }, this.settings.delayTime * 1000);
+    
+    if (this.settings.reverseMode) {
+      // 反向模式：第二部分顯示英文，播放英文語音
+      setTimeout(function() {
+        self.speakWord(currentWord.english);
+      }, 500);
+    } else {
+      // 正常模式：第二部分顯示中文，播放中文語音
+      setTimeout(function() {
+        self.speakChineseWord(currentWord.chinese);
+      }, 500);
+      
+      // 如果啟用了延遲發音，也在此時播放英文語音
+      if (this.settings.delaySpeechInNormalMode) {
+        setTimeout(function() {
+          self.speakWord(currentWord.english);
+        }, 500);
+      }
+    }
+  };
+  
+  // 預加載圖片方法
+  FlashcardApp.prototype.preloadImage = function(imageUrl, callback) {
+    if (!imageUrl || imageUrl === '') {
+      if (callback) callback(false);
+      return;
+    }
+    
+    // 如果已經預加載過，直接回調
+    if (this.preloadedImages[imageUrl]) {
+      if (callback) callback(true);
+      return;
+    }
+    
+    var self = this;
+    var img = new Image();
+    
+    img.onload = function() {
+      self.preloadedImages[imageUrl] = true;
+      if (callback) callback(true);
+    };
+    
+    img.onerror = function() {
+      console.warn('圖片預加載失敗:', imageUrl);
+      if (callback) callback(false);
+    };
+    
+    img.src = imageUrl;
+    this.currentPreloadingImage = img;
+  };
+  
+  // 增強滑塊交互體驗（ES5兼容版本）
+  FlashcardApp.prototype.enhanceSliderInteraction = function(slider, valueElementId, unit) {
+    if (!slider) return;
+    
+    var self = this;
+    unit = unit || '';
+    
+    // 計算點擊位置對應的值
+    function calculateValueFromClick(event, sliderElement) {
+      var rect = sliderElement.getBoundingClientRect();
+      var clickX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : 0);
+      var sliderX = clickX - rect.left;
+      var sliderWidth = rect.width;
+      
+      // 確保點擊位置在滑塊範圍內
+      if (sliderX < 0) sliderX = 0;
+      if (sliderX > sliderWidth) sliderX = sliderWidth;
+      
+      // 計算百分比
+      var percentage = sliderX / sliderWidth;
+      
+      // 根據滑塊的min、max、step計算值
+      var min = parseFloat(sliderElement.min);
+      var max = parseFloat(sliderElement.max);
+      var step = parseFloat(sliderElement.step) || 1;
+      
+      var rawValue = min + (max - min) * percentage;
+      
+      // 根據step調整值，修復浮點數精度問題
+      var steppedValue = Math.round(rawValue / step) * step;
+      
+      // 確保值在範圍內
+      if (steppedValue < min) steppedValue = min;
+      if (steppedValue > max) steppedValue = max;
+      
+      // 修復浮點數精度問題
+      var decimalPlaces = 0;
+      if (step.toString().indexOf('.') !== -1) {
+        decimalPlaces = step.toString().split('.')[1].length;
+      }
+      steppedValue = parseFloat(steppedValue.toFixed(decimalPlaces));
+      
+      return steppedValue;
+    }
+    
+    // 更新滑塊值和顯示
+    function updateSliderValue(newValue) {
+      slider.value = newValue;
+      
+      // 觸發input事件以更新顯示和其他邏輯
+      var inputEvent;
+      try {
+        inputEvent = new Event('input', { bubbles: true });
+      } catch (e) {
+        // IE/舊瀏覽器兼容
+        inputEvent = document.createEvent('HTMLEvents');
+        inputEvent.initEvent('input', true, true);
+      }
+      slider.dispatchEvent(inputEvent);
+      
+      // 手動更新顯示值（確保格式正確）
+      var valueElement = document.getElementById(valueElementId);
+      if (valueElement) {
+        // 格式化顯示值，避免浮點數精度問題
+        var step = parseFloat(slider.step) || 1;
+        var decimalPlaces = 0;
+        if (step.toString().indexOf('.') !== -1) {
+          decimalPlaces = step.toString().split('.')[1].length;
+        }
+        var formattedValue = parseFloat(newValue.toFixed(decimalPlaces));
+        valueElement.textContent = formattedValue + unit;
+      }
+    }
+    
+    // 點擊事件處理
+    function handleClick(event) {
+      // 防止冒泡
+      event.preventDefault();
+      event.stopPropagation();
+      
+      var newValue = calculateValueFromClick(event, slider);
+      updateSliderValue(newValue);
+    }
+    
+    // 觸摸事件處理
+    function handleTouchStart(event) {
+      event.preventDefault();
+      var newValue = calculateValueFromClick(event, slider);
+      updateSliderValue(newValue);
+    }
+    
+    // 添加事件監聽器
+    slider.addEventListener('click', handleClick);
+    slider.addEventListener('touchstart', handleTouchStart);
+    
+    console.log('已增強滑塊交互體驗:', slider.id);
+  };
+  
+</script>

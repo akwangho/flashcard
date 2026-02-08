@@ -1,0 +1,418 @@
+<!-- script-sheets.html -->
+<script>
+    // Sheet設定相關（完整實現）
+  FlashcardApp.prototype.loadSheetsList = function() {
+    // 檢查是否需要使用預設表單
+    var sheetIdInput = document.getElementById('sheet-id-input');
+    if (sheetIdInput && (!sheetIdInput.value || sheetIdInput.value.trim() === '')) {
+      var useDefault = confirm('Google Sheet 欄位是空的。\n\n是否要使用預設的範例表單？\n\n預設表單包含常用的英文單字範例，可以直接開始使用。');
+      
+      if (useDefault) {
+        // 填入預設ID
+        var defaultSheetId = '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
+        sheetIdInput.value = defaultSheetId;
+        console.log('用戶選擇使用預設表單，已填入預設ID:', defaultSheetId);
+      } else {
+        // 用戶拒絕使用預設表單
+        console.log('用戶拒絕使用預設表單');
+        alert('請輸入您的 Google Sheet ID 或 URL');
+        sheetIdInput.focus();
+        return;
+      }
+    }
+
+    var input = this.validateAndGetSheetInput();
+    if (!input) return;
+
+    var elements = this.validateSheetUIElements();
+    if (!elements) return;
+
+    try {
+      var sheetId = this.extractSheetId(input);
+      this.updateSheetLoadingUI(elements, true);
+      this.performSheetListRequest(sheetId, elements);
+    } catch (error) {
+      console.error('loadSheetsList 執行過程中發生錯誤:', error);
+      alert('錯誤：' + error.message);
+    }
+  };
+  
+  FlashcardApp.prototype.validateAndGetSheetInput = function() {
+    var sheetIdInput = document.getElementById('sheet-id-input');
+    if (!sheetIdInput) {
+      console.error('找不到 sheet-id-input 元素');
+      alert('系統錯誤：找不到輸入框元素');
+      return null;
+    }
+  
+    var input = sheetIdInput.value.trim();
+    if (!input) {
+      console.warn('用戶未輸入任何內容');
+      alert('請輸入 Google Sheet ID 或 URL');
+      return null;
+    }
+  
+    return input;
+  };
+  
+  FlashcardApp.prototype.validateSheetUIElements = function() {
+    var elements = {
+      sheetsList: document.getElementById('sheets-list'),
+      sheetsGroup: document.getElementById('sheets-selection-group'),
+      loadBtn: document.getElementById('load-sheets-btn')
+    };
+  
+    var elementChecks = [
+      { element: elements.sheetsList, name: 'sheets-list', error: '找不到工作表清單元素' },
+      { element: elements.sheetsGroup, name: 'sheets-selection-group', error: '找不到工作表選擇組元素' },
+      { element: elements.loadBtn, name: 'load-sheets-btn', error: '找不到載入按鈕' }
+    ];
+  
+    for (var i = 0; i < elementChecks.length; i++) {
+      var check = elementChecks[i];
+      if (!check.element) {
+        console.error('找不到 ' + check.name + ' 元素');
+        alert('系統錯誤：' + check.error);
+        return null;
+      }
+    }
+  
+    return elements;
+  };
+  
+  FlashcardApp.prototype.extractSheetId = function(input) {
+    console.log('=== extractSheetId 開始執行 ===');
+    console.log('輸入內容:', input);
+    
+    var trimmedInput = input.trim();
+    console.log('去除空格後:', trimmedInput);
+    
+    // 如果看起來像是 URL
+    if (trimmedInput.indexOf('docs.google.com/spreadsheets') !== -1) {
+      console.log('檢測到 Google Sheets URL');
+      // 尋找 /d/ 後面的 ID
+      var match = trimmedInput.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      console.log('正則表達式匹配結果:', match);
+      
+      if (match && match[1]) {
+        console.log('從 URL 提取到 Sheet ID:', match[1]);
+        return match[1];
+          } else {
+        console.error('無法從 URL 中提取 Sheet ID');
+        throw new Error('無法從 URL 中提取 Sheet ID，請確認 URL 格式正確');
+      }
+    }
+    
+    // 如果看起來像是純 ID (字母數字組合)
+    var idPattern = /^[a-zA-Z0-9-_]+$/;
+    console.log('檢查是否為純 ID，模式:', idPattern);
+    console.log('模式測試結果:', idPattern.test(trimmedInput));
+    
+    if (idPattern.test(trimmedInput)) {
+      console.log('輸入看起來是 Sheet ID:', trimmedInput);
+      return trimmedInput;
+    }
+    
+    console.error('輸入格式不正確');
+    throw new Error('輸入格式不正確，請輸入有效的 Google Sheet ID 或 URL');
+  };
+  
+  FlashcardApp.prototype.updateSheetLoadingUI = function(elements, isLoading) {
+    if (isLoading) {
+      elements.sheetsList.innerHTML = '<div class="loading-text">載入中...</div>';
+      elements.sheetsGroup.style.display = 'block';
+      elements.loadBtn.disabled = true;
+      elements.loadBtn.textContent = '載入中...';
+          } else {
+      elements.loadBtn.disabled = false;
+      elements.loadBtn.textContent = '載入工作表清單';
+    }
+  };
+  
+  FlashcardApp.prototype.performSheetListRequest = function(sheetId, elements) {
+    if (!this.validateGoogleScriptEnvironment()) {
+      throw new Error('Google Apps Script 環境不可用');
+    }
+  
+    var self = this;
+    var timeout = this.setupSheetRequestTimeout(elements);
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        self.handleSheetListSuccess(result, elements, timeout, sheetId);
+      })
+      .withFailureHandler(function(error) {
+        self.handleSheetListFailure(error, elements, timeout);
+      })
+      .getSheetsList(sheetId);
+  };
+  
+  FlashcardApp.prototype.validateGoogleScriptEnvironment = function() {
+    if (typeof google === 'undefined') {
+      console.error('google 物件未定義');
+      return false;
+    }
+    if (!google.script || !google.script.run) {
+      console.error('Google Apps Script 功能未可用');
+      return false;
+    }
+    return true;
+  };
+  
+  FlashcardApp.prototype.setupSheetRequestTimeout = function(elements) {
+    var self = this;
+    return setTimeout(function() {
+      console.error('載入工作表清單超時 (15秒)');
+      elements.sheetsList.innerHTML = '<div class="error-text">載入超時，請檢查網路連接或重試</div>';
+      self.updateSheetLoadingUI(elements, false);
+    }, 15000);
+  };
+  
+  FlashcardApp.prototype.handleSheetListSuccess = function(result, elements, timeout, sheetId) {
+    clearTimeout(timeout);
+    console.log('Google Apps Script 成功回調');
+  
+    var sheets, spreadsheetName;
+    if (result && result.sheets) {
+      sheets = result.sheets;
+      spreadsheetName = result.spreadsheetName;
+    } else if (Array.isArray(result)) {
+      sheets = result;
+      spreadsheetName = null;
+    } else {
+      throw new Error('載入工作表清單失敗：返回格式錯誤');
+    }
+  
+    this.availableSheets = sheets;
+    this.currentSpreadsheetName = spreadsheetName;
+    
+    // 保存到歷史記錄
+    if (sheetId && spreadsheetName) {
+      this.addToSheetHistory(sheetId, spreadsheetName);
+      console.log('已添加到歷史記錄:', sheetId, spreadsheetName);
+    }
+    
+    this.renderSheetsList();
+    this.updateSheetLoadingUI(elements, false);
+  };
+  
+  FlashcardApp.prototype.handleSheetListFailure = function(error, elements, timeout) {
+    clearTimeout(timeout);
+    console.error('載入工作表清單失敗:', error);
+  
+    var errorMessage = error.message || '未知錯誤';
+    var helpMessage = '';
+    
+    // 根據不同錯誤類型提供具體的幫助訊息
+    if (errorMessage.indexOf('權限') !== -1 || errorMessage.indexOf('Permission') !== -1) {
+      helpMessage = '<div class="error-help"><strong>解決方案：</strong><br>1. 確認您有存取此 Google Sheet 的權限<br>2. 如果是私人 Sheet，請確保您已登入相同的 Google 帳號<br>3. 嘗試在瀏覽器中直接開啟該 Sheet 確認權限</div>';
+    } else if (errorMessage.indexOf('找不到') !== -1 || errorMessage.indexOf('無法開啟') !== -1 || errorMessage.indexOf('not found') !== -1) {
+      helpMessage = '<div class="error-help"><strong>解決方案：</strong><br>1. 請檢查 Sheet ID 是否正確<br>2. 確認 Sheet 是否存在且未被刪除<br>3. 如果是 URL，請確保格式正確</div>';
+    } else if (errorMessage.indexOf('network') !== -1 || errorMessage.indexOf('網路') !== -1) {
+      helpMessage = '<div class="error-help"><strong>解決方案：</strong><br>1. 檢查網路連接<br>2. 稍後重試<br>3. 確認防火牆未阻擋 Google 服務</div>';
+          } else {
+      helpMessage = '<div class="error-help"><strong>常見解決方案：</strong><br>1. 請刷新頁面重試（按 Ctrl+F5 或 Cmd+Shift+R）<br>2. 確認 Google Sheet ID 格式正確<br>3. 確認您有該 Sheet 的存取權限<br>4. 嘗試直接在瀏覽器開啟該 Sheet</div>';
+    }
+    
+    elements.sheetsList.innerHTML = '<div class="error-text">載入失敗：' + errorMessage + '</div>' + helpMessage;
+    this.updateSheetLoadingUI(elements, false);
+  };
+  
+  FlashcardApp.prototype.renderSheetsList = function() {
+    console.log('=== renderSheetsList 開始執行 ===');
+    console.log('可用工作表數量:', this.availableSheets ? this.availableSheets.length : 0);
+    console.log('工作表資料:', this.availableSheets);
+    console.log('當前 Google Sheet 名稱:', this.currentSpreadsheetName);
+    
+    var sheetsList = document.getElementById('sheets-list');
+    var sheetsGroup = document.getElementById('sheets-selection-group');
+    if (!sheetsList || !sheetsGroup) {
+      console.error('找不到 sheets-list 或 sheets-selection-group 元素');
+      return;
+    }
+    
+    if (!this.availableSheets || this.availableSheets.length === 0) {
+      console.warn('沒有可用的工作表');
+      sheetsList.innerHTML = '<div class="error-text">沒有找到工作表</div>';
+      var oldTitle = sheetsGroup.querySelector('.sheet-title');
+      if (oldTitle) oldTitle.remove();
+        return;
+      }
+      
+    console.log('開始清空並重新渲染工作表清單');
+    sheetsList.innerHTML = '';
+    
+    // 先移除舊的標題
+    var oldTitle = sheetsGroup.querySelector('.sheet-title');
+    if (oldTitle) oldTitle.remove();
+    
+    // 如果有 Google Sheet 名稱，顯示在 sheetsGroup 最上方
+    if (this.currentSpreadsheetName) {
+      var sheetTitle = document.createElement('div');
+      sheetTitle.className = 'sheet-title';
+      sheetTitle.innerHTML = '<div class="sheet-title-text"><strong>Google Sheet:</strong> ' + this.currentSpreadsheetName + '</div>';
+      sheetsGroup.insertBefore(sheetTitle, sheetsGroup.firstChild);
+      console.log('顯示 Google Sheet 名稱:', this.currentSpreadsheetName);
+    }
+    
+    var self = this;
+    for (var index = 0; index < this.availableSheets.length; index++) {
+      var sheet = this.availableSheets[index];
+      console.log('渲染工作表 ' + (index + 1) + ':', sheet);
+      
+      var sheetItem = document.createElement('div');
+      sheetItem.className = 'sheet-item';
+      
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = sheet.name;
+      
+      // 檢查是否應該自動勾選
+      if (this.sheetSettings.selectedSheets && this.sheetSettings.selectedSheets.includes(sheet.name)) {
+        checkbox.checked = true;
+        console.log('自動勾選已載入的工作表:', sheet.name);
+      }
+      
+      (function(sheetName) {
+        checkbox.addEventListener('change', function() {
+          console.log('工作表選擇狀態改變:', sheetName, checkbox.checked);
+          self.toggleSheetSelection();
+        });
+      })(sheet.name);
+      
+      var sheetInfo = document.createElement('div');
+      sheetInfo.className = 'sheet-info';
+      
+      var sheetName = document.createElement('div');
+      sheetName.className = 'sheet-name';
+      sheetName.textContent = sheet.name;
+      
+      var sheetCount = document.createElement('div');
+      sheetCount.className = 'sheet-count';
+      // 如果 wordCount 為 null 或 undefined，顯示 '-'，表示該工作表的 F1 欄位需要設置
+      if (sheet.wordCount === null || sheet.wordCount === undefined) {
+        sheetCount.textContent = '-';
+        sheetCount.style.color = '#888'; // 使用灰色表示無資料
+      } else {
+        sheetCount.textContent = sheet.wordCount + ' 個單字';
+      }
+      
+      sheetInfo.appendChild(sheetName);
+      sheetInfo.appendChild(sheetCount);
+      
+      sheetItem.appendChild(checkbox);
+      sheetItem.appendChild(sheetInfo);
+      
+      (function(currentSheet, currentCheckbox) {
+        sheetItem.addEventListener('click', function(e) {
+          if (e.target !== currentCheckbox) {
+            console.log('點擊工作表項目:', currentSheet.name);
+            currentCheckbox.checked = !currentCheckbox.checked;
+            self.toggleSheetSelection();
+          }
+        });
+      })(sheet, checkbox);
+      
+      sheetsList.appendChild(sheetItem);
+      console.log('工作表 ' + sheet.name + ' 渲染完成');
+    }
+    
+    console.log('所有工作表渲染完成，更新選擇計數');
+    this.updateSelectedCount();
+    
+    // 檢查是否有已勾選的工作表，如果有則啟用載入按鈕
+    var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+    var selectedCount = 0;
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) selectedCount++;
+    }
+    var saveBtn = document.getElementById('save-sheet-settings');
+    if (saveBtn && selectedCount > 0) {
+      saveBtn.disabled = false;
+      console.log('啟用載入單字按鈕，已選擇', selectedCount, '個工作表');
+    }
+    
+    console.log('=== renderSheetsList 執行完成 ===');
+  };
+  
+  FlashcardApp.prototype.toggleSheetSelection = function() {
+    var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+    var selectedCount = 0;
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) selectedCount++;
+    }
+    
+    var saveBtn = document.getElementById('save-sheet-settings');
+    if (saveBtn) {
+      saveBtn.disabled = selectedCount === 0;
+    }
+    this.updateSelectedCount();
+  };
+  
+  FlashcardApp.prototype.updateSelectedCount = function() {
+    var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+    var selectedCount = 0;
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) selectedCount++;
+    }
+    var selectedCountElement = document.getElementById('selected-count');
+    if (selectedCountElement) {
+      selectedCountElement.textContent = '(已選 ' + selectedCount + ' 個)';
+    }
+  };
+  
+  FlashcardApp.prototype.saveSheetSettingsAndClose = function() {
+    var sheetIdInput = document.getElementById('sheet-id-input');
+    var input = sheetIdInput.value.trim();
+    
+    var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+    var selectedSheets = [];
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) {
+        selectedSheets.push(checkboxes[i].value);
+      }
+    }
+    
+    if (!input || selectedSheets.length === 0) {
+      alert('請輸入 Google Sheet ID/URL 並選擇至少一個工作表');
+        return;
+      }
+      
+    try {
+      var sheetId = this.extractSheetId(input);
+      
+      this.sheetSettings.sheetId = sheetId;
+      this.sheetSettings.selectedSheets = selectedSheets;
+      this.saveSheetSettings();
+      
+      console.log('儲存 Sheet 設定:', this.sheetSettings);
+      
+      this.closeSheetSettings();
+      
+      // 顯示載入中訊息
+      var loadingDiv = document.getElementById('loading');
+      var flashcardDiv = document.getElementById('flashcard');
+      if (loadingDiv) loadingDiv.style.display = 'flex';
+      if (flashcardDiv) flashcardDiv.style.display = 'none';
+      
+      // 重新載入單字
+      var self = this;
+      this.loadWords(false, function(hasDuplicates) {
+        self.setupEventListeners();
+        self.applySettings();
+        
+        if (!hasDuplicates) {
+          self.startNewRound();
+        }
+        
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        if (flashcardDiv) flashcardDiv.style.display = 'flex';
+      });
+      
+    } catch (error) {
+      console.error('儲存設定時發生錯誤:', error);
+      alert(error.message);
+    }
+  };
+  
+</script>

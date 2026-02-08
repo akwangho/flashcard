@@ -1,0 +1,23 @@
+{
+  "name": "flashcard-gas",
+  "version": "1.3.2",
+  "description": "英文單字閃卡 - Google Apps Script 部署工具",
+  "private": true,
+  "scripts": {
+    "setup": "bash deploy.sh setup",
+    "push": "clasp push",
+    "push:watch": "clasp push --watch",
+    "pull": "clasp pull",
+    "open": "clasp open",
+    "open:web": "clasp open --webapp",
+    "status": "clasp status",
+    "logs": "clasp logs",
+    "test": "jest --verbose",
+    "deploy": "clasp push && echo '✅ 推送完成！' && clasp open --webapp"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0"
+  }
+}

@@ -1,0 +1,825 @@
+<!-- script-duplicates.html -->
+<script>
+  // 重複處理相關（完整版本）
+  FlashcardApp.prototype.showAutoProcessingNotification = function(results) {
+    console.log('顯示自動處理通知:', results);
+    
+    // 創建通知元素
+    var notification = document.createElement('div');
+    notification.className = 'auto-processing-notification';
+    notification.innerHTML = 
+      '<div class="notification-content">' +
+        '<h3>✅ 重複單字已自動處理</h3>' +
+        '<p>在記憶體中處理了 ' + results.successCount + '/' + results.totalCount + ' 個重複單字</p>' +
+        '<p class="memory-notice">📝 原始Google Sheet未被修改，僅在本次使用中去重</p>' +
+        '<button id="close-notification" class="notification-close">×</button>' +
+      '</div>';
+    
+    document.body.appendChild(notification);
+    
+    var self = this;
+    
+    // 自動關閉通知
+    setTimeout(function() {
+      notification.classList.add('fade-out');
+      setTimeout(function() {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 5000);
+    
+    // 手動關閉通知
+    var closeBtn = document.getElementById('close-notification');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        notification.classList.add('fade-out');
+        setTimeout(function() {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      });
+    }
+    
+    // 顯示動畫
+    setTimeout(function() {
+      notification.classList.add('show');
+    }, 100);
+  };
+  
+  FlashcardApp.prototype.showDuplicateModal = function() {
+    console.log('顯示重複處理模態框');
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
+    // 停止任何正在播放的語音
+    if (this.speechSynthesis) {
+      this.speechSynthesis.cancel();
+    }
+    
+    // 清除任何現有的計時器
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+    
+    var modal = document.getElementById('duplicate-words-modal');
+    if (modal) {
+      // 重置 modal-body 的 HTML 內容為原始狀態
+      var modalBody = modal.querySelector('.modal-body');
+      if (modalBody) {
+        modalBody.innerHTML = 
+          '<div class="duplicate-info">' +
+            '<p id="duplicate-summary">找到 <span id="duplicate-count">0</span> 組重複單字，請選擇處理方式：</p>' +
+          '</div>' +
+          '<div class="duplicate-word-container" id="duplicate-word-container">' +
+            '<!-- 重複單字項目將在這裡動態生成 -->' +
+          '</div>' +
+          '<div class="duplicate-actions" id="duplicate-actions" style="display: none;">' +
+            '<div class="current-duplicate-info">' +
+              '<h3>處理單字：<strong id="current-duplicate-english"></strong></h3>' +
+              '<div id="duplicate-options-container">' +
+                '<!-- 處理選項將在這裡動態生成 -->' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      }
+      
+      // 重置 modal-footer 的 HTML 內容為原始狀態
+      var modalFooter = modal.querySelector('.modal-footer');
+      if (modalFooter) {
+        modalFooter.innerHTML = 
+          '<button id="skip-duplicates" class="secondary-btn">跳過，稍後處理</button>' +
+          '<button id="process-all-duplicates" class="primary-btn">開始處理</button>' +
+          '<button id="confirm-duplicate-action" class="primary-btn" style="display: none;">確認操作</button>' +
+          '<button id="next-duplicate" class="primary-btn" style="display: none;">下一個</button>';
+        modalFooter.style.display = '';
+      }
+      
+      modal.style.display = 'flex';
+      this.pauseTimer();
+      
+      // 更新重複單字數量
+      var duplicateCountElement = document.getElementById('duplicate-count');
+      if (duplicateCountElement) {
+        duplicateCountElement.textContent = this.duplicateWords.length;
+      }
+      
+      // 渲染重複單字清單
+      this.renderDuplicateWordsList();
+      
+      this.setupDuplicateModalEvents();
+    }
+  };
+  
+  FlashcardApp.prototype.setupDuplicateModalEvents = function() {
+    var self = this;
+    
+    // 跳過處理按鈕
+    var skipBtn = document.getElementById('skip-duplicates');
+    if (skipBtn) {
+      skipBtn.addEventListener('click', function() {
+        self.skipDuplicates();
+      });
+    }
+    
+    // 開始處理按鈕
+    var processBtn = document.getElementById('process-all-duplicates');
+    if (processBtn) {
+      processBtn.addEventListener('click', function() {
+        self.processAllDuplicates();
+      });
+    }
+    
+    // 確認操作按鈕
+    var confirmBtn = document.getElementById('confirm-duplicate-action');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function() {
+        self.confirmDuplicateAction();
+      });
+    }
+    
+    // 下一個按鈕
+    var nextBtn = document.getElementById('next-duplicate');
+    if (nextBtn) {
+      nextBtn.addEventListener('click', function() {
+        self.nextDuplicate();
+      });
+    }
+    
+    // 關閉按鈕
+    var closeBtn = document.getElementById('close-duplicate-modal');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        self.closeDuplicateModal();
+      });
+    }
+  };
+  
+  FlashcardApp.prototype.closeDuplicateModal = function() {
+    var modal = document.getElementById('duplicate-words-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      this.resumeTimer();
+    }
+  };
+  
+  // 跳過重複處理（自動處理）
+  FlashcardApp.prototype.skipDuplicates = function() {
+    console.log('跳過重複處理 - 執行本地自動處理邏輯（僅記憶體處理）');
+    
+    try {
+      var result = this.processDuplicatesInMemory(this.words, this.duplicateWords);
+        
+        if (result.success) {
+          // 更新當前單字陣列
+          this.words = result.processedWords;
+          
+          // 顯示成功結果
+        var modal = document.getElementById('duplicate-words-modal');
+        var modalBody = modal.querySelector('.modal-body');
+        var modalFooter = modal.querySelector('.modal-footer');
+          modalFooter.style.display = 'none';
+          
+        var successCount = result.successCount || 0;
+        var totalCount = result.totalCount || 0;
+        var removedCount = result.removedCount || 0;
+        
+        modalBody.innerHTML = 
+          '<div class="auto-processing-result success">' +
+            '<h3>✅ 自動處理完成！</h3>' +
+            '<p>成功處理 ' + successCount + '/' + totalCount + ' 個重複單字</p>' +
+            '<p>原始單字數量：' + result.originalCount + '，處理後數量：' + result.processedCount + '</p>' +
+            '<p>已移除重複項目：' + removedCount + ' 個</p>' +
+            '<p class="sheet-modify-notice">✅ Google Sheet未被修改，僅在記憶體中處理</p>' +
+            '<button id="finish-auto-processing" class="primary-btn">完成</button>' +
+          '</div>';
+        
+        var self = this;
+        document.getElementById('finish-auto-processing').addEventListener('click', function() {
+          self.closeDuplicateModal();
+          self.setupEventListeners();
+          self.applySettings();
+          self.startNewRound();
+          });
+        } else {
+          throw new Error(result.error || '處理失敗');
+        }
+      } catch (error) {
+      console.error('本地處理失敗:', error);
+      alert('自動處理失敗：' + error.message);
+      }
+  };
+    
+  // 在記憶體中處理重複單字
+  FlashcardApp.prototype.processDuplicatesInMemory = function(allWords, duplicates) {
+      try {
+        console.log('在前端記憶體中自動處理重複單字，總數:', duplicates.length);
+        
+      var results = [];
+      var wordsToRemove = []; // 記錄要從記憶體中移除的單字ID
+      var wordsToModify = {}; // 記錄要修改定義的單字ID和新定義
+      
+      for (var i = 0; i < duplicates.length; i++) {
+        var duplicate = duplicates[i];
+          console.log('處理重複單字:', duplicate.english, '是否相同定義:', duplicate.isSameDefinition);
+          
+          if (duplicate.isSameDefinition) {
+            // 中文意義相同：保留第一個工作表的，移除其他
+          var keepWord = duplicate.words[0];
+          var removeWords = duplicate.words.slice(1);
+            
+            console.log('相同定義，保留第一個工作表:', keepWord.sheetName);
+            
+            // 記錄要移除的單字ID
+          for (var j = 0; j < removeWords.length; j++) {
+            wordsToRemove.push(removeWords[j].id);
+          }
+            
+            results.push({
+              english: duplicate.english,
+              action: 'keep_first',
+              success: true,
+              keptSheet: keepWord.sheetName,
+              removedCount: removeWords.length
+            });
+          } else {
+            // 中文意義不同：合併定義到第一個工作表的單字
+          var targetWord = duplicate.words[0];
+          var mergeWords = duplicate.words.slice(1);
+            
+            console.log('不同定義，合併到第一個工作表:', targetWord.sheetName);
+            
+            // 準備合併後的定義
+          var allDefinitions = [];
+          for (var k = 0; k < duplicate.words.length; k++) {
+            allDefinitions.push((k + 1) + '. ' + duplicate.words[k].chinese.trim());
+          }
+          var mergedDefinition = allDefinitions.join('\n');
+            
+            // 記錄要修改的單字
+          wordsToModify[targetWord.id] = mergedDefinition;
+            
+            // 記錄要移除的單字ID
+          for (var l = 0; l < mergeWords.length; l++) {
+            wordsToRemove.push(mergeWords[l].id);
+          }
+            
+            results.push({
+              english: duplicate.english,
+              action: 'merge_to_first',
+              success: true,
+              targetSheet: targetWord.sheetName,
+              mergedDefinition: mergedDefinition,
+              removedCount: mergeWords.length
+            });
+          }
+        }
+        
+        // 處理單字陣列：移除重複項目並修改定義
+      var processedWords = [];
+      for (var m = 0; m < allWords.length; m++) {
+        var word = allWords[m];
+        
+        if (wordsToRemove.indexOf(word.id) !== -1) {
+            // 跳過要移除的單字
+            continue;
+          }
+          
+        if (wordsToModify.hasOwnProperty(word.id)) {
+            // 修改定義
+          var modifiedWord = {};
+          for (var key in word) {
+            if (word.hasOwnProperty(key)) {
+              modifiedWord[key] = word[key];
+            }
+          }
+          modifiedWord.chinese = wordsToModify[word.id];
+            processedWords.push(modifiedWord);
+          } else {
+            // 保持原樣
+            processedWords.push(word);
+          }
+        }
+        
+      var successCount = results.filter(function(r) { return r.success; }).length;
+      var removedCount = wordsToRemove.length;
+        
+        return {
+          success: true,
+          results: results,
+          successCount: successCount,
+        totalCount: duplicates.length,
+        removedCount: removedCount,
+          originalCount: allWords.length,
+          processedCount: processedWords.length,
+        processedWords: processedWords
+        };
+      
+      } catch (error) {
+      console.error('記憶體處理錯誤:', error);
+        return {
+          success: false,
+        error: error.message || '處理過程中發生錯誤'
+      };
+    }
+  };
+  
+  // 開始處理所有重複
+  FlashcardApp.prototype.processAllDuplicates = function() {
+    console.log('開始處理重複');
+    if (this.duplicateWords.length > 0) {
+      this.currentDuplicateIndex = 0;
+      this.duplicateProcessingResults = [];
+      this.selectDuplicateWord(0);
+    }
+  };
+  
+  // 渲染重複單字清單
+  FlashcardApp.prototype.renderDuplicateWordsList = function() {
+    var container = document.getElementById('duplicate-word-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    for (var i = 0; i < this.duplicateWords.length; i++) {
+      var duplicate = this.duplicateWords[i];
+      var wordItem = document.createElement('div');
+      wordItem.className = 'duplicate-word-item';
+      wordItem.setAttribute('data-index', i);
+      
+      var wordHeader = document.createElement('div');
+      wordHeader.className = 'duplicate-word-header';
+      wordHeader.innerHTML = '<strong>' + duplicate.english + '</strong> (' + 
+        (duplicate.isSameDefinition ? '相同定義' : '不同定義') + ')';
+      
+      var wordSources = document.createElement('div');
+      wordSources.className = 'duplicate-word-sources';
+      
+      for (var j = 0; j < duplicate.words.length; j++) {
+        var word = duplicate.words[j];
+        var sourceItem = document.createElement('div');
+        sourceItem.className = 'duplicate-source-item';
+        sourceItem.innerHTML = '<span class="source-sheet">' + word.sheetName + '</span>: ' + word.chinese;
+        wordSources.appendChild(sourceItem);
+      }
+      
+      wordItem.appendChild(wordHeader);
+      wordItem.appendChild(wordSources);
+      
+      var self = this;
+      (function(index) {
+        wordItem.addEventListener('click', function() {
+          self.selectDuplicateWord(index);
+        });
+      })(i);
+      
+      container.appendChild(wordItem);
+    }
+  };
+  
+  // 選擇要處理的重複單字
+  FlashcardApp.prototype.selectDuplicateWord = function(index) {
+    console.log('選擇重複單字，索引:', index);
+    
+    // 清除之前的選中狀態
+    var items = document.querySelectorAll('.duplicate-word-item');
+    for (var i = 0; i < items.length; i++) {
+      items[i].classList.remove('selected');
+    }
+    
+    // 選中當前項目
+    var selectedItem = document.querySelector('[data-index="' + index + '"]');
+    if (selectedItem) {
+      selectedItem.classList.add('selected');
+    }
+    
+    this.currentDuplicateIndex = index;
+    
+    // 更新按鈕狀態
+    var processBtn = document.getElementById('process-all-duplicates');
+    var confirmBtn = document.getElementById('confirm-duplicate-action');
+    var nextBtn = document.getElementById('next-duplicate');
+    
+    if (processBtn) processBtn.style.display = 'none';
+    if (confirmBtn) {
+      confirmBtn.style.display = 'inline-block';
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = '確認操作';
+    }
+    if (nextBtn) nextBtn.style.display = 'none';
+    
+    // 顯示處理選項
+    this.showDuplicateOptions(this.duplicateWords[index]);
+  };
+  
+  // 顯示重複單字處理選項
+  FlashcardApp.prototype.showDuplicateOptions = function(duplicate) {
+    var actionsDiv = document.getElementById('duplicate-actions');
+    var englishSpan = document.getElementById('current-duplicate-english');
+    var optionsContainer = document.getElementById('duplicate-options-container');
+    
+    if (!englishSpan || !optionsContainer) return;
+    
+    englishSpan.textContent = duplicate.english;
+    optionsContainer.innerHTML = '';
+    actionsDiv.style.display = 'block';
+    
+    if (duplicate.isSameDefinition) {
+      // 定義相同：選擇保留哪一個
+      var keepOption = document.createElement('div');
+      keepOption.className = 'duplicate-option';
+      keepOption.innerHTML = 
+        '<div class="option-header">' +
+          '<input type="radio" name="duplicate-action" value="keep" class="option-radio" checked>' +
+          '<span class="option-title">保留其中一個，刪除其他</span>' +
+        '</div>' +
+        '<div class="option-description">選擇要保留的工作表版本，其他版本將被永久刪除</div>' +
+        '<div class="merge-target-selection" id="keep-target-selection"></div>';
+      
+      var targetSelection = keepOption.querySelector('#keep-target-selection');
+      for (var i = 0; i < duplicate.words.length; i++) {
+        var word = duplicate.words[i];
+        var targetOption = document.createElement('div');
+        targetOption.className = 'merge-target-option';
+        targetOption.innerHTML = 
+          '<input type="radio" name="keep-target" value="' + i + '" class="merge-target-radio" ' + 
+          (i === 0 ? 'checked' : '') + '>' +
+          '<span class="merge-target-label">保留 ' + word.sheetName + ': ' + word.chinese + '</span>';
+        
+        (function(option) {
+          targetOption.addEventListener('click', function(e) {
+            if (e.target.type !== 'radio') {
+              var radio = option.querySelector('input[type="radio"]');
+              if (radio) radio.checked = true;
+            }
+          });
+        })(targetOption);
+        
+        targetSelection.appendChild(targetOption);
+      }
+      
+      optionsContainer.appendChild(keepOption);
+          } else {
+      // 定義不同：保留一個或合併
+      var keepOption = document.createElement('div');
+      keepOption.className = 'duplicate-option';
+      keepOption.innerHTML = 
+        '<div class="option-header">' +
+          '<input type="radio" name="duplicate-action" value="keep" class="option-radio" checked>' +
+          '<span class="option-title">保留其中一個，刪除其他</span>' +
+        '</div>' +
+        '<div class="option-description">選擇要保留的工作表版本，其他版本將被永久刪除</div>' +
+        '<div class="merge-target-selection" id="keep-target-selection"></div>';
+      
+      var targetSelection = keepOption.querySelector('#keep-target-selection');
+      for (var j = 0; j < duplicate.words.length; j++) {
+        var word = duplicate.words[j];
+        var targetOption = document.createElement('div');
+        targetOption.className = 'merge-target-option';
+        targetOption.innerHTML = 
+          '<input type="radio" name="keep-target" value="' + j + '" class="merge-target-radio" ' + 
+          (j === 0 ? 'checked' : '') + '>' +
+          '<span class="merge-target-label">保留 ' + word.sheetName + ': ' + word.chinese + '</span>';
+        
+        (function(option) {
+          targetOption.addEventListener('click', function(e) {
+            if (e.target.type !== 'radio') {
+              var radio = option.querySelector('input[type="radio"]');
+              if (radio) radio.checked = true;
+            }
+          });
+        })(targetOption);
+        
+        targetSelection.appendChild(targetOption);
+      }
+      
+      var mergeOption = document.createElement('div');
+      mergeOption.className = 'duplicate-option';
+      mergeOption.innerHTML = 
+        '<div class="option-header">' +
+          '<input type="radio" name="duplicate-action" value="merge" class="option-radio">' +
+          '<span class="option-title">合併所有定義</span>' +
+        '</div>' +
+        '<div class="option-description">將所有定義合併到選定的工作表中，其他版本將被刪除</div>' +
+        '<div class="merge-target-selection" id="merge-target-selection"></div>';
+      
+      var mergeTargetSelection = mergeOption.querySelector('#merge-target-selection');
+      for (var k = 0; k < duplicate.words.length; k++) {
+        var word = duplicate.words[k];
+        var targetOption = document.createElement('div');
+        targetOption.className = 'merge-target-option';
+        targetOption.innerHTML = 
+          '<input type="radio" name="merge-target" value="' + k + '" class="merge-target-radio" ' + 
+          (k === 0 ? 'checked' : '') + '>' +
+          '<span class="merge-target-label">合併到 ' + word.sheetName + '</span>';
+        
+        (function(option) {
+          targetOption.addEventListener('click', function(e) {
+            if (e.target.type !== 'radio') {
+              var radio = option.querySelector('input[type="radio"]');
+              if (radio) radio.checked = true;
+            }
+          });
+        })(targetOption);
+        
+        mergeTargetSelection.appendChild(targetOption);
+      }
+      
+      optionsContainer.appendChild(keepOption);
+      optionsContainer.appendChild(mergeOption);
+    }
+  };
+    
+    // 確認處理當前重複項目
+  FlashcardApp.prototype.confirmDuplicateAction = function() {
+    var confirmBtn = document.getElementById('confirm-duplicate-action');
+      if (confirmBtn && confirmBtn.disabled) {
+        console.log('處理已在進行中，忽略重複調用');
+        return;
+      }
+  
+    console.log('確認處理重複單字');
+      
+    var duplicate = this.duplicateWords[this.currentDuplicateIndex];
+    var actionRadio = document.querySelector('input[name="duplicate-action"]:checked');
+      
+      if (!actionRadio) {
+        alert('請選擇處理方式');
+        return;
+      }
+      
+    var action = actionRadio.value;
+    var targetIndex = 0;
+      
+      if (action === 'keep') {
+      var targetRadio = document.querySelector('input[name="keep-target"]:checked');
+        if (targetRadio) {
+          targetIndex = parseInt(targetRadio.value);
+        }
+      } else if (action === 'merge') {
+      var targetRadio = document.querySelector('input[name="merge-target"]:checked');
+        if (targetRadio) {
+          targetIndex = parseInt(targetRadio.value);
+        }
+      }
+      
+      // 顯示處理中狀態
+      this.showProcessingIndicator();
+      
+      // 準備處理參數
+    var targetWord = duplicate.words[targetIndex];
+    var otherWords = duplicate.words.filter(function(word, index) { return index !== targetIndex; });
+      
+      console.log('目標單字:', targetWord);
+      console.log('要刪除的單字:', otherWords);
+      
+      // 設置超時機制，防止永久卡住
+    var self = this;
+    var timeoutId = setTimeout(function() {
+        console.error('處理超時');
+      self.showProcessingResult(false, '處理超時，請檢查網路連接後重試');
+      }, 30000); // 30秒超時
+      
+      // 定義成功處理函數
+    var handleSuccess = function(result) {
+        clearTimeout(timeoutId);
+        console.log('處理成功回調被觸發，結果:', result);
+      
+      var isSuccess = false;
+      var deletedCount = 0;
+      var errorMessage = '';
+        
+        if (result === true || result === 'true') {
+          isSuccess = true;
+          deletedCount = otherWords.length;
+        } else if (result && typeof result === 'object') {
+          isSuccess = result.success === true || result.success === 'true';
+          deletedCount = result.deletedCount || otherWords.length;
+          errorMessage = result.error || '';
+        } else if (result && result.toString().toLowerCase() === 'success') {
+          isSuccess = true;
+          deletedCount = otherWords.length;
+        } else {
+          console.warn('未知的結果格式，嘗試解析:', result);
+        isSuccess = !!result;
+          deletedCount = isSuccess ? otherWords.length : 0;
+        }
+        
+        console.log('解析後的結果 - 成功:', isSuccess, '刪除數量:', deletedCount);
+        
+        if (isSuccess) {
+        var message = action === 'merge' 
+          ? '成功合併到 ' + targetWord.sheetName + '，刪除了 ' + deletedCount + ' 個重複項目'
+          : '成功保留 ' + targetWord.sheetName + ' 中的單字，刪除了 ' + deletedCount + ' 個重複項目';
+        
+        self.showProcessingResult(true, message);
+        self.duplicateProcessingResults.push({
+          duplicate: self.duplicateWords[self.currentDuplicateIndex],
+            action: action,
+            success: true,
+            result: { success: true, deletedCount: deletedCount }
+          });
+        } else {
+        var failureMessage = errorMessage || '處理結果格式錯誤或未成功';
+        self.showProcessingResult(false, failureMessage);
+        self.duplicateProcessingResults.push({
+          duplicate: self.duplicateWords[self.currentDuplicateIndex],
+            action: action,
+            success: false,
+            error: failureMessage
+          });
+        }
+      };
+      
+      // 定義失敗處理函數
+    var handleFailure = function(error) {
+        clearTimeout(timeoutId);
+        console.error('處理失敗:', error);
+        
+      var errorMessage = error && error.message ? error.message : '未知錯誤';
+      self.showProcessingResult(false, '處理失敗：' + errorMessage);
+      self.duplicateProcessingResults.push({
+        duplicate: self.duplicateWords[self.currentDuplicateIndex],
+          action: action,
+          success: false,
+          error: errorMessage
+        });
+      };
+      
+      // 檢查必要的參數
+      if (!this.sheetSettings.sheetId) {
+        handleFailure(new Error('Google Sheet ID 未設定'));
+        return;
+      }
+      
+      if (!targetWord || !targetWord.sheetName) {
+        handleFailure(new Error('目標單字資料不完整'));
+        return;
+      }
+      
+      // 檢查 Google Apps Script 是否可用
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        handleFailure(new Error('Google Apps Script 環境不可用'));
+        return;
+      }
+      
+      try {
+        if (action === 'keep') {
+          // 保留一個，刪除其他
+          console.log('調用 handleDuplicateWordKeepOne');
+          google.script.run
+            .withSuccessHandler(handleSuccess)
+            .withFailureHandler(handleFailure)
+            .handleDuplicateWordKeepOne(this.sheetSettings.sheetId, targetWord, otherWords);
+        } else if (action === 'merge') {
+          // 合併定義
+          console.log('調用 handleDuplicateWordMerge');
+          google.script.run
+            .withSuccessHandler(handleSuccess)
+            .withFailureHandler(handleFailure)
+            .handleDuplicateWordMerge(this.sheetSettings.sheetId, targetWord, otherWords);
+        }
+      } catch (error) {
+        console.error('調用 Google Apps Script 時發生錯誤:', error);
+        handleFailure(error);
+      }
+  };
+    
+    // 顯示處理中指示器
+  FlashcardApp.prototype.showProcessingIndicator = function() {
+    var optionsContainer = document.getElementById('duplicate-options-container');
+    optionsContainer.innerHTML = 
+      '<div class="processing-indicator">' +
+        '<div class="processing-spinner"></div>' +
+        '<span class="processing-text">處理中...</span>' +
+      '</div>';
+    
+    var confirmBtn = document.getElementById('confirm-duplicate-action');
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '處理中...';
+      }
+      
+    var nextBtn = document.getElementById('next-duplicate');
+      if (nextBtn) {
+        nextBtn.style.display = 'none';
+      }
+  };
+    
+    // 顯示處理結果
+  FlashcardApp.prototype.showProcessingResult = function(success, message) {
+    var optionsContainer = document.getElementById('duplicate-options-container');
+    optionsContainer.innerHTML = 
+      '<div class="' + (success ? 'duplicate-result-success' : 'duplicate-result-error') + '">' +
+        message +
+      '</div>';
+    
+      if (success) {
+      // 從重複清單中移除這個項目
+        this.duplicateWords.splice(this.currentDuplicateIndex, 1);
+        
+        // 調整當前索引
+        if (this.currentDuplicateIndex >= this.duplicateWords.length) {
+          this.currentDuplicateIndex = this.duplicateWords.length - 1;
+        }
+        
+        // 重新渲染重複清單
+        this.renderDuplicateWordsList();
+        
+        // 更新重複數量顯示
+      var duplicateCount = document.getElementById('duplicate-count');
+        if (duplicateCount) {
+          duplicateCount.textContent = this.duplicateWords.length;
+        }
+      }
+      
+      // 更新按鈕狀態
+    var confirmBtn = document.getElementById('confirm-duplicate-action');
+    var nextBtn = document.getElementById('next-duplicate');
+      
+    if (confirmBtn) confirmBtn.style.display = 'none';
+    if (nextBtn) {
+      nextBtn.style.display = 'inline-block';
+      nextBtn.disabled = false;
+      
+      if (this.duplicateWords.length === 0) {
+        nextBtn.textContent = '完成處理';
+      } else if (this.currentDuplicateIndex >= this.duplicateWords.length - 1) {
+        nextBtn.textContent = '完成處理';
+      } else {
+        nextBtn.textContent = '下一個';
+      }
+    }
+  };
+    
+    // 處理下一個重複項目
+  FlashcardApp.prototype.nextDuplicate = function() {
+    console.log('處理下一個重複項目');
+      
+      if (this.duplicateWords.length === 0 || this.currentDuplicateIndex >= this.duplicateWords.length) {
+        this.finishDuplicateProcessing();
+      } else {
+      var confirmBtn = document.getElementById('confirm-duplicate-action');
+      var nextBtn = document.getElementById('next-duplicate');
+      
+      if (confirmBtn) {
+        confirmBtn.style.display = 'inline-block';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '確認操作';
+      }
+      if (nextBtn) nextBtn.style.display = 'none';
+      
+      this.selectDuplicateWord(this.currentDuplicateIndex);
+      }
+  };
+    
+    // 完成重複處理
+  FlashcardApp.prototype.finishDuplicateProcessing = function() {
+      console.log('完成重複處理');
+      
+      // 顯示處理摘要
+    var successCount = this.duplicateProcessingResults ? 
+      this.duplicateProcessingResults.filter(function(r) { return r.success; }).length : 0;
+    var totalCount = this.duplicateProcessingResults ? this.duplicateProcessingResults.length : 0;
+      
+    alert('重複處理完成！\n成功處理: ' + successCount + '/' + totalCount + ' 個重複項目');
+      
+      // 關閉Modal
+      this.closeDuplicateModal();
+      
+      // 重新載入單字（以反映更改）
+      this.reloadWordsAfterDuplicateProcessing();
+  };
+    
+    // 重複處理後重新載入單字
+  FlashcardApp.prototype.reloadWordsAfterDuplicateProcessing = function() {
+      console.log('重複處理後重新載入單字');
+      
+      // 顯示載入狀態
+    var loadingDiv = document.getElementById('loading');
+    var flashcardDiv = document.getElementById('flashcard');
+    if (loadingDiv) loadingDiv.style.display = 'flex';
+    if (flashcardDiv) flashcardDiv.style.display = 'none';
+    
+    // 重新載入單字
+    var self = this;
+    this.loadWords(false, function(hasDuplicates) {
+      self.setupEventListeners();
+      self.applySettings();
+      
+      if (!hasDuplicates) {
+        self.startNewRound();
+      }
+      
+      if (loadingDiv) loadingDiv.style.display = 'none';
+      if (flashcardDiv) flashcardDiv.style.display = 'flex';
+    });
+  };
+  
+</script>

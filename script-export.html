@@ -1,0 +1,536 @@
+<!-- script-export.html -->
+<script>
+  
+  // 匯出功能相關（完整版本）
+  FlashcardApp.prototype.openExportModal = function() {
+      // 預設名稱：目前工作表名稱_yyyyMMdd
+    var defaultName = this.getDefaultExportSheetName();
+    var exportSheetNameInput = document.getElementById('export-sheet-name');
+    var exportTypeRemainingRadio = document.getElementById('export-type-remaining');
+    var exportModal = document.getElementById('export-modal');
+    
+    if (exportSheetNameInput) exportSheetNameInput.value = defaultName;
+    if (exportTypeRemainingRadio) exportTypeRemainingRadio.checked = true;
+    if (exportModal) exportModal.style.display = 'flex';
+    
+      this.pauseTimer();
+    
+    // 重置匯出按鈕狀態和進度顯示
+    var confirmBtn = document.getElementById('confirm-export');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '匯出';
+      }
+    
+    // 隱藏進度顯示
+    this.hideExportProgress();
+  };
+  
+  FlashcardApp.prototype.closeExportModal = function() {
+    var exportModal = document.getElementById('export-modal');
+    if (exportModal) exportModal.style.display = 'none';
+    
+      this.resumeTimer();
+    
+    // 確保「已暫停」消失
+    var pausedIndicator = document.getElementById('paused-indicator');
+    if (pausedIndicator) {
+      pausedIndicator.style.display = 'none';
+      pausedIndicator.title = '';
+    }
+    
+    // 隱藏進度顯示
+    this.hideExportProgress();
+  };
+  
+  // 獲取預設匯出工作表名稱
+FlashcardApp.prototype.getDefaultExportSheetName = function() {
+  // 使用實際載入的工作表名稱作為基礎
+  var base = 'Sheet1'; // 預設值
+  
+  // 如果有選擇的工作表，使用第一個作為基礎名稱
+  console.log("this.sheetSettings.selectedSheets", this.sheetSettings.selectedSheets);
+  if (this.sheetSettings.selectedSheets && this.sheetSettings.selectedSheets.length > 0) {
+    base = this.sheetSettings.selectedSheets[0];
+    console.log("base", base);
+  }
+  
+  var date = new Date();
+  var y = date.getFullYear();
+  var m = (date.getMonth() + 1).toString();
+  var d = date.getDate().toString();
+  
+  // ES5 版本的 padStart
+  if (m.length < 2) m = '0' + m;
+  if (d.length < 2) d = '0' + d;
+  
+  return base + '_' + y + m + d;
+};
+  
+  // 顯示匯出進度
+  FlashcardApp.prototype.showExportProgress = function() {
+    var progressContainer = document.getElementById('export-progress-container');
+    if (progressContainer) {
+      progressContainer.style.display = 'block';
+    }
+    
+    // 重置進度
+    this.updateExportProgress(0, 0, '準備匯出...');
+  };
+  
+  // 隱藏匯出進度
+  FlashcardApp.prototype.hideExportProgress = function() {
+    var progressContainer = document.getElementById('export-progress-container');
+    if (progressContainer) {
+      progressContainer.style.display = 'none';
+    }
+    
+    // 清除進度計時器（雖然現在不使用，但保留相容性）
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+      this.progressTimer = null;
+    }
+    
+    // 清除分批匯出狀態
+    this.currentBatch = 0;
+    this.totalBatches = 0;
+    this.processedWords = 0;
+    this.totalWords = 0;
+    this.exportBatches = null;
+    this.isSheetCreated = false;
+  };
+  
+  // 更新匯出進度
+  FlashcardApp.prototype.updateExportProgress = function(current, total, message) {
+    var progressFill = document.getElementById('export-progress-fill');
+    var progressText = document.getElementById('export-progress-text');
+    var progressCount = document.getElementById('export-progress-count');
+    
+    if (progressFill && total > 0) {
+      var percentage = Math.min((current / total) * 100, 100);
+      progressFill.style.width = percentage + '%';
+    }
+    
+    if (progressText && message) {
+      progressText.textContent = message;
+    }
+    
+    if (progressCount && total > 0) {
+      progressCount.textContent = current + ' / ' + total;
+    }
+  };
+  
+  // 開始分批匯出
+  FlashcardApp.prototype.startBatchExport = function(exportData, sheetName, targetSheetId, overwrite) {
+    var self = this;
+    var batchSize = 15; // 每批處理15個單字
+    var batches = [];
+    
+    // 將資料分成批次
+    for (var i = 0; i < exportData.length; i += batchSize) {
+      batches.push(exportData.slice(i, i + batchSize));
+    }
+    
+    this.currentBatch = 0;
+    this.totalBatches = batches.length;
+    this.processedWords = 0;
+    this.totalWords = exportData.length;
+    this.exportBatches = batches;
+    this.exportSheetName = sheetName;
+    this.exportTargetSheetId = targetSheetId;
+    this.exportOverwrite = overwrite;
+    this.isSheetCreated = false; // 追蹤工作表是否已創建
+    
+    // 開始處理第一批
+    this.processBatch();
+  };
+  
+  
+// 處理單一批次（修改exportWordsToSheet調用）
+FlashcardApp.prototype.processBatch = function() {
+  var self = this;
+  
+  if (this.currentBatch >= this.totalBatches) {
+    // 所有批次完成
+    this.completeExportProgress();
+    setTimeout(function() {
+      self.onExportComplete();
+    }, 500);
+    return;
+  }
+  
+  var currentBatchData = this.exportBatches[this.currentBatch];
+  var batchNumber = this.currentBatch + 1;
+  var isFirstBatch = this.currentBatch === 0;
+  
+  // 更新進度顯示
+  var message = '正在匯出第 ' + batchNumber + ' 批，共 ' + this.totalBatches + ' 批...';
+  this.updateExportProgress(this.processedWords, this.totalWords, message);
+  
+  // 確定操作模式：第一批次可能需要覆寫，後續批次絕對不覆寫
+  var shouldOverwrite = this.exportOverwrite && isFirstBatch;
+  
+  // 處理當前批次
+  google.script.run
+    .withSuccessHandler(function(result) {
+      console.log('第 ' + batchNumber + ' 批匯出結果:', result);
+      
+      // 檢查匯出結果
+      if (result && result.success === false) {
+        // 只有第一批次才處理工作表存在的錯誤
+        if (isFirstBatch && result.error === 'SHEET_EXISTS') {
+          console.log('第一批次：處理工作表已存在的情況');
+          self.handleSheetExistsError(result.message);
+          return;
+        }
+        
+        // 處理其他錯誤
+        console.error('批次匯出失敗:', result);
+        self.hideExportProgress();
+        alert('匯出失敗（第 ' + batchNumber + ' 批）：' + (result.message || result.error || '未知錯誤'));
+        self.resetExportButton();
+        return;
+      }
+      
+      // 批次成功完成
+      console.log('第 ' + batchNumber + ' 批成功匯出 ' + currentBatchData.length + ' 個單字');
+      self.processedWords += currentBatchData.length;
+      self.currentBatch++;
+      
+      // 標記工作表已創建（第一批次成功後）
+      if (isFirstBatch) {
+        self.isSheetCreated = true;
+      }
+      
+      // 更新進度
+      var progressMessage = '已完成 ' + self.processedWords + ' / ' + self.totalWords + ' 個單字';
+      self.updateExportProgress(self.processedWords, self.totalWords, progressMessage);
+      
+      // 處理下一批（延遲一點讓使用者看到進度更新）
+      setTimeout(function() {
+        self.processBatch();
+      }, 300);
+    })
+    .withFailureHandler(function(error) {
+      console.error('批次匯出失敗:', error);
+      self.hideExportProgress();
+      alert('匯出失敗（第 ' + batchNumber + ' 批），請重試！\n錯誤：' + error);
+      self.resetExportButton();
+    })
+    .exportWordsToSheet(
+      currentBatchData, 
+      this.exportSheetName, 
+      this.exportTargetSheetId, 
+      shouldOverwrite, // 第一批次可能覆寫，後續批次絕對不覆寫
+      isFirstBatch // 傳遞是否為第一批次的參數
+    );
+};
+  
+  // 匯出完成處理
+  FlashcardApp.prototype.onExportComplete = function() {
+    var confirmBtn = document.getElementById('confirm-export');
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = '匯出';
+    }
+    
+    alert('匯出成功！共匯出 ' + this.totalWords + ' 個單字');
+    this.closeExportModal();
+  };
+  
+  // 重置匯出按鈕
+  FlashcardApp.prototype.resetExportButton = function() {
+    var confirmBtn = document.getElementById('confirm-export');
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = '匯出';
+    }
+  };
+  
+  // 完成匯出進度
+  FlashcardApp.prototype.completeExportProgress = function() {
+    var progressText = document.getElementById('export-progress-text');
+    var progressCount = document.getElementById('export-progress-count');
+    var progressFill = document.getElementById('export-progress-fill');
+    
+    // 清除計時器（雖然現在不使用，但保留相容性）
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+      this.progressTimer = null;
+    }
+    
+    // 設定完成狀態
+    if (progressFill) {
+      progressFill.style.width = '100%';
+    }
+    
+    if (progressText) {
+      progressText.textContent = '匯出完成！';
+    }
+    
+    if (progressCount && this.totalWords > 0) {
+      progressCount.textContent = this.totalWords + ' / ' + this.totalWords;
+    }
+  };
+  
+  FlashcardApp.prototype.confirmExport = function() {
+      this.performExport(false);
+  };
+  
+  FlashcardApp.prototype.performExport = function(overwrite) {
+    var confirmBtn = document.getElementById('confirm-export');
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = overwrite ? '覆寫中...' : '匯出中...';
+      }
+      
+    var typeRadio = document.getElementById('export-type-difficult');
+    var type = (typeRadio && typeRadio.checked) ? 'difficult' : 'remaining';
+    var sheetNameInput = document.getElementById('export-sheet-name');
+    var sheetName = (sheetNameInput && sheetNameInput.value.trim()) || this.getDefaultExportSheetName();
+    var exportWords = [];
+    
+      if (type === 'difficult') {
+      exportWords = this.words.filter(function(w) { 
+        return (w.difficultyLevel || 0) >= 1; 
+      });
+      } else {
+        exportWords = this.currentWords;
+      }
+      
+      // 匯出資料格式
+    var exportData = [];
+    for (var i = 0; i < exportWords.length; i++) {
+      var w = exportWords[i];
+      exportData.push({
+        english: w.english,
+        chinese: w.chinese,
+        difficultyLevel: w.difficultyLevel || 0,
+        image: w.image || '',        // E 欄：圖片URL
+        imageFormula: w.imageFormula || ''  // F 欄：圖片顯示公式
+      });
+    }
+      
+      if (exportData.length === 0) {
+        alert('沒有可匯出的單字！');
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = '匯出';
+        }
+        return;
+      }
+    
+    // 顯示進度
+    this.showExportProgress();
+    this.updateExportProgress(0, exportData.length, '準備匯出...');
+    
+    // 開始分批匯出
+    var targetSheetId = this.sheetSettings.sheetId || null;
+    this.startBatchExport(exportData, sheetName, targetSheetId, overwrite);
+  };
+  
+  FlashcardApp.prototype.handleSheetExistsError = function(message) {
+    var sheetNameInput = document.getElementById('export-sheet-name');
+    var currentSheetName = sheetNameInput ? sheetNameInput.value.trim() : '';
+    
+    // 停止進度顯示
+    this.hideExportProgress();
+    
+    // 重置匯出按鈕
+    this.resetExportButton();
+      
+      // 顯示自定義覆寫確認對話框
+      this.showOverwriteConfirmModal(currentSheetName);
+  };
+  
+  FlashcardApp.prototype.showOverwriteConfirmModal = function(sheetName) {
+      // 設置工作表名稱
+    var existingSheetNameElement = document.getElementById('existing-sheet-name');
+    if (existingSheetNameElement) {
+      existingSheetNameElement.textContent = sheetName;
+    }
+      
+      // 顯示對話框
+    var overwriteModal = document.getElementById('overwrite-confirm-modal');
+    if (overwriteModal) {
+      overwriteModal.style.display = 'flex';
+    }
+      
+      // 暫停計時器
+      this.pauseTimer();
+      
+      // 綁定事件處理程序
+      this.bindOverwriteConfirmEvents();
+  };
+  
+  FlashcardApp.prototype.closeOverwriteConfirmModal = function() {
+    var overwriteModal = document.getElementById('overwrite-confirm-modal');
+    if (overwriteModal) {
+      overwriteModal.style.display = 'none';
+    }
+    
+      this.resumeTimer();
+      
+      // 移除事件處理程序
+      this.unbindOverwriteConfirmEvents();
+  };
+  
+  FlashcardApp.prototype.bindOverwriteConfirmEvents = function() {
+    var self = this;
+    
+      // 移除之前的事件處理程序（如果存在）
+      this.unbindOverwriteConfirmEvents();
+      
+      // 關閉按鈕
+    this.closeOverwriteHandler = function() { self.closeOverwriteConfirmModal(); };
+    var closeBtn = document.getElementById('close-overwrite-confirm');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', this.closeOverwriteHandler);
+    }
+      
+      // 使用不同名稱按鈕
+    this.useDifferentNameHandler = function() {
+      self.closeOverwriteConfirmModal();
+      self.suggestAlternativeName();
+    };
+    var differentNameBtn = document.getElementById('use-different-name');
+    if (differentNameBtn) {
+      differentNameBtn.addEventListener('click', this.useDifferentNameHandler);
+    }
+      
+      // 覆寫確認按鈕
+    this.overwriteConfirmHandler = function() {
+      self.closeOverwriteConfirmModal();
+      // 重新開始分批匯出，設定覆寫模式
+      var exportData = [];
+      if (self.exportBatches) {
+        // 重新組合所有批次的資料
+        for (var i = 0; i < self.exportBatches.length; i++) {
+          exportData = exportData.concat(self.exportBatches[i]);
+        }
+      }
+      if (exportData.length > 0) {
+        self.showExportProgress();
+        // 重置工作表創建狀態
+        self.isSheetCreated = false;
+        self.startBatchExport(exportData, self.exportSheetName, self.exportTargetSheetId, true);
+      } else {
+        self.performExport(true);
+      }
+    };
+    var overwriteConfirmBtn = document.getElementById('overwrite-confirm');
+    if (overwriteConfirmBtn) {
+      overwriteConfirmBtn.addEventListener('click', this.overwriteConfirmHandler);
+    }
+      
+      // 鍵盤事件處理
+    this.overwriteKeyHandler = function(event) { self.handleOverwriteKeyboard(event); };
+      document.addEventListener('keydown', this.overwriteKeyHandler);
+  };
+  
+  FlashcardApp.prototype.unbindOverwriteConfirmEvents = function() {
+      if (this.closeOverwriteHandler) {
+      var closeBtn = document.getElementById('close-overwrite-confirm');
+      if (closeBtn) {
+        closeBtn.removeEventListener('click', this.closeOverwriteHandler);
+      }
+        this.closeOverwriteHandler = null;
+      }
+      if (this.useDifferentNameHandler) {
+      var differentNameBtn = document.getElementById('use-different-name');
+      if (differentNameBtn) {
+        differentNameBtn.removeEventListener('click', this.useDifferentNameHandler);
+      }
+        this.useDifferentNameHandler = null;
+      }
+      if (this.overwriteConfirmHandler) {
+      var overwriteConfirmBtn = document.getElementById('overwrite-confirm');
+      if (overwriteConfirmBtn) {
+        overwriteConfirmBtn.removeEventListener('click', this.overwriteConfirmHandler);
+      }
+        this.overwriteConfirmHandler = null;
+      }
+      if (this.overwriteKeyHandler) {
+        document.removeEventListener('keydown', this.overwriteKeyHandler);
+        this.overwriteKeyHandler = null;
+      }
+  };
+  
+    // 添加鍵盤快捷鍵支持
+  FlashcardApp.prototype.handleOverwriteKeyboard = function(event) {
+    var overwriteModal = document.getElementById('overwrite-confirm-modal');
+    if (overwriteModal && overwriteModal.style.display === 'flex') {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          this.closeOverwriteConfirmModal();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          // Enter 鍵默認選擇使用不同名稱（較安全的選項）
+          this.closeOverwriteConfirmModal();
+          this.suggestAlternativeName();
+        }
+      }
+  };
+  
+  FlashcardApp.prototype.suggestAlternativeName = function() {
+    var sheetNameInput = document.getElementById('export-sheet-name');
+      if (sheetNameInput) {
+        // 生成建議的替代名稱
+      var currentName = sheetNameInput.value.trim();
+      var suggestedName = this.generateAlternativeSheetName(currentName);
+        
+        // 更新輸入框值為建議名稱
+        sheetNameInput.value = suggestedName;
+        sheetNameInput.focus();
+        sheetNameInput.select(); // 選取現有文字，方便用戶替換
+        
+        // 添加錯誤樣式類
+      var settingControl = sheetNameInput.closest('.setting-control');
+        if (settingControl) {
+          settingControl.classList.add('export-error');
+        }
+        
+        // 更新提示文字和樣式
+      var hintElement = document.getElementById('sheet-name-hint');
+        if (hintElement) {
+          hintElement.innerHTML = '💡 已自動建議新名稱，您可以修改後重新匯出';
+          hintElement.className = 'sheet-name-hint error';
+        }
+        
+        // 移除錯誤樣式（當用戶開始輸入時）
+      var removeErrorStyle = function() {
+          if (settingControl) {
+            settingControl.classList.remove('export-error');
+          }
+          if (hintElement) {
+            hintElement.innerHTML = '💡 如果工作表已存在，系統會詢問您是否要覆寫';
+            hintElement.className = 'sheet-name-hint normal';
+          }
+          sheetNameInput.removeEventListener('input', removeErrorStyle);
+        };
+        sheetNameInput.addEventListener('input', removeErrorStyle);
+      }
+  };
+  
+  FlashcardApp.prototype.generateAlternativeSheetName = function(originalName) {
+    var now = new Date();
+    var hours = now.getHours().toString();
+    var minutes = now.getMinutes().toString();
+    
+    // ES5 版本的 padStart
+    if (hours.length < 2) hours = '0' + hours;
+    if (minutes.length < 2) minutes = '0' + minutes;
+    
+    var timestamp = hours + minutes;
+      
+      // 如果原名稱包含時間戳記，則更新時間戳記
+    var timePattern = /_\d{4}$/;
+      if (timePattern.test(originalName)) {
+      return originalName.replace(timePattern, '_' + timestamp);
+      } else {
+        // 否則添加時間戳記
+      return originalName + '_' + timestamp;
+    }
+  };
+  
+</script>

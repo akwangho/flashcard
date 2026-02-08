@@ -1,0 +1,60 @@
+<!-- script-polyfills.html -->
+<script>
+  // ES5兼容版本 FlashcardApp for iPad4
+  (function() {
+    'use strict';
+    
+    // ES5 Polyfills
+    if (!Array.prototype.forEach) {
+      Array.prototype.forEach = function(callback, thisArg) {
+        for (var i = 0; i < this.length; i++) {
+          callback.call(thisArg, this[i], i, this);
+        }
+      };
+    }
+    
+    if (!Array.prototype.filter) {
+      Array.prototype.filter = function(callback, thisArg) {
+        var result = [];
+        for (var i = 0; i < this.length; i++) {
+          if (callback.call(thisArg, this[i], i, this)) {
+            result.push(this[i]);
+          }
+        }
+        return result;
+      };
+    }
+    
+    if (!Array.prototype.map) {
+      Array.prototype.map = function(callback, thisArg) {
+        var result = [];
+        for (var i = 0; i < this.length; i++) {
+          result.push(callback.call(thisArg, this[i], i, this));
+        }
+        return result;
+      };
+    }
+    
+    if (!Array.prototype.find) {
+      Array.prototype.find = function(callback, thisArg) {
+        for (var i = 0; i < this.length; i++) {
+          if (callback.call(thisArg, this[i], i, this)) {
+            return this[i];
+          }
+        }
+        return undefined;
+      };
+    }
+    
+    if (!Array.prototype.includes) {
+      Array.prototype.includes = function(searchElement) {
+        for (var i = 0; i < this.length; i++) {
+          if (this[i] === searchElement) {
+            return true;
+          }
+        }
+        return false;
+      };
+    }
+  })();
+</script>

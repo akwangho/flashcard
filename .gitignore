@@ -1,0 +1,11 @@
+# Node.js
+node_modules/
+
+# clasp 認證（含敏感資訊，不要提交）
+.clasprc.json
+
+# clasp 專案設定（含 Script ID，可選擇是否提交）
+# .clasp.json
+
+# OS files
+.DS_Store

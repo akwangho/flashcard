@@ -1,0 +1,1080 @@
+<!-- script-voice.html -->
+<script>
+  // 檢測日文字符
+  FlashcardApp.prototype.isJapaneseText = function(text) {
+    if (!text) return false;
+    
+    // 日文字符範圍：
+    // 平假名: \u3040-\u309f
+    // 片假名: \u30a0-\u30ff
+    // 漢字: \u4e00-\u9faf
+    // 全角標點: \u3000-\u303f
+    var japanesePattern = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\u3000-\u303f]/;
+    
+    return japanesePattern.test(text);
+  };
+
+  // 逐字母拼讀英文單字
+  FlashcardApp.prototype.speakEnglishLetters = function(text, callback) {
+    if (!this.voiceSettings.enabled || !this.voiceSettings.spellOutLetters) {
+      if (callback) callback();
+      return;
+    }
+    if (!text) {
+      if (callback) callback();
+      return;
+    }
+    
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過字母拼讀');
+      if (callback) callback();
+      return;
+    }
+    
+    try {
+      // 提取純英文字母
+      var letters = [];
+      for (var i = 0; i < text.length; i++) {
+        var char = text.charAt(i);
+        if (/[a-zA-Z]/.test(char)) {
+          letters.push(char.toLowerCase());
+        }
+      }
+      
+      if (letters.length === 0) {
+        if (callback) callback();
+        return;
+      }
+      
+      console.log('拼讀字母:', letters.join('-'));
+      
+      var self = this;
+      var currentLetterIndex = 0;
+      
+      // 遞迴函數：逐個唸字母
+      var speakNextLetter = function() {
+        if (currentLetterIndex >= letters.length) {
+          // 所有字母都唸完了，執行回調
+          if (callback) {
+            setTimeout(callback, 100); // 字母拼讀和單字發音之間留一點間隔
+          }
+          return;
+        }
+        
+        var letter = letters[currentLetterIndex];
+        var utterance = new SpeechSynthesisUtterance(letter);
+        utterance.rate = 1; // 英文字母簡單易懂，固定使用正常速度
+        utterance.pitch = self.voiceSettings.pitch;
+        utterance.volume = self.voiceSettings.volume;
+        utterance.lang = self.voiceSettings.lang;
+        
+        // 選擇語音
+        var voices = self.speechSynthesis.getVoices();
+        var selectedVoice = null;
+        if (self.voiceSettings.voiceURI) {
+          for (var i = 0; i < voices.length; i++) {
+            if (voices[i].voiceURI === self.voiceSettings.voiceURI) {
+              selectedVoice = voices[i];
+              break;
+            }
+          }
+        }
+        
+        if (!selectedVoice) {
+          for (var i = 0; i < voices.length; i++) {
+            if (voices[i].lang.indexOf('en-') === 0) {
+              selectedVoice = voices[i];
+              break;
+            }
+          }
+        }
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+        
+        // 當這個字母唸完後，繼續下一個
+        utterance.onend = function() {
+          currentLetterIndex++;
+          setTimeout(speakNextLetter, 10); // 字母之間間隔10ms
+        };
+        
+        utterance.onerror = function(event) {
+          console.log('字母拼讀錯誤:', event.error);
+          currentLetterIndex++;
+          setTimeout(speakNextLetter, 10);
+        };
+        
+        self.speechSynthesis.speak(utterance);
+      };
+      
+      speakNextLetter();
+      
+    } catch (error) {
+      console.log('字母拼讀失敗:', error);
+      if (callback) callback();
+    }
+  };
+
+  // 語音播放（英文單字）
+  FlashcardApp.prototype.speakEnglishWord = function(text) {
+    if (!this.voiceSettings.enabled) return;
+    if (!text) return;
+    
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過播放');
+      return;
+    }
+    
+    var self = this;
+    
+    // 如果啟用了字母拼讀，先拼讀字母，然後再唸單字
+    if (this.voiceSettings.spellOutLetters) {
+      this.speakEnglishLetters(text, function() {
+        // 字母拼讀完成後，唸完整單字
+        self.speakEnglishWordOnly(text);
+      });
+    } else {
+      // 直接唸單字
+      this.speakEnglishWordOnly(text);
+    }
+  };
+
+  // 只唸英文單字（不拼讀字母）
+  FlashcardApp.prototype.speakEnglishWordOnly = function(text) {
+    if (!this.voiceSettings.enabled) return;
+    if (!text) return;
+    
+    try {
+      console.log('播放英文語音:', text);
+      
+      var utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.voiceSettings.rate;
+      utterance.pitch = this.voiceSettings.pitch;
+      utterance.volume = this.voiceSettings.volume;
+      utterance.lang = this.voiceSettings.lang;
+      
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      if (this.voiceSettings.voiceURI) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === this.voiceSettings.voiceURI) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (!selectedVoice) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].lang.indexOf('en-') === 0 || 
+              voices[i].name.toLowerCase().indexOf('english') !== -1) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      
+      // 為舊版瀏覽器添加錯誤處理
+      utterance.onerror = function(event) {
+        console.log('英文語音播放錯誤:', event.error);
+      };
+      
+      utterance.onstart = function() {
+        console.log('英文語音開始播放:', text);
+      };
+      
+      this.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.log('英文語音播放失敗:', error);
+    }
+  };
+  
+  // 日文語音播放
+  FlashcardApp.prototype.speakJapaneseWord = function(text) {
+    if (!this.voiceSettings.enabled) return;
+    if (!text) return;
+    
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過播放');
+      return;
+    }
+    
+    try {
+      console.log('播放日文語音:', text);
+      this.speechSynthesis.cancel();
+      
+      var utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = this.voiceSettings.rate;
+      utterance.pitch = this.voiceSettings.pitch;
+      utterance.volume = this.voiceSettings.volume;
+      utterance.lang = this.voiceSettings.japaneseLang;
+      
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      if (this.voiceSettings.japaneseVoiceURI) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === this.voiceSettings.japaneseVoiceURI) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (!selectedVoice) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].lang.indexOf('ja-') === 0 || 
+              voices[i].name.toLowerCase().indexOf('japanese') !== -1) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      
+      // 為舊版瀏覽器添加錯誤處理
+      utterance.onerror = function(event) {
+        console.log('日文語音播放錯誤:', event.error);
+      };
+      
+      utterance.onstart = function() {
+        console.log('日文語音開始播放:', text);
+      };
+      
+      this.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.log('日文語音播放失敗:', error);
+    }
+  };
+  
+  // 中文語音播放
+  FlashcardApp.prototype.speakChineseWord = function(text) {
+    if (!this.voiceSettings.chineseEnabled) return;
+    if (!text) return;
+    
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過播放');
+      return;
+    }
+    
+    var self = this;
+    
+    // 清理之前的等待定時器（如果存在）
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
+    // 如果正在播放英文或日文語音（包括字母拼讀），等待播放完成
+    if (this.speechSynthesis.speaking) {
+      console.log('等待英文/日文語音播放完成後再播放中文...');
+      
+      // 使用輪詢檢查語音是否播放完成
+      this.chineseWaitInterval = setInterval(function() {
+        if (!self.speechSynthesis.speaking) {
+          clearInterval(self.chineseWaitInterval);
+          self.chineseWaitInterval = null;
+          console.log('英文/日文語音播放完成，現在播放中文');
+          self.speakChineseWordNow(text);
+        }
+      }, 100); // 每100ms檢查一次
+      
+      return;
+    }
+    
+    // 如果沒有語音正在播放，直接播放中文
+    this.speakChineseWordNow(text);
+  };
+  
+  // 立即播放中文語音（內部函數）
+  FlashcardApp.prototype.speakChineseWordNow = function(text) {
+    if (!text) return;
+    
+    try {
+      console.log('播放中文語音:', text);
+      
+      var utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1; // 中文為母語，固定使用正常速度
+      utterance.pitch = this.voiceSettings.pitch;
+      utterance.volume = this.voiceSettings.volume;
+      utterance.lang = this.voiceSettings.chineseLang;
+      
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      if (this.voiceSettings.chineseVoiceURI) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === this.voiceSettings.chineseVoiceURI) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (!selectedVoice) {
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].lang.indexOf('zh-') === 0 || 
+              voices[i].name.toLowerCase().indexOf('chinese') !== -1) {
+            selectedVoice = voices[i];
+            break;
+          }
+        }
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      
+      // 為舊版瀏覽器添加錯誤處理
+      utterance.onerror = function(event) {
+        console.log('中文語音播放錯誤:', event.error);
+      };
+      
+      utterance.onstart = function() {
+        console.log('中文語音開始播放:', text);
+      };
+      
+      this.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.log('中文語音播放失敗:', error);
+    }
+  };
+  
+  // 智能語音播放（自動檢測語言 - 僅用於英文/日文單字）
+  FlashcardApp.prototype.speakWord = function(text) {
+    if (!text) return;
+    
+    if (this.isJapaneseText(text)) {
+      // 文本包含日文字符，使用日文語音
+      this.speakJapaneseWord(text);
+    } else {
+      // 文本為英文，使用英文語音（可能包含字母拼讀）
+      this.speakEnglishWord(text);
+    }
+  };
+  
+  // 下一個單字
+  FlashcardApp.prototype.nextWord = function() {
+    if (this.isTransitioning || this.isPaused) return;
+    
+    if (this.pendingRemoval) {
+      this.confirmRemoval();
+        return;
+      }
+      
+    if (!this.showingChinese) {
+      this.showSecondPartAndScheduleNext();
+        return;
+      }
+      
+    this.saveNavigationState();
+    
+      if (this.displayTimer) {
+        clearTimeout(this.displayTimer);
+    }
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
+    this.speechSynthesis.cancel();
+    
+    this.isTransitioning = true;
+    
+    var englishElement = document.getElementById('english-word');
+    var chineseElement = document.getElementById('chinese-word');
+    
+    englishElement.classList.remove('show');
+    chineseElement.classList.remove('show');
+    
+    chineseElement.textContent = '';
+    // 清除背景圖片
+    var flashcardDiv = document.getElementById('flashcard');
+    if (flashcardDiv) {
+      flashcardDiv.style.backgroundImage = '';
+      flashcardDiv.classList.remove('has-image');
+    }
+    
+    var self = this;
+    setTimeout(function() {
+      self.currentIndex = (self.currentIndex + 1) % self.currentWords.length;
+      
+      if (self.currentIndex === 0) {
+        self.shuffleArray(self.currentWords);
+        self.navigationHistory = [];
+      }
+      
+      self.displayCurrentWord();
+      self.isTransitioning = false;
+      
+    }, 300);
+    this.renderDifficultyLevel();
+  };
+  
+  // 上一個單字
+  FlashcardApp.prototype.previousWord = function() {
+    if (this.isTransitioning || this.isPaused) return;
+    
+    if (this.pendingRemoval) {
+      this.cancelRemoval();
+      return;
+    }
+    
+    if (this.navigationHistory.length === 0) return;
+    
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
+    this.speechSynthesis.cancel();
+    
+    this.isTransitioning = true;
+    
+    var englishElement = document.getElementById('english-word');
+    var chineseElement = document.getElementById('chinese-word');
+    
+    englishElement.classList.remove('show');
+    chineseElement.classList.remove('show');
+    
+    chineseElement.textContent = '';
+    // 清除背景圖片
+    var flashcardDiv = document.getElementById('flashcard');
+    if (flashcardDiv) {
+      flashcardDiv.style.backgroundImage = '';
+      flashcardDiv.classList.remove('has-image');
+    }
+    
+    var self = this;
+    setTimeout(function() {
+      var previousState = self.navigationHistory.pop();
+      
+      var previousWord = previousState.wordSequence[previousState.currentIndex];
+      
+      var wordIndex = -1;
+      for (var i = 0; i < self.currentWords.length; i++) {
+        if (self.currentWords[i].english === previousWord.english && 
+            self.currentWords[i].chinese === previousWord.chinese) {
+          wordIndex = i;
+          break;
+        }
+      }
+      
+      if (wordIndex !== -1) {
+        self.currentIndex = wordIndex;
+      } else {
+        self.currentIndex = Math.min(previousState.currentIndex, self.currentWords.length - 1);
+        
+        if (self.currentWords.length === 0) {
+          self.startNewRound();
+          self.isTransitioning = false;
+        return;
+        }
+      }
+      
+      self.displayCurrentWord();
+      self.isTransitioning = false;
+      
+    }, 300);
+    this.renderDifficultyLevel();
+  };
+  
+  // 儲存導航狀態
+  FlashcardApp.prototype.saveNavigationState = function() {
+    if (this.currentWords.length > 0 && this.currentIndex >= 0) {
+      this.navigationHistory.push({
+        currentIndex: this.currentIndex,
+        wordSequence: this.currentWords.slice()
+      });
+      
+      if (this.navigationHistory.length > 20) {
+        this.navigationHistory.shift();
+      }
+    }
+  };
+  
+  // 確認重新載入單字
+  FlashcardApp.prototype.confirmRestart = function() {
+    var confirmed = confirm('確定要重新載入單字嗎？\n\n⚠️ 注意：重新載入會恢復所有暫時刪除的單字。');
+    if (confirmed) {
+      this.restart();
+    }
+  };
+
+  // 重新載入單字
+  FlashcardApp.prototype.restart = function() {
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
+    this.speechSynthesis.cancel();
+    this.pendingRemoval = null;
+    this.closeMenu();
+    
+    // 檢查是否有設定的 Google Sheet
+    if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
+      console.log('重新載入單字，使用已設定的 Google Sheet');
+        
+        // 顯示載入中訊息
+      var loadingDiv = document.getElementById('loading');
+      var flashcardDiv = document.getElementById('flashcard');
+      if (loadingDiv) loadingDiv.style.display = 'flex';
+      if (flashcardDiv) flashcardDiv.style.display = 'none';
+      
+      var self = this;
+      this.loadWords(true, function(hasDuplicates) {
+        self.hideLoading();
+        self.applySettings();
+        
+          if (!hasDuplicates) {
+          self.startNewRound();
+        }
+      });
+    } else {
+      console.log('沒有 Google Sheet 設定，直接重新開始');
+            this.startNewRound();
+          }
+  };
+  
+  // 切換語音播放
+  FlashcardApp.prototype.toggleVoice = function() {
+    this.voiceSettings.enabled = !this.voiceSettings.enabled;
+    this.saveSettings();
+    this.updateVoiceButtonState();
+    
+    // 停止當前播放的語音
+    if (!this.voiceSettings.enabled) {
+      // 清理中文語音等待定時器
+      if (this.chineseWaitInterval) {
+        clearInterval(this.chineseWaitInterval);
+        this.chineseWaitInterval = null;
+      }
+      
+      this.speechSynthesis.cancel();
+    }
+  };
+  
+  // 更新語音按鈕狀態
+  FlashcardApp.prototype.updateVoiceButtonState = function() {
+    var voiceBtn = document.getElementById('voice-toggle-btn');
+    if (voiceBtn) {
+      if (this.voiceSettings.enabled) {
+        voiceBtn.textContent = '🔊';
+        voiceBtn.title = '語音播放：開啟（點擊關閉）';
+        voiceBtn.style.opacity = '1';
+      } else {
+        voiceBtn.textContent = '🔇';
+        voiceBtn.title = '語音播放：關閉（點擊開啟）';
+        voiceBtn.style.opacity = '0.6';
+      }
+    }
+    
+    // 更新靜音指示器的顯示狀態
+    this.updateMutedIndicator();
+  };
+  
+  // 更新靜音指示器的顯示狀態
+  FlashcardApp.prototype.updateMutedIndicator = function() {
+    var mutedIndicator = document.getElementById('muted-indicator');
+    if (mutedIndicator) {
+      if (!this.voiceSettings.enabled) {
+        // 語音關閉時顯示靜音指示器
+        mutedIndicator.style.display = 'flex';
+      } else {
+        // 語音開啟時隱藏靜音指示器
+        mutedIndicator.style.display = 'none';
+      }
+    }
+  };
+  
+  // 切換暫停/恢復
+  FlashcardApp.prototype.togglePause = function() {
+    if (this.userPaused) {
+      // 用戶手動恢復
+      this.userPaused = false;
+      this.resumeTimer();
+    } else {
+      // 用戶手動暫停
+      this.userPaused = true;
+      this.pauseTimer();
+    }
+    this.updatePauseButtonState();
+  };
+  
+  // 進入全螢幕模式
+  FlashcardApp.prototype.enterFullscreen = function() {
+    console.log('嘗試進入全螢幕模式');
+    
+    var docElement = document.documentElement;
+    
+    try {
+      // 嘗試標準 API
+      if (docElement.requestFullscreen) {
+        docElement.requestFullscreen();
+      }
+      // 嘗試 webkit 前綴 (Safari, Chrome)
+      else if (docElement.webkitRequestFullscreen) {
+        docElement.webkitRequestFullscreen();
+      }
+      // 嘗試 webkit 前綴 (舊版 Safari)
+      else if (docElement.webkitRequestFullScreen) {
+        docElement.webkitRequestFullScreen();
+      }
+      // 嘗試 moz 前綴 (Firefox)
+      else if (docElement.mozRequestFullScreen) {
+        docElement.mozRequestFullScreen();
+      }
+      // 嘗試 ms 前綴 (IE/Edge)
+      else if (docElement.msRequestFullscreen) {
+        docElement.msRequestFullscreen();
+      }
+      else {
+        console.log('此瀏覽器不支援全螢幕 API');
+        alert('此瀏覽器不支援全螢幕功能');
+        return;
+      }
+      
+      console.log('全螢幕請求已發送');
+      
+      // 添加全螢幕狀態監聽
+      var self = this;
+      var fullscreenChangeHandler = function() {
+        var isFullscreen = document.fullscreenElement || 
+                          document.webkitFullscreenElement || 
+                          document.mozFullScreenElement || 
+                          document.msFullscreenElement;
+        
+        if (isFullscreen) {
+          console.log('已進入全螢幕模式');
+        } else {
+          console.log('已退出全螢幕模式');
+        }
+        
+        // 更新按鈕文字
+        self.updateFullscreenButtonText();
+      };
+      
+      // 移除舊的監聽器（如果存在）
+      document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('mozfullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('MSFullscreenChange', fullscreenChangeHandler);
+      
+      // 添加新的監聽器
+      document.addEventListener('fullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('mozfullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('MSFullscreenChange', fullscreenChangeHandler);
+      
+    } catch (error) {
+      console.error('進入全螢幕時發生錯誤:', error);
+      alert('無法進入全螢幕模式，請檢查瀏覽器設定');
+    }
+  };
+  
+  // 退出全螢幕模式
+  FlashcardApp.prototype.exitFullscreen = function() {
+    console.log('嘗試退出全螢幕模式');
+    
+    try {
+      // 嘗試標準 API
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      // 嘗試 webkit 前綴 (Safari, Chrome)
+      else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+      // 嘗試 webkit 前綴 (舊版 Safari)
+      else if (document.webkitCancelFullScreen) {
+        document.webkitCancelFullScreen();
+      }
+      // 嘗試 moz 前綴 (Firefox)
+      else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      }
+      // 嘗試 ms 前綴 (IE/Edge)
+      else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+      else {
+        console.log('此瀏覽器不支援退出全螢幕 API');
+      }
+      
+      console.log('退出全螢幕請求已發送');
+      
+    } catch (error) {
+      console.error('退出全螢幕時發生錯誤:', error);
+    }
+  };
+  
+  // 檢查是否為全螢幕狀態
+  FlashcardApp.prototype.isFullscreen = function() {
+    return !!(document.fullscreenElement || 
+             document.webkitFullscreenElement || 
+             document.mozFullScreenElement || 
+             document.msFullscreenElement);
+  };
+  
+  // 切換全螢幕狀態
+  FlashcardApp.prototype.toggleFullscreen = function() {
+    if (this.isFullscreen()) {
+      this.exitFullscreen();
+    } else {
+      this.enterFullscreen();
+    }
+  };
+  
+  // 更新全螢幕按鈕文字
+  FlashcardApp.prototype.updateFullscreenButtonText = function() {
+    var fullscreenBtn = document.getElementById('fullscreen-btn');
+    if (fullscreenBtn) {
+      if (this.isFullscreen()) {
+        fullscreenBtn.textContent = '退出全螢幕';
+      } else {
+        fullscreenBtn.textContent = '全螢幕';
+      }
+    }
+  };
+  
+  // 更新暫停按鈕狀態
+  FlashcardApp.prototype.updatePauseButtonState = function() {
+    var pauseBtn = document.getElementById('pause-btn');
+    var controlsWrapper = document.getElementById('controls-wrapper');
+    var pausedIndicator = document.getElementById('paused-indicator');
+    
+    if (pauseBtn) {
+      if (this.userPaused) {
+        pauseBtn.textContent = '▶️';
+        pauseBtn.title = '目前暫停中（點擊恢復）';
+        pauseBtn.style.opacity = '0.6';
+        
+        // 顯示「已暫停」指示器
+        if (pausedIndicator) {
+          pausedIndicator.style.display = 'flex';
+          pausedIndicator.title = '點擊此處恢復播放';
+        }
+      } else {
+        pauseBtn.textContent = '⏸️';
+        pauseBtn.title = '目前運行中（點擊暫停）';
+        pauseBtn.style.opacity = '1';
+        
+        // 隱藏「已暫停」指示器
+        if (pausedIndicator) {
+          pausedIndicator.style.display = 'none';
+          pausedIndicator.title = '';
+        }
+      }
+    }
+  };
+
+  // 重新顯示當前單字
+  FlashcardApp.prototype.redisplayCurrentWord = function() {
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+    
+    // 清理中文語音等待定時器
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    
+    this.speechSynthesis.cancel();
+    
+    this.showingChinese = false;
+    this.isTransitioning = false;
+    this.isProcessingClick = false;
+    this.pendingRemoval = null;
+    this.hideRestoreButton();
+    
+    this.displayCurrentWord();
+  };
+  
+  // 語音設定相關
+  FlashcardApp.prototype.openVoiceSettings = function() {
+    var modal = document.getElementById('voice-settings-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      this.pauseTimer();
+      
+      var speechEnabledSetting = document.getElementById('speech-enabled-setting');
+      var voiceRateSetting = document.getElementById('voice-rate-setting');
+      var voiceRateValue = document.getElementById('voice-rate-value');
+      var spellOutLettersSetting = document.getElementById('spell-out-letters-setting');
+      var chineseSpeechEnabledSetting = document.getElementById('chinese-speech-enabled-setting');
+      
+      if (speechEnabledSetting) speechEnabledSetting.checked = this.voiceSettings.enabled;
+      if (voiceRateSetting) voiceRateSetting.value = this.voiceSettings.rate;
+      if (voiceRateValue) {
+        // 修復浮點數精度問題
+        var step = parseFloat(voiceRateSetting.step) || 0.1;
+        var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+        var formattedRate = parseFloat(this.voiceSettings.rate.toFixed(decimalPlaces));
+        voiceRateValue.textContent = formattedRate;
+      }
+      if (spellOutLettersSetting) spellOutLettersSetting.checked = this.voiceSettings.spellOutLetters || false;
+      if (chineseSpeechEnabledSetting) chineseSpeechEnabledSetting.checked = this.voiceSettings.chineseEnabled || false;
+      
+      var delaySpeechToggle = document.getElementById('delay-speech-setting');
+      if (delaySpeechToggle) delaySpeechToggle.checked = this.settings.delaySpeechInNormalMode;
+      
+      this.populateVoiceSelect();
+    }
+  };
+  
+  FlashcardApp.prototype.closeVoiceSettings = function() {
+    var modal = document.getElementById('voice-settings-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      this.resumeTimer();
+    }
+  };
+  
+  // 預覽語音 - 播放示例文字
+  FlashcardApp.prototype.previewVoice = function(voiceURI, sampleText) {
+    try {
+      // 檢查語音合成API是否可用
+      if (!this.speechSynthesis) {
+        console.warn('語音合成API不可用');
+        return;
+      }
+      
+      // 清理中文語音等待定時器
+      if (this.chineseWaitInterval) {
+        clearInterval(this.chineseWaitInterval);
+        this.chineseWaitInterval = null;
+      }
+      
+      // 停止當前正在播放的語音
+      this.speechSynthesis.cancel();
+      
+      // 獲取當前設定的語音速度
+      var voiceRateSetting = document.getElementById('voice-rate-setting');
+      var rate = voiceRateSetting ? parseFloat(voiceRateSetting.value) : this.voiceSettings.rate;
+      
+      console.log('預覽語音:', voiceURI, '示例文字:', sampleText, '速度:', rate);
+      
+      // 創建語音utterance
+      var utterance = new SpeechSynthesisUtterance(sampleText);
+      utterance.rate = rate;
+      utterance.pitch = this.voiceSettings.pitch || 1;
+      utterance.volume = this.voiceSettings.volume || 1;
+      
+      // 尋找指定的語音
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === voiceURI) {
+          selectedVoice = voices[i];
+          break;
+        }
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+        console.log('使用語音:', selectedVoice.name, '語言:', selectedVoice.lang);
+      } else {
+        console.warn('找不到指定的語音:', voiceURI);
+      }
+      
+      // 播放語音
+      this.speechSynthesis.speak(utterance);
+      
+      // 添加錯誤處理
+      utterance.onerror = function(event) {
+        console.error('語音播放錯誤:', event.error);
+      };
+      
+    } catch (error) {
+      console.error('預覽語音時發生錯誤:', error);
+    }
+  };
+  
+  FlashcardApp.prototype.saveVoiceSettingsAndClose = function() {
+    var speechEnabledSetting = document.getElementById('speech-enabled-setting');
+    var voiceRateSetting = document.getElementById('voice-rate-setting');
+    var voiceSelectSetting = document.getElementById('voice-select-setting');
+    var japaneseVoiceSelectSetting = document.getElementById('japanese-voice-select-setting');
+    var spellOutLettersSetting = document.getElementById('spell-out-letters-setting');
+    var chineseSpeechEnabledSetting = document.getElementById('chinese-speech-enabled-setting');
+    var chineseVoiceSelectSetting = document.getElementById('chinese-voice-select-setting');
+    var delaySpeechToggle = document.getElementById('delay-speech-setting');
+    
+    if (speechEnabledSetting) this.voiceSettings.enabled = speechEnabledSetting.checked;
+    if (voiceRateSetting) this.voiceSettings.rate = parseFloat(voiceRateSetting.value);
+    if (spellOutLettersSetting) this.voiceSettings.spellOutLetters = spellOutLettersSetting.checked;
+    if (chineseSpeechEnabledSetting) this.voiceSettings.chineseEnabled = chineseSpeechEnabledSetting.checked;
+    if (delaySpeechToggle) this.settings.delaySpeechInNormalMode = delaySpeechToggle.checked;
+    
+    if (voiceSelectSetting) {
+      var selectedVoiceURI = voiceSelectSetting.value;
+      this.voiceSettings.voiceURI = selectedVoiceURI;
+      var voices = this.speechSynthesis.getVoices();
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === selectedVoiceURI) {
+          this.voiceSettings.lang = voices[i].lang;
+          break;
+        }
+      }
+    }
+    
+    if (japaneseVoiceSelectSetting) {
+      var selectedJapaneseVoiceURI = japaneseVoiceSelectSetting.value;
+      this.voiceSettings.japaneseVoiceURI = selectedJapaneseVoiceURI;
+      var voices = this.speechSynthesis.getVoices();
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === selectedJapaneseVoiceURI) {
+          this.voiceSettings.japaneseLang = voices[i].lang;
+          break;
+        }
+      }
+    }
+    
+    if (chineseVoiceSelectSetting) {
+      var selectedChineseVoiceURI = chineseVoiceSelectSetting.value;
+      this.voiceSettings.chineseVoiceURI = selectedChineseVoiceURI;
+      var voices = this.speechSynthesis.getVoices();
+      for (var i = 0; i < voices.length; i++) {
+        if (voices[i].voiceURI === selectedChineseVoiceURI) {
+          this.voiceSettings.chineseLang = voices[i].lang;
+          break;
+        }
+      }
+    }
+    
+    this.saveSettings();
+    this.updateVoiceButtonState();
+    this.closeVoiceSettings();
+  };
+  
+  FlashcardApp.prototype.populateVoiceSelect = function() {
+    var voiceSelect = document.getElementById('voice-select-setting');
+    var japaneseVoiceSelect = document.getElementById('japanese-voice-select-setting');
+    var voices = this.speechSynthesis.getVoices();
+    var self = this;
+    
+    // 填充英文語音選項
+    if (voiceSelect) {
+      // 保護select元素
+      this.protectSelectElement(voiceSelect);
+      
+      voiceSelect.innerHTML = '';
+      var englishVoices = voices.filter(function(v) { 
+        return v.lang && v.lang.indexOf('en') === 0; 
+      });
+      
+      for (var i = 0; i < englishVoices.length; i++) {
+        var voice = englishVoices[i];
+        var option = document.createElement('option');
+        option.value = voice.voiceURI;
+        option.textContent = voice.name + ' (' + voice.lang + ')';
+        if (voice.voiceURI === this.voiceSettings.voiceURI) {
+          option.selected = true;
+        }
+        voiceSelect.appendChild(option);
+      }
+      
+      if (!voiceSelect.value && englishVoices.length > 0) {
+        voiceSelect.value = englishVoices[0].voiceURI;
+      }
+      
+      // 添加change事件監聽器 - 切換時播放示例語音
+      voiceSelect.addEventListener('change', function() {
+        var selectedVoiceURI = voiceSelect.value;
+        self.previewVoice(selectedVoiceURI, 'Hello, this is a sample voice for English pronunciation.');
+      });
+    }
+    
+    // 填充日文語音選項
+    if (japaneseVoiceSelect) {
+      // 保護select元素
+      this.protectSelectElement(japaneseVoiceSelect);
+      
+      japaneseVoiceSelect.innerHTML = '';
+      var japaneseVoices = voices.filter(function(v) { 
+        return v.lang && v.lang.indexOf('ja') === 0; 
+      });
+      
+      for (var i = 0; i < japaneseVoices.length; i++) {
+        var voice = japaneseVoices[i];
+        var option = document.createElement('option');
+        option.value = voice.voiceURI;
+        option.textContent = voice.name + ' (' + voice.lang + ')';
+        if (voice.voiceURI === this.voiceSettings.japaneseVoiceURI) {
+          option.selected = true;
+        }
+        japaneseVoiceSelect.appendChild(option);
+      }
+      
+      if (!japaneseVoiceSelect.value && japaneseVoices.length > 0) {
+        japaneseVoiceSelect.value = japaneseVoices[0].voiceURI;
+      }
+      
+      // 添加change事件監聽器 - 切換時播放示例語音
+      japaneseVoiceSelect.addEventListener('change', function() {
+        var selectedVoiceURI = japaneseVoiceSelect.value;
+        self.previewVoice(selectedVoiceURI, 'こんにちは、これは日本語の音声サンプルです。');
+      });
+    }
+    
+    // 填充中文語音選項
+    var chineseVoiceSelect = document.getElementById('chinese-voice-select-setting');
+    if (chineseVoiceSelect) {
+      // 保護select元素
+      this.protectSelectElement(chineseVoiceSelect);
+      
+      chineseVoiceSelect.innerHTML = '';
+      var chineseVoices = voices.filter(function(v) { 
+        return v.lang && (v.lang.indexOf('zh') === 0 || v.lang.indexOf('cmn') === 0 || v.lang.indexOf('yue') === 0); 
+      });
+      
+      for (var i = 0; i < chineseVoices.length; i++) {
+        var voice = chineseVoices[i];
+        var option = document.createElement('option');
+        option.value = voice.voiceURI;
+        option.textContent = voice.name + ' (' + voice.lang + ')';
+        if (voice.voiceURI === this.voiceSettings.chineseVoiceURI) {
+          option.selected = true;
+        }
+        chineseVoiceSelect.appendChild(option);
+      }
+      
+      if (!chineseVoiceSelect.value && chineseVoices.length > 0) {
+        chineseVoiceSelect.value = chineseVoices[0].voiceURI;
+      }
+      
+      // 添加change事件監聽器 - 切換時播放示例語音
+      chineseVoiceSelect.addEventListener('change', function() {
+        var selectedVoiceURI = chineseVoiceSelect.value;
+        self.previewVoice(selectedVoiceURI, '你好，這是中文語音範例。');
+      });
+    }
+  };
+</script>
