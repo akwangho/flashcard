@@ -367,6 +367,11 @@
     englishElement.style.color = '';
     chineseElement.style.color = '';
     
+    // 混合模式：每張卡片隨機決定顯示順序
+    if (this.settings.displayMode === 'mixed') {
+      this.currentWordReversed = Math.random() < 0.5;
+    }
+    
     // 先清除背景圖片（圖片將在中文翻譯出現時才顯示）
     var flashcardDiv = document.getElementById('flashcard');
     if (flashcardDiv) {
@@ -378,7 +383,7 @@
     setTimeout(function() {
       var firstElement = document.getElementById('english-word');
       
-      if (self.settings.reverseMode) {
+      if (self.isReversedForCurrentWord()) {
         firstElement.textContent = currentWord.chinese;
         // 反向模式：先顯示中文，播放中文語音
         setTimeout(function() {

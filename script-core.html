@@ -31,10 +31,13 @@
     this.settings = {
       delayTime: 4.5,
       fontSize: 96,
-      reverseMode: false,
+      displayMode: 'english-first',
       fontFamily: 'system-default',
       delaySpeechInNormalMode: false
     };
+    
+    // 混合模式：當前單字是否反向顯示（每張卡片隨機決定）
+    this.currentWordReversed = false;
     
     // 字型映射表（iPad 4 兼容）
     this.fontFamilyMap = {
@@ -221,6 +224,13 @@
   FlashcardApp.prototype.loadSettings = function() {
     try {
       var savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
+      
+      // 向後相容：將舊版 reverseMode (boolean) 遷移至新版 displayMode (string)
+      if (savedSettings.hasOwnProperty('reverseMode') && !savedSettings.hasOwnProperty('displayMode')) {
+        savedSettings.displayMode = savedSettings.reverseMode ? 'chinese-first' : 'english-first';
+        delete savedSettings.reverseMode;
+      }
+      
       for (var key in savedSettings) {
         if (savedSettings.hasOwnProperty(key) && this.settings.hasOwnProperty(key)) {
           this.settings[key] = savedSettings[key];
@@ -531,7 +541,6 @@
     var delaySlider = document.getElementById('delay-setting');
     var fontSizeSlider = document.getElementById('font-size-setting');
     var fontFamilySelect = document.getElementById('font-family-setting');
-    var reverseToggle = document.getElementById('reverse-setting');
     var delaySpeechToggle = document.getElementById('delay-speech-setting');
     var delayValue = document.getElementById('delay-value');
     var fontSizeValue = document.getElementById('font-size-value');
@@ -551,7 +560,11 @@
     if (fontFamilySelect) {
       fontFamilySelect.value = this.settings.fontFamily;
     }
-    if (reverseToggle) reverseToggle.checked = this.settings.reverseMode;
+    // 設定顯示模式 radio buttons
+    var displayModeRadios = document.querySelectorAll('input[name="display-mode"]');
+    for (var i = 0; i < displayModeRadios.length; i++) {
+      displayModeRadios[i].checked = (displayModeRadios[i].value === this.settings.displayMode);
+    }
     if (delaySpeechToggle) delaySpeechToggle.checked = this.settings.delaySpeechInNormalMode;
     
     // 更新字型預覽

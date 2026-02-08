@@ -28,22 +28,24 @@
     var delaySlider = document.getElementById('delay-setting');
     var fontSizeSlider = document.getElementById('font-size-setting');
     var fontFamilySelect = document.getElementById('font-family-setting');
-    var reverseToggle = document.getElementById('reverse-setting');
     
-    var oldReverseMode = this.settings.reverseMode;
+    var oldDisplayMode = this.settings.displayMode;
     var oldFontFamily = this.settings.fontFamily;
     
     if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
     if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
     if (fontFamilySelect) this.settings.fontFamily = fontFamilySelect.value;
-    if (reverseToggle) this.settings.reverseMode = reverseToggle.checked;
+    
+    // 讀取顯示模式 radio buttons
+    var selectedMode = document.querySelector('input[name="display-mode"]:checked');
+    if (selectedMode) this.settings.displayMode = selectedMode.value;
     
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
     
-    // 如果翻譯模式或字型改變，重新顯示當前單字
-    if (oldReverseMode !== this.settings.reverseMode || oldFontFamily !== this.settings.fontFamily) {
+    // 如果顯示模式或字型改變，重新顯示當前單字
+    if (oldDisplayMode !== this.settings.displayMode || oldFontFamily !== this.settings.fontFamily) {
       this.redisplayCurrentWord();
     }
   };
@@ -53,7 +55,7 @@
     this.settings = {
       delayTime: 3,
       fontSize: 96,
-      reverseMode: false,
+      displayMode: 'english-first',
       fontFamily: 'system-default',
       delaySpeechInNormalMode: false
     };
@@ -236,6 +238,13 @@
     var cls = level === -1 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
     display.classList.add(cls);
   };
+
+  // 判斷當前單字是否以反向模式顯示（先中文後英文）
+  FlashcardApp.prototype.isReversedForCurrentWord = function() {
+    if (this.settings.displayMode === 'chinese-first') return true;
+    if (this.settings.displayMode === 'mixed') return this.currentWordReversed;
+    return false; // 'english-first'
+  };
     
   // 渲染不熟程度預覽（暫時刪除時立即顯示減少後的數字）
   FlashcardApp.prototype.renderDifficultyLevelPreview = function(level) {
@@ -366,7 +375,8 @@
     }
     
     if (!this.showingChinese) {
-      var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+      var isReversed = this.isReversedForCurrentWord();
+      var secondText = isReversed ? currentWord.english : currentWord.chinese;
       chineseElement.textContent = secondText;
       chineseElement.classList.add('show');
       this.showingChinese = true;
@@ -388,7 +398,7 @@
       
       var self = this;
       
-      if (this.settings.reverseMode) {
+      if (isReversed) {
         // 反向模式：用戶點擊顯示英文，播放英文語音
         setTimeout(function() {
           self.speakWord(currentWord.english);
@@ -569,7 +579,8 @@
     }
     
     var self = this;
-    var secondText = this.settings.reverseMode ? currentWord.english : currentWord.chinese;
+    var isReversed = this.isReversedForCurrentWord();
+    var secondText = isReversed ? currentWord.english : currentWord.chinese;
     
     // 圖片和中文同時顯示（移除延遲）
     chineseElement.textContent = secondText;
@@ -584,7 +595,7 @@
       self.nextWord();
     }, this.settings.delayTime * 1000);
     
-    if (this.settings.reverseMode) {
+    if (isReversed) {
       // 反向模式：第二部分顯示英文，播放英文語音
       setTimeout(function() {
         self.speakWord(currentWord.english);

@@ -255,11 +255,16 @@
           </div>
           
           <div class="setting-group">
-            <label for="reverse-setting">🔄 先顯示中文翻譯</label>
-            <div class="setting-control">
-              <label class="switch">
-                <input type="checkbox" id="reverse-setting">
-                <span class="slider"></span>
+            <label>🔄 顯示模式</label>
+            <div class="setting-control" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+              <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px; color: #FFFF00;">
+                <input type="radio" name="display-mode" value="english-first" style="margin-right: 8px;"> 先顯示英文
+              </label>
+              <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px; color: #FFFF00;">
+                <input type="radio" name="display-mode" value="chinese-first" style="margin-right: 8px;"> 先顯示中文
+              </label>
+              <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px; color: #FFFF00;">
+                <input type="radio" name="display-mode" value="mixed" style="margin-right: 8px;"> 隨機混合
               </label>
             </div>
           </div>
