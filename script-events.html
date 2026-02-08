@@ -882,6 +882,8 @@
     // Escape 鍵 (keyCode 27)
     else if (keyCode === 27 || code === 'Escape') {
       keyActions['action'] = function() {
+        // 先取消非常熟標記的待確認狀態
+        self.cancelMarkVeryFamiliar();
         self.closeSettings();
         self.closeVoiceSettings();
         self.closeExportModal();
@@ -895,6 +897,10 @@
     // F5 鍵 (keyCode 116) 跟 S 鍵 (keyCode 83)  - 增加不熟程度
     else if (keyCode === 116 || code === 'F5' || keyCode === 83 || code === 'KeyS') {
       keyActions['action'] = function() { self.increaseDifficulty(); };
+    }
+    // D 鍵 (keyCode 68) - 標記為非常熟（-1），需按兩次確認
+    else if (keyCode === 68 || code === 'KeyD') {
+      keyActions['action'] = function() { self.handleMarkVeryFamiliar(); };
     }
     // E 鍵 (keyCode 69) - 編輯當前單字
     else if (keyCode === 69 || code === 'KeyE') {

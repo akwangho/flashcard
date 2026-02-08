@@ -93,6 +93,9 @@
         <span id="active-filters-text"></span>
         <button id="clear-filters-btn" class="clear-filters-btn">✕ 清除</button>
       </div>
+
+      <!-- 非常熟標記提示 (D鍵雙按確認) -->
+      <div id="very-familiar-toast" class="very-familiar-toast" style="display: none;"></div>
       
       <!-- 恢復按鈕 -->
       <div id="restore-btn-container" class="restore-btn-container" style="display: none;">
@@ -493,7 +496,7 @@
         <div class="setting-group">
           <label for="edit-word-difficulty">不熟程度</label>
           <div class="setting-control edit-word-difficulty-control">
-            <input type="range" id="edit-word-difficulty" min="0" max="10" value="0" step="1">
+            <input type="range" id="edit-word-difficulty" min="-1" max="10" value="0" step="1">
             <span id="edit-word-difficulty-value" class="edit-word-difficulty-value">★0</span>
           </div>
         </div>
@@ -529,6 +532,11 @@
               <input type="radio" name="difficulty-filter" value="0" checked>
               <span class="review-filter-label">全部（不篩選）</span>
               <span class="review-filter-count" id="diff-count-0"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="radio" name="difficulty-filter" value="-1">
+              <span class="review-filter-label">✓ 非常熟（已掌握）</span>
+              <span class="review-filter-count" id="diff-count-n1"></span>
             </label>
             <label class="review-filter-option">
               <input type="radio" name="difficulty-filter" value="1">

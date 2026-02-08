@@ -1350,6 +1350,7 @@
   }
 
   /* 不熟程度顏色等級 */
+  .difficulty-level-n1 { color: #00CC00; } /* 非常熟（已掌握）：綠色 */
   .difficulty-level-0 { color: #666; }
   .difficulty-level-1,
   .difficulty-level-2 { color: #FFD700; }
@@ -1361,6 +1362,28 @@
   .difficulty-level-8 { color: #FF4500; }
   .difficulty-level-9,
   .difficulty-level-10 { color: #FF0000; filter: drop-shadow(0 0 4px rgba(255, 0, 0, 0.6)); }
+
+  /* 非常熟標記提示 (D鍵雙按確認 toast) */
+  .very-familiar-toast {
+    position: absolute;
+    bottom: 55px;
+    left: 50%;
+    margin-left: -140px;
+    width: 280px;
+    background: rgba(0, 160, 0, 0.85);
+    color: #fff;
+    border: 1px solid rgba(0, 200, 0, 0.7);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 200;
+    backdrop-filter: blur(2px);
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
 
   /* 篩選指示器 */
   .active-filters {

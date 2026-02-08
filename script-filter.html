@@ -102,10 +102,22 @@
     var self = this;
     
     // 篩選 1：不熟程度篩選
-    if (this.difficultyFilter > 0) {
+    if (this.difficultyFilter === -1) {
+      // 特殊篩選：只顯示非常熟（-1）的單字
       filtered = filtered.filter(function(w) {
-        return (w.difficultyLevel || 0) >= self.difficultyFilter;
+        return w.difficultyLevel === -1;
       });
+    } else {
+      // 預設排除 -1（非常熟）的單字，只有明確篩選 -1 時才顯示
+      filtered = filtered.filter(function(w) {
+        return w.difficultyLevel !== -1;
+      });
+      // 再套用 >= 篩選
+      if (this.difficultyFilter > 0) {
+        filtered = filtered.filter(function(w) {
+          return (w.difficultyLevel || 0) >= self.difficultyFilter;
+        });
+      }
     }
     
     // 篩選 2：複習時間篩選
@@ -162,11 +174,21 @@
     var words = this.words;
     
     // 如果同時啟用了不熟程度篩選，先套用
-    if (this.difficultyFilter > 0) {
-      var minLevel = this.difficultyFilter;
+    if (this.difficultyFilter === -1) {
       words = words.filter(function(w) {
-        return (w.difficultyLevel || 0) >= minLevel;
+        return w.difficultyLevel === -1;
       });
+    } else {
+      // 預設排除 -1 的單字
+      words = words.filter(function(w) {
+        return w.difficultyLevel !== -1;
+      });
+      if (this.difficultyFilter > 0) {
+        var minLevel = this.difficultyFilter;
+        words = words.filter(function(w) {
+          return (w.difficultyLevel || 0) >= minLevel;
+        });
+      }
     }
     
     if (filterType === 'all') {
@@ -332,9 +354,10 @@
     if (!modal) return;
     
     // 更新各選項的單字數量
-    var levels = [0, 1, 3, 5, 7, 10];
+    var levels = [-1, 0, 1, 3, 5, 7, 10];
     for (var i = 0; i < levels.length; i++) {
-      var countEl = document.getElementById('diff-count-' + levels[i]);
+      var countId = 'diff-count-' + (levels[i] === -1 ? 'n1' : levels[i]);
+      var countEl = document.getElementById(countId);
       if (countEl) {
         var count = this.countWordsForDifficultyFilter(levels[i]);
         countEl.textContent = '(' + count + ' 個)';
@@ -444,12 +467,23 @@
       });
     }
     
-    if (minLevel === 0) {
-      return words.length;
+    // 特殊：-1 篩選只計算 difficultyLevel === -1 的單字
+    if (minLevel === -1) {
+      return words.filter(function(w) {
+        return w.difficultyLevel === -1;
+      }).length;
     }
     
+    // 0 = 全部（但排除 -1）
+    if (minLevel === 0) {
+      return words.filter(function(w) {
+        return w.difficultyLevel !== -1;
+      }).length;
+    }
+    
+    // >= minLevel（排除 -1）
     return words.filter(function(w) {
-      return (w.difficultyLevel || 0) >= minLevel;
+      return w.difficultyLevel !== -1 && (w.difficultyLevel || 0) >= minLevel;
     }).length;
   };
 
@@ -458,7 +492,10 @@
     var btn = document.getElementById('difficulty-filter-btn');
     if (!btn) return;
     
-    if (this.difficultyFilter > 0) {
+    if (this.difficultyFilter === -1) {
+      btn.textContent = '⭐ 篩選：非常熟';
+      btn.style.color = '#00CC00';
+    } else if (this.difficultyFilter > 0) {
       btn.textContent = '⭐ 篩選：★' + this.difficultyFilter + ' 以上';
       btn.style.color = '#FFA500';
     } else {
@@ -479,7 +516,9 @@
     
     var parts = [];
     
-    if (this.difficultyFilter > 0) {
+    if (this.difficultyFilter === -1) {
+      parts.push('⭐ 非常熟');
+    } else if (this.difficultyFilter > 0) {
       parts.push('⭐ ★' + this.difficultyFilter + '+');
     }
     
@@ -546,11 +585,12 @@
     if (englishInput) englishInput.value = currentWord.english || '';
     if (chineseInput) chineseInput.value = currentWord.chinese || '';
     if (difficultyInput) {
-      difficultyInput.value = currentWord.difficultyLevel || 0;
+      var diffLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+      difficultyInput.value = diffLevel;
     }
     if (difficultyValue) {
-      var level = currentWord.difficultyLevel || 0;
-      difficultyValue.textContent = '★' + level;
+      var level = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+      difficultyValue.textContent = level === -1 ? '非常熟 ✓' : '★' + level;
       this.updateEditWordDifficultyColor(level);
     }
     if (imageInput) imageInput.value = currentWord.image || '';
@@ -590,11 +630,13 @@
     var valueEl = document.getElementById('edit-word-difficulty-value');
     if (!valueEl) return;
 
-    // 移除舊的顏色 class
+    // 移除舊的顏色 class（包含 -1）
+    valueEl.className = valueEl.className.replace('difficulty-level-n1', '').trim();
     for (var i = 0; i <= 10; i++) {
       valueEl.className = valueEl.className.replace('difficulty-level-' + i, '').trim();
     }
-    valueEl.className = (valueEl.className + ' difficulty-level-' + level).trim();
+    var cls = level === -1 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
+    valueEl.className = (valueEl.className + ' ' + cls).trim();
   };
 
   // 設置編輯單字模態框事件監聽器
@@ -619,23 +661,18 @@
       saveBtn.addEventListener('click', function() { self.saveEditWord(); });
     }
     if (difficultyInput) {
-      difficultyInput.addEventListener('input', function() {
-        var val = parseInt(this.value) || 0;
+      var updateDiffDisplay = function() {
+        var val = parseInt(difficultyInput.value);
+        if (isNaN(val)) val = 0;
         var valueEl = document.getElementById('edit-word-difficulty-value');
         if (valueEl) {
-          valueEl.textContent = '★' + val;
+          valueEl.textContent = val === -1 ? '非常熟 ✓' : '★' + val;
           self.updateEditWordDifficultyColor(val);
         }
-      });
+      };
+      difficultyInput.addEventListener('input', updateDiffDisplay);
       // 相容舊版瀏覽器
-      difficultyInput.addEventListener('change', function() {
-        var val = parseInt(this.value) || 0;
-        var valueEl = document.getElementById('edit-word-difficulty-value');
-        if (valueEl) {
-          valueEl.textContent = '★' + val;
-          self.updateEditWordDifficultyColor(val);
-        }
-      });
+      difficultyInput.addEventListener('change', updateDiffDisplay);
     }
     // 圖片 URL 輸入框變更時更新預覽
     var imageInput = document.getElementById('edit-word-image');
@@ -703,7 +740,8 @@
 
     var newEnglish = englishInput ? englishInput.value.trim() : '';
     var newChinese = chineseInput ? chineseInput.value.trim() : '';
-    var newDifficulty = difficultyInput ? (parseInt(difficultyInput.value) || 0) : 0;
+    var newDifficulty = difficultyInput ? parseInt(difficultyInput.value) : 0;
+    if (isNaN(newDifficulty)) newDifficulty = 0;
     var newImage = imageInput ? imageInput.value.trim() : '';
 
     if (!newEnglish || !newChinese) {

@@ -152,15 +152,16 @@
     }
   };
   
-  // 增加不熟程度（+1，最高10）
+  // 增加不熟程度（+1，最高10；-1 → 0）
   FlashcardApp.prototype.increaseDifficulty = function() {
     if (this.currentWords.length === 0) return;
     
     var currentWord = this.currentWords[this.currentIndex];
     if (!currentWord) return;
     
-    // 增加不熟程度
-    var newLevel = Math.min(10, (currentWord.difficultyLevel || 0) + 1);
+    // 增加不熟程度（-1 → 0, 0 → 1, ..., 9 → 10）
+    var currentLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    var newLevel = Math.min(10, currentLevel + 1);
     currentWord.difficultyLevel = newLevel;
     
     // 同步到 words 主陣列
@@ -216,16 +217,24 @@
     
     if (!display || !levelEl) return;
     
-    var level = (currentWord && currentWord.difficultyLevel) ? currentWord.difficultyLevel : 0;
-    levelEl.textContent = level;
+    var level = (currentWord && currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
     
-    // 移除所有等級 class
+    // -1 顯示為 ✓ 符號，其他顯示數字
+    if (level === -1) {
+      levelEl.textContent = '✓';
+    } else {
+      levelEl.textContent = level;
+    }
+    
+    // 移除所有等級 class（包含 n1 代表 -1）
+    display.className = display.className.replace('difficulty-level-n1', '').trim();
     for (var i = 0; i <= 10; i++) {
       display.className = display.className.replace('difficulty-level-' + i, '').trim();
     }
     display.className = display.className.replace(/\s+/g, ' ').trim();
     display.classList.add('difficulty-display');
-    display.classList.add('difficulty-level-' + level);
+    var cls = level === -1 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
+    display.classList.add(cls);
   };
     
   // 重新套用篩選（用於切換篩選條件後）
@@ -586,6 +595,146 @@
     this.currentPreloadingImage = img;
   };
   
+  // ===========================================
+  // D 鍵：標記為非常熟（-1）功能
+  // ===========================================
+
+  // 處理 D 鍵按下（雙按確認標記為非常熟）
+  FlashcardApp.prototype.handleMarkVeryFamiliar = function() {
+    if (this.currentWords.length === 0) return;
+    
+    var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord) return;
+    
+    // 如果已經是 -1，顯示提示
+    if (currentWord.difficultyLevel === -1) {
+      this.showVeryFamiliarToast('此字已經是非常熟');
+      return;
+    }
+    
+    // 如果已有待確認狀態（第二次按 D）
+    if (this._pendingVeryFamiliar && this._pendingVeryFamiliar.wordId === currentWord.id) {
+      // 確認標記為非常熟
+      this.confirmMarkVeryFamiliar();
+      return;
+    }
+    
+    // 第一次按 D：顯示確認提示
+    var self = this;
+    this._pendingVeryFamiliar = {
+      wordId: currentWord.id,
+      timer: setTimeout(function() {
+        self.cancelMarkVeryFamiliar();
+      }, 3000) // 3 秒超時自動取消
+    };
+    
+    this.showVeryFamiliarToast('再按一下 D 設為非常熟（ESC 取消）');
+  };
+
+  // 確認標記為非常熟（-1）
+  FlashcardApp.prototype.confirmMarkVeryFamiliar = function() {
+    if (!this._pendingVeryFamiliar) return;
+    
+    var wordId = this._pendingVeryFamiliar.wordId;
+    
+    // 清除待確認狀態
+    if (this._pendingVeryFamiliar.timer) {
+      clearTimeout(this._pendingVeryFamiliar.timer);
+    }
+    this._pendingVeryFamiliar = null;
+    
+    // 找到目標單字
+    var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord || currentWord.id !== wordId) return;
+    
+    // 設定為 -1
+    currentWord.difficultyLevel = -1;
+    
+    // 同步到 words 主陣列
+    var mainWord = this.words.find(function(w) { return w.id === wordId; });
+    if (mainWord) mainWord.difficultyLevel = -1;
+    
+    // 後端同步
+    this.syncDifficultyToBackend(currentWord);
+    
+    console.log('已設為非常熟:', currentWord.english);
+    
+    // 顯示確認訊息
+    this.showVeryFamiliarToast('✓ 已設為非常熟');
+    
+    // 如果不在 -1 篩選模式下，從 currentWords 移除並跳到下一個
+    if (this.difficultyFilter !== -1) {
+      var self = this;
+      setTimeout(function() {
+        // 從 currentWords 移除（因為篩選會排除 -1）
+        var idx = -1;
+        for (var i = 0; i < self.currentWords.length; i++) {
+          if (self.currentWords[i].id === wordId) {
+            idx = i;
+            break;
+          }
+        }
+        if (idx !== -1) {
+          self.currentWords.splice(idx, 1);
+          if (self.currentIndex >= self.currentWords.length) {
+            self.currentIndex = 0;
+          }
+        }
+        
+        if (self.currentWords.length === 0) {
+          self.startNewRound();
+        } else {
+          self.displayCurrentWord();
+          self.updateButtonStates();
+          self.renderDifficultyLevel();
+          self.updateActiveFilterDisplay();
+        }
+      }, 800);
+    } else {
+      // 在 -1 篩選模式下，只更新顯示
+      this.renderDifficultyLevel();
+    }
+  };
+
+  // 取消標記為非常熟
+  FlashcardApp.prototype.cancelMarkVeryFamiliar = function() {
+    if (!this._pendingVeryFamiliar) return;
+    
+    if (this._pendingVeryFamiliar.timer) {
+      clearTimeout(this._pendingVeryFamiliar.timer);
+    }
+    this._pendingVeryFamiliar = null;
+    this.hideVeryFamiliarToast();
+  };
+
+  // 顯示非常熟提示訊息（toast）
+  FlashcardApp.prototype.showVeryFamiliarToast = function(message) {
+    var toast = document.getElementById('very-familiar-toast');
+    if (!toast) return;
+    
+    toast.textContent = message;
+    toast.style.display = 'block';
+    toast.style.opacity = '1';
+    
+    // 如果是確認訊息，1.5 秒後自動隱藏
+    if (message.indexOf('✓') === 0 || message.indexOf('此字已經') === 0) {
+      var self = this;
+      setTimeout(function() {
+        self.hideVeryFamiliarToast();
+      }, 1500);
+    }
+  };
+
+  // 隱藏非常熟提示訊息
+  FlashcardApp.prototype.hideVeryFamiliarToast = function() {
+    var toast = document.getElementById('very-familiar-toast');
+    if (!toast) return;
+    toast.style.opacity = '0';
+    setTimeout(function() {
+      toast.style.display = 'none';
+    }, 300);
+  };
+
   // 增強滑塊交互體驗（ES5兼容版本）
   FlashcardApp.prototype.enhanceSliderInteraction = function(slider, valueElementId, unit) {
     if (!slider) return;

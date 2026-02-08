@@ -74,14 +74,21 @@ function countValidWords(sheet) {
   * 新版格式：A=總數, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期
   */
   function createWordObject(rowData, id, sheetName, rowIndex) {
-    // 計算不熟程度（數 * 的數量，0-10）
+    // 計算不熟程度（支援數字 -1~10 或舊版 * 符號）
     let difficultyLevel = 0;
-    if (rowData[3]) {
+    if (rowData[3] !== undefined && rowData[3] !== null && rowData[3] !== '') {
       const diffStr = rowData[3].toString().trim();
-      for (let i = 0; i < diffStr.length; i++) {
-        if (diffStr[i] === '*') difficultyLevel++;
+      const parsed = Number(diffStr);
+      if (!isNaN(parsed) && diffStr !== '') {
+        // 數字格式（支援 -1 到 10）
+        difficultyLevel = Math.max(-1, Math.min(10, Math.round(parsed)));
+      } else {
+        // 向後相容：計算 * 符號數量
+        for (let i = 0; i < diffStr.length; i++) {
+          if (diffStr[i] === '*') difficultyLevel++;
+        }
+        if (difficultyLevel > 10) difficultyLevel = 10;
       }
-      if (difficultyLevel > 10) difficultyLevel = 10;
     }
 
     // 讀取 G 欄（第7欄，index 6）的最後複習日期
@@ -103,7 +110,7 @@ function countValidWords(sheet) {
       id: id,
       english: rowData[1].toString().trim(),       // B 欄：單字
       chinese: rowData[2].toString().trim(),       // C 欄：翻譯
-      difficultyLevel: difficultyLevel,            // D 欄：不熟程度（0-10）
+      difficultyLevel: difficultyLevel,            // D 欄：不熟程度（-1~10，-1=非常熟）
       image: rowData[4] ? rowData[4].toString().trim() : '',       // E 欄：圖片URL
       imageFormula: rowData[5] ? rowData[5].toString().trim() : '', // F 欄：圖片顯示公式
       lastReviewDate: lastReviewDate,              // G 欄：最後複習日期
@@ -274,8 +281,9 @@ function countValidWords(sheet) {
   }
 
   /**
-  * 更新單字不熟程度（多層級 0-10）
-  * difficultyLevel: 0 表示已熟悉，1-10 表示不熟程度（* 的數量）
+  * 更新單字不熟程度（多層級 -1~10）
+  * difficultyLevel: -1 表示非常熟（已掌握），0 表示已熟悉，1-10 表示不熟程度
+  * 寫入時以數字為主（向後相容讀取 * 符號）
   */
   function updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel) {
     try {
@@ -297,14 +305,9 @@ function countValidWords(sheet) {
       const row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
       const col = 4; // D 欄（第四欄）
       
-      // 產生對應數量的 * 符號
-      let stars = '';
-      const level = Math.max(0, Math.min(10, parseInt(difficultyLevel) || 0));
-      for (let i = 0; i < level; i++) {
-        stars += '*';
-      }
-      
-      sheet.getRange(row, col).setValue(stars);
+      // 以數字格式寫入（0 寫空字串，其他寫數字）
+      const level = Math.max(-1, Math.min(10, parseInt(difficultyLevel) || 0));
+      sheet.getRange(row, col).setValue(level === 0 ? '' : level);
       
       console.log('成功更新不熟程度為', level);
       return true;
@@ -351,14 +354,10 @@ function countValidWords(sheet) {
         console.log('已更新翻譯:', properties.chinese);
       }
       
-      // 更新 D 欄：不熟程度（產生對應數量的 * 符號）
+      // 更新 D 欄：不熟程度（以數字格式寫入，0 寫空字串）
       if (properties.difficultyLevel !== undefined && properties.difficultyLevel !== null) {
-        var level = Math.max(0, Math.min(10, parseInt(properties.difficultyLevel) || 0));
-        var stars = '';
-        for (var i = 0; i < level; i++) {
-          stars += '*';
-        }
-        sheet.getRange(row, 4).setValue(stars);
+        var level = Math.max(-1, Math.min(10, parseInt(properties.difficultyLevel) || 0));
+        sheet.getRange(row, 4).setValue(level === 0 ? '' : level);
         console.log('已更新不熟程度:', level);
       }
       
@@ -449,18 +448,14 @@ function countValidWords(sheet) {
         const w = words[i];
         const imageUrl = w.image || '';
         
-        // 產生不熟程度星號
-        let stars = '';
+        // 以數字格式寫入不熟程度（0 寫空字串）
         const level = w.difficultyLevel || 0;
-        for (let j = 0; j < level; j++) {
-          stars += '*';
-        }
         
         targetSheet.appendRow([
           (i === 0 && (isFirstBatch || overwrite || !sheetExists)) ? words.length : '',  // A 欄：第一個資料列放總數
           w.english || '',           // B 欄：單字
           w.chinese || '',           // C 欄：翻譯
-          stars,                     // D 欄：不熟程度
+          level === 0 ? '' : level,  // D 欄：不熟程度（數字格式）
           imageUrl                   // E 欄：圖片URL
         ]);
       }
