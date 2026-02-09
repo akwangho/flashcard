@@ -29,6 +29,7 @@ function createDOMElements() {
     'paused-indicator', 'muted-indicator',
     'english-section', 'english-word', 'chinese-section', 'chinese-word',
     'progress-area', 'progress-text', 'difficulty-display', 'difficulty-level',
+    'must-spell-indicator',
     // Filters
     'active-filters', 'active-filters-text', 'clear-filters-btn',
     // Restore
@@ -37,7 +38,7 @@ function createDOMElements() {
     'prev-btn', 'next-btn', 'voice-toggle-btn', 'pause-btn',
     'menu-btn', 'menu-dropdown',
     // Menu items
-    'difficulty-filter-btn', 'review-filter-btn',
+    'difficulty-filter-btn', 'review-filter-btn', 'must-spell-filter-btn',
     'quick-quiz-btn', 'full-quiz-btn',
     'edit-word-btn', 'export-btn', 'restart-btn',
     'sheet-settings-btn', 'voice-settings-btn', 'settings-btn', 'fullscreen-btn',
@@ -45,8 +46,8 @@ function createDOMElements() {
     'sheet-settings-modal', 'close-sheet-settings',
     'default-sheets-group', 'default-sheets-list',
     'recent-sheets-group', 'recent-sheets-list',
-    'sheet-id-input', 'sheet-id-tooltip',
-    'load-sheets-btn', 'sheets-selection-group', 'selected-count',
+    'sheet-id-group', 'sheet-id-input', 'sheet-id-tooltip',
+    'load-sheets-group', 'load-sheets-btn', 'sheets-selection-group', 'selected-count',
     'sheets-list', 'cancel-sheet-settings', 'save-sheet-settings',
     // Settings modal
     'settings-modal', 'close-settings',
@@ -84,13 +85,14 @@ function createDOMElements() {
     'edit-word-modal', 'close-edit-word',
     'edit-word-sheet-name', 'edit-word-english', 'edit-word-chinese',
     'edit-word-difficulty', 'edit-word-difficulty-value',
+    'edit-word-must-spell',
     'edit-word-image', 'edit-word-image-preview',
     'edit-word-image-preview-img', 'edit-word-image-preview-error',
     'cancel-edit-word', 'save-edit-word',
     // Difficulty filter modal
     'difficulty-filter-modal', 'close-difficulty-filter',
     'difficulty-filter-options',
-    'diff-count-0', 'diff-count-1', 'diff-count-3', 'diff-count-5', 'diff-count-7', 'diff-count-10',
+    'diff-count-n1', 'diff-count-0', 'diff-count-1', 'diff-count-3', 'diff-count-5', 'diff-count-7', 'diff-count-10',
     'cancel-difficulty-filter', 'apply-difficulty-filter',
     // Review filter modal
     'review-filter-modal', 'close-review-filter',
@@ -118,7 +120,7 @@ function createDOMElements() {
     el.id = id;
     // Some elements need special types
     if (id.indexOf('-setting') !== -1 && id.indexOf('select') === -1) {
-      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting') {
+      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting' || id === 'edit-word-must-spell') {
         el = document.createElement('input');
         el.id = id;
         el.type = 'checkbox';
@@ -191,10 +193,25 @@ function createDOMElements() {
     document.body.appendChild(el);
   });
 
+  // Add display-mode radio buttons
+  var settingsModal = document.getElementById('settings-modal');
+  if (settingsModal) {
+    ['english-first', 'chinese-first', 'mixed'].forEach(function(val) {
+      var label = document.createElement('label');
+      var radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'display-mode';
+      radio.value = val;
+      if (val === 'english-first') radio.checked = true;
+      label.appendChild(radio);
+      settingsModal.appendChild(label);
+    });
+  }
+
   // Add radio buttons for filters inside their containers
   var diffOpts = document.getElementById('difficulty-filter-options');
   if (diffOpts) {
-    [0, 1, 3, 5, 7, 10].forEach(function(val) {
+    [-1, 0, 1, 3, 5, 7, 10].forEach(function(val) {
       var label = document.createElement('label');
       var radio = document.createElement('input');
       radio.type = 'radio';

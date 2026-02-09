@@ -136,6 +136,13 @@
       });
     }
     
+    // 篩選 3：要會拼篩選
+    if (this.mustSpellFilter) {
+      filtered = filtered.filter(function(w) {
+        return w.mustSpell;
+      });
+    }
+    
     return filtered;
   };
 
@@ -189,6 +196,13 @@
           return (w.difficultyLevel || 0) >= minLevel;
         });
       }
+    }
+    
+    // 如果同時啟用了要會拼篩選，先套用
+    if (this.mustSpellFilter) {
+      words = words.filter(function(w) {
+        return w.mustSpell;
+      });
     }
     
     if (filterType === 'all') {
@@ -467,6 +481,13 @@
       });
     }
     
+    // 如果同時啟用了要會拼篩選，先套用
+    if (this.mustSpellFilter) {
+      words = words.filter(function(w) {
+        return w.mustSpell;
+      });
+    }
+    
     // 特殊：-1 篩選只計算 difficultyLevel === -1 的單字
     if (minLevel === -1) {
       return words.filter(function(w) {
@@ -505,6 +526,32 @@
   };
 
   // ===================================================================
+  // 要會拼篩選
+  // ===================================================================
+
+  // 切換要會拼篩選
+  FlashcardApp.prototype.toggleMustSpellFilter = function() {
+    this.mustSpellFilter = !this.mustSpellFilter;
+    console.log('切換要會拼篩選:', this.mustSpellFilter);
+    this.updateMustSpellFilterButtonText();
+    this.reapplyFilters();
+  };
+
+  // 更新要會拼篩選按鈕文字
+  FlashcardApp.prototype.updateMustSpellFilterButtonText = function() {
+    var btn = document.getElementById('must-spell-filter-btn');
+    if (!btn) return;
+    
+    if (this.mustSpellFilter) {
+      btn.textContent = '✍️ 篩選：要會拼';
+      btn.style.color = '#87CEEB';
+    } else {
+      btn.textContent = '✍️ 要會拼篩選';
+      btn.style.color = '';
+    }
+  };
+
+  // ===================================================================
   // 篩選指示器
   // ===================================================================
 
@@ -533,6 +580,10 @@
       parts.push(reviewLabels[this.reviewFilter] || '');
     }
     
+    if (this.mustSpellFilter) {
+      parts.push('✍️ 要會拼');
+    }
+    
     if (parts.length > 0) {
       textEl.textContent = '篩選: ' + parts.join(' | ') + ' (' + this.currentWords.length + '個)';
       container.style.display = 'flex';
@@ -546,8 +597,10 @@
     console.log('清除所有篩選條件');
     this.difficultyFilter = 0;
     this.reviewFilter = 'all';
+    this.mustSpellFilter = false;
     this.updateDifficultyFilterButtonText();
     this.updateReviewFilterButtonText();
+    this.updateMustSpellFilterButtonText();
     this.reapplyFilters();
   };
 
@@ -595,6 +648,9 @@
     }
     if (imageInput) imageInput.value = currentWord.image || '';
     if (sheetNameEl) sheetNameEl.textContent = currentWord.sheetName || '未知';
+
+    var mustSpellToggle = document.getElementById('edit-word-must-spell');
+    if (mustSpellToggle) mustSpellToggle.checked = !!currentWord.mustSpell;
 
     // 更新圖片預覽
     this.updateEditWordImagePreview(currentWord.image || '');
@@ -737,12 +793,14 @@
     var chineseInput = document.getElementById('edit-word-chinese');
     var difficultyInput = document.getElementById('edit-word-difficulty');
     var imageInput = document.getElementById('edit-word-image');
+    var mustSpellToggle = document.getElementById('edit-word-must-spell');
 
     var newEnglish = englishInput ? englishInput.value.trim() : '';
     var newChinese = chineseInput ? chineseInput.value.trim() : '';
     var newDifficulty = difficultyInput ? parseInt(difficultyInput.value) : 0;
     if (isNaN(newDifficulty)) newDifficulty = 0;
     var newImage = imageInput ? imageInput.value.trim() : '';
+    var newMustSpell = mustSpellToggle ? mustSpellToggle.checked : false;
 
     if (!newEnglish || !newChinese) {
       alert('單字和翻譯不能為空');
@@ -771,7 +829,8 @@
       english: newEnglish,
       chinese: newChinese,
       difficultyLevel: newDifficulty,
-      imageUrl: newImage
+      imageUrl: newImage,
+      mustSpell: newMustSpell
     };
 
     // 更新本地資料（主陣列）
@@ -779,6 +838,7 @@
     word.chinese = newChinese;
     word.difficultyLevel = newDifficulty;
     word.image = newImage;
+    word.mustSpell = newMustSpell;
 
     // 同步更新 currentWords 中的對應項目
     for (var j = 0; j < this.currentWords.length; j++) {
@@ -787,6 +847,7 @@
         this.currentWords[j].chinese = newChinese;
         this.currentWords[j].difficultyLevel = newDifficulty;
         this.currentWords[j].image = newImage;
+        this.currentWords[j].mustSpell = newMustSpell;
         break;
       }
     }

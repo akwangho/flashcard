@@ -40,38 +40,38 @@
 
 /**
 * 計算工作表中的有效單字數量
-* 讀取第2行第1欄（A2）的值，該欄位應包含總數
+* 讀取第1行第1欄（A1）的值，該欄位應包含總數
 * 如果讀取不到或值無效，返回 null
 */
 function countValidWords(sheet) {
   try {
-    // 讀取第2行第1欄（A2）的值
-    const countValue = sheet.getRange(2, 1).getValue();
+    // 讀取第1行第1欄（A1）的值
+    const countValue = sheet.getRange(1, 1).getValue();
     
     // 檢查值是否存在
     if (countValue === null || countValue === undefined || countValue === '') {
-      console.log('工作表', sheet.getName(), '的 A2 欄位無值');
+      console.log('工作表', sheet.getName(), '的 A1 欄位無值');
       return null;
     }
     
     // 轉換為數字並驗證
     const wordCount = Number(countValue);
     if (isNaN(wordCount) || wordCount < 0) {
-      console.log('工作表', sheet.getName(), '的 A2 欄位值無效:', countValue);
+      console.log('工作表', sheet.getName(), '的 A1 欄位值無效:', countValue);
       return null;
     }
     
-    console.log('工作表', sheet.getName(), '從 A2 讀取到行數:', wordCount);
+    console.log('工作表', sheet.getName(), '從 A1 讀取到行數:', wordCount);
     return Math.floor(wordCount); // 取整數
   } catch (dataError) {
-    console.error('讀取工作表 A2 欄位時發生錯誤:', sheet.getName(), dataError);
+    console.error('讀取工作表 A1 欄位時發生錯誤:', sheet.getName(), dataError);
     return null;
   }
 }
 
   /**
   * 建立單字物件
-  * 新版格式：A=總數, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期
+  * 格式：A=要會拼, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期（A1=總數）
   */
   function createWordObject(rowData, id, sheetName, rowIndex) {
     // 計算不熟程度（支援數字 -1~10 或舊版 * 符號）
@@ -106,6 +106,9 @@ function countValidWords(sheet) {
       }
     }
 
+    // 讀取 A 欄（第1欄，index 0）的「要會拼」標記
+    var mustSpell = (rowData[0] !== undefined && rowData[0] !== null && rowData[0] !== '') ? true : false;
+
     return {
       id: id,
       english: rowData[1].toString().trim(),       // B 欄：單字
@@ -114,6 +117,7 @@ function countValidWords(sheet) {
       image: rowData[4] ? rowData[4].toString().trim() : '',       // E 欄：圖片URL
       imageFormula: rowData[5] ? rowData[5].toString().trim() : '', // F 欄：圖片顯示公式
       lastReviewDate: lastReviewDate,              // G 欄：最後複習日期
+      mustSpell: mustSpell,                        // A 欄：要會拼（混合模式下強制先顯示中文）
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
@@ -193,7 +197,7 @@ function countValidWords(sheet) {
         
         const wordCount = countValidWords(sheet);
         if (wordCount === null) {
-          console.log('工作表', sheetName, '的單字數無法取得（A2 欄位無值或無效）');
+          console.log('工作表', sheetName, '的單字數無法取得（A1 欄位無值或無效）');
         } else {
           console.log('工作表', sheetName, '有', wordCount, '個單字');
         }
@@ -367,6 +371,12 @@ function countValidWords(sheet) {
         console.log('已更新圖片URL:', properties.imageUrl);
       }
       
+      // 更新 A 欄：要會拼（1 為要會拼，空字串為不需要）
+      if (properties.mustSpell !== undefined && properties.mustSpell !== null) {
+        sheet.getRange(row, 1).setValue(properties.mustSpell ? 1 : '');
+        console.log('已更新要會拼:', properties.mustSpell);
+      }
+      
       console.log('成功更新單字屬性');
       return { success: true };
     } catch (error) {
@@ -437,9 +447,9 @@ function countValidWords(sheet) {
         targetSheet = ss.insertSheet(sheetName);
       }
       
-      // 寫入標題列（如果是新工作表或覆寫模式）
+      // 寫入第一列：A1 放總數（如果是新工作表或覆寫模式）
       if (isFirstBatch || overwrite || !sheetExists) {
-        targetSheet.appendRow(['總數', '單字', '翻譯', '不熟程度', '圖片URL']);
+        targetSheet.appendRow([words.length, '單字', '翻譯', '不熟程度', '圖片URL']);
       }
       
       // 寫入資料
@@ -452,7 +462,7 @@ function countValidWords(sheet) {
         const level = w.difficultyLevel || 0;
         
         targetSheet.appendRow([
-          (i === 0 && (isFirstBatch || overwrite || !sheetExists)) ? words.length : '',  // A 欄：第一個資料列放總數
+          w.mustSpell ? 1 : '',      // A 欄：要會拼標記
           w.english || '',           // B 欄：單字
           w.chinese || '',           // C 欄：翻譯
           level === 0 ? '' : level,  // D 欄：不熟程度（數字格式）

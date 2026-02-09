@@ -82,6 +82,8 @@
     this.duplicateProcessingResults = [];
     this.progressTimer = null;
     
+    this.mustSpellFilter = false; // false=不篩選, true=只顯示要會拼
+    
     // 複習時間篩選相關
     this.reviewFilter = 'all'; // 'all', 'never', '2weeks', '1month', '3months', '6months'
     this.reviewedInSession = {}; // key: "sheetName:rowIndex", value: "YYYY-MM-DD"
@@ -521,6 +523,13 @@
       
       // 自動載入工作表清單
       this.loadSheetsList();
+      
+      // 隱藏非必要區塊，只保留工作表清單與底部按鈕
+      var hideIds = ['default-sheets-group', 'recent-sheets-group', 'sheet-id-group', 'load-sheets-group'];
+      for (var i = 0; i < hideIds.length; i++) {
+        var el = document.getElementById(hideIds[i]);
+        if (el) el.style.display = 'none';
+      }
     }
   };
   

@@ -123,6 +123,13 @@
     if (modal) {
       modal.style.display = 'flex';
       
+      // 還原所有區塊的可見性（上次選擇預設檔後可能被隱藏）
+      var showIds = ['default-sheets-group', 'recent-sheets-group', 'sheet-id-group', 'load-sheets-group'];
+      for (var i = 0; i < showIds.length; i++) {
+        var el = document.getElementById(showIds[i]);
+        if (el) el.style.display = '';
+      }
+      
       var sheetIdInput = document.getElementById('sheet-id-input');
       if (sheetIdInput) {
         sheetIdInput.value = this.sheetSettings.sheetId || '';
@@ -130,12 +137,12 @@
       
       var sheetsGroup = document.getElementById('sheets-selection-group');
       if (sheetsGroup) {
-      sheetsGroup.style.display = 'none';
+        sheetsGroup.style.display = 'none';
       }
       
       var saveBtn = document.getElementById('save-sheet-settings');
       if (saveBtn) {
-      saveBtn.disabled = true;
+        saveBtn.disabled = true;
       }
       
       // 顯示歷史記錄
@@ -237,6 +244,19 @@
     display.classList.add('difficulty-display');
     var cls = level === -1 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
     display.classList.add(cls);
+  };
+
+  // 渲染「要會拼」指示器
+  FlashcardApp.prototype.renderMustSpellIndicator = function() {
+    var indicator = document.getElementById('must-spell-indicator');
+    if (!indicator) return;
+    
+    var currentWord = this.currentWords[this.currentIndex];
+    if (currentWord && currentWord.mustSpell) {
+      indicator.style.display = 'inline-block';
+    } else {
+      indicator.style.display = 'none';
+    }
   };
 
   // 判斷當前單字是否以反向模式顯示（先中文後英文）

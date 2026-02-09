@@ -177,6 +177,10 @@
           console.log('複習時間篩選按鈕被點擊');
           self.closeMenu();
           self.openReviewFilterModal();
+        } else if (e.target.id === 'must-spell-filter-btn') {
+          console.log('要會拼篩選按鈕被點擊');
+          self.closeMenu();
+          self.toggleMustSpellFilter();
         } else if (e.target.id === 'edit-word-btn') {
           console.log('編輯單字按鈕被點擊');
           self.closeMenu();
@@ -367,9 +371,14 @@
     englishElement.style.color = '';
     chineseElement.style.color = '';
     
-    // 混合模式：每張卡片隨機決定顯示順序
+    // 混合模式：每張卡片隨機決定顯示順序（要會拼的單字強制先顯示中文）
     if (this.settings.displayMode === 'mixed') {
-      this.currentWordReversed = Math.random() < 0.5;
+      var currentWord = this.currentWords[this.currentIndex];
+      if (currentWord && currentWord.mustSpell) {
+        this.currentWordReversed = true;
+      } else {
+        this.currentWordReversed = Math.random() < 0.5;
+      }
     }
     
     // 先清除背景圖片（圖片將在中文翻譯出現時才顯示）
@@ -419,6 +428,7 @@
     }, 100);
     
     this.renderDifficultyLevel();
+    this.renderMustSpellIndicator();
     this.updateProgress();
     this.updateButtonStates();
   };

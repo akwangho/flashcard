@@ -118,18 +118,71 @@ describe('applyAllFilters', function() {
     app.applyAllFilters(sampleWords);
     expect(sampleWords.length).toBe(5);
   });
+
+  test('filters by difficulty -1 (very familiar only)', function() {
+    sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -1, lastReviewDate: '' });
+    app.difficultyFilter = -1;
+    app.reviewFilter = 'all';
+    var result = app.applyAllFilters(sampleWords);
+    expect(result.length).toBe(1);
+    expect(result[0].english).toBe('fox');
+  });
+
+  test('default difficulty filter 0 excludes -1 words', function() {
+    sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -1, lastReviewDate: '' });
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    var result = app.applyAllFilters(sampleWords);
+    // fox(-1) should be excluded
+    expect(result.length).toBe(5);
+    var englishes = result.map(function(w) { return w.english; });
+    expect(englishes).not.toContain('fox');
+  });
+
+  test('filters by must-spell only', function() {
+    sampleWords[0].mustSpell = true;  // apple
+    sampleWords[2].mustSpell = true;  // cat
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    app.mustSpellFilter = true;
+    var result = app.applyAllFilters(sampleWords);
+    expect(result.length).toBe(2);
+    expect(result.map(function(w) { return w.english; }).sort()).toEqual(['apple', 'cat']);
+  });
+
+  test('must-spell filter with no matching words returns empty', function() {
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    app.mustSpellFilter = true;
+    var result = app.applyAllFilters(sampleWords);
+    expect(result.length).toBe(0);
+  });
+
+  test('all three filters stack (intersection)', function() {
+    sampleWords[0].mustSpell = true;  // apple: difficulty 0, no review, mustSpell
+    sampleWords[2].mustSpell = true;  // cat: difficulty 5, reviewed 2026-02-01, mustSpell
+    sampleWords[3].mustSpell = true;  // dog: difficulty 8, no review, mustSpell
+    app.difficultyFilter = 3;
+    app.reviewFilter = 'never';
+    app.mustSpellFilter = true;
+    var result = app.applyAllFilters(sampleWords);
+    // difficulty >= 3 AND never reviewed AND mustSpell: only dog(8, no review, mustSpell)
+    expect(result.length).toBe(1);
+    expect(result[0].english).toBe('dog');
+  });
 });
 
 describe('countWordsForFilter', function() {
   beforeEach(function() {
     app.words = [
-      { id: 1, english: 'apple', difficultyLevel: 0, lastReviewDate: '' },
-      { id: 2, english: 'banana', difficultyLevel: 3, lastReviewDate: '2025-01-01' },
-      { id: 3, english: 'cat', difficultyLevel: 5, lastReviewDate: '2026-02-07' },
-      { id: 4, english: 'dog', difficultyLevel: 8, lastReviewDate: '' }
+      { id: 1, english: 'apple', difficultyLevel: 0, lastReviewDate: '', mustSpell: true },
+      { id: 2, english: 'banana', difficultyLevel: 3, lastReviewDate: '2025-01-01', mustSpell: false },
+      { id: 3, english: 'cat', difficultyLevel: 5, lastReviewDate: '2026-02-07', mustSpell: true },
+      { id: 4, english: 'dog', difficultyLevel: 8, lastReviewDate: '', mustSpell: false }
     ];
     app.difficultyFilter = 0;
     app.reviewFilter = 'all';
+    app.mustSpellFilter = false;
   });
 
   test('counts all words for "all" filter', function() {
@@ -139,20 +192,28 @@ describe('countWordsForFilter', function() {
   test('counts never-reviewed words', function() {
     expect(app.countWordsForFilter('never')).toBe(2); // apple and dog
   });
+
+  test('counts with mustSpellFilter active', function() {
+    app.mustSpellFilter = true;
+    expect(app.countWordsForFilter('all')).toBe(2); // apple and cat (mustSpell)
+    expect(app.countWordsForFilter('never')).toBe(1); // apple (mustSpell + never reviewed)
+  });
 });
 
 describe('countWordsForDifficultyFilter', function() {
   beforeEach(function() {
     app.words = [
-      { id: 1, english: 'apple', difficultyLevel: 0, lastReviewDate: '' },
-      { id: 2, english: 'banana', difficultyLevel: 3, lastReviewDate: '' },
-      { id: 3, english: 'cat', difficultyLevel: 5, lastReviewDate: '' },
-      { id: 4, english: 'dog', difficultyLevel: 8, lastReviewDate: '' }
+      { id: 1, english: 'apple', difficultyLevel: 0, lastReviewDate: '', mustSpell: true },
+      { id: 2, english: 'banana', difficultyLevel: 3, lastReviewDate: '', mustSpell: false },
+      { id: 3, english: 'cat', difficultyLevel: 5, lastReviewDate: '', mustSpell: true },
+      { id: 4, english: 'dog', difficultyLevel: 8, lastReviewDate: '', mustSpell: false },
+      { id: 5, english: 'fox', difficultyLevel: -1, lastReviewDate: '', mustSpell: false }
     ];
     app.reviewFilter = 'all';
+    app.mustSpellFilter = false;
   });
 
-  test('returns all words count for minLevel 0', function() {
+  test('returns all words count for minLevel 0 (excludes -1)', function() {
     expect(app.countWordsForDifficultyFilter(0)).toBe(4);
   });
 
@@ -161,6 +222,163 @@ describe('countWordsForDifficultyFilter', function() {
     expect(app.countWordsForDifficultyFilter(5)).toBe(2); // cat(5), dog(8)
     expect(app.countWordsForDifficultyFilter(8)).toBe(1); // dog(8)
     expect(app.countWordsForDifficultyFilter(10)).toBe(0);
+  });
+
+  test('returns count for -1 (very familiar)', function() {
+    expect(app.countWordsForDifficultyFilter(-1)).toBe(1); // fox(-1)
+  });
+
+  test('counts with mustSpellFilter active', function() {
+    app.mustSpellFilter = true;
+    expect(app.countWordsForDifficultyFilter(0)).toBe(2); // apple(0) and cat(5) are mustSpell
+    expect(app.countWordsForDifficultyFilter(5)).toBe(1); // cat(5) is mustSpell
+  });
+});
+
+describe('toggleMustSpellFilter', function() {
+  beforeEach(function() {
+    app.words = [
+      { id: 1, english: 'apple', chinese: '蘋果', difficultyLevel: 0, mustSpell: true },
+      { id: 2, english: 'banana', chinese: '香蕉', difficultyLevel: 3, mustSpell: false },
+      { id: 3, english: 'cat', chinese: '貓', difficultyLevel: 5, mustSpell: true }
+    ];
+    app.currentWords = app.words.slice();
+    app.currentIndex = 0;
+    app.removedWords = [];
+    app.mustSpellFilter = false;
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+  });
+
+  test('toggles filter from false to true', function() {
+    app.toggleMustSpellFilter();
+    expect(app.mustSpellFilter).toBe(true);
+  });
+
+  test('toggles filter from true to false', function() {
+    app.mustSpellFilter = true;
+    app.toggleMustSpellFilter();
+    expect(app.mustSpellFilter).toBe(false);
+  });
+
+  test('reapplies filters after toggle', function() {
+    app.toggleMustSpellFilter();
+    // After toggle to true, currentWords should only have mustSpell words
+    expect(app.currentWords.length).toBe(2);
+    expect(app.currentWords.map(function(w) { return w.english; }).sort()).toEqual(['apple', 'cat']);
+  });
+});
+
+describe('updateMustSpellFilterButtonText', function() {
+  test('shows active text when filter is on', function() {
+    app.mustSpellFilter = true;
+    app.updateMustSpellFilterButtonText();
+    var btn = document.getElementById('must-spell-filter-btn');
+    expect(btn.textContent).toContain('篩選');
+    expect(btn.textContent).toContain('要會拼');
+    expect(btn.style.color).toBe('rgb(135, 206, 235)');
+  });
+
+  test('shows default text when filter is off', function() {
+    app.mustSpellFilter = false;
+    app.updateMustSpellFilterButtonText();
+    var btn = document.getElementById('must-spell-filter-btn');
+    expect(btn.textContent).toContain('要會拼篩選');
+    expect(btn.style.color).toBe('');
+  });
+});
+
+describe('updateActiveFilterDisplay', function() {
+  beforeEach(function() {
+    app.currentWords = [
+      { id: 1, english: 'apple', chinese: '蘋果' }
+    ];
+  });
+
+  test('hides indicator when no filters active', function() {
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    app.mustSpellFilter = false;
+    app.updateActiveFilterDisplay();
+    var container = document.getElementById('active-filters');
+    expect(container.style.display).toBe('none');
+  });
+
+  test('shows difficulty filter label', function() {
+    app.difficultyFilter = 5;
+    app.reviewFilter = 'all';
+    app.mustSpellFilter = false;
+    app.updateActiveFilterDisplay();
+    var textEl = document.getElementById('active-filters-text');
+    expect(textEl.textContent).toContain('★5');
+  });
+
+  test('shows review filter label', function() {
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'never';
+    app.mustSpellFilter = false;
+    app.updateActiveFilterDisplay();
+    var textEl = document.getElementById('active-filters-text');
+    expect(textEl.textContent).toContain('從未複習');
+  });
+
+  test('shows must-spell filter label', function() {
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    app.mustSpellFilter = true;
+    app.updateActiveFilterDisplay();
+    var textEl = document.getElementById('active-filters-text');
+    expect(textEl.textContent).toContain('要會拼');
+    var container = document.getElementById('active-filters');
+    expect(container.style.display).toBe('flex');
+  });
+
+  test('shows combined filter labels separated by |', function() {
+    app.difficultyFilter = 3;
+    app.reviewFilter = '2weeks';
+    app.mustSpellFilter = true;
+    app.updateActiveFilterDisplay();
+    var textEl = document.getElementById('active-filters-text');
+    expect(textEl.textContent).toContain('★3');
+    expect(textEl.textContent).toContain('>2週');
+    expect(textEl.textContent).toContain('要會拼');
+    expect(textEl.textContent).toContain('|');
+  });
+
+  test('shows word count in indicator', function() {
+    app.difficultyFilter = 5;
+    app.reviewFilter = 'all';
+    app.mustSpellFilter = false;
+    app.updateActiveFilterDisplay();
+    var textEl = document.getElementById('active-filters-text');
+    expect(textEl.textContent).toContain('1個');
+  });
+});
+
+describe('clearAllFilters', function() {
+  beforeEach(function() {
+    app.words = [
+      { id: 1, english: 'apple', chinese: '蘋果', difficultyLevel: 3, mustSpell: true },
+      { id: 2, english: 'banana', chinese: '香蕉', difficultyLevel: 5, mustSpell: false }
+    ];
+    app.currentWords = [];
+    app.currentIndex = 0;
+    app.removedWords = [];
+    app.difficultyFilter = 5;
+    app.reviewFilter = 'never';
+    app.mustSpellFilter = true;
+  });
+
+  test('resets all filter states to defaults', function() {
+    app.clearAllFilters();
+    expect(app.difficultyFilter).toBe(0);
+    expect(app.reviewFilter).toBe('all');
+    expect(app.mustSpellFilter).toBe(false);
+  });
+
+  test('restores all words after clearing', function() {
+    app.clearAllFilters();
+    expect(app.currentWords.length).toBe(2);
   });
 });
 

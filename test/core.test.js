@@ -33,8 +33,18 @@ describe('FlashcardApp Constructor', function() {
 
     expect(app.settings.delayTime).toBe(4.5);
     expect(app.settings.fontSize).toBe(96);
-    expect(app.settings.reverseMode).toBe(false);
+    expect(app.settings.displayMode).toBe('english-first');
     expect(app.settings.fontFamily).toBe('system-default');
+    expect(app.settings.delaySpeechInNormalMode).toBe(false);
+  });
+
+  test('constructor initializes currentWordReversed flag', function() {
+    var origInit = FlashcardApp.prototype.init;
+    FlashcardApp.prototype.init = function() {};
+    var app = new FlashcardApp();
+    FlashcardApp.prototype.init = origInit;
+
+    expect(app.currentWordReversed).toBe(false);
   });
 
   test('constructor initializes voice settings', function() {
@@ -70,6 +80,7 @@ describe('FlashcardApp Constructor', function() {
 
     expect(app.difficultyFilter).toBe(0);
     expect(app.reviewFilter).toBe('all');
+    expect(app.mustSpellFilter).toBe(false);
     expect(app.reviewedInSession).toEqual({});
   });
 });
@@ -99,14 +110,14 @@ describe('Settings management', function() {
     localStorage.setItem('flashcard-settings', JSON.stringify({
       delayTime: 7,
       fontSize: 64,
-      reverseMode: true,
+      displayMode: 'chinese-first',
       fontFamily: 'arial'
     }));
 
     app.loadSettings();
     expect(app.settings.delayTime).toBe(7);
     expect(app.settings.fontSize).toBe(64);
-    expect(app.settings.reverseMode).toBe(true);
+    expect(app.settings.displayMode).toBe('chinese-first');
     expect(app.settings.fontFamily).toBe('arial');
   });
 
@@ -114,6 +125,28 @@ describe('Settings management', function() {
     app.loadSettings();
     expect(app.settings.delayTime).toBe(4.5);
     expect(app.settings.fontSize).toBe(96);
+    expect(app.settings.displayMode).toBe('english-first');
+  });
+
+  test('loadSettings migrates old reverseMode to displayMode', function() {
+    localStorage.setItem('flashcard-settings', JSON.stringify({
+      delayTime: 5,
+      reverseMode: true
+    }));
+
+    app.loadSettings();
+    expect(app.settings.displayMode).toBe('chinese-first');
+    expect(app.settings.reverseMode).toBeUndefined();
+  });
+
+  test('loadSettings migrates reverseMode false to english-first', function() {
+    localStorage.setItem('flashcard-settings', JSON.stringify({
+      delayTime: 5,
+      reverseMode: false
+    }));
+
+    app.loadSettings();
+    expect(app.settings.displayMode).toBe('english-first');
   });
 
   test('saveSheetSettings and loadSheetSettings round-trip', function() {
@@ -236,14 +269,19 @@ describe('shuffleArray', function() {
 });
 
 describe('fontFamilyMap', function() {
-  test('has system-default key', function() {
+  test('has all 9 font keys', function() {
     var origInit = FlashcardApp.prototype.init;
     FlashcardApp.prototype.init = function() {};
     var app = new FlashcardApp();
     FlashcardApp.prototype.init = origInit;
 
-    expect(app.fontFamilyMap).toHaveProperty('system-default');
-    expect(app.fontFamilyMap).toHaveProperty('arial');
-    expect(app.fontFamilyMap).toHaveProperty('times');
+    var expectedKeys = [
+      'system-default', 'microsoft-yahei', 'songti', 'kaiti',
+      'arial', 'helvetica', 'times', 'courier', 'verdana'
+    ];
+    expectedKeys.forEach(function(key) {
+      expect(app.fontFamilyMap).toHaveProperty(key);
+      expect(typeof app.fontFamilyMap[key]).toBe('string');
+    });
   });
 });

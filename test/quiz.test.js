@@ -147,20 +147,43 @@ describe('getResultMessage', function() {
   test('returns good message for score 80-89', function() {
     var msg = app.getResultMessage(85);
     expect(msg).toContain('不錯');
+    // boundary: exactly 80
+    var msg80 = app.getResultMessage(80);
+    expect(msg80).toContain('不錯');
   });
 
   test('returns encouraging message for score 70-79', function() {
     var msg = app.getResultMessage(75);
     expect(msg).toContain('努力');
+    // boundary: exactly 70
+    var msg70 = app.getResultMessage(70);
+    expect(msg70).toContain('努力');
+    // boundary: exactly 79
+    var msg79 = app.getResultMessage(79);
+    expect(msg79).toContain('努力');
   });
 
   test('returns practice message for score 60-69', function() {
     var msg = app.getResultMessage(65);
     expect(msg).toContain('練習');
+    // boundary: exactly 60
+    var msg60 = app.getResultMessage(60);
+    expect(msg60).toContain('練習');
   });
 
   test('returns keep-going message for score < 60', function() {
     var msg = app.getResultMessage(40);
     expect(msg).toContain('加油');
+    // boundary: exactly 59
+    var msg59 = app.getResultMessage(59);
+    expect(msg59).toContain('加油');
+    // edge case: 0
+    var msg0 = app.getResultMessage(0);
+    expect(msg0).toContain('加油');
+  });
+
+  test('boundary: 89 is not in 90+ tier', function() {
+    var msg = app.getResultMessage(89);
+    expect(msg).toContain('不錯');
   });
 });
