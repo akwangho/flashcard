@@ -75,6 +75,7 @@
     // 功能狀態
     this.difficultyFilter = 0; // 0=不篩選, 1-10=最低不熟程度
     this.availableSheets = [];
+    this.isLoadingWordCounts = false;
     this.listenersSetup = false;
     this.currentSpreadsheetName = null;
     this.duplicateWords = [];
@@ -521,15 +522,8 @@
     if (sheetIdInput) {
       sheetIdInput.value = sheetId;
       
-      // 自動載入工作表清單
+      // 自動載入工作表清單（隱藏非必要區塊的邏輯已移至 updateSheetLoadingUI）
       this.loadSheetsList();
-      
-      // 隱藏非必要區塊，只保留工作表清單與底部按鈕
-      var hideIds = ['default-sheets-group', 'recent-sheets-group', 'sheet-id-group', 'load-sheets-group'];
-      for (var i = 0; i < hideIds.length; i++) {
-        var el = document.getElementById(hideIds[i]);
-        if (el) el.style.display = 'none';
-      }
     }
   };
   

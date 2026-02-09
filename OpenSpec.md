@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.5.4
-> **最後更新**: 2026-02-08
+> **版本**: 1.5.7
+> **最後更新**: 2026-02-09
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -55,7 +55,13 @@
 flashcard/
 ├── code.gs                # Google Apps Script 後端程式碼（約 758 行）
 ├── index.html             # 主要 HTML 結構（含所有模態框）
-├── style.html             # CSS 樣式定義（約 2,439 行）
+│
+│   # CSS 樣式模組（原 style.html 拆分為 5 個模組）
+├── style-base.html        # CSS 變數、iPad 4 fallback、重置、基礎元件、通用按鈕、RWD、動畫
+├── style-flashcard.html   # 閃卡顯示、還原按鈕、進度/控制列、選單、不熟程度/指示器、暫停/靜音
+├── style-modal.html       # 模態框框架、表單輸入、編輯單字模態框、工具提示
+├── style-sheets.html      # 匯出進度、Google Sheet 元件、歷史清單、重複單字、通知、輔助說明、錯誤
+├── style-quiz.html        # 測驗元件、複習篩選模態框
 │
 │   # 前端 JavaScript 模組（原 script.html 拆分為 10 個模組）
 ├── script-polyfills.html  # ES5 Polyfills（forEach, filter, map, find, includes）
@@ -387,7 +393,8 @@ bash deploy.sh setup
   - Google Sheet ID 或 URL 輸入框（支援完整 URL 自動提取 ID）
   - 「載入工作表清單」按鈕
   - 工作表多選列表（含單字數量顯示）
-- **預設檔快選行為**: 點選預設單字檔或最近使用記錄後，預設清單、最近使用清單、Sheet ID 輸入框、載入按鈕自動隱藏，僅顯示工作表選擇區域與底部按鈕；使用者可關閉並重新開啟設定視窗以恢復完整介面
+- **快選行為**: 點選預設單字檔、最近使用記錄、或按下「載入工作表清單」按鈕後，預設清單、最近使用清單、Sheet ID 輸入框、載入按鈕自動隱藏，僅顯示工作表選擇區域與底部按鈕；使用者可關閉並重新開啟設定視窗以恢復完整介面
+- **載入進度條**: 載入工作表清單時顯示真實進度條，分兩個階段：Phase 1 連接 Google Sheet（不確定進度動畫），Phase 2 逐一取得各工作表單字數（確定進度百分比）
 
 #### 4.3.2 預設單字檔
 - **描述**: 應用程式內建的預設 Google Sheet 列表
@@ -404,6 +411,8 @@ bash deploy.sh setup
 - **描述**: 載入 Google Sheet 後，顯示所有工作表供使用者勾選
 - **顯示資訊**: 工作表名稱、單字數量（讀取 A1 格的值）
 - **多選**: 可同時選擇多個工作表，合併載入所有單字
+- **排除的工作表**: 以下非單字工作表會自動從清單中隱藏，不顯示也不載入：
+  - `記事`（預設記事工作表）
 
 #### 4.3.5 Google Sheet ID 提取
 - **描述**: 支援從完整的 Google Sheets URL 中自動提取 Sheet ID
@@ -732,7 +741,9 @@ bash deploy.sh setup
 
 | 函式 | 參數 | 回傳 | 說明 |
 |------|------|------|------|
-| `getSheetsList(sheetId)` | Sheet ID | `{spreadsheetName, sheets: [{name, wordCount}]}` | 取得工作表清單和各工作表的單字數 |
+| `getSheetsList(sheetId)` | Sheet ID | `{spreadsheetName, sheets: [{name, wordCount}]}` | 取得工作表清單和各工作表的單字數（一次性） |
+| `getSheetNamesOnly(sheetId)` | Sheet ID | `{spreadsheetName, sheetNames: [String], sheetCount}` | 僅取得工作表名稱（不讀取單字數，用於快速顯示清單） |
+| `getSheetWordCount(sheetId, sheetName)` | Sheet ID, 工作表名稱 | `{name, wordCount}` | 取得單一工作表的單字數量（搭配進度條逐一載入） |
 | `checkSheetExists(sheetName, targetSheetId)` | 工作表名稱, Sheet ID | `Boolean` | 檢查工作表是否已存在 |
 
 ### 5.4 單字操作

@@ -119,11 +119,36 @@
   
   FlashcardApp.prototype.updateSheetLoadingUI = function(elements, isLoading) {
     if (isLoading) {
-      elements.sheetsList.innerHTML = '<div class="loading-text">載入中...</div>';
+      // 隱藏非必要區塊，只保留工作表清單與底部按鈕
+      var hideIds = ['default-sheets-group', 'recent-sheets-group', 'sheet-id-group', 'load-sheets-group'];
+      for (var i = 0; i < hideIds.length; i++) {
+        var el = document.getElementById(hideIds[i]);
+        if (el) el.style.display = 'none';
+      }
+      
+      // 建立或更新進度條容器
+      var progressContainer = document.getElementById('sheet-loading-progress-container');
+      if (!progressContainer) {
+        progressContainer = document.createElement('div');
+        progressContainer.id = 'sheet-loading-progress-container';
+        progressContainer.className = 'sheet-loading-progress';
+        elements.sheetsGroup.insertBefore(progressContainer, elements.sheetsList);
+      }
+      progressContainer.style.display = 'block';
+      progressContainer.innerHTML =
+        '<div class="progress-bar indeterminate"><div class="progress-fill" id="sheet-loading-fill"></div></div>' +
+        '<div class="loading-text" id="sheet-loading-text">正在連接 Google Sheet...</div>';
+      
+      elements.sheetsList.innerHTML = '';
       elements.sheetsGroup.style.display = 'block';
       elements.loadBtn.disabled = true;
       elements.loadBtn.textContent = '載入中...';
-          } else {
+    } else {
+      // 隱藏進度條
+      var progressContainer = document.getElementById('sheet-loading-progress-container');
+      if (progressContainer) progressContainer.style.display = 'none';
+      
+      this.isLoadingWordCounts = false;
       elements.loadBtn.disabled = false;
       elements.loadBtn.textContent = '載入工作表清單';
     }
@@ -133,18 +158,162 @@
     if (!this.validateGoogleScriptEnvironment()) {
       throw new Error('Google Apps Script 環境不可用');
     }
-  
+
     var self = this;
-    var timeout = this.setupSheetRequestTimeout(elements);
     
+    // Phase 1 超時：15 秒
+    var phase1Timeout = setTimeout(function() {
+      console.error('連接 Google Sheet 超時 (15秒)');
+      elements.sheetsList.innerHTML = '<div class="error-text">連接超時，請檢查網路連接或重試</div>';
+      self.updateSheetLoadingUI(elements, false);
+    }, 15000);
+    
+    // Phase 1: 取得工作表名稱（快速）
     google.script.run
       .withSuccessHandler(function(result) {
-        self.handleSheetListSuccess(result, elements, timeout, sheetId);
+        clearTimeout(phase1Timeout);
+        self.handlePhase1Success(result, elements, sheetId);
       })
       .withFailureHandler(function(error) {
-        self.handleSheetListFailure(error, elements, timeout);
+        clearTimeout(phase1Timeout);
+        self.handleSheetListFailure(error, elements, null);
       })
-      .getSheetsList(sheetId);
+      .getSheetNamesOnly(sheetId);
+  };
+  
+  // Phase 1 成功：取得工作表名稱，開始 Phase 2 逐一取得單字數
+  FlashcardApp.prototype.handlePhase1Success = function(result, elements, sheetId) {
+    console.log('Phase 1 成功：取得工作表名稱', result);
+    
+    var spreadsheetName = result.spreadsheetName;
+    var sheetNames = result.sheetNames;
+    
+    // 過濾掉非單字工作表（例如「記事」）
+    var excludedSheets = ['記事'];
+    var filteredNames = [];
+    for (var i = 0; i < sheetNames.length; i++) {
+      var shouldExclude = false;
+      for (var j = 0; j < excludedSheets.length; j++) {
+        if (sheetNames[i] === excludedSheets[j]) {
+          shouldExclude = true;
+          break;
+        }
+      }
+      if (!shouldExclude) {
+        filteredNames.push(sheetNames[i]);
+      }
+    }
+    sheetNames = filteredNames;
+    console.log('過濾後的工作表名稱（排除非單字工作表）:', sheetNames);
+    
+    var total = sheetNames.length;
+    
+    this.currentSpreadsheetName = spreadsheetName;
+    
+    // 保存到歷史記錄
+    if (sheetId && spreadsheetName) {
+      this.addToSheetHistory(sheetId, spreadsheetName);
+      console.log('已添加到歷史記錄:', sheetId, spreadsheetName);
+    }
+    
+    if (total === 0) {
+      elements.sheetsList.innerHTML = '<div class="error-text">沒有找到工作表</div>';
+      this.updateSheetLoadingUI(elements, false);
+      return;
+    }
+    
+    // 初始化 availableSheets（單字數為 null，稍後逐一填入）
+    this.availableSheets = [];
+    for (var i = 0; i < sheetNames.length; i++) {
+      this.availableSheets.push({ name: sheetNames[i], wordCount: null });
+    }
+    
+    // 標記正在載入單字數
+    this.isLoadingWordCounts = true;
+    
+    // 先渲染工作表清單（各項顯示「載入中...」）
+    this.renderSheetsList();
+    
+    // 切換進度條為確定模式（Phase 2）
+    var progressBar = document.querySelector('#sheet-loading-progress-container .progress-bar');
+    if (progressBar) {
+      progressBar.className = 'progress-bar'; // 移除 indeterminate
+    }
+    this.updateSheetLoadingProgress(0, total, '正在載入工作表資訊 0/' + total + '...');
+    
+    // Phase 2: 並行取得各工作表的單字數
+    var self = this;
+    var completed = 0;
+    
+    // Phase 2 超時：30 秒
+    var phase2Timeout = setTimeout(function() {
+      console.error('載入工作表資訊超時 (30秒)');
+      self.isLoadingWordCounts = false;
+      self.updateSheetLoadingUI(elements, false);
+    }, 30000);
+    
+    for (var i = 0; i < sheetNames.length; i++) {
+      (function(name, index) {
+        google.script.run
+          .withSuccessHandler(function(countResult) {
+            if (self.availableSheets[index]) {
+              self.availableSheets[index].wordCount = countResult.wordCount;
+            }
+            self.updateSheetItemCount(index, countResult.wordCount);
+            
+            completed++;
+            self.updateSheetLoadingProgress(completed, total,
+              '正在載入工作表資訊 ' + completed + '/' + total + '...');
+            
+            if (completed >= total) {
+              clearTimeout(phase2Timeout);
+              self.updateSheetLoadingUI(elements, false);
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.error('載入工作表單字數失敗:', name, error);
+            self.updateSheetItemCount(index, null);
+            
+            completed++;
+            self.updateSheetLoadingProgress(completed, total,
+              '正在載入工作表資訊 ' + completed + '/' + total + '...');
+            
+            if (completed >= total) {
+              clearTimeout(phase2Timeout);
+              self.updateSheetLoadingUI(elements, false);
+            }
+          })
+          .getSheetWordCount(sheetId, name);
+      })(sheetNames[i], i);
+    }
+  };
+  
+  // 更新載入進度條
+  FlashcardApp.prototype.updateSheetLoadingProgress = function(completed, total, text) {
+    var fillEl = document.getElementById('sheet-loading-fill');
+    var textEl = document.getElementById('sheet-loading-text');
+    
+    if (fillEl) {
+      var pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+      fillEl.style.width = pct + '%';
+    }
+    if (textEl) {
+      textEl.textContent = text;
+    }
+  };
+  
+  // 更新單一工作表的單字數顯示
+  FlashcardApp.prototype.updateSheetItemCount = function(index, wordCount) {
+    var countEl = document.getElementById('sheet-count-' + index);
+    if (!countEl) return;
+    
+    if (wordCount === null || wordCount === undefined) {
+      countEl.textContent = '-';
+      countEl.style.color = '#888';
+    } else {
+      countEl.textContent = wordCount + ' 個單字';
+      countEl.style.color = '';
+    }
   };
   
   FlashcardApp.prototype.validateGoogleScriptEnvironment = function() {
@@ -166,34 +335,6 @@
       elements.sheetsList.innerHTML = '<div class="error-text">載入超時，請檢查網路連接或重試</div>';
       self.updateSheetLoadingUI(elements, false);
     }, 15000);
-  };
-  
-  FlashcardApp.prototype.handleSheetListSuccess = function(result, elements, timeout, sheetId) {
-    clearTimeout(timeout);
-    console.log('Google Apps Script 成功回調');
-  
-    var sheets, spreadsheetName;
-    if (result && result.sheets) {
-      sheets = result.sheets;
-      spreadsheetName = result.spreadsheetName;
-    } else if (Array.isArray(result)) {
-      sheets = result;
-      spreadsheetName = null;
-    } else {
-      throw new Error('載入工作表清單失敗：返回格式錯誤');
-    }
-  
-    this.availableSheets = sheets;
-    this.currentSpreadsheetName = spreadsheetName;
-    
-    // 保存到歷史記錄
-    if (sheetId && spreadsheetName) {
-      this.addToSheetHistory(sheetId, spreadsheetName);
-      console.log('已添加到歷史記錄:', sheetId, spreadsheetName);
-    }
-    
-    this.renderSheetsList();
-    this.updateSheetLoadingUI(elements, false);
   };
   
   FlashcardApp.prototype.handleSheetListFailure = function(error, elements, timeout) {
@@ -289,10 +430,15 @@
       
       var sheetCount = document.createElement('div');
       sheetCount.className = 'sheet-count';
-      // 如果 wordCount 為 null 或 undefined，顯示 '-'，表示該工作表的 F1 欄位需要設置
+      sheetCount.id = 'sheet-count-' + index;
+      // 如果 wordCount 為 null 或 undefined，根據載入狀態顯示不同文字
       if (sheet.wordCount === null || sheet.wordCount === undefined) {
-        sheetCount.textContent = '-';
-        sheetCount.style.color = '#888'; // 使用灰色表示無資料
+        if (self.isLoadingWordCounts) {
+          sheetCount.textContent = '載入中...';
+        } else {
+          sheetCount.textContent = '-';
+        }
+        sheetCount.style.color = '#888'; // 使用灰色表示無資料或載入中
       } else {
         sheetCount.textContent = sheet.wordCount + ' 個單字';
       }

@@ -1,0 +1,530 @@
+<!-- style-modal.html: modal framework, form inputs, edit word modal, tooltip -->
+<style>
+  /* ==========================================================================
+     MODAL COMPONENTS
+     ========================================================================== */
+  
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+  }
+  
+  .modal-content {
+    background-color: var(--bg-color);
+    border: 3px solid var(--primary-color);
+    border-radius: var(--radius-xl);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    display: flex;
+    display: -webkit-flex;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    border-bottom: 2px solid var(--primary-color);
+    background-color: #1a1a1a;
+    background-color: var(--bg-color);
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+  }
+  
+  .modal-header h2 {
+    font-size: var(--font-2xl);
+    font-weight: bold;
+    color: var(--primary-color);
+  }
+  
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: var(--font-xl);
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    transition: all var(--transition-normal);
+  }
+  
+  .close-btn:hover {
+    background-color: rgba(255, 255, 0, 0.2);
+    transform: scale(1.1);
+  }
+  
+  .modal-body {
+    padding: var(--spacing-lg);
+    color: var(--primary-color);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  
+  .modal-body p, .modal-body div, .modal-body span {
+    color: var(--primary-color);
+  }
+  
+  .setting-group {
+    margin-bottom: 25px;
+  }
+  
+  .setting-group label {
+    display: block;
+    font-size: var(--font-md);
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .setting-control {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    position: relative;
+  }
+  
+  .setting-control input[type="range"] {
+    flex: 1;
+    height: 6px;
+    background: #333;
+    border-radius: var(--radius-sm);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    /* 增加觸摸區域 */
+    padding: 15px 0;
+    margin: -15px 0;
+  }
+  
+  .setting-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: var(--spacing-lg);
+    height: var(--spacing-lg);
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  .setting-control input[type="range"]::-moz-range-thumb {
+    width: var(--spacing-lg);
+    height: var(--spacing-lg);
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+  
+  .setting-control span {
+    min-width: 60px;
+    font-weight: bold;
+    color: var(--primary-color);
+    text-align: right;
+  }
+  
+  /* Input text styles */
+  input[type="text"], input[type="email"], input[type="password"], input[type="url"] {
+    padding: 8px 12px;
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    font-size: var(--font-sm);
+    font-family: inherit;
+    outline: none;
+    transition: all var(--transition-normal);
+  }
+  
+  input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="url"]:focus {
+    border-color: var(--primary-color);
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(255, 255, 0, 0.2);
+  }
+  
+  input[type="text"]::placeholder, input[type="email"]::placeholder, input[type="password"]::placeholder, input[type="url"]::placeholder {
+    color: var(--gray-color);
+    opacity: 0.7;
+  }
+  
+  /* Radio button styles */
+  input[type="radio"] {
+    margin-right: 8px;
+    accent-color: var(--primary-color);
+  }
+  
+  /* Label styles for radio buttons */
+  .setting-control label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    color: var(--primary-color);
+    font-size: var(--font-sm);
+    cursor: pointer;
+  }
+  
+  /* Specific input field styles */
+  #export-sheet-name {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  #sheet-id-input {
+    /* Override inline styles to use consistent styling */
+    width: 100% !important;
+    padding: 8px 12px !important;
+    border: 2px solid var(--primary-color) !important;
+    border-radius: var(--radius-md) !important;
+    background-color: var(--bg-color) !important;
+    color: #FFFFFF !important; /* White text for user input */
+  }
+  
+  /* Enhanced color scheme for better text distinction */
+  /* Specifically for sheet selection area */
+  .sheets-list .sheet-item label {
+    color: #CCCCCC !important; /* Light gray for sheet names */
+  }
+  
+  .sheets-list .sheet-item span {
+    color: #87CEEB !important; /* Light blue for word counts */
+  }
+  
+  /* Selected count indicator */
+  #selected-count {
+    color: #87CEEB !important; /* Light blue for selection status */
+  }
+  
+  /* Status text and hints */
+  .sheet-id-tooltip small, .sheet-id-tooltip strong {
+    color: var(--gray-color) !important; /* Gray for hints */
+  }
+  
+  /* Improve general input text visibility */
+  input[type="text"], input[type="email"], input[type="password"], input[type="url"] {
+    color: #FFFFFF !important; /* White text for all inputs */
+  }
+  
+  input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="url"]:focus {
+    color: #FFFFFF !important; /* White text when focused */
+  }
+  
+  /* Font family select styles */
+  select {
+    padding: 8px 12px;
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    font-size: var(--font-sm);
+    font-family: inherit;
+    outline: none;
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    min-width: 200px;
+    position: relative;
+    z-index: 2100; /* 確保下拉選單在模態框之上 */
+  }
+
+  select:focus {
+    border-color: var(--primary-color);
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(255, 255, 0, 0.2);
+  }
+
+  select option {
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    padding: 8px;
+  }
+
+  /* Font preview component */
+  .font-preview {
+    background-color: rgba(255, 255, 0, 0.1);
+    border: 1px solid rgba(255, 255, 0, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+    text-align: center;
+  }
+
+  .preview-english {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.2;
+  }
+
+  .preview-chinese {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--primary-color);
+    line-height: 1.2;
+  }
+
+  /* Switch component */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+  }
+  
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #333;
+    transition: 0.4s;
+    border-radius: 34px;
+    border: 2px solid #666;
+  }
+  
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: var(--font-2xl);
+    width: var(--font-2xl);
+    left: var(--spacing-xs);
+    bottom: var(--spacing-xs);
+    background-color: #666;
+    transition: 0.4s;
+    border-radius: 50%;
+  }
+  
+  input:checked + .slider {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(var(--font-2xl));
+    background-color: var(--bg-color);
+  }
+  
+  /* Test button styles */
+  .test-btn {
+    width: 100%;
+    padding: 12px var(--spacing-lg);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-md);
+    font-weight: bold;
+    transition: all var(--transition-normal);
+  }
+  
+  .test-btn:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-color);
+    transform: scale(1.02);
+  }
+  
+  .test-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--gray-color);
+    border-color: #666;
+  }
+  
+  .test-btn:disabled:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--gray-color);
+    transform: none;
+  }
+  
+  .modal-footer {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-top: 2px solid var(--primary-color);
+    background-color: #1a1a1a;
+    background-color: var(--bg-color);
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  
+  .secondary-btn {
+    padding: 12px var(--spacing-lg);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--primary-color);
+    border: 2px solid #666;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-sm);
+    font-weight: bold;
+    transition: all var(--transition-normal);
+    flex: 1;
+  }
+  
+  .secondary-btn:hover {
+    background-color: #666;
+    border-color: var(--primary-color);
+    transform: scale(1.02);
+  }
+  
+  .primary-btn {
+    padding: 12px var(--spacing-lg);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-sm);
+    font-weight: bold;
+    transition: all var(--transition-normal);
+    flex: 2;
+  }
+  
+  .primary-btn:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-color);
+    transform: scale(1.02);
+  }
+  
+  .primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .primary-btn:disabled:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--primary-color);
+    transform: none;
+  }
+
+  /* ==========================================================================
+     EDIT WORD MODAL
+     ========================================================================== */
+
+  .edit-word-sheet-info {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .edit-word-sheet-label {
+    color: #999;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .edit-word-sheet-value {
+    color: #FFA500;
+    font-weight: bold;
+    font-size: 14px;
+    word-break: break-all;
+  }
+
+  .edit-word-difficulty-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .edit-word-difficulty-control input[type="range"] {
+    flex: 1;
+  }
+
+  .edit-word-difficulty-value {
+    min-width: 40px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 16px;
+    color: #FFA500;
+  }
+
+  /* 編輯模態框內的文字輸入框加寬 */
+  #edit-word-modal .setting-control input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 圖片預覽區域 */
+  .edit-word-image-preview {
+    margin-top: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    text-align: center;
+  }
+
+  .edit-word-image-preview img {
+    max-width: 100%;
+    max-height: 200px;
+    display: block;
+    margin: 0 auto;
+    object-fit: contain;
+  }
+
+  .edit-word-image-preview-error {
+    padding: 16px;
+    color: #ff6b6b;
+    font-size: 13px;
+  }
+
+  /* ==========================================================================
+     TOOLTIP & SPECIAL COMPONENTS
+     ========================================================================== */
+  
+  .sheet-id-tooltip {
+    position: absolute;
+    left: 0;
+    top: 110%;
+    min-width: 260px;
+    background: rgba(30, 30, 30, 0.98);
+    color: var(--gray-color);
+    border: 1px solid #444;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    padding: 12px 18px;
+    z-index: 10;
+    font-size: 13px;
+    pointer-events: none;
+  }
+</style>

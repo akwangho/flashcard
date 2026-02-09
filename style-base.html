@@ -1,0 +1,236 @@
+<!-- style-base.html: CSS variables, iPad 4 fallbacks, reset, base components, common buttons, responsive, animations -->
+<style>
+  /* iPad4 兼容性：為舊版瀏覽器提供fallback */
+  
+  /* 原始硬編碼值作為fallback */
+  body {
+    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif;
+    background-color: #000000;
+    color: #FFFF00;
+    margin: 0;
+    padding: 0;
+  }
+  
+  #loading p {
+    font-size: 96px;
+    font-weight: bold;
+  }
+  
+  .word {
+    font-size: 96px;
+    font-weight: bold;
+  }
+  
+  /* CSS變量定義（新版瀏覽器會覆蓋上面的fallback值） */
+  :root {
+    /* Colors */
+    --primary-color: #FFFF00;
+    --bg-color: #000000;
+    --text-color: #FFFFFF;
+    --gray-color: #888888;
+    --success-color: #00FF00;
+    --error-color: #FF6B6B;
+    --warning-color: #FFA500;
+    --light-blue: #87CEEB;
+    
+    /* Spacing */
+    --spacing-xs: 5px;
+    --spacing-sm: 10px;
+    --spacing-md: 15px;
+    --spacing-lg: 20px;
+    --spacing-xl: 30px;
+    
+    /* Border radius */
+    --radius-sm: 3px;
+    --radius-md: 5px;
+    --radius-lg: 8px;
+    --radius-xl: 10px;
+    
+    /* Font sizes */
+    --font-xs: 12px;
+    --font-sm: 14px;
+    --font-md: 16px;
+    --font-lg: 18px;
+    --font-xl: 20px;
+    --font-2xl: 24px;
+    --font-3xl: 36px;
+    --font-4xl: 96px;
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+  }
+  
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+  
+  /* ==========================================================================
+     BASE COMPONENTS
+     ========================================================================== */
+  
+  #app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  #loading, #error {
+    text-align: center;
+  }
+  
+  #loading p {
+    font-size: var(--font-4xl);
+    font-weight: bold;
+  }
+  
+  #error {
+    font-size: var(--font-2xl);
+  }
+  
+  #error button {
+    margin-top: var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background-color: #333;
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-md);
+    transition: var(--transition-normal);
+  }
+  
+  #error button:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-color);
+  }
+  
+  /* ==========================================================================
+     COMMON BUTTON STYLES
+     ========================================================================== */
+  
+  .btn-base {
+    padding: 12px var(--spacing-lg);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: bold;
+    transition: all var(--transition-normal);
+    font-size: var(--font-md);
+  }
+  
+  .btn-base:hover {
+    background-color: var(--primary-color);
+    color: var(--bg-color);
+    transform: scale(1.05);
+  }
+  
+  .btn-base:active {
+    transform: scale(0.95);
+  }
+  
+  .btn-base:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .btn-base:disabled:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--primary-color);
+    transform: none;
+  }
+  
+  /* ==========================================================================
+     RESPONSIVE DESIGN
+     ========================================================================== */
+  
+  @media (max-width: 768px) {
+    .word, #loading p {
+      font-size: var(--font-3xl);
+    }
+    
+    .progress {
+      font-size: var(--font-xl);
+      bottom: var(--spacing-sm);
+      left: var(--spacing-sm);
+    }
+    
+    .controls-wrapper {
+      padding: var(--spacing-sm);
+    }
+    
+    .controls {
+      flex-wrap: wrap;
+    }
+    
+    .controls button, .menu-toggle {
+      padding: var(--spacing-sm) var(--spacing-md) !important;
+      font-size: var(--font-sm) !important;
+    }
+    
+    .modal-content {
+      width: 95%;
+      margin: var(--spacing-sm);
+    }
+    
+    .modal-header h2 {
+      font-size: var(--font-xl);
+    }
+    
+    .modal-footer {
+      flex-direction: column;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .word, #loading p {
+      font-size: 28px;
+    }
+    
+    .progress {
+      font-size: var(--font-lg);
+    }
+    
+    .controls {
+      gap: var(--spacing-xs);
+    }
+    
+    .controls button, .menu-toggle {
+      padding: 8px 12px !important;
+      font-size: var(--font-xs) !important;
+    }
+  }
+  
+  /* ==========================================================================
+     ANIMATIONS & UTILITIES
+     ========================================================================== */
+  
+  .fade-out, .fade-in {
+    transition: opacity var(--transition-normal);
+  }
+  
+  .fade-out {
+    opacity: 0;
+  }
+  
+  .fade-in {
+    opacity: 1;
+  }
+</style>

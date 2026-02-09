@@ -162,6 +162,63 @@ function countValidWords(sheet) {
   // ===========================================
 
   /**
+  * 僅取得工作表名稱（不讀取單字數量，用於快速取得清單）
+  */
+  function getSheetNamesOnly(sheetId) {
+    try {
+      console.log('開始取得工作表名稱，Sheet ID:', sheetId);
+      
+      const cleanSheetId = validateAndCleanSheetId(sheetId);
+      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
+      const spreadsheetName = spreadsheet.getName();
+      console.log('成功連接 Google Sheet:', spreadsheetName);
+      
+      const sheets = spreadsheet.getSheets();
+      if (!sheets || sheets.length === 0) {
+        throw new Error('此 Google Sheet 中沒有找到任何工作表');
+      }
+      
+      const sheetNames = [];
+      for (let i = 0; i < sheets.length; i++) {
+        sheetNames.push(sheets[i].getName());
+      }
+      
+      console.log('找到', sheetNames.length, '個工作表:', sheetNames);
+      return {
+        spreadsheetName: spreadsheetName,
+        sheetNames: sheetNames,
+        sheetCount: sheetNames.length
+      };
+    } catch (error) {
+      console.error('getSheetNamesOnly 發生錯誤:', error);
+      throw new Error('取得工作表名稱失敗：' + error.message);
+    }
+  }
+
+  /**
+  * 取得單一工作表的單字數量（讀取 A1）
+  */
+  function getSheetWordCount(sheetId, sheetName) {
+    try {
+      const cleanSheetId = validateAndCleanSheetId(sheetId);
+      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
+      const sheet = spreadsheet.getSheetByName(sheetName);
+      
+      if (!sheet) {
+        console.error('找不到工作表:', sheetName);
+        return { name: sheetName, wordCount: null };
+      }
+      
+      const wordCount = countValidWords(sheet);
+      console.log('工作表', sheetName, '單字數:', wordCount);
+      return { name: sheetName, wordCount: wordCount };
+    } catch (error) {
+      console.error('取得工作表單字數失敗:', sheetName, error);
+      return { name: sheetName, wordCount: null };
+    }
+  }
+
+  /**
   * 獲取工作表清單和單字數量
   */
   function getSheetsList(sheetId) {
