@@ -541,6 +541,9 @@
       if (loadingDiv) loadingDiv.style.display = 'flex';
       if (flashcardDiv) flashcardDiv.style.display = 'none';
       
+      // 重設載入進度條
+      this.updateLoadingProgress(0, 1, '正在載入單字...');
+      
       // 重新載入單字
       var self = this;
       this.loadWords(false, function(hasDuplicates) {

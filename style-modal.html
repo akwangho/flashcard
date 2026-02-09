@@ -527,4 +527,82 @@
     font-size: 13px;
     pointer-events: none;
   }
+
+  /* ==========================================================================
+     SRS 間隔重複系統
+     ========================================================================== */
+
+  .srs-badge {
+    display: inline-block;
+    background-color: #ff4444;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 10px;
+    padding: 0 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .srs-modal-content {
+    max-width: 420px;
+  }
+
+  .srs-count-buttons {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-wrap: wrap;
+    flex-wrap: wrap;
+    -webkit-justify-content: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .srs-count-btn {
+    background-color: #333;
+    color: #fff;
+    border: 2px solid #555;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    -webkit-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+    min-width: 60px;
+  }
+
+  .srs-count-btn:hover {
+    border-color: #FFFF00;
+    border-color: var(--primary-color);
+  }
+
+  .srs-count-btn.selected {
+    background-color: #FFFF00;
+    background-color: var(--primary-color);
+    color: #000;
+    border-color: #FFFF00;
+    border-color: var(--primary-color);
+    font-weight: bold;
+  }
+
+  .btn-primary {
+    background-color: #FFFF00;
+    background-color: var(--primary-color);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    -webkit-transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
 </style>

@@ -278,6 +278,38 @@ function countValidWords(sheet) {
   }
 
   /**
+  * 從單一工作表載入單字（用於逐表載入進度顯示）
+  */
+  function getWordsFromSingleSheet(sheetId, sheetName) {
+    try {
+      console.log('載入單一工作表:', sheetName, 'Sheet ID:', sheetId);
+      const cleanSheetId = validateAndCleanSheetId(sheetId);
+      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
+      const sheet = spreadsheet.getSheetByName(sheetName);
+
+      if (!sheet) {
+        console.error('找不到工作表：' + sheetName);
+        return { success: false, words: [], sheetName: sheetName, error: '找不到工作表' };
+      }
+
+      const data = sheet.getDataRange().getValues();
+      const words = [];
+
+      for (let j = 1; j < data.length; j++) {
+        if (data[j][1] && data[j][2]) {
+          words.push(createWordObject(data[j], 0, sheetName, j));
+        }
+      }
+
+      console.log('工作表', sheetName, '載入了', words.length, '個單字');
+      return { success: true, words: words, sheetName: sheetName, wordCount: words.length };
+    } catch (error) {
+      console.error('載入單一工作表失敗:', sheetName, error);
+      return { success: false, words: [], sheetName: sheetName, error: error.message };
+    }
+  }
+
+  /**
   * 從指定的工作表載入單字
   */
   function getWordsFromSheets(sheetId, sheetNames) {

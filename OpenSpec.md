@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.5.7
+> **版本**: 1.7.0
 > **最後更新**: 2026-02-09
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -72,7 +72,7 @@ flashcard/
 ├── script-export.html     # 匯出功能（批次匯出、覆寫處理）
 ├── script-sheets.html     # Google Sheet 載入、驗證、工作表選擇
 ├── script-duplicates.html # 重複單字偵測與處理
-├── script-filter.html     # 複習時間篩選、不熟程度篩選、要會拼篩選、編輯單字
+├── script-filter.html     # 複習時間篩選、不熟程度篩選、要會拼篩選、編輯單字、SRS 間隔重複系統
 ├── script-quiz.html       # 防螢幕關閉、測驗系統、全域初始化
 │
 │   # 部署與工具設定
@@ -236,6 +236,28 @@ bash deploy.sh setup
 ]
 // 最多保存 10 筆，不包含預設試算表
 ```
+
+#### 3.3.5 上次顯示單字 (`flashcard-last-word` in LocalStorage)
+
+```javascript
+{
+  english: String,           // 英文單字
+  chinese: String            // 中文翻譯
+}
+```
+> 每次切換單字時自動儲存，啟動時載入畫面會讀取此資料顯示上次的單字。若無資料則顯示預設的 "Ready"。
+
+#### 3.3.6 SRS 間隔重複資料 (`flashcard-srs` in LocalStorage)
+
+```javascript
+{
+  "sheetName:rowIndex": {
+    box: Number,             // Leitner Box 等級 (1-6)
+    nextReview: String       // 下次複習日期 "YYYY-MM-DD"
+  }
+}
+```
+> 以 `sheetName:rowIndex` 為鍵值，儲存每個單字的 SRS 狀態。資料為裝置本地，不同步至 Google Sheets。
 
 ### 3.4 測驗狀態 (Quiz State)
 
@@ -573,6 +595,17 @@ bash deploy.sh setup
 
 ### 4.10 畫面與 UI 功能
 
+#### 4.10.0 載入畫面
+- **描述**: 啟動時顯示的載入畫面，包含單字學習和載入進度
+- **單字學習**: 啟動時優先顯示上次瀏覽的單字（從 `flashcard-last-word` 讀取）；若無儲存資料則顯示預設的「Ready / 準備好的；有準備的」
+- **單字記錄**: 每次切換單字時，自動將當前英文與中文儲存到 `flashcard-last-word`
+- **載入進度條**: 真實反映每個工作表的載入進度
+  - 初始階段：不確定進度動畫（連接 Google Sheet）
+  - 載入階段：確定進度百分比（載入工作表 N/M）
+  - 完成階段：處理資料 → 載入完成
+- **逐表載入**: 初始載入時對每個選定的工作表分別發起 API 呼叫（並行），每完成一個即更新進度條，提供真實的載入回饋
+- **客戶端重複偵測**: 初始載入時，重複單字的偵測與自動處理在客戶端以 ES5 完成，無需額外伺服器呼叫
+
 #### 4.10.1 視覺主題
 - **配色**: 深色主題 — 黑色背景 (`#000000`)、黃色主文字 (`#FFFF00`)、白色輔助文字
 - **字體**: 預設使用微軟正黑體 / PingFang TC / Helvetica Neue / Arial
@@ -665,8 +698,9 @@ bash deploy.sh setup
     2. 📅 複習時間篩選
     3. ✍️ 要會拼篩選
   - **學習**
-    4. 🎯 快速測驗 (10 題)
-    5. 📝 完整測驗
+    4. 📆 今日複習（SRS 間隔重複系統，顯示待複習徽章）
+    5. 🎯 快速測驗 (10 題)
+    6. 📝 完整測驗
   - **工具**
     6. ✏️ 編輯當前單字
     7. 📤 匯出單字
@@ -684,8 +718,8 @@ bash deploy.sh setup
 
 #### 4.13.2 篩選指示器
 - **描述**: 當有任何篩選條件啟用時，在主畫面進度區域上方顯示篩選狀態
-- **格式**: `篩選: ⭐ ★5+ | 📅 >2週 | ✍️ 要會拼 (42個)` 或 `篩選: ⭐ 非常熟 (10個)`（-1 篩選時）
-- **清除按鈕**: 提供「✕ 清除」按鈕一鍵清除所有篩選
+- **格式**: `篩選: ⭐ ★5+ | 📅 >2週 | ✍️ 要會拼 | 📆 今日複習 (42個)` 或 `篩選: ⭐ 非常熟 (10個)`（-1 篩選時）
+- **清除按鈕**: 提供「✕ 清除」按鈕一鍵清除所有篩選（包括結束 SRS 複習模式）
 
 ### 4.14 即時編輯單字
 
@@ -717,6 +751,57 @@ bash deploy.sh setup
 - **後端同步**: 透過 `google.script.run.updateWordProperties()` 非同步寫回 Google Sheet
 - **驗證**: 單字和翻譯不能為空
 
+### 4.15 間隔重複系統 (SRS - Spaced Repetition System)
+
+#### 4.15.1 演算法：簡化版 Leitner Box
+- **描述**: 採用 Leitner Box 分箱系統，根據學習者的掌握程度自動安排複習間隔
+- **Box 等級 (1-6)** 對應複習間隔：
+  - Box 1: 1 天
+  - Box 2: 3 天
+  - Box 3: 7 天
+  - Box 4: 14 天
+  - Box 5: 30 天
+  - Box 6: 60 天
+
+#### 4.15.2 Box 轉換規則
+- **複習時觸發**（基於單字的 `difficultyLevel`）：
+  - difficulty ≤ 2 或 -1（熟悉）：Box 上升一級（最高 6）
+  - difficulty 3-5（普通）：Box 不變
+  - difficulty ≥ 6（不熟）：Box 降回 1
+- **初始 Box**（首次進入 SRS 的單字）：
+  - difficulty -1（非常熟）：Box 5
+  - difficulty 0（無標記）：Box 3
+  - difficulty 1-3（略不熟）：Box 2
+  - difficulty ≥ 4（很不熟）：Box 1
+- **下次複習日期** = 當天日期 + Box 對應間隔天數
+- **到期判定**: 今天 ≥ nextReview 或無 SRS 資料的單字視為需要複習
+
+#### 4.15.3 資料儲存
+- **localStorage key**: `flashcard-srs`
+- **結構**: 以 `sheetName:rowIndex` 為鍵值的物件（詳見 3.3.6）
+- **特性**: 裝置本地儲存，不佔用 Google Sheets 欄位
+
+#### 4.15.4 SRS 更新觸發時機
+- 單字被標記為已複習時（`markWordAsReviewed`）
+- 增加不熟程度時（`increaseDifficulty`）
+- 減少不熟程度時（`decreaseDifficulty`）
+- 標記為非常熟時（`confirmMarkVeryFamiliar`）
+
+#### 4.15.5 今日複習 UI
+- **選單入口**: 「📆 今日複習」按鈕，位於選單「學習」分類中
+- **待複習徽章**: 按鈕右側顯示紅色圓形徽章，顯示待複習單字數量（超過 99 顯示「99+」）
+- **模態框內容**:
+  - 顯示「今天有 N 個單字需要複習」
+  - 數量選擇：10、20、30、50、100 或「全部 (N)」的按鈕選項
+  - 僅顯示不超過待複習數量的選項
+  - 若無待複習單字，顯示「今天沒有需要複習的單字！🎉」
+- **複習流程**: 選擇數量後點擊「開始複習」，系統隨機打亂待複習單字並取指定數量，使用一般閃卡模式進行複習
+
+#### 4.15.6 SRS 複習模式
+- **啟用**: 從今日複習模態框開始複習時啟用
+- **篩選指示器**: 顯示「📆 今日複習」標籤
+- **結束**: 清除篩選或開始新回合時自動結束 SRS 模式
+
 ---
 
 ## 5. 後端 API（Google Apps Script 函式）
@@ -734,7 +819,8 @@ bash deploy.sh setup
 |------|------|------|------|
 | `getWordsFromSheet()` | 無 | `Array<Word>` | 從預設工作表載入單字（向下相容） |
 | `getWordsFromSheets(sheetId, sheetNames)` | Sheet ID, 工作表名稱陣列 | `Array<Word>` | 從指定的多個工作表載入單字 |
-| `getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle)` | Sheet ID, 工作表名稱陣列, 是否自動處理 | `Object` | 載入單字並偵測/處理重複 |
+| `getWordsFromSingleSheet(sheetId, sheetName)` | Sheet ID, 工作表名稱 | `{success, words, sheetName, wordCount}` | 從單一工作表載入單字（用於逐表載入進度顯示） |
+| `getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle)` | Sheet ID, 工作表名稱陣列, 是否自動處理 | `Object` | 載入單字並偵測/處理重複（非初始載入使用） |
 | `getDemoWords()` | 無 | `Array<Word>` | 取得示例資料（載入失敗時的備援） |
 
 ### 5.3 工作表管理
@@ -829,6 +915,22 @@ bash deploy.sh setup
 | `edit-word-modal` | 編輯當前單字 |
 | `difficulty-filter-modal` | 不熟程度篩選 |
 | `review-filter-modal` | 複習時間篩選 |
+| `srs-review-modal` | SRS 今日複習 |
+
+### 6.4 SRS 相關元素
+
+| 元素 ID | 類型 | 說明 |
+|---------|------|------|
+| `srs-review-btn` | button | 選單內「今日複習」按鈕 |
+| `srs-due-badge` | span | 待複習數量徽章（紅色圓形） |
+| `srs-due-count` | p | 模態框內待複習數量文字 |
+| `srs-no-due` | p | 無待複習單字時的提示 |
+| `srs-count-options` | div | 數量選項容器 |
+| `srs-count-buttons` | div | 數量按鈕群組 |
+| `srs-start-btn` | button | 開始複習按鈕 |
+| `close-srs-modal` | button | 關閉 SRS 模態框按鈕 |
+| `loading-word-english` | div | 載入畫面英文單字 |
+| `loading-word-chinese` | div | 載入畫面中文翻譯 |
 
 ---
 
@@ -897,8 +999,22 @@ bash deploy.sh setup
 
 ### 8.2 單字載入流程
 
+#### 8.2.1 初始載入（逐表載入 + 真實進度條）
 ```
-1. loadWords(isInitialLoad, callback)
+1. loadWords(isInitialLoad=true, callback)
+2. loadWordsProgressively(callback)
+3. 對每個選定的工作表並行呼叫 google.script.run.getWordsFromSingleSheet()
+4. 每完成一個工作表 → 更新載入進度條（completed / total）
+5. 全部完成後 → finishProgressiveLoading()
+   ├── 5a. 重新分配唯一 ID
+   ├── 5b. 客戶端 detectAndHandleDuplicatesInMemory()（ES5 相容）
+   └── 5c. 若有重複 → 自動處理並顯示通知 → callback(false)
+6. handleLoadingComplete() → startNewRound()
+```
+
+#### 8.2.2 非初始載入（從設定重新載入）
+```
+1. loadWords(isInitialLoad=false, callback)
 2. 呼叫 google.script.run.getWordsFromSheetsWithDuplicateDetection()
 3. 後端處理：
    ├── 3a. getWordsFromSheets() → 從多個工作表載入所有單字
@@ -908,7 +1024,7 @@ bash deploy.sh setup
    ├── 4a. 自動處理完成 → 顯示通知 → callback(false)
    ├── 4b. 有重複需手動處理 → showDuplicateModal() → callback(true)
    └── 4c. 無重複 → callback(false)
-5. handleLoadingComplete() → startNewRound()
+5. 顯示閃卡主畫面
 ```
 
 ---

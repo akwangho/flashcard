@@ -23,6 +23,8 @@ function createDOMElements() {
   var elementIds = [
     // Main containers
     'app', 'loading', 'error', 'flashcard',
+    // Loading progress
+    'loading-progress-fill', 'loading-progress-bar', 'loading-status-text',
     // Speech activation
     'speech-activation-container', 'activate-speech-btn',
     // Flashcard display
@@ -112,7 +114,15 @@ function createDOMElements() {
     'quiz-result-screen', 'quiz-result-icon', 'quiz-result-title',
     'quiz-final-score', 'quiz-correct-count', 'quiz-wrong-count',
     'quiz-result-message', 'quiz-wrong-review', 'quiz-wrong-list',
-    'quiz-start', 'quiz-next', 'quiz-restart', 'quiz-finish'
+    'quiz-start', 'quiz-next', 'quiz-restart', 'quiz-finish',
+    // SRS review modal
+    'srs-review-btn', 'srs-due-badge',
+    'srs-review-modal', 'close-srs-modal',
+    'srs-due-count', 'srs-no-due',
+    'srs-count-options', 'srs-count-buttons',
+    'srs-start-btn',
+    // Loading screen word display
+    'loading-word-english', 'loading-word-chinese'
   ];
 
   elementIds.forEach(function(id) {
@@ -257,7 +267,7 @@ function setupMocks() {
 
   // Add all GAS functions as no-ops
   var gasFunctions = [
-    'getWordsFromSheet', 'getWordsFromSheets', 'getWordsFromSheetsWithDuplicateDetection',
+    'getWordsFromSheet', 'getWordsFromSheets', 'getWordsFromSingleSheet', 'getWordsFromSheetsWithDuplicateDetection',
     'getDemoWords', 'getSheetsList', 'getSheetNamesOnly', 'getSheetWordCount', 'checkSheetExists',
     'updateWordProperties', 'updateWordDifficulty', 'markWordAsDifficult',
     'batchUpdateReviewDates', 'exportWordsToSheet',

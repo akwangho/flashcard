@@ -100,6 +100,11 @@
     this.noSleepVideo = null;
     this.keepScreenAwake = false;
     
+    // SRS 間隔重複系統
+    this.srsData = {};
+    this.srsReviewActive = false;
+    this._srsSelectedCount = 10;
+    
     // 測驗相關屬性
     this.quizState = {
       isActive: false,
@@ -124,6 +129,7 @@
       console.log('載入基本設定...');
       this.loadSettings();
       this.loadSheetSettings();
+      this.loadSrsData();
       
       console.log('Sheet 設定:', this.sheetSettings);
       
@@ -220,6 +226,9 @@
       } else if (!hasDuplicates) {
         this.startNewRound();
       }
+      
+      // 更新 SRS 徽章
+      this.updateSrsBadge();
     }
   };
   
@@ -673,6 +682,226 @@
     selectElement.style.zIndex = '2100';
   };
   
+  // 更新載入畫面進度條
+  FlashcardApp.prototype.updateLoadingProgress = function(completed, total, statusText) {
+    var fillEl = document.getElementById('loading-progress-fill');
+    var textEl = document.getElementById('loading-status-text');
+    var barEl = document.getElementById('loading-progress-bar');
+    
+    if (fillEl && barEl) {
+      if (completed <= 0 && total > 0) {
+        // 不確定進度：使用動畫
+        barEl.className = 'loading-progress-bar indeterminate';
+      } else {
+        // 確定進度：顯示百分比
+        barEl.className = 'loading-progress-bar';
+        var pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+        fillEl.style.width = pct + '%';
+      }
+    }
+    
+    if (textEl && statusText) {
+      textEl.textContent = statusText;
+    }
+  };
+  
+  // 客戶端 ES5 相容的重複單字偵測與自動處理
+  FlashcardApp.prototype.detectAndHandleDuplicatesInMemory = function(allWords) {
+    var duplicatesMap = {};
+    var i, j, key, word;
+    
+    // 建立小寫英文 → 單字陣列的對應表
+    for (i = 0; i < allWords.length; i++) {
+      word = allWords[i];
+      key = word.english.toLowerCase().trim();
+      if (!duplicatesMap[key]) {
+        duplicatesMap[key] = [];
+      }
+      duplicatesMap[key].push(word);
+    }
+    
+    // 找出重複的單字
+    var duplicates = [];
+    for (key in duplicatesMap) {
+      if (duplicatesMap.hasOwnProperty(key) && duplicatesMap[key].length > 1) {
+        var wordsList = duplicatesMap[key];
+        var firstDef = wordsList[0].chinese.toLowerCase().trim();
+        var isSameDefinition = true;
+        for (j = 1; j < wordsList.length; j++) {
+          if (wordsList[j].chinese.toLowerCase().trim() !== firstDef) {
+            isSameDefinition = false;
+            break;
+          }
+        }
+        duplicates.push({
+          english: wordsList[0].english,
+          words: wordsList,
+          isSameDefinition: isSameDefinition
+        });
+      }
+    }
+    
+    if (duplicates.length === 0) {
+      return { words: allWords, autoHandled: false, autoResults: null };
+    }
+    
+    // 在記憶體中自動處理重複
+    var wordsToRemoveIds = {};
+    var wordsToModify = {};
+    var successCount = 0;
+    
+    for (i = 0; i < duplicates.length; i++) {
+      var dup = duplicates[i];
+      if (dup.isSameDefinition) {
+        // 中文相同：保留第一個，移除其餘
+        for (j = 1; j < dup.words.length; j++) {
+          wordsToRemoveIds[dup.words[j].id] = true;
+        }
+        successCount++;
+      } else {
+        // 中文不同：合併定義到第一個
+        var allDefs = [];
+        for (j = 0; j < dup.words.length; j++) {
+          allDefs.push((j + 1) + '. ' + dup.words[j].chinese.trim());
+        }
+        var mergedDef = allDefs.join('\n');
+        wordsToModify[dup.words[0].id] = mergedDef;
+        for (j = 1; j < dup.words.length; j++) {
+          wordsToRemoveIds[dup.words[j].id] = true;
+        }
+        successCount++;
+      }
+    }
+    
+    // 建立處理後的單字陣列
+    var processedWords = [];
+    for (i = 0; i < allWords.length; i++) {
+      word = allWords[i];
+      if (wordsToRemoveIds[word.id]) continue;
+      if (wordsToModify.hasOwnProperty(String(word.id))) {
+        // 複製並修改
+        var modifiedWord = {};
+        for (var prop in word) {
+          if (word.hasOwnProperty(prop)) {
+            modifiedWord[prop] = word[prop];
+          }
+        }
+        modifiedWord.chinese = wordsToModify[word.id];
+        processedWords.push(modifiedWord);
+      } else {
+        processedWords.push(word);
+      }
+    }
+    
+    var removedCount = allWords.length - processedWords.length;
+    console.log('客戶端重複偵測完成：發現', duplicates.length, '組重複，移除', removedCount, '個');
+    
+    return {
+      words: processedWords,
+      autoHandled: true,
+      autoResults: {
+        success: true,
+        successCount: successCount,
+        totalCount: duplicates.length,
+        originalCount: allWords.length,
+        processedCount: processedWords.length,
+        removedCount: removedCount
+      }
+    };
+  };
+  
+  // 逐表載入單字（含真實進度條）
+  FlashcardApp.prototype.loadWordsProgressively = function(callback) {
+    var self = this;
+    var selectedSheets = this.sheetSettings.selectedSheets;
+    var sheetId = this.sheetSettings.sheetId;
+    var allWords = [];
+    var completed = 0;
+    var total = selectedSheets.length;
+    
+    // 顯示初始進度
+    this.updateLoadingProgress(0, total, '正在連接 Google Sheet...');
+    
+    // 整體超時：30 秒
+    var loadTimeout = setTimeout(function() {
+      console.error('載入單字超時 (30秒)');
+      if (allWords.length > 0) {
+        self.finishProgressiveLoading(allWords, callback);
+      } else {
+        self.showError();
+      }
+    }, 30000);
+    
+    // 並行載入各工作表
+    for (var i = 0; i < selectedSheets.length; i++) {
+      (function(sheetName, index) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result && result.success && result.words) {
+              for (var j = 0; j < result.words.length; j++) {
+                allWords.push(result.words[j]);
+              }
+              console.log('工作表', sheetName, '載入成功，', result.words.length, '個單字');
+            } else {
+              console.warn('工作表', sheetName, '載入結果異常:', result);
+            }
+            
+            completed++;
+            self.updateLoadingProgress(completed, total,
+              '載入工作表 ' + completed + '/' + total + '...');
+            
+            if (completed >= total) {
+              clearTimeout(loadTimeout);
+              self.finishProgressiveLoading(allWords, callback);
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.error('載入工作表失敗:', sheetName, error);
+            completed++;
+            
+            self.updateLoadingProgress(completed, total,
+              '載入工作表 ' + completed + '/' + total + '...');
+            
+            if (completed >= total) {
+              clearTimeout(loadTimeout);
+              if (allWords.length > 0) {
+                self.finishProgressiveLoading(allWords, callback);
+              } else {
+                self.showError();
+              }
+            }
+          })
+          .getWordsFromSingleSheet(sheetId, sheetName);
+      })(selectedSheets[i], i);
+    }
+  };
+  
+  // 完成逐表載入後的處理
+  FlashcardApp.prototype.finishProgressiveLoading = function(allWords, callback) {
+    // 重新分配唯一 ID
+    for (var i = 0; i < allWords.length; i++) {
+      allWords[i].id = i;
+    }
+    
+    if (allWords.length === 0) {
+      this.showError();
+      return;
+    }
+    
+    this.updateLoadingProgress(1, 1, '處理資料中...');
+    
+    // 客戶端偵測並自動處理重複單字
+    var result = this.detectAndHandleDuplicatesInMemory(allWords);
+    this.words = result.words;
+    
+    if (result.autoHandled && result.autoResults && result.autoResults.successCount > 0) {
+      this.showAutoProcessingNotification(result.autoResults);
+    }
+    
+    this.updateLoadingProgress(1, 1, '載入完成！');
+    callback(false);
+  };
+  
   // 載入單字
   FlashcardApp.prototype.loadWords = function(isInitialLoad, callback) {
     var self = this;
@@ -683,8 +912,13 @@
     this.currentPreloadingImage = null;
     
     if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
-      var autoHandle = isInitialLoad;
+      if (isInitialLoad) {
+        // 初始載入：逐表載入，顯示真實進度
+        this.loadWordsProgressively(callback);
+        return;
+      }
       
+      // 非初始載入（從設定重新載入）：使用單次呼叫
       google.script.run
         .withSuccessHandler(function(result) {
           console.log('載入結果:', result);
@@ -706,13 +940,13 @@
               
               if (document.readyState === 'complete') {
                 self.showDuplicateModal();
-      } else {
+              } else {
                 window.addEventListener('load', function() {
                   self.showDuplicateModal();
                 });
               }
               callback(true);
-        return;
+              return;
             } else {
               callback(false);
             }
@@ -724,7 +958,7 @@
           console.error('載入單字失敗:', error);
           self.showError();
         })
-        .getWordsFromSheetsWithDuplicateDetection(this.sheetSettings.sheetId, this.sheetSettings.selectedSheets, autoHandle);
+        .getWordsFromSheetsWithDuplicateDetection(self.sheetSettings.sheetId, self.sheetSettings.selectedSheets, false);
     } else {
       google.script.run
         .withSuccessHandler(function(words) {

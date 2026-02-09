@@ -185,6 +185,10 @@
           console.log('編輯單字按鈕被點擊');
           self.closeMenu();
           self.openEditWordModal();
+        } else if (e.target.id === 'srs-review-btn' || (e.target.parentElement && e.target.parentElement.id === 'srs-review-btn')) {
+          console.log('今日複習按鈕被點擊');
+          self.closeMenu();
+          self.openSrsReviewModal();
         } else if (e.target.id === 'quick-quiz-btn') {
           console.log('快速測驗按鈕被點擊');
           self.closeMenu();
@@ -297,6 +301,9 @@
   
   // 開始新回合
   FlashcardApp.prototype.startNewRound = function() {
+    // 結束 SRS 複習模式（如果有的話）
+    this.srsReviewActive = false;
+    
     this.shuffleArray(this.words);
     this.currentWords = this.applyAllFilters(this.words);
     this.currentIndex = 0;
@@ -333,6 +340,7 @@
     this.updateFullscreenButtonText();
     this.renderDifficultyLevel();
     this.updateActiveFilterDisplay();
+    this.updateSrsBadge();
   };
   
   // 洗牌
@@ -387,6 +395,14 @@
       flashcardDiv.style.backgroundImage = '';
       flashcardDiv.classList.remove('has-image');
     }
+    
+    // 儲存當前單字到 localStorage（載入畫面用）
+    try {
+      localStorage.setItem('flashcard-last-word', JSON.stringify({
+        english: currentWord.english,
+        chinese: currentWord.chinese
+      }));
+    } catch (e) {}
     
     var self = this;
     setTimeout(function() {
@@ -779,6 +795,29 @@
         
         if (e.target === overwriteModal && !isSelectRelated) {
           self.closeOverwriteConfirmModal();
+        }
+      });
+    }
+    
+    // SRS 複習模態框
+    var closeSrsModal = document.getElementById('close-srs-modal');
+    var srsStartBtn = document.getElementById('srs-start-btn');
+    var srsReviewModal = document.getElementById('srs-review-modal');
+    
+    if (closeSrsModal) {
+      closeSrsModal.addEventListener('click', function() { self.closeSrsReviewModal(); });
+    }
+    if (srsStartBtn) {
+      srsStartBtn.addEventListener('click', function() {
+        if (self._srsSelectedCount) {
+          self.startSrsReview(self._srsSelectedCount);
+        }
+      });
+    }
+    if (srsReviewModal) {
+      srsReviewModal.addEventListener('click', function(e) {
+        if (e.target === srsReviewModal) {
+          self.closeSrsReviewModal();
         }
       });
     }

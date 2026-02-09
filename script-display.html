@@ -180,6 +180,9 @@
     // 後端同步
     this.syncDifficultyToBackend(currentWord);
     
+    // 更新 SRS 資料
+    this.updateSrsData(currentWord);
+    
     this.renderDifficultyLevel();
     console.log('增加不熟程度:', currentWord.english, '→ ★' + newLevel);
   };
@@ -197,6 +200,9 @@
     
     // 後端同步
     this.syncDifficultyToBackend(word);
+    
+    // 更新 SRS 資料
+    this.updateSrsData(word);
     
     console.log('減少不熟程度:', word.english, '→ ★' + newLevel);
   };
@@ -726,6 +732,9 @@
     
     // 後端同步
     this.syncDifficultyToBackend(currentWord);
+    
+    // 更新 SRS 資料
+    this.updateSrsData(currentWord);
     
     console.log('已設為非常熟:', currentWord.english);
     

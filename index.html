@@ -24,8 +24,26 @@
 <body>
   <div id="app">
     <div id="loading">
-      <p>載入中...</p>
-      <p><small>如果長時間停留在此畫面，可能是瀏覽器兼容性問題</small></p>
+      <div class="loading-word-display">
+        <div class="loading-word-english" id="loading-word-english">Ready</div>
+        <div class="loading-word-chinese" id="loading-word-chinese">準備好的；有準備的</div>
+      </div>
+      <script>
+        // 嘗試從 localStorage 讀取上次顯示的單字（在 FlashcardApp 初始化前執行）
+        try {
+          var lastWord = JSON.parse(localStorage.getItem('flashcard-last-word'));
+          if (lastWord && lastWord.english && lastWord.chinese) {
+            document.getElementById('loading-word-english').textContent = lastWord.english;
+            document.getElementById('loading-word-chinese').textContent = lastWord.chinese;
+          }
+        } catch (e) {}
+      </script>
+      <div id="loading-progress-container" class="loading-progress-container">
+        <div class="loading-progress-bar indeterminate" id="loading-progress-bar">
+          <div class="loading-progress-fill" id="loading-progress-fill"></div>
+        </div>
+        <div class="loading-status-text" id="loading-status-text">載入中...</div>
+      </div>
       
       <!-- 語音啟用按鈕（適用於舊版瀏覽器） -->
       <div id="speech-activation-container" style="display: none; margin-top: 30px;">
@@ -127,6 +145,7 @@
               <button id="must-spell-filter-btn" class="menu-item">✍️ 要會拼篩選</button>
               <div class="menu-divider"></div>
               <div class="menu-section-title">學習</div>
+              <button id="srs-review-btn" class="menu-item">📆 今日複習 <span id="srs-due-badge" class="srs-badge" style="display:none;"></span></button>
               <button id="quick-quiz-btn" class="menu-item">🎯 快速測驗 (10題)</button>
               <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
               <div class="menu-divider"></div>
@@ -637,6 +656,27 @@
       <div class="modal-footer">
         <button id="cancel-review-filter" class="secondary-btn">取消</button>
         <button id="apply-review-filter" class="primary-btn">套用篩選</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SRS 今日複習模態框 -->
+  <div id="srs-review-modal" class="modal" style="display: none;">
+    <div class="modal-content srs-modal-content">
+      <div class="modal-header">
+        <h2>📆 今日複習</h2>
+        <button id="close-srs-modal" class="close-btn">×</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p id="srs-due-count" style="font-size: 18px; text-align: center; margin-bottom: 20px;"></p>
+        <p id="srs-no-due" style="display: none; font-size: 18px; text-align: center; color: #888;">今天沒有需要複習的單字！🎉</p>
+        <div id="srs-count-options" style="display: none;">
+          <p style="text-align: center; margin-bottom: 12px; color: #666;">選擇複習數量：</p>
+          <div id="srs-count-buttons" class="srs-count-buttons"></div>
+        </div>
+        <div style="text-align: center; margin-top: 24px;">
+          <button id="srs-start-btn" class="btn-primary" style="display: none; padding: 12px 40px; font-size: 18px;">開始複習</button>
+        </div>
       </div>
     </div>
   </div>

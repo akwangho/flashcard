@@ -30,6 +30,9 @@
     // 同時更新記憶體中的 word 物件
     word.lastReviewDate = today;
     
+    // 更新 SRS 資料
+    this.updateSrsData(word);
+    
     // 檢查是否達到同步閾值
     var count = 0;
     for (var k in this.reviewedInSession) {
@@ -584,6 +587,10 @@
       parts.push('✍️ 要會拼');
     }
     
+    if (this.srsReviewActive) {
+      parts.push('📆 今日複習');
+    }
+    
     if (parts.length > 0) {
       textEl.textContent = '篩選: ' + parts.join(' | ') + ' (' + this.currentWords.length + '個)';
       container.style.display = 'flex';
@@ -598,6 +605,7 @@
     this.difficultyFilter = 0;
     this.reviewFilter = 'all';
     this.mustSpellFilter = false;
+    this.srsReviewActive = false;
     this.updateDifficultyFilterButtonText();
     this.updateReviewFilterButtonText();
     this.updateMustSpellFilterButtonText();
@@ -879,6 +887,259 @@
 
     this.closeEditWordModal();
     console.log('單字已更新:', newEnglish, '-', newChinese, '★' + newDifficulty);
+  };
+
+  // ==========================================================================
+  // 間隔重複系統 (Spaced Repetition System - Leitner Box)
+  // ==========================================================================
+
+  // Box 等級對應的複習間隔天數
+  FlashcardApp.prototype.getBoxInterval = function(box) {
+    var intervals = { 1: 1, 2: 3, 3: 7, 4: 14, 5: 30, 6: 60 };
+    return intervals[box] || 1;
+  };
+
+  // 根據難度決定初始 Box 等級
+  FlashcardApp.prototype.getInitialBox = function(difficulty) {
+    if (difficulty === -1) return 5;  // 非常熟
+    if (difficulty === 0) return 3;   // 無標記
+    if (difficulty >= 1 && difficulty <= 3) return 2; // 略不熟
+    return 1; // difficulty >= 4，很不熟
+  };
+
+  // 從 localStorage 載入 SRS 資料
+  FlashcardApp.prototype.loadSrsData = function() {
+    try {
+      var data = localStorage.getItem('flashcard-srs');
+      this.srsData = data ? JSON.parse(data) : {};
+    } catch (e) {
+      this.srsData = {};
+    }
+  };
+
+  // 將 SRS 資料儲存到 localStorage
+  FlashcardApp.prototype.saveSrsData = function() {
+    try {
+      localStorage.setItem('flashcard-srs', JSON.stringify(this.srsData));
+    } catch (e) {
+      console.error('SRS 資料儲存失敗:', e);
+    }
+  };
+
+  // 取得單字的 SRS 資料
+  FlashcardApp.prototype.getSrsForWord = function(word) {
+    if (!word || !word.sheetName) return null;
+    var key = word.sheetName + ':' + word.originalRowIndex;
+    return this.srsData[key] || null;
+  };
+
+  // 更新單字的 SRS 資料（複習後呼叫）
+  FlashcardApp.prototype.updateSrsData = function(word) {
+    if (!word || !word.sheetName || word.sheetName === 'Demo') return;
+
+    var key = word.sheetName + ':' + word.originalRowIndex;
+    var entry = this.srsData[key];
+    var difficulty = (word.difficultyLevel !== undefined && word.difficultyLevel !== null) ? word.difficultyLevel : 0;
+
+    if (!entry) {
+      // 首次進入 SRS：根據難度決定初始 Box
+      entry = { box: this.getInitialBox(difficulty) };
+    } else {
+      // 根據難度調整 Box
+      if (difficulty === -1 || difficulty <= 2) {
+        // 熟悉：Box 上升（最高 6）
+        entry.box = Math.min(6, (entry.box || 1) + 1);
+      } else if (difficulty >= 6) {
+        // 很不熟：回到 Box 1
+        entry.box = 1;
+      }
+      // difficulty 3-5：Box 不變
+    }
+
+    // 計算下次複習日期
+    var today = new Date();
+    var interval = this.getBoxInterval(entry.box);
+    var nextDate = new Date(today.getTime() + interval * 24 * 60 * 60 * 1000);
+    var year = nextDate.getFullYear();
+    var month = nextDate.getMonth() + 1;
+    var day = nextDate.getDate();
+    if (month < 10) month = '0' + month;
+    if (day < 10) day = '0' + day;
+    entry.nextReview = year + '-' + month + '-' + day;
+
+    this.srsData[key] = entry;
+    this.saveSrsData();
+  };
+
+  // 取得所有今天需要複習的單字
+  FlashcardApp.prototype.getDueWords = function() {
+    var today = this.getTodayDateString();
+    var dueWords = [];
+
+    for (var i = 0; i < this.words.length; i++) {
+      var word = this.words[i];
+      var srs = this.getSrsForWord(word);
+
+      if (!srs) {
+        // 從未進入 SRS 系統的單字，視為需要複習
+        dueWords.push(word);
+      } else if (srs.nextReview <= today) {
+        // 已到複習日期
+        dueWords.push(word);
+      }
+    }
+
+    return dueWords;
+  };
+
+  // 取得需要複習的單字數量
+  FlashcardApp.prototype.getDueWordCount = function() {
+    return this.getDueWords().length;
+  };
+
+  // 開始 SRS 複習模式
+  FlashcardApp.prototype.startSrsReview = function(count) {
+    var dueWords = this.getDueWords();
+
+    if (dueWords.length === 0) {
+      this.showNotification('今天沒有需要複習的單字！', 'info');
+      return;
+    }
+
+    // 隨機打亂順序
+    for (var i = dueWords.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = dueWords[i];
+      dueWords[i] = dueWords[j];
+      dueWords[j] = temp;
+    }
+
+    // 取指定數量
+    var reviewCount = Math.min(count, dueWords.length);
+    this.currentWords = dueWords.slice(0, reviewCount);
+    this.currentIndex = 0;
+    this.srsReviewActive = true;
+
+    this.updateActiveFilterDisplay();
+    this.displayCurrentWord();
+    this.updateProgress();
+    this.updateSrsBadge();
+
+    this.closeSrsReviewModal();
+    this.showNotification('開始複習 ' + reviewCount + ' 個單字', 'success');
+    console.log('SRS 複習模式啟動，共', reviewCount, '個單字');
+  };
+
+  // 開啟 SRS 複習模態框
+  FlashcardApp.prototype.openSrsReviewModal = function() {
+    var dueCount = this.getDueWordCount();
+    var modal = document.getElementById('srs-review-modal');
+    var countEl = document.getElementById('srs-due-count');
+    var optionsEl = document.getElementById('srs-count-options');
+    var noDueEl = document.getElementById('srs-no-due');
+    var startBtn = document.getElementById('srs-start-btn');
+
+    if (!modal) return;
+
+    // 暫停計時器
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+    }
+
+    if (dueCount === 0) {
+      if (countEl) countEl.style.display = 'none';
+      if (optionsEl) optionsEl.style.display = 'none';
+      if (startBtn) startBtn.style.display = 'none';
+      if (noDueEl) noDueEl.style.display = 'block';
+    } else {
+      if (noDueEl) noDueEl.style.display = 'none';
+      if (countEl) {
+        countEl.style.display = 'block';
+        countEl.textContent = '今天有 ' + dueCount + ' 個單字需要複習';
+      }
+      if (optionsEl) optionsEl.style.display = 'block';
+      if (startBtn) startBtn.style.display = 'block';
+
+      // 更新數量選項
+      this.renderSrsCountOptions(dueCount);
+    }
+
+    modal.style.display = 'flex';
+  };
+
+  // 渲染 SRS 數量選項
+  FlashcardApp.prototype.renderSrsCountOptions = function(dueCount) {
+    var container = document.getElementById('srs-count-buttons');
+    if (!container) return;
+
+    container.innerHTML = '';
+    var counts = [10, 20, 30, 50, 100];
+    var self = this;
+    var selectedCount = null;
+
+    for (var i = 0; i < counts.length; i++) {
+      if (counts[i] > dueCount) continue;
+      (function(c) {
+        var btn = document.createElement('button');
+        btn.className = 'srs-count-btn';
+        btn.textContent = c;
+        btn.setAttribute('data-count', c);
+        btn.onclick = function() {
+          // 清除其他選中狀態
+          var allBtns = container.querySelectorAll('.srs-count-btn');
+          for (var j = 0; j < allBtns.length; j++) {
+            allBtns[j].classList.remove('selected');
+          }
+          btn.classList.add('selected');
+          self._srsSelectedCount = c;
+        };
+        container.appendChild(btn);
+      })(counts[i]);
+    }
+
+    // 如果總數不在預設選項中且 <= 100，加入「全部」按鈕
+    if (dueCount <= 100) {
+      var allBtn = document.createElement('button');
+      allBtn.className = 'srs-count-btn';
+      allBtn.textContent = '全部 (' + dueCount + ')';
+      allBtn.setAttribute('data-count', dueCount);
+      allBtn.onclick = function() {
+        var allBtns = container.querySelectorAll('.srs-count-btn');
+        for (var j = 0; j < allBtns.length; j++) {
+          allBtns[j].classList.remove('selected');
+        }
+        allBtn.classList.add('selected');
+        self._srsSelectedCount = dueCount;
+      };
+      container.appendChild(allBtn);
+    }
+
+    // 預設選取第一個選項
+    var firstBtn = container.querySelector('.srs-count-btn');
+    if (firstBtn) {
+      firstBtn.classList.add('selected');
+      this._srsSelectedCount = parseInt(firstBtn.getAttribute('data-count'), 10);
+    }
+  };
+
+  // 關閉 SRS 複習模態框
+  FlashcardApp.prototype.closeSrsReviewModal = function() {
+    var modal = document.getElementById('srs-review-modal');
+    if (modal) modal.style.display = 'none';
+  };
+
+  // 更新 SRS 徽章（顯示待複習數量）
+  FlashcardApp.prototype.updateSrsBadge = function() {
+    var badge = document.getElementById('srs-due-badge');
+    if (!badge) return;
+
+    var count = this.getDueWordCount();
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
   };
 
 </script>
