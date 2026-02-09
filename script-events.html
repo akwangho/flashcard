@@ -438,7 +438,9 @@
       }
   
       self.displayTimer = setTimeout(function() {
-        self.showSecondPartAndScheduleNext();
+        self.waitForSpeechThenExecute(function() {
+          self.showSecondPartAndScheduleNext();
+        });
       }, self.settings.delayTime * 1000);
       
     }, 100);

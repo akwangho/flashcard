@@ -27,6 +27,10 @@
     // 中文語音等待定時器
     this.chineseWaitInterval = null;
     
+    // 語音播放完成等待計時器（確保語音完整播放後才切換）
+    this._speechWaitInterval = null;
+    this._speechWaitTimeout = null;
+    
     // 設定
     this.settings = {
       delayTime: 4.5,

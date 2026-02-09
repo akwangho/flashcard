@@ -86,6 +86,9 @@
       clearTimeout(this.displayTimer);
       this.displayTimer = null;
     }
+    
+    // 清理語音等待計時器
+    this.clearSpeechWait();
 
   };
   
@@ -100,13 +103,17 @@
     if (!this.isPaused) {
       if (this.showingChinese) {
         this.displayTimer = setTimeout(function() {
-          self.nextWord();
+          self.waitForSpeechThenExecute(function() {
+            self.nextWord();
+          });
         }, this.settings.delayTime * 1000);
       } else if (!this.isTransitioning && !this.isProcessingClick) {
         var currentWord = this.currentWords[this.currentIndex];
         if (currentWord) {
           this.displayTimer = setTimeout(function() {
-            self.showSecondPartAndScheduleNext();
+            self.waitForSpeechThenExecute(function() {
+              self.showSecondPartAndScheduleNext();
+            });
           }, this.settings.delayTime * 1000);
         }
       }
@@ -478,7 +485,9 @@
     
     var self = this;
     this.displayTimer = setTimeout(function() {
-      self.confirmRemoval();
+      self.waitForSpeechThenExecute(function() {
+        self.confirmRemoval();
+      });
     }, this.settings.delayTime * 1000);
   };
   
@@ -540,11 +549,15 @@
     var self = this;
     if (this.showingChinese) {
       this.displayTimer = setTimeout(function() {
-        self.nextWord();
+        self.waitForSpeechThenExecute(function() {
+          self.nextWord();
+        });
       }, this.settings.delayTime * 1000);
       } else {
       this.displayTimer = setTimeout(function() {
-        self.showSecondPartAndScheduleNext();
+        self.waitForSpeechThenExecute(function() {
+          self.showSecondPartAndScheduleNext();
+        });
       }, this.settings.delayTime * 1000);
     }
   };
@@ -616,9 +629,11 @@
     // 標記該單字為已複習
     this.markWordAsReviewed(currentWord);
     
-    // 設定下一個單字的計時器
+    // 設定下一個單字的計時器（等待語音播放完成後才切換）
     this.displayTimer = setTimeout(function() {
-      self.nextWord();
+      self.waitForSpeechThenExecute(function() {
+        self.nextWord();
+      });
     }, this.settings.delayTime * 1000);
     
     if (isReversed) {

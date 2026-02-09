@@ -363,6 +363,81 @@
     }
   };
   
+  // 清除語音等待計時器
+  FlashcardApp.prototype.clearSpeechWait = function() {
+    if (this._speechWaitInterval) {
+      clearInterval(this._speechWaitInterval);
+      this._speechWaitInterval = null;
+    }
+    if (this._speechWaitTimeout) {
+      clearTimeout(this._speechWaitTimeout);
+      this._speechWaitTimeout = null;
+    }
+  };
+
+  // 等待語音播放完成後才執行回調（確保字母拼讀和中文語音不會被中途打斷）
+  FlashcardApp.prototype.waitForSpeechThenExecute = function(callback) {
+    var self = this;
+    
+    // 清除之前的等待
+    this.clearSpeechWait();
+    
+    // 檢查是否有需要等待的語音功能啟用
+    var hasSpellOut = this.voiceSettings.enabled && this.voiceSettings.spellOutLetters;
+    var hasChinese = this.voiceSettings.chineseEnabled;
+    
+    if (!hasSpellOut && !hasChinese) {
+      callback();
+      return;
+    }
+    
+    // 檢查是否有語音正在播放或等待中
+    var isSpeaking = false;
+    try {
+      isSpeaking = this.speechSynthesis.speaking || !!this.chineseWaitInterval;
+    } catch (e) {
+      // 語音 API 不可用時直接執行回調
+      callback();
+      return;
+    }
+    
+    if (!isSpeaking) {
+      callback();
+      return;
+    }
+    
+    console.log('語音仍在播放中，等待完成後再切換...');
+    
+    // 輪詢等待語音播放完成
+    this._speechWaitInterval = setInterval(function() {
+      var stillSpeaking = false;
+      try {
+        stillSpeaking = self.speechSynthesis.speaking || !!self.chineseWaitInterval;
+      } catch (e) {
+        stillSpeaking = false;
+      }
+      
+      if (!stillSpeaking) {
+        self.clearSpeechWait();
+        // 語音播放完成後，短暫延遲再執行回調
+        setTimeout(function() {
+          if (!self.isPaused) {
+            callback();
+          }
+        }, 300);
+      }
+    }, 100);
+    
+    // 安全超時：最多等待 60 秒，避免永遠卡住
+    this._speechWaitTimeout = setTimeout(function() {
+      console.log('語音等待超時（60秒），強制執行切換');
+      self.clearSpeechWait();
+      if (!self.isPaused) {
+        callback();
+      }
+    }, 60000);
+  };
+
   // 下一個單字
   FlashcardApp.prototype.nextWord = function() {
     if (this.isTransitioning || this.isPaused) return;
@@ -382,6 +457,9 @@
       if (this.displayTimer) {
         clearTimeout(this.displayTimer);
     }
+    
+    // 清理語音等待計時器
+    this.clearSpeechWait();
     
     // 清理中文語音等待定時器
     if (this.chineseWaitInterval) {
@@ -437,6 +515,9 @@
     if (this.displayTimer) {
       clearTimeout(this.displayTimer);
     }
+    
+    // 清理語音等待計時器
+    this.clearSpeechWait();
     
     // 清理中文語音等待定時器
     if (this.chineseWaitInterval) {
@@ -524,6 +605,9 @@
       clearTimeout(this.displayTimer);
     }
     
+    // 清理語音等待計時器
+    this.clearSpeechWait();
+    
     // 清理中文語音等待定時器
     if (this.chineseWaitInterval) {
       clearInterval(this.chineseWaitInterval);
@@ -567,6 +651,9 @@
     
     // 停止當前播放的語音
     if (!this.voiceSettings.enabled) {
+      // 清理語音等待計時器
+      this.clearSpeechWait();
+      
       // 清理中文語音等待定時器
       if (this.chineseWaitInterval) {
         clearInterval(this.chineseWaitInterval);
@@ -797,6 +884,9 @@
       clearTimeout(this.displayTimer);
       this.displayTimer = null;
     }
+    
+    // 清理語音等待計時器
+    this.clearSpeechWait();
     
     // 清理中文語音等待定時器
     if (this.chineseWaitInterval) {
