@@ -31,6 +31,9 @@
     this._speechWaitInterval = null;
     this._speechWaitTimeout = null;
     
+    // 語音序列進行中標記（字母拼讀 → 單字發音 的整個序列）
+    this._speechSequenceActive = false;
+    
     // 設定
     this.settings = {
       delayTime: 4.5,

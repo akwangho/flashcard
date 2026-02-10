@@ -392,10 +392,72 @@ describe('clearSpeechWait', function() {
     app._speechWaitTimeout = null;
     expect(function() { app.clearSpeechWait(); }).not.toThrow();
   });
+
+  test('does not reset _speechSequenceActive flag (only navigation resets it)', function() {
+    app._speechSequenceActive = true;
+    app.clearSpeechWait();
+    expect(app._speechSequenceActive).toBe(true);
+  });
 });
 
 // ============================================================
-// waitForSpeechThenExecute (NEW - 語音等待機制)
+// _speechSequenceActive flag (字母拼讀+單字發音序列)
+// ============================================================
+describe('_speechSequenceActive flag', function() {
+
+  test('speakEnglishWord sets flag when spellOutLetters enabled', function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    app._speechSequenceActive = false;
+    app.speakEnglishWord('hi');
+    expect(app._speechSequenceActive).toBe(true);
+  });
+
+  test('speakEnglishWord does not set flag when spellOutLetters disabled', function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = false;
+    app._speechSequenceActive = false;
+    app.speakEnglishWord('hello');
+    expect(app._speechSequenceActive).toBe(false);
+  });
+
+  test('waitForSpeechThenExecute waits when _speechSequenceActive is true', function() {
+    jest.useFakeTimers();
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    global.speechSynthesis.speaking = false;
+    app.chineseWaitInterval = null;
+    app._speechSequenceActive = true; // sequence still in progress
+    var cb = jest.fn();
+    app.waitForSpeechThenExecute(cb);
+    expect(cb).not.toHaveBeenCalled();
+    expect(app._speechWaitInterval).not.toBeNull();
+    jest.useRealTimers();
+  });
+
+  test('waitForSpeechThenExecute executes after sequence completes', function() {
+    jest.useFakeTimers();
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    app.isPaused = false;
+    global.speechSynthesis.speaking = false;
+    app.chineseWaitInterval = null;
+    app._speechSequenceActive = true;
+    var cb = jest.fn();
+    app.waitForSpeechThenExecute(cb);
+    expect(cb).not.toHaveBeenCalled();
+
+    // Simulate sequence completing
+    app._speechSequenceActive = false;
+    jest.advanceTimersByTime(200);
+    jest.advanceTimersByTime(400);
+    expect(cb).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+});
+
+// ============================================================
+// waitForSpeechThenExecute (語音等待機制)
 // ============================================================
 describe('waitForSpeechThenExecute', function() {
 

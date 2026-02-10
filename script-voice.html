@@ -132,6 +132,8 @@
     
     // 如果啟用了字母拼讀，先拼讀字母，然後再唸單字
     if (this.voiceSettings.spellOutLetters) {
+      // 標記語音序列開始（拼讀 + 單字發音），防止中途被切換
+      this._speechSequenceActive = true;
       this.speakEnglishLetters(text, function() {
         // 字母拼讀完成後，唸完整單字
         self.speakEnglishWordOnly(text);
@@ -181,18 +183,26 @@
         utterance.voice = selectedVoice;
       }
       
+      var self = this;
+      
       // 為舊版瀏覽器添加錯誤處理
       utterance.onerror = function(event) {
         console.log('英文語音播放錯誤:', event.error);
+        self._speechSequenceActive = false;
       };
       
       utterance.onstart = function() {
         console.log('英文語音開始播放:', text);
       };
       
+      utterance.onend = function() {
+        self._speechSequenceActive = false;
+      };
+      
       this.speechSynthesis.speak(utterance);
     } catch (error) {
       console.log('英文語音播放失敗:', error);
+      this._speechSequenceActive = false;
     }
   };
   
@@ -394,7 +404,7 @@
     // 檢查是否有語音正在播放或等待中
     var isSpeaking = false;
     try {
-      isSpeaking = this.speechSynthesis.speaking || !!this.chineseWaitInterval;
+      isSpeaking = this.speechSynthesis.speaking || !!this.chineseWaitInterval || this._speechSequenceActive;
     } catch (e) {
       // 語音 API 不可用時直接執行回調
       callback();
@@ -412,7 +422,7 @@
     this._speechWaitInterval = setInterval(function() {
       var stillSpeaking = false;
       try {
-        stillSpeaking = self.speechSynthesis.speaking || !!self.chineseWaitInterval;
+        stillSpeaking = self.speechSynthesis.speaking || !!self.chineseWaitInterval || self._speechSequenceActive;
       } catch (e) {
         stillSpeaking = false;
       }
@@ -467,6 +477,7 @@
       this.chineseWaitInterval = null;
     }
     
+    this._speechSequenceActive = false;
     this.speechSynthesis.cancel();
     
     this.isTransitioning = true;
@@ -525,6 +536,7 @@
       this.chineseWaitInterval = null;
     }
     
+    this._speechSequenceActive = false;
     this.speechSynthesis.cancel();
     
     this.isTransitioning = true;
@@ -614,6 +626,7 @@
       this.chineseWaitInterval = null;
     }
     
+    this._speechSequenceActive = false;
     this.speechSynthesis.cancel();
     this.pendingRemoval = null;
     this.closeMenu();
@@ -660,6 +673,7 @@
         this.chineseWaitInterval = null;
       }
       
+      this._speechSequenceActive = false;
       this.speechSynthesis.cancel();
     }
   };
@@ -894,6 +908,7 @@
       this.chineseWaitInterval = null;
     }
     
+    this._speechSequenceActive = false;
     this.speechSynthesis.cancel();
     
     this.showingChinese = false;
