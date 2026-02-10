@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.7.4
+> **版本**: 1.7.5
 > **最後更新**: 2026-02-10
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -624,6 +624,7 @@ bash deploy.sh setup
 - **描述**: 支援各種瀏覽器的全螢幕 API
 - **相容性**: 支援 `requestFullscreen`、`webkitRequestFullscreen`、`mozRequestFullScreen`、`msRequestFullscreen`
 - **行為**: 進入全螢幕後按鈕文字變為「退出全螢幕」
+- **iOS 特殊處理**: iOS Safari/Chrome 不支援網頁全螢幕 API，偵測到 iOS 裝置時顯示「加入主畫面」引導訊息；若已從主畫面開啟（`navigator.standalone`）則提示已在全螢幕模式
 
 #### 4.10.3 圖片顯示
 - **描述**: 若單字含有圖片 URL，在顯示中文翻譯時同時顯示圖片
@@ -632,11 +633,15 @@ bash deploy.sh setup
 - **文字處理**: 有圖片時，文字加上半透明黑色背景以確保可讀性
 
 #### 4.10.4 防止螢幕休眠
-- **描述**: 透過多種方式嘗試防止裝置螢幕自動關閉
-- **方法（依優先順序嘗試）**:
-  1. **Wake Lock API**: 現代瀏覽器原生 API
-  2. **NoSleep Video**: 建立不可見的迴圈影片持續播放
-  3. **Keep-Alive**: 每 30 秒發送微小的 AJAX 請求
+- **描述**: 透過多種方式同時嘗試防止裝置螢幕自動關閉（非瀑布模式，所有方法同時啟用）
+- **方法（同時嘗試）**:
+  1. **Wake Lock API**: 現代瀏覽器原生 API（iOS 16.4+、Android Chrome 等），可能在 Google Apps Script 的 iframe 中失敗
+  2. **持續靜音音頻**（iOS Safari 核心方法）: 透過 `AudioContext` 建立靜音 buffer，連接到 `createMediaStreamDestination()`，再透過隱藏的 `<audio>` 元素播放 MediaStream。iOS Safari 偵測到有音頻播放中，即不會讓螢幕進入休眠。不支援 `createMediaStreamDestination` 的舊版瀏覽器（如 iPad 4）回退到持續的超高頻（20kHz）oscillator
+  3. **NoSleep Video**: 建立 1x1 像素不可見的迴圈靜音影片持續播放（舊版 iOS 及 Android 備用）
+  4. **Keep-Alive**: 每 30 秒播放極短高頻無聲音頻 + 微小 DOM 操作（最後備用）
+- **iOS 用戶手勢啟用**: iOS 瀏覽器必須在用戶互動（user gesture）中才能建立 AudioContext 和播放音頻/視頻。系統在**每次** `touchstart`/`touchend`/`click` 事件時都會檢查並嘗試啟動或恢復持續靜音音頻（不移除監聽器，因為 iOS 可能隨時暫停 AudioContext）
+- **定期監控（Watchdog）**: 每 10 秒檢查 AudioContext 狀態和 `<audio>` 元素是否仍在播放，若被暫停則自動嘗試恢復
+- **頁面可見性恢復**: 監聽 `visibilitychange` 事件，頁面重新可見時自動恢復 AudioContext、重新取得 Wake Lock、恢復 NoSleep 視頻
 
 #### 4.10.5 響應式設計
 - **描述**: 支援手機和平板裝置的不同螢幕尺寸

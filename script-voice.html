@@ -725,9 +725,31 @@
     this.updatePauseButtonState();
   };
   
+  // 檢測是否為 iOS 裝置（iPhone / iPad / iPod）
+  FlashcardApp.prototype._isIOSDevice = function() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  };
+
   // 進入全螢幕模式
   FlashcardApp.prototype.enterFullscreen = function() {
     console.log('嘗試進入全螢幕模式');
+    
+    // iOS Safari/Chrome 不支援網頁全螢幕 API（僅支援 video 元素）
+    if (this._isIOSDevice()) {
+      if (window.navigator.standalone) {
+        // 已從主畫面開啟，等同全螢幕
+        alert('目前已是全螢幕模式（從主畫面開啟）');
+      } else {
+        alert(
+          'iPhone / iPad 的瀏覽器不支援網頁全螢幕。\n\n' +
+          '如需全螢幕體驗，請在 Safari 中：\n' +
+          '1. 點選底部「分享」按鈕\n' +
+          '2. 選擇「加入主畫面」\n' +
+          '3. 從主畫面開啟此 App'
+        );
+      }
+      return;
+    }
     
     var docElement = document.documentElement;
     

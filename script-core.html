@@ -106,6 +106,13 @@
     this.wakeLock = null;
     this.noSleepVideo = null;
     this.keepScreenAwake = false;
+    this._wakeLockAcquired = false;
+    this._noSleepVideoPlaying = false;
+    this._persistentAudioRunning = false;
+    this._persistentAudioContext = null;
+    this._persistentAudioElement = null;
+    this._persistentAudioSource = null;
+    this._persistentOscillator = null;
     
     // SRS 間隔重複系統
     this.srsData = {};
