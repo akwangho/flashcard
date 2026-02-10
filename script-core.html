@@ -832,7 +832,7 @@
       if (allWords.length > 0) {
         self.finishProgressiveLoading(allWords, callback);
       } else {
-        self.showError();
+        self.handleLoadingComplete(false, true);
       }
     }, 30000);
     
@@ -871,7 +871,7 @@
               if (allWords.length > 0) {
                 self.finishProgressiveLoading(allWords, callback);
               } else {
-                self.showError();
+                self.handleLoadingComplete(false, true);
               }
             }
           })
@@ -888,7 +888,7 @@
     }
     
     if (allWords.length === 0) {
-      this.showError();
+      this.handleLoadingComplete(false, true);
       return;
     }
     
@@ -960,7 +960,7 @@
         })
         .withFailureHandler(function(error) {
           console.error('載入單字失敗:', error);
-          self.showError();
+          self.handleLoadingComplete(false, true);
         })
         .getWordsFromSheetsWithDuplicateDetection(self.sheetSettings.sheetId, self.sheetSettings.selectedSheets, false);
     } else {
@@ -975,7 +975,7 @@
         })
         .withFailureHandler(function(error) {
           console.error('載入單字失敗:', error);
-          self.showError();
+          self.handleLoadingComplete(false, true);
         })
         .getWordsFromSheet();
     }
