@@ -104,6 +104,17 @@
       return;
     }
     
+    // 工具列隱藏後，透過滑鼠離開或觸控重新顯示
+    var controlsWrapper = document.querySelector('.controls-wrapper');
+    if (controlsWrapper) {
+      controlsWrapper.addEventListener('mouseleave', function() {
+        controlsWrapper.classList.remove('force-hide');
+      });
+      controlsWrapper.addEventListener('touchstart', function() {
+        controlsWrapper.classList.remove('force-hide');
+      });
+    }
+    
         // 使用委派事件監聽
     document.addEventListener('click', function(e) {
       // 檢查是否點擊了select相關元素，如果是則不處理任何選單邏輯
@@ -489,6 +500,11 @@
       this.closeMenu();
     } else {
       console.log('開啟選單');
+      // 開啟選單時移除 force-hide，確保工具列可見
+      var controlsWrapper = document.querySelector('.controls-wrapper');
+      if (controlsWrapper) {
+        controlsWrapper.classList.remove('force-hide');
+      }
       // 記住開啟選單前的暫停狀態
       this._wasPausedBeforeMenu = this.userPaused;
       if (!this.userPaused) {
@@ -524,6 +540,14 @@
         this.resumeTimer();
       }
       this._wasPausedBeforeMenu = undefined;
+
+      // 選單關閉時隱藏工具列
+      if (wasOpen) {
+        var controlsWrapper = document.querySelector('.controls-wrapper');
+        if (controlsWrapper) {
+          controlsWrapper.classList.add('force-hide');
+        }
+      }
     }
   };
   
