@@ -664,6 +664,13 @@
     if (loadSheetsBtn) {
       loadSheetsBtn.addEventListener('click', function() { self.loadSheetsList(); });
     }
+    var toggleSelectAllBtn = document.getElementById('toggle-select-all-btn');
+    if (toggleSelectAllBtn) {
+      toggleSelectAllBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        self.toggleSelectAll();
+      });
+    }
     if (sheetSettingsModal) {
       sheetSettingsModal.addEventListener('click', function(e) {
         // 檢查點擊目標，排除select元素及其相關元素

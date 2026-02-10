@@ -493,8 +493,51 @@
       saveBtn.disabled = selectedCount === 0;
     }
     this.updateSelectedCount();
+    this.updateSelectAllButtonText();
   };
   
+  FlashcardApp.prototype.toggleSelectAll = function() {
+    var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+    var btn = document.getElementById('toggle-select-all-btn');
+    if (!checkboxes.length) return;
+
+    // 判斷目前是否全選：有任何一個未選就視為「需要全選」
+    var allChecked = true;
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (!checkboxes[i].checked) {
+        allChecked = false;
+        break;
+      }
+    }
+
+    // 切換：全選 ↔ 取消全選
+    for (var j = 0; j < checkboxes.length; j++) {
+      checkboxes[j].checked = !allChecked;
+    }
+
+    // 更新按鈕文字
+    if (btn) {
+      btn.textContent = !allChecked ? '取消全選' : '全選';
+    }
+
+    this.toggleSheetSelection();
+  };
+
+  FlashcardApp.prototype.updateSelectAllButtonText = function() {
+    var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+    var btn = document.getElementById('toggle-select-all-btn');
+    if (!btn || !checkboxes.length) return;
+
+    var allChecked = true;
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (!checkboxes[i].checked) {
+        allChecked = false;
+        break;
+      }
+    }
+    btn.textContent = allChecked ? '取消全選' : '全選';
+  };
+
   FlashcardApp.prototype.updateSelectedCount = function() {
     var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
     var selectedCount = 0;
