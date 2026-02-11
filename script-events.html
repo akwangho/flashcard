@@ -390,10 +390,11 @@
     englishElement.style.color = '';
     chineseElement.style.color = '';
     
-    // 混合模式：每張卡片隨機決定顯示順序（要會拼的單字強制先顯示中文）
+    // 混合模式：每張卡片隨機決定顯示順序
+    // 若開關啟用，要會拼的單字強制先顯示中文；其他單字隨機
     if (this.settings.displayMode === 'mixed') {
       var currentWord = this.currentWords[this.currentIndex];
-      if (currentWord && currentWord.mustSpell) {
+      if (currentWord && currentWord.mustSpell && this.settings.mustSpellChineseFirst) {
         this.currentWordReversed = true;
       } else {
         this.currentWordReversed = Math.random() < 0.5;
@@ -640,6 +641,17 @@
       this.enhanceSliderInteraction(fontSizeSlider, 'font-size-value', 'px');
     }
     
+    // 顯示模式 radio 切換時，即時顯示/隱藏「要會拼強制先中文」開關
+    var displayModeRadios = document.querySelectorAll('input[name="display-mode"]');
+    for (var r = 0; r < displayModeRadios.length; r++) {
+      displayModeRadios[r].addEventListener('change', function() {
+        var mustSpellGroup = document.getElementById('must-spell-chinese-first-group');
+        if (mustSpellGroup) {
+          mustSpellGroup.style.display = this.value === 'mixed' ? '' : 'none';
+        }
+      });
+    }
+    
     // 字型選擇器事件監聽
     var fontFamilySelect = document.getElementById('font-family-setting');
     if (fontFamilySelect) {
@@ -693,6 +705,13 @@
       toggleSelectAllBtn.addEventListener('click', function(e) {
         e.preventDefault();
         self.toggleSelectAll();
+      });
+    }
+    var clearAllBtn = document.getElementById('clear-all-btn');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        self.clearAllSelection();
       });
     }
     if (sheetSettingsModal) {

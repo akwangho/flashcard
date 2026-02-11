@@ -40,7 +40,8 @@
       fontSize: 96,
       displayMode: 'english-first',
       fontFamily: 'system-default',
-      delaySpeechInNormalMode: false
+      delaySpeechInNormalMode: false,
+      mustSpellChineseFirst: true
     };
     
     // 混合模式：當前單字是否反向顯示（每張卡片隨機決定）
@@ -592,6 +593,14 @@
       displayModeRadios[i].checked = (displayModeRadios[i].value === this.settings.displayMode);
     }
     if (delaySpeechToggle) delaySpeechToggle.checked = this.settings.delaySpeechInNormalMode;
+    
+    // 設定要會拼強制先中文開關（僅混合模式時顯示）
+    var mustSpellChineseFirstToggle = document.getElementById('must-spell-chinese-first-setting');
+    if (mustSpellChineseFirstToggle) mustSpellChineseFirstToggle.checked = this.settings.mustSpellChineseFirst;
+    var mustSpellGroup = document.getElementById('must-spell-chinese-first-group');
+    if (mustSpellGroup) {
+      mustSpellGroup.style.display = this.settings.displayMode === 'mixed' ? '' : 'none';
+    }
     
     // 更新字型預覽
     this.updateFontPreview();

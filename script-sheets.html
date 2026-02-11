@@ -397,16 +397,21 @@
     }
     
     var self = this;
+    // Shift+Click 連續多選：記錄上次點擊的索引
+    this._lastClickedSheetIndex = -1;
+    
     for (var index = 0; index < this.availableSheets.length; index++) {
       var sheet = this.availableSheets[index];
       console.log('渲染工作表 ' + (index + 1) + ':', sheet);
       
       var sheetItem = document.createElement('div');
       sheetItem.className = 'sheet-item';
+      sheetItem.setAttribute('data-sheet-index', index);
       
       var checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.value = sheet.name;
+      checkbox.setAttribute('data-sheet-index', index);
       
       // 檢查是否應該自動勾選
       if (this.sheetSettings.selectedSheets && this.sheetSettings.selectedSheets.includes(sheet.name)) {
@@ -414,12 +419,13 @@
         console.log('自動勾選已載入的工作表:', sheet.name);
       }
       
-      (function(sheetName) {
+      (function(sheetName, idx) {
         checkbox.addEventListener('change', function() {
           console.log('工作表選擇狀態改變:', sheetName, checkbox.checked);
+          self._lastClickedSheetIndex = idx;
           self.toggleSheetSelection();
         });
-      })(sheet.name);
+      })(sheet.name, index);
       
       var sheetInfo = document.createElement('div');
       sheetInfo.className = 'sheet-info';
@@ -449,15 +455,34 @@
       sheetItem.appendChild(checkbox);
       sheetItem.appendChild(sheetInfo);
       
-      (function(currentSheet, currentCheckbox) {
+      // 點擊工作表項目：支援 Shift+Click 連續多選
+      (function(currentSheet, currentCheckbox, currentIndex) {
         sheetItem.addEventListener('click', function(e) {
-          if (e.target !== currentCheckbox) {
-            console.log('點擊工作表項目:', currentSheet.name);
+          if (e.target === currentCheckbox) return; // checkbox 自身處理
+          
+          var allCheckboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+          
+          // Shift+Click：從上次點擊位置到當前位置，批次設定為與當前項目相同狀態
+          if (e.shiftKey && self._lastClickedSheetIndex >= 0 && self._lastClickedSheetIndex !== currentIndex) {
+            var start = Math.min(self._lastClickedSheetIndex, currentIndex);
+            var end = Math.max(self._lastClickedSheetIndex, currentIndex);
+            // 目標狀態：與當前點擊項目切換後的狀態一致
+            var targetState = !currentCheckbox.checked;
+            for (var si = start; si <= end; si++) {
+              if (allCheckboxes[si]) {
+                allCheckboxes[si].checked = targetState;
+              }
+            }
+            console.log('Shift 多選：索引 ' + start + ' 到 ' + end + '，狀態：' + targetState);
+          } else {
+            // 一般點擊：切換單個 checkbox
             currentCheckbox.checked = !currentCheckbox.checked;
-            self.toggleSheetSelection();
           }
+          
+          self._lastClickedSheetIndex = currentIndex;
+          self.toggleSheetSelection();
         });
-      })(sheet, checkbox);
+      })(sheet, checkbox, index);
       
       sheetsList.appendChild(sheetItem);
       console.log('工作表 ' + sheet.name + ' 渲染完成');
@@ -523,6 +548,15 @@
     this.toggleSheetSelection();
   };
 
+  FlashcardApp.prototype.clearAllSelection = function() {
+    var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
+    for (var i = 0; i < checkboxes.length; i++) {
+      checkboxes[i].checked = false;
+    }
+    this.updateSelectAllButtonText();
+    this.toggleSheetSelection();
+  };
+
   FlashcardApp.prototype.updateSelectAllButtonText = function() {
     var checkboxes = document.querySelectorAll('#sheets-list input[type="checkbox"]');
     var btn = document.getElementById('toggle-select-all-btn');
@@ -547,6 +581,11 @@
     var selectedCountElement = document.getElementById('selected-count');
     if (selectedCountElement) {
       selectedCountElement.textContent = '(已選 ' + selectedCount + ' 個)';
+    }
+    // 沒有選擇任何工作表時隱藏清除按鈕
+    var clearAllBtn = document.getElementById('clear-all-btn');
+    if (clearAllBtn) {
+      clearAllBtn.style.display = selectedCount > 0 ? '' : 'none';
     }
   };
   

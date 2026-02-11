@@ -40,6 +40,10 @@
     var selectedMode = document.querySelector('input[name="display-mode"]:checked');
     if (selectedMode) this.settings.displayMode = selectedMode.value;
     
+    // 讀取要會拼強制先中文開關
+    var mustSpellChineseFirstToggle = document.getElementById('must-spell-chinese-first-setting');
+    if (mustSpellChineseFirstToggle) this.settings.mustSpellChineseFirst = mustSpellChineseFirstToggle.checked;
+    
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
@@ -57,7 +61,8 @@
       fontSize: 96,
       displayMode: 'english-first',
       fontFamily: 'system-default',
-      delaySpeechInNormalMode: false
+      delaySpeechInNormalMode: false,
+      mustSpellChineseFirst: true
     };
     this.voiceSettings = {
       enabled: true,

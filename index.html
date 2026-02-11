@@ -210,7 +210,7 @@
           </div>
           
           <div class="setting-group" id="sheets-selection-group" style="display: none;">
-            <label>選擇工作表 <span id="selected-count">(已選 0 個)</span> <button type="button" id="toggle-select-all-btn" class="toggle-select-all-btn">全選</button></label>
+            <label>選擇工作表 <span id="selected-count">(已選 0 個)</span> <button type="button" id="toggle-select-all-btn" class="toggle-select-all-btn">全選</button> <button type="button" id="clear-all-btn" class="toggle-select-all-btn" style="display: none;">清除</button></label>
             <div class="sheets-list" id="sheets-list">
               <!-- 工作表清單將在這裡動態生成 -->
             </div>
@@ -287,6 +287,16 @@
               </label>
               <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px; color: #FFFF00;">
                 <input type="radio" name="display-mode" value="mixed" style="margin-right: 8px;"> 隨機混合
+              </label>
+            </div>
+          </div>
+          
+          <div class="setting-group" id="must-spell-chinese-first-group" style="display: none;">
+            <label for="must-spell-chinese-first-setting">✍️ 要會拼單字混合模式下強制先顯示中文</label>
+            <div class="setting-control">
+              <label class="switch">
+                <input type="checkbox" id="must-spell-chinese-first-setting">
+                <span class="slider"></span>
               </label>
             </div>
           </div>
@@ -534,7 +544,6 @@
               <input type="checkbox" id="edit-word-must-spell">
               <span class="slider"></span>
             </label>
-            <span style="font-size: 12px; color: #888;">混合模式下強制先顯示中文</span>
           </div>
         </div>
         <div class="setting-group">
