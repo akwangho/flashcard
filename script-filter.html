@@ -588,7 +588,7 @@
     }
     
     if (this.srsReviewActive) {
-      parts.push('📆 今日複習');
+      parts.push('📖 快速複習');
     }
     
     if (parts.length > 0) {
@@ -971,7 +971,7 @@
     this.saveSrsData();
   };
 
-  // 取得所有今天需要複習的單字
+  // 取得所有今天到期/逾期需要複習的單字
   FlashcardApp.prototype.getDueWords = function() {
     var today = this.getTodayDateString();
     var dueWords = [];
@@ -997,26 +997,79 @@
     return this.getDueWords().length;
   };
 
-  // 開始 SRS 複習模式
-  FlashcardApp.prototype.startSrsReview = function(count) {
-    var dueWords = this.getDueWords();
+  // ★ 快速複習：取得依優先度排序的建議複習單字
+  // 總是從已載入的單字中列出最建議複習的單字，不會出現「沒有單字」的情況
+  // 優先度：(1) 已到期/逾期 (2) 從未複習 (3) 尚未到期但最接近的
+  FlashcardApp.prototype.getRecommendedWords = function() {
+    var today = this.getTodayDateString();
+    var self = this;
+    var wordsWithPriority = [];
 
-    if (dueWords.length === 0) {
-      this.showNotification('今天沒有需要複習的單字！', 'info');
+    for (var i = 0; i < this.words.length; i++) {
+      var word = this.words[i];
+      var srs = this.getSrsForWord(word);
+      var priority;
+      var sortKey;
+
+      if (!srs) {
+        // 從未進入 SRS 系統：高優先（類別 1），依難度排序（越不熟越前面）
+        var diff = (word.difficultyLevel !== undefined && word.difficultyLevel !== null) ? word.difficultyLevel : 0;
+        // difficulty -1 = 非常熟，排最後；0~10 越高越不熟
+        priority = 1;
+        sortKey = (diff === -1) ? -1 : diff; // 越高越優先
+        wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: '' });
+      } else if (srs.nextReview <= today) {
+        // 已到期/逾期：最高優先（類別 0），依逾期天數 + box 等級排序
+        priority = 0;
+        // sortKey: 逾期越久越優先，box 越低越優先
+        sortKey = -(srs.box || 1); // box 越低 sortKey 越小（負值越大 = 越優先）
+        wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: srs.nextReview });
+      } else {
+        // 尚未到期：低優先（類別 2），依最近到期日排序
+        priority = 2;
+        sortKey = 0;
+        wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: srs.nextReview });
+      }
+    }
+
+    // 排序：priority 小的在前 → sortKey 大的在前 → nextReview 早的在前
+    wordsWithPriority.sort(function(a, b) {
+      // 1. 優先類別：0（已到期）> 1（未複習）> 2（未到期）
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      // 2. 同類別內排序
+      if (a.priority === 0) {
+        // 已到期：nextReview 越早（越逾期）越優先，box 越低越優先
+        if (a.nextReview !== b.nextReview) return a.nextReview < b.nextReview ? -1 : 1;
+        return a.sortKey - b.sortKey; // box 越低（sortKey 越負）越前
+      }
+      if (a.priority === 1) {
+        // 未複習：difficulty 越高越優先
+        return b.sortKey - a.sortKey;
+      }
+      // 未到期：nextReview 越早越優先
+      if (a.nextReview !== b.nextReview) return a.nextReview < b.nextReview ? -1 : 1;
+      return 0;
+    });
+
+    var result = [];
+    for (var j = 0; j < wordsWithPriority.length; j++) {
+      result.push(wordsWithPriority[j].word);
+    }
+    return result;
+  };
+
+  // 開始快速複習模式（依優先度排序，取前 N 個）
+  FlashcardApp.prototype.startSrsReview = function(count) {
+    var recommendedWords = this.getRecommendedWords();
+
+    if (recommendedWords.length === 0) {
+      this.showNotification('沒有可複習的單字', 'info');
       return;
     }
 
-    // 隨機打亂順序
-    for (var i = dueWords.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var temp = dueWords[i];
-      dueWords[i] = dueWords[j];
-      dueWords[j] = temp;
-    }
-
-    // 取指定數量
-    var reviewCount = Math.min(count, dueWords.length);
-    this.currentWords = dueWords.slice(0, reviewCount);
+    // 取指定數量（已依優先度排序，直接取前 N 個）
+    var reviewCount = Math.min(count, recommendedWords.length);
+    this.currentWords = recommendedWords.slice(0, reviewCount);
     this.currentIndex = 0;
     this.srsReviewActive = true;
 
@@ -1027,11 +1080,12 @@
 
     this.closeSrsReviewModal();
     this.showNotification('開始複習 ' + reviewCount + ' 個單字', 'success');
-    console.log('SRS 複習模式啟動，共', reviewCount, '個單字');
+    console.log('快速複習模式啟動，共', reviewCount, '個單字');
   };
 
-  // 開啟 SRS 複習模態框
+  // 開啟快速複習模態框
   FlashcardApp.prototype.openSrsReviewModal = function() {
+    var totalWords = this.words ? this.words.length : 0;
     var dueCount = this.getDueWordCount();
     var modal = document.getElementById('srs-review-modal');
     var countEl = document.getElementById('srs-due-count');
@@ -1046,22 +1100,28 @@
       clearTimeout(this.displayTimer);
     }
 
-    if (dueCount === 0) {
+    if (totalWords === 0) {
+      // 沒有載入任何單字
       if (countEl) countEl.style.display = 'none';
       if (optionsEl) optionsEl.style.display = 'none';
       if (startBtn) startBtn.style.display = 'none';
       if (noDueEl) noDueEl.style.display = 'block';
     } else {
+      // 總是顯示可複習的單字（依優先度排序）
       if (noDueEl) noDueEl.style.display = 'none';
       if (countEl) {
         countEl.style.display = 'block';
-        countEl.textContent = '今天有 ' + dueCount + ' 個單字需要複習';
+        if (dueCount > 0) {
+          countEl.textContent = '共 ' + totalWords + ' 個單字，其中 ' + dueCount + ' 個建議優先複習';
+        } else {
+          countEl.textContent = '共 ' + totalWords + ' 個單字，依複習優先度排列';
+        }
       }
       if (optionsEl) optionsEl.style.display = 'block';
       if (startBtn) startBtn.style.display = 'block';
 
-      // 更新數量選項
-      this.renderSrsCountOptions(dueCount);
+      // 更新數量選項（使用全部單字數量）
+      this.renderSrsCountOptions(totalWords);
     }
 
     modal.style.display = 'flex';
