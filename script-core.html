@@ -34,6 +34,9 @@
     // 語音序列進行中標記（字母拼讀 → 單字發音 的整個序列）
     this._speechSequenceActive = false;
     
+    // 計時器進度條狀態（1=第一階段 0→50%, 2=第二階段 50→100%）
+    this._progressPhase = null;
+    
     // 設定
     this.settings = {
       delayTime: 4.5,

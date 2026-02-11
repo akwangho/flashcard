@@ -101,7 +101,37 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* 暫時移除（待刪除）的單字：灰色 + 描邊效果，確保在灰色背景圖上仍清晰可見 */
+  .word.word-pending-removal {
+    color: #666666 !important;
+    -webkit-text-stroke: 1px rgba(0, 0, 0, 0.8);
+    text-shadow:
+      -1px -1px 0 rgba(0, 0, 0, 0.9),
+       1px -1px 0 rgba(0, 0, 0, 0.9),
+      -1px  1px 0 rgba(0, 0, 0, 0.9),
+       1px  1px 0 rgba(0, 0, 0, 0.9),
+       0    0   6px rgba(0, 0, 0, 0.7);
+  }
   
+  /* ==========================================================================
+     TIMER PROGRESS BAR - 計時器進度條
+     畫面正中央的細水平線，由左到右成長，跑到一半時顯示翻譯，跑滿時切換下一個單字
+     ========================================================================== */
+
+  #timer-progress-bar {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 2px;
+    width: 0%;
+    background: rgba(255, 255, 255, 0.12);
+    z-index: 5;
+    pointer-events: none;
+    -webkit-transition: width linear;
+    transition: width linear;
+  }
+
   /* ==========================================================================
      RESTORE BUTTON
      ========================================================================== */
@@ -190,6 +220,10 @@
     .progress.progress-shifted {
       bottom: 70px;
     }
+
+    .active-filters.active-filters-shifted {
+      bottom: 105px;
+    }
   }
 
   /* ==========================================================================
@@ -221,6 +255,11 @@
   .progress.progress-shifted {
     bottom: 80px;
     transition: bottom 0.3s ease, color var(--transition-normal);
+  }
+
+  .active-filters.active-filters-shifted {
+    bottom: 115px;
+    transition: bottom 0.3s ease;
   }
   
   .controls-wrapper {
@@ -476,11 +515,12 @@
     transition: opacity 0.3s ease;
   }
 
-  /* 篩選指示器 */
+  /* 篩選指示器 - 顯示在上方，避免遮擋左下角進度區文字 */
   .active-filters {
     position: absolute;
-    bottom: 20px;
-    left: 180px;
+    top: 5px;
+    left: var(--spacing-lg);
+    left: 20px;
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255, 165, 0, 0.5);
     border-radius: 6px;

@@ -94,6 +94,9 @@
     
     // 清理語音等待計時器
     this.clearSpeechWait();
+    
+    // 暫停進度條
+    this.pauseProgressBar();
 
   };
   
@@ -112,6 +115,9 @@
             self.nextWord();
           });
         }, this.settings.delayTime * 1000);
+        // 恢復進度條（第二階段：等待切換下一個單字）
+        this._progressPhase = 2;
+        this.resumeProgressBar();
       } else if (!this.isTransitioning && !this.isProcessingClick) {
         var currentWord = this.currentWords[this.currentIndex];
         if (currentWord) {
@@ -120,6 +126,9 @@
               self.showSecondPartAndScheduleNext();
             });
           }, this.settings.delayTime * 1000);
+          // 恢復進度條（第一階段：等待顯示翻譯）
+          this._progressPhase = 1;
+          this.resumeProgressBar();
         }
       }
     }
@@ -399,8 +408,7 @@
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
     
-    var isAlreadyMarked = englishElement.style.color === 'rgb(102, 102, 102)' || 
-                        englishElement.style.color === '#666666';
+    var isAlreadyMarked = englishElement.classList.contains('word-pending-removal');
     
     if (isAlreadyMarked) {
       this.nextWord();
@@ -457,8 +465,8 @@
       }
     }
     
-    englishElement.style.color = '#666666';
-    chineseElement.style.color = '#666666';
+    englishElement.classList.add('word-pending-removal');
+    chineseElement.classList.add('word-pending-removal');
     
     var sections = document.querySelectorAll('.card-section');
     for (var i = 0; i < sections.length; i++) {
@@ -495,6 +503,9 @@
         self.confirmRemoval();
       });
     }, this.settings.delayTime * 1000);
+    
+    // 進度條第二階段：50% → 100%（翻譯已顯示，等待移除確認）
+    this.startProgressBar(2);
   };
   
   // 確認移除單字
@@ -538,8 +549,8 @@
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
     
-    englishElement.style.color = '';
-    chineseElement.style.color = '';
+    englishElement.classList.remove('word-pending-removal');
+    chineseElement.classList.remove('word-pending-removal');
     
     // 恢復原本的不熟程度顯示
     if (this.pendingRemoval.originalDifficultyLevel !== undefined) {
@@ -563,12 +574,16 @@
           self.nextWord();
         });
       }, this.settings.delayTime * 1000);
+      // 進度條第二階段：50% → 100%
+      this.startProgressBar(2);
       } else {
       this.displayTimer = setTimeout(function() {
         self.waitForSpeechThenExecute(function() {
           self.showSecondPartAndScheduleNext();
         });
       }, this.settings.delayTime * 1000);
+      // 進度條第一階段：0% → 50%
+      this.startProgressBar(1);
     }
   };
   
@@ -582,6 +597,10 @@
     if (progressArea) {
       progressArea.classList.add('progress-shifted');
     }
+    var filtersEl = document.getElementById('active-filters');
+    if (filtersEl) {
+      filtersEl.classList.add('active-filters-shifted');
+    }
   };
   
   // 隱藏恢復按鈕
@@ -593,6 +612,10 @@
     var progressArea = document.getElementById('progress-area');
     if (progressArea) {
       progressArea.classList.remove('progress-shifted');
+    }
+    var filtersEl = document.getElementById('active-filters');
+    if (filtersEl) {
+      filtersEl.classList.remove('active-filters-shifted');
     }
   };
   
@@ -645,6 +668,9 @@
         self.nextWord();
       });
     }, this.settings.delayTime * 1000);
+    
+    // 進度條第二階段：50% → 100%
+    this.startProgressBar(2);
     
     if (isReversed) {
       // 反向模式：第二部分顯示英文，播放英文語音
@@ -941,4 +967,84 @@
     console.log('已增強滑塊交互體驗:', slider.id);
   };
   
+  // ===========================================
+  // 計時器進度條（畫面中央水平線）
+  // ===========================================
+
+  // 開始進度條動畫
+  // phase=1: 第一語言顯示中，0% → 50%（到 50% 時顯示翻譯）
+  // phase=2: 翻譯已顯示，50% → 100%（到 100% 時切換下一個單字）
+  FlashcardApp.prototype.startProgressBar = function(phase) {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar) return;
+
+    var duration = this.settings.delayTime;
+    var startPercent = phase === 1 ? 0 : 50;
+    var endPercent = phase === 1 ? 50 : 100;
+
+    this._progressPhase = phase;
+
+    // 重置到起始位置（無動畫）
+    bar.style.WebkitTransition = 'none';
+    bar.style.transition = 'none';
+    bar.style.width = startPercent + '%';
+
+    // 強制 reflow
+    bar.offsetWidth;
+
+    // 啟動動畫（以 delayTime 為時長，線性成長）
+    bar.style.WebkitTransition = 'width ' + duration + 's linear';
+    bar.style.transition = 'width ' + duration + 's linear';
+    bar.style.width = endPercent + '%';
+  };
+
+  // 暫停進度條（凍結在當前位置）
+  FlashcardApp.prototype.pauseProgressBar = function() {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar) return;
+
+    // 取得當前動畫中的寬度
+    var computedWidth = 0;
+    try {
+      computedWidth = parseFloat(window.getComputedStyle(bar).width) || 0;
+    } catch (e) {
+      computedWidth = bar.offsetWidth || 0;
+    }
+    var parentWidth = bar.parentElement ? bar.parentElement.offsetWidth : window.innerWidth;
+    var currentPercent = parentWidth > 0 ? (computedWidth / parentWidth) * 100 : 0;
+
+    // 凍結在當前位置
+    bar.style.WebkitTransition = 'none';
+    bar.style.transition = 'none';
+    bar.style.width = currentPercent + '%';
+  };
+
+  // 恢復進度條（從凍結位置動畫到目標，使用完整 delayTime）
+  FlashcardApp.prototype.resumeProgressBar = function() {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar || !this._progressPhase) return;
+
+    var duration = this.settings.delayTime;
+    var endPercent = this._progressPhase === 1 ? 50 : 100;
+
+    // 強制 reflow（bar 目前凍結在暫停位置）
+    bar.offsetWidth;
+
+    // 從當前位置動畫到目標
+    bar.style.WebkitTransition = 'width ' + duration + 's linear';
+    bar.style.transition = 'width ' + duration + 's linear';
+    bar.style.width = endPercent + '%';
+  };
+
+  // 重置進度條（歸零）
+  FlashcardApp.prototype.resetProgressBar = function() {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar) return;
+
+    bar.style.WebkitTransition = 'none';
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    this._progressPhase = null;
+  };
+
 </script>

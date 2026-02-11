@@ -464,6 +464,9 @@
       
     this.saveNavigationState();
     
+    // 重置進度條
+    this.resetProgressBar();
+    
       if (this.displayTimer) {
         clearTimeout(this.displayTimer);
     }
@@ -487,6 +490,8 @@
     
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
+    englishElement.classList.remove('word-pending-removal');
+    chineseElement.classList.remove('word-pending-removal');
     
     chineseElement.textContent = '';
     // 清除背景圖片
@@ -523,6 +528,9 @@
     
     if (this.navigationHistory.length === 0) return;
     
+    // 重置進度條
+    this.resetProgressBar();
+    
     if (this.displayTimer) {
       clearTimeout(this.displayTimer);
     }
@@ -546,6 +554,8 @@
     
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
+    englishElement.classList.remove('word-pending-removal');
+    chineseElement.classList.remove('word-pending-removal');
     
     chineseElement.textContent = '';
     // 清除背景圖片

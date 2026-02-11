@@ -384,6 +384,9 @@
         clearTimeout(this.displayTimer);
       }
       
+    // 重置進度條（準備開始新的週期）
+    this.resetProgressBar();
+      
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
     
@@ -454,6 +457,9 @@
           self.showSecondPartAndScheduleNext();
         });
       }, self.settings.delayTime * 1000);
+      
+      // 進度條第一階段：0% → 50%（到 50% 時顯示翻譯）
+      self.startProgressBar(1);
       
     }, 100);
     
