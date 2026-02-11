@@ -798,6 +798,23 @@
     </div>
   </div>
 
+  <!-- 自訂確認對話框（取代瀏覽器內建 confirm，避免離開全螢幕） -->
+    <div id="custom-confirm-modal" class="modal" style="display: none;">
+      <div class="modal-content custom-confirm-content">
+        <div class="modal-header">
+          <h2 id="custom-confirm-title">確認</h2>
+        </div>
+        <div class="modal-body">
+          <div class="custom-confirm-message" id="custom-confirm-message"></div>
+          <div class="custom-confirm-warning" id="custom-confirm-warning" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="custom-confirm-cancel" class="secondary-btn">取消</button>
+          <button id="custom-confirm-ok" class="primary-btn">確定</button>
+        </div>
+      </div>
+    </div>
+
   <?!= include('script-polyfills'); ?>
   <?!= include('script-core'); ?>
   <?!= include('script-events'); ?>

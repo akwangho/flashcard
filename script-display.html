@@ -311,6 +311,7 @@
 
   // 重新套用篩選（用於切換篩選條件後）
   FlashcardApp.prototype.reapplyFilters = function() {
+    this.shuffleArray(this.words);
     this.currentWords = this.applyAllFilters(this.words);
     this.currentIndex = 0;
     this.removedWords = [];
@@ -511,6 +512,10 @@
     
     if (this.currentIndex >= this.currentWords.length) {
       this.currentIndex = 0;
+      // 移除最後一個單字導致回到開頭時，重新打亂順序
+      if (this.currentWords.length > 1) {
+        this.shuffleArray(this.currentWords);
+      }
     }
     
     this.pendingRemoval = null;
@@ -777,6 +782,10 @@
           self.currentWords.splice(idx, 1);
           if (self.currentIndex >= self.currentWords.length) {
             self.currentIndex = 0;
+            // 回到開頭時重新打亂順序
+            if (self.currentWords.length > 1) {
+              self.shuffleArray(self.currentWords);
+            }
           }
         }
         

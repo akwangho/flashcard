@@ -1096,7 +1096,66 @@
     
     console.log('隱藏控制按鈕事件監聽器設置完成');
   };
-  
+
+  // 自訂確認對話框（取代瀏覽器內建 confirm，避免離開全螢幕）
+  // options: { title, message, warning, confirmText, cancelText }
+  // onConfirm: 確認回呼
+  // onCancel: 取消回呼（可選）
+  FlashcardApp.prototype.customConfirm = function(options, onConfirm, onCancel) {
+    var modal = document.getElementById('custom-confirm-modal');
+    var titleEl = document.getElementById('custom-confirm-title');
+    var messageEl = document.getElementById('custom-confirm-message');
+    var warningEl = document.getElementById('custom-confirm-warning');
+    var confirmBtn = document.getElementById('custom-confirm-ok');
+    var cancelBtn = document.getElementById('custom-confirm-cancel');
+
+    if (!modal) return;
+
+    // 設定內容
+    titleEl.textContent = options.title || '確認';
+    messageEl.textContent = options.message || '';
+    
+    if (options.warning) {
+      warningEl.textContent = options.warning;
+      warningEl.style.display = 'block';
+    } else {
+      warningEl.style.display = 'none';
+    }
+
+    confirmBtn.textContent = options.confirmText || '確定';
+    cancelBtn.textContent = options.cancelText || '取消';
+
+    // 顯示對話框
+    modal.style.display = 'flex';
+
+    // 清理函式
+    var cleanup = function() {
+      modal.style.display = 'none';
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+      modal.onclick = null;
+    };
+
+    // 確認按鈕
+    confirmBtn.onclick = function() {
+      cleanup();
+      if (onConfirm) onConfirm();
+    };
+
+    // 取消按鈕
+    cancelBtn.onclick = function() {
+      cleanup();
+      if (onCancel) onCancel();
+    };
+
+    // 點擊背景關閉（等同取消）
+    modal.onclick = function(e) {
+      if (e.target === modal) {
+        cleanup();
+        if (onCancel) onCancel();
+      }
+    };
+  };
 
   
 

@@ -315,7 +315,8 @@
     
     this.closeReviewFilterModal();
     
-    // 重新套用篩選並開始新回合
+    // 重新打亂並套用篩選，開始新回合
+    this.shuffleArray(this.words);
     this.currentWords = this.applyAllFilters(this.words);
     this.currentIndex = 0;
     this.removedWords = [];
@@ -449,7 +450,8 @@
     this.updateDifficultyFilterButtonText();
     this.closeDifficultyFilterModal();
     
-    // 重新套用篩選
+    // 重新打亂並套用篩選
+    this.shuffleArray(this.words);
     this.currentWords = this.applyAllFilters(this.words);
     this.currentIndex = 0;
     this.removedWords = [];
