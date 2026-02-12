@@ -400,6 +400,8 @@
       
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
+    englishElement.classList.remove('word-pending-removal');
+    chineseElement.classList.remove('word-pending-removal');
     
     englishElement.style.color = '';
     chineseElement.style.color = '';
@@ -960,7 +962,6 @@
         // Escape → 關閉所有 modal
         { keyCodes: [27], codes: ['Escape'], keys: [],
           action: function() {
-            self.cancelMarkVeryFamiliar();
             self.closeSettings();
             self.closeVoiceSettings();
             self.closeExportModal();

@@ -182,8 +182,11 @@
    */
   function closeModalById(app, modalId) {
     var modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'none';
-    if (app && typeof app.resumeTimer === 'function') app.resumeTimer();
+    if (!modal) return;
+    // 只有在 modal 確實是開啟狀態（由 openModalById 設為 flex）時才關閉並恢復計時器
+    var wasOpen = modal.style.display === 'flex';
+    modal.style.display = 'none';
+    if (wasOpen && app && typeof app.resumeTimer === 'function') app.resumeTimer();
   }
 
   // 全域 FlashcardApp
