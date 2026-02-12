@@ -1,18 +1,24 @@
 <!-- script-filter.html -->
 <script>
+  /**
+   * @module script-filter
+   * @description 篩選與 SRS 模組：複習時間篩選、不熟程度篩選、要會拼篩選、
+   *   篩選指示器、編輯單字功能、間隔重複系統 (Leitner Box)、快速複習。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD)
+   * @provides FlashcardApp.prototype: getTodayDateString, markWordAsReviewed,
+   *   syncReviewDates, applyAllFilters, getFilterCutoffDate, countWordsForFilter,
+   *   openReviewFilterModal, openDifficultyFilterModal, openEditWordModal,
+   *   getBoxInterval, updateSrsData, getDueWords, startSrsReview ...
+   */
+
   // ===========================================
   // 複習時間篩選功能
   // ===========================================
 
-  // 取得今天的日期字串 YYYY-MM-DD（ES5 兼容）
+  // 取得今天的日期字串 YYYY-MM-DD（使用共用工具函式）
   FlashcardApp.prototype.getTodayDateString = function() {
-    var now = new Date();
-    var year = now.getFullYear();
-    var month = now.getMonth() + 1;
-    var day = now.getDate();
-    if (month < 10) month = '0' + month;
-    if (day < 10) day = '0' + day;
-    return year + '-' + month + '-' + day;
+    return formatDateYYYYMMDD(new Date());
   };
 
   // 標記單字為已複習（記錄到記憶體，稍後批次同步）
@@ -154,29 +160,11 @@
     var now = new Date();
     var cutoff;
     
-    switch (filterType) {
-      case '2weeks':
-        cutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-        break;
-      case '1month':
-        cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case '3months':
-        cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      case '6months':
-        cutoff = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        return '9999-12-31'; // 不篩選
-    }
+    var days = APP_CONSTANTS.FILTER_DAYS[filterType];
+    if (!days) return '9999-12-31'; // 不篩選
     
-    var year = cutoff.getFullYear();
-    var month = cutoff.getMonth() + 1;
-    var day = cutoff.getDate();
-    if (month < 10) month = '0' + month;
-    if (day < 10) day = '0' + day;
-    return year + '-' + month + '-' + day;
+    cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return formatDateYYYYMMDD(cutoff);
   };
 
   // 計算各複習時間篩選條件符合的單字數量
@@ -257,11 +245,7 @@
 
   // 關閉複習時間篩選模態框
   FlashcardApp.prototype.closeReviewFilterModal = function() {
-    var modal = document.getElementById('review-filter-modal');
-    if (modal) {
-      modal.style.display = 'none';
-    }
-    this.resumeTimer();
+    closeModalById(this, 'review-filter-modal');
   };
 
   // 設置複習篩選模態框事件監聽器
@@ -394,11 +378,7 @@
 
   // 關閉不熟程度篩選模態框
   FlashcardApp.prototype.closeDifficultyFilterModal = function() {
-    var modal = document.getElementById('difficulty-filter-modal');
-    if (modal) {
-      modal.style.display = 'none';
-    }
-    this.resumeTimer();
+    closeModalById(this, 'difficulty-filter-modal');
   };
 
   // 設置不熟程度篩選模態框事件監聽器
@@ -676,10 +656,7 @@
 
   // 關閉編輯單字模態框
   FlashcardApp.prototype.closeEditWordModal = function() {
-    var modal = document.getElementById('edit-word-modal');
-    if (modal) {
-      modal.style.display = 'none';
-    }
+    closeModalById(this, 'edit-word-modal');
     this._editingWordId = undefined;
 
     // 恢復編輯前的暫停狀態
@@ -748,7 +725,7 @@
         if (previewTimer) clearTimeout(previewTimer);
         previewTimer = setTimeout(function() {
           self.updateEditWordImagePreview(imageInput.value.trim());
-        }, 500);
+        }, APP_CONSTANTS.IMAGE_PREVIEW_DEBOUNCE_MS);
       };
       imageInput.addEventListener('input', handleImageChange);
       imageInput.addEventListener('change', handleImageChange);
@@ -897,8 +874,7 @@
 
   // Box 等級對應的複習間隔天數
   FlashcardApp.prototype.getBoxInterval = function(box) {
-    var intervals = { 1: 1, 2: 3, 3: 7, 4: 14, 5: 30, 6: 60 };
-    return intervals[box] || 1;
+    return APP_CONSTANTS.SRS_BOX_INTERVALS[box] || 1;
   };
 
   // 根據難度決定初始 Box 等級
@@ -912,7 +888,7 @@
   // 從 localStorage 載入 SRS 資料
   FlashcardApp.prototype.loadSrsData = function() {
     try {
-      var data = localStorage.getItem('flashcard-srs');
+      var data = localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.SRS);
       this.srsData = data ? JSON.parse(data) : {};
     } catch (e) {
       this.srsData = {};
@@ -922,7 +898,7 @@
   // 將 SRS 資料儲存到 localStorage
   FlashcardApp.prototype.saveSrsData = function() {
     try {
-      localStorage.setItem('flashcard-srs', JSON.stringify(this.srsData));
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SRS, JSON.stringify(this.srsData));
     } catch (e) {
       console.error('SRS 資料儲存失敗:', e);
     }
@@ -949,8 +925,8 @@
     } else {
       // 根據難度調整 Box
       if (difficulty === -1 || difficulty <= 2) {
-        // 熟悉：Box 上升（最高 6）
-        entry.box = Math.min(6, (entry.box || 1) + 1);
+        // 熟悉：Box 上升（最高 SRS_MAX_BOX）
+        entry.box = Math.min(APP_CONSTANTS.SRS_MAX_BOX, (entry.box || 1) + 1);
       } else if (difficulty >= 6) {
         // 很不熟：回到 Box 1
         entry.box = 1;
@@ -962,12 +938,7 @@
     var today = new Date();
     var interval = this.getBoxInterval(entry.box);
     var nextDate = new Date(today.getTime() + interval * 24 * 60 * 60 * 1000);
-    var year = nextDate.getFullYear();
-    var month = nextDate.getMonth() + 1;
-    var day = nextDate.getDate();
-    if (month < 10) month = '0' + month;
-    if (day < 10) day = '0' + day;
-    entry.nextReview = year + '-' + month + '-' + day;
+    entry.nextReview = formatDateYYYYMMDD(nextDate);
 
     this.srsData[key] = entry;
     this.saveSrsData();
@@ -1135,7 +1106,7 @@
     if (!container) return;
 
     container.innerHTML = '';
-    var counts = [10, 20, 30, 50, 100];
+    var counts = APP_CONSTANTS.SRS_COUNT_OPTIONS;
     var self = this;
     var selectedCount = null;
 
@@ -1186,8 +1157,7 @@
 
   // 關閉 SRS 複習模態框
   FlashcardApp.prototype.closeSrsReviewModal = function() {
-    var modal = document.getElementById('srs-review-modal');
-    if (modal) modal.style.display = 'none';
+    closeModalById(this, 'srs-review-modal');
   };
 
   // 更新 SRS 徽章（顯示待複習數量）

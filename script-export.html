@@ -1,19 +1,26 @@
 <!-- script-export.html -->
 <script>
-  
+  /**
+   * @module script-export
+   * @description 匯出模組：開啟/關閉匯出模態框、分批匯出單字到 Google Sheet、
+   *   進度條更新、工作表已存在處理（覆寫/改名）、替代名稱生成。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: openExportModal, closeExportModal,
+   *   startBatchExport, processBatch, confirmExport, performExport,
+   *   handleSheetExistsError, showOverwriteConfirmModal ...
+   */
+
   // 匯出功能相關（完整版本）
   FlashcardApp.prototype.openExportModal = function() {
       // 預設名稱：目前工作表名稱_yyyyMMdd
     var defaultName = this.getDefaultExportSheetName();
     var exportSheetNameInput = document.getElementById('export-sheet-name');
     var exportTypeRemainingRadio = document.getElementById('export-type-remaining');
-    var exportModal = document.getElementById('export-modal');
     
     if (exportSheetNameInput) exportSheetNameInput.value = defaultName;
     if (exportTypeRemainingRadio) exportTypeRemainingRadio.checked = true;
-    if (exportModal) exportModal.style.display = 'flex';
-    
-      this.pauseTimer();
+    openModalById(this, 'export-modal');
     
     // 重置匯出按鈕狀態和進度顯示
     var confirmBtn = document.getElementById('confirm-export');
@@ -27,10 +34,7 @@
   };
   
   FlashcardApp.prototype.closeExportModal = function() {
-    var exportModal = document.getElementById('export-modal');
-    if (exportModal) exportModal.style.display = 'none';
-    
-      this.resumeTimer();
+    closeModalById(this, 'export-modal');
     
     // 確保「已暫停」消失
     var pausedIndicator = document.getElementById('paused-indicator');
@@ -123,7 +127,7 @@ FlashcardApp.prototype.getDefaultExportSheetName = function() {
   // 開始分批匯出
   FlashcardApp.prototype.startBatchExport = function(exportData, sheetName, targetSheetId, overwrite) {
     var self = this;
-    var batchSize = 15; // 每批處理15個單字
+    var batchSize = APP_CONSTANTS.EXPORT_BATCH_SIZE;
     var batches = [];
     
     // 將資料分成批次
@@ -209,7 +213,7 @@ FlashcardApp.prototype.processBatch = function() {
       // 處理下一批（延遲一點讓使用者看到進度更新）
       setTimeout(function() {
         self.processBatch();
-      }, 300);
+      }, APP_CONSTANTS.EXPORT_BATCH_DELAY_MS);
     })
     .withFailureHandler(function(error) {
       console.error('批次匯出失敗:', error);

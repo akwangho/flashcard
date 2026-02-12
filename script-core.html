@@ -1,68 +1,232 @@
 <!-- script-core.html -->
 <script>
-  
+  /**
+   * @module script-core
+   * @description 核心模組：FlashcardApp 建構函式、初始化流程、設定載入/儲存、
+   *   Sheet 歷史記錄管理、逐表載入單字（含進度條）、客戶端重複偵測。
+   *   同時定義全域常數 APP_CONSTANTS 和共用工具函式。
+   *
+   * @dependencies 無外部相依（此檔案最先載入）
+   * @provides FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD,
+   *   isModalBackgroundClick, selectVoiceByURIOrLang, applyDifficultyClass,
+   *   openModalById, closeModalById
+   */
+
+  // =====================================================================
+  // 全域常數定義（集中管理所有 magic numbers，方便維護）
+  // =====================================================================
+  var APP_CONSTANTS = {
+    // === 超時設定（毫秒） ===
+    LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
+    PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
+    PHASE2_TIMEOUT_MS: 30000,        // Sheet 資訊載入超時（Phase 2）
+    SPEECH_WAIT_TIMEOUT_MS: 60000,   // 語音等待最長時間
+    VERY_FAMILIAR_TIMEOUT_MS: 3000,  // D 鍵雙按確認等待時間
+    DUPLICATE_TIMEOUT_MS: 30000,     // 重複處理超時
+    SPEECH_DELAY_MS: 500,            // 語音播放延遲
+    TRANSITION_DELAY_MS: 300,        // 轉場動畫延遲
+    IMAGE_PREVIEW_DEBOUNCE_MS: 500,  // 圖片預覽防抖
+    NOTIFICATION_DURATION_MS: 5000,  // 通知自動消失時間
+    NOTIFICATION_FADE_MS: 300,       // 通知淡出動畫時間
+    CHINESE_SPEECH_POLL_MS: 100,     // 中文語音輪詢間隔
+    SPEECH_WAIT_POLL_MS: 100,        // 語音等待輪詢間隔
+    AUDIO_WATCHDOG_INTERVAL_MS: 10000, // 音頻監控間隔
+    KEEP_ALIVE_INTERVAL_MS: 30000,   // Keep-alive 間隔
+
+    // === 篩選天數 ===
+    FILTER_DAYS: {
+      '2weeks': 14,
+      '1month': 30,
+      '3months': 90,
+      '6months': 180
+    },
+
+    // === SRS 間隔重複系統 ===
+    SRS_COUNT_OPTIONS: [10, 20, 30, 50, 100],
+    SRS_BOX_INTERVALS: { 1: 1, 2: 3, 3: 7, 4: 14, 5: 30, 6: 60 },
+    SRS_MAX_BOX: 6,
+
+    // === 測驗 ===
+    QUIZ_MIN_WORDS: 3,
+    QUIZ_QUICK_COUNT: 10,
+    QUIZ_POINTS_PER_QUESTION: 10,
+    QUIZ_MAX_WRONG_OPTION_ATTEMPTS: 100,
+    QUIZ_WRONG_OPTIONS_COUNT: 3,
+    QUIZ_GENERIC_OPTIONS_ZH: ['桌子', '電腦', '書本', '水果', '動物', '顏色', '天氣', '時間'],
+    QUIZ_GENERIC_OPTIONS_EN: ['table', 'computer', 'book', 'fruit', 'animal', 'color', 'weather', 'time'],
+
+    // === 匯出 ===
+    EXPORT_BATCH_SIZE: 15,
+    EXPORT_BATCH_DELAY_MS: 300,
+
+    // === 預設 Sheet ===
+    DEFAULT_SHEETS: [
+      { id: '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM', name: 'WordGo Data Sheet' },
+      { id: '1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg', name: '小學生教育部規定1200單字' }
+    ],
+
+    // === 歷史記錄 ===
+    HISTORY_MAX_ITEMS: 10,
+    NAV_HISTORY_MAX: 20,
+
+    // === 排除的工作表 ===
+    EXCLUDED_SHEETS: ['記事'],
+
+    // === 複習同步 ===
+    REVIEW_SYNC_THRESHOLD: 20,
+
+    // === localStorage 鍵名 ===
+    STORAGE_KEYS: {
+      SETTINGS: 'flashcard-settings',
+      VOICE_SETTINGS: 'flashcard-voice-settings',
+      SHEET_SETTINGS: 'flashcard-sheet-settings',
+      SHEET_HISTORY: 'flashcard-sheet-history',
+      LAST_WORD: 'flashcard-last-word',
+      SRS: 'flashcard-srs'
+    }
+  };
+
+  // =====================================================================
+  // 共用工具函式（消除跨檔案重複程式碼）
+  // =====================================================================
+
+  /**
+   * 格式化日期為 YYYY-MM-DD 字串（ES5 兼容）
+   * @param {Date} [date] - 要格式化的日期，預設為今天
+   * @returns {string} 格式化後的日期字串
+   */
+  function formatDateYYYYMMDD(date) {
+    var d = date || new Date();
+    var year = d.getFullYear();
+    var month = d.getMonth() + 1;
+    var day = d.getDate();
+    if (month < 10) month = '0' + month;
+    if (day < 10) day = '0' + day;
+    return year + '-' + month + '-' + day;
+  }
+
+  /**
+   * 判斷 modal 背景點擊是否應關閉 modal（排除 SELECT 等表單元素）
+   * @param {Event} e - 點擊事件
+   * @param {HTMLElement} modal - modal 元素
+   * @returns {boolean} 是否應該關閉 modal
+   */
+  function isModalBackgroundClick(e, modal) {
+    if (e.target !== modal) return false;
+    var checkEl = e.target;
+    while (checkEl && checkEl !== modal) {
+      var tag = checkEl.tagName;
+      if (tag === 'SELECT' || tag === 'OPTION' ||
+          (checkEl.classList && (
+            checkEl.classList.contains('setting-control') ||
+            checkEl.classList.contains('font-preview')))) {
+        return false;
+      }
+      checkEl = checkEl.parentElement;
+    }
+    return true;
+  }
+
+  /**
+   * 從語音列表中選擇語音（依 voiceURI 或語系前綴）
+   * @param {Array} voices - 可用語音列表
+   * @param {string} voiceURI - 偏好的語音 URI
+   * @param {string} langPrefix - 語系前綴（如 'en-', 'ja-', 'zh-'）
+   * @returns {Object|null} 找到的語音物件
+   */
+  function selectVoiceByURIOrLang(voices, voiceURI, langPrefix) {
+    var found = null;
+    for (var i = 0; i < voices.length; i++) {
+      if (voices[i].voiceURI === voiceURI) return voices[i];
+      if (!found && voices[i].lang.indexOf(langPrefix) === 0) found = voices[i];
+    }
+    return found;
+  }
+
+  /**
+   * 套用不熟程度 CSS class 到元素（清除舊 class 後加入新 class）
+   * @param {HTMLElement} element - 目標元素
+   * @param {number} level - 不熟程度等級 (-1 到 10)
+   */
+  function applyDifficultyClass(element, level) {
+    if (!element) return;
+    for (var i = -1; i <= 10; i++) {
+      var cls = 'difficulty-level-' + (i === -1 ? 'n1' : i);
+      element.className = element.className.replace(new RegExp('\\b' + cls + '\\b', 'g'), '');
+    }
+    var newCls = 'difficulty-level-' + (level === -1 ? 'n1' : level);
+    element.className = (element.className + ' ' + newCls).replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * 通用 Modal 開啟（暫停計時器 + 顯示）
+   * @param {string} modalId - modal 元素的 ID
+   * @returns {HTMLElement|null} modal 元素
+   */
+  function openModalById(app, modalId) {
+    var modal = document.getElementById(modalId);
+    if (!modal) return null;
+    modal.style.display = 'flex';
+    if (app && typeof app.pauseTimer === 'function') app.pauseTimer();
+    return modal;
+  }
+
+  /**
+   * 通用 Modal 關閉（隱藏 + 恢復計時器）
+   * @param {string} modalId - modal 元素的 ID
+   */
+  function closeModalById(app, modalId) {
+    var modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'none';
+    if (app && typeof app.resumeTimer === 'function') app.resumeTimer();
+  }
+
   // 全域 FlashcardApp
   function FlashcardApp() {
-    // 初始化屬性
+    this._initCoreState();
+    this._initVoiceState();
+    this._initSettingsState();
+    this._initFilterState();
+    this._initScreenAwakeState();
+    this._initQuizState();
+    
+    // 啟動初始化
+    this.init();
+  }
+
+  // --- 建構函式分組初始化 ---
+
+  /** 核心狀態：單字、索引、計時器、導航 */
+  FlashcardApp.prototype._initCoreState = function() {
     this.words = [];
     this.currentWords = [];
     this.currentIndex = 0;
-      this.showingChinese = false;
-      this.isTransitioning = false;
-      this.isProcessingClick = false;
+    this.showingChinese = false;
+    this.isTransitioning = false;
+    this.isProcessingClick = false;
     this.displayTimer = null;
-    this.speechSynthesis = window.speechSynthesis;
     this.removedWords = [];
     this.navigationHistory = [];
-      this.pendingRemoval = null;
+    this.pendingRemoval = null;
     this.isPaused = false;
     this.userPaused = false;
     this.pausedTimestamp = null;
     this.remainingTime = 0;
-    
-    // 語音啟用狀態（適用於舊版瀏覽器）
+    this._progressPhase = null;
+    this.progressTimer = null;
+    this.currentWordReversed = false;
+    this.listenersSetup = false;
+  };
+
+  /** 語音相關狀態 */
+  FlashcardApp.prototype._initVoiceState = function() {
+    this.speechSynthesis = window.speechSynthesis;
     this.speechActivated = false;
     this.isLegacyBrowser = false;
-    
-    // 中文語音等待定時器
     this.chineseWaitInterval = null;
-    
-    // 語音播放完成等待計時器（確保語音完整播放後才切換）
     this._speechWaitInterval = null;
     this._speechWaitTimeout = null;
-    
-    // 語音序列進行中標記（字母拼讀 → 單字發音 的整個序列）
     this._speechSequenceActive = false;
-    
-    // 計時器進度條狀態（1=第一階段 0→50%, 2=第二階段 50→100%）
-    this._progressPhase = null;
-    
-    // 設定
-    this.settings = {
-      delayTime: 4.5,
-      fontSize: 96,
-      displayMode: 'english-first',
-      fontFamily: 'system-default',
-      delaySpeechInNormalMode: false,
-      mustSpellChineseFirst: true
-    };
-    
-    // 混合模式：當前單字是否反向顯示（每張卡片隨機決定）
-    this.currentWordReversed = false;
-    
-    // 字型映射表（iPad 4 兼容）
-    this.fontFamilyMap = {
-      'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
-      'microsoft-yahei': "'Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS', Arial, sans-serif",
-      'songti': "'STSong', 'SimSun', 'Times New Roman', serif",
-      'kaiti': "'STKaiti', 'KaiTi', 'BiauKai', 'Times New Roman', serif",
-      'arial': "Arial, 'Helvetica Neue', Helvetica, sans-serif",
-      'helvetica': "'Helvetica Neue', Helvetica, Arial, sans-serif",
-      'times': "'Times New Roman', Times, serif",
-      'courier': "'Courier New', Courier, monospace",
-      'verdana': "Verdana, Geneva, sans-serif"
-    };
-    
     this.voiceSettings = {
       enabled: true,
       rate: 0.8,
@@ -77,36 +241,58 @@
       chineseLang: 'zh-TW',
       chineseVoiceURI: ''
     };
-    
+  };
+
+  /** 設定、字型映射、Sheet 設定 */
+  FlashcardApp.prototype._initSettingsState = function() {
+    this.settings = {
+      delayTime: 4.5,
+      fontSize: 96,
+      displayMode: 'english-first',
+      fontFamily: 'system-default',
+      delaySpeechInNormalMode: false,
+      mustSpellChineseFirst: true
+    };
+    this.fontFamilyMap = {
+      'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
+      'microsoft-yahei': "'Microsoft JhengHei', 'Microsoft YaHei', 'SimHei', 'Arial Unicode MS', Arial, sans-serif",
+      'songti': "'STSong', 'SimSun', 'Times New Roman', serif",
+      'kaiti': "'STKaiti', 'KaiTi', 'BiauKai', 'Times New Roman', serif",
+      'arial': "Arial, 'Helvetica Neue', Helvetica, sans-serif",
+      'helvetica': "'Helvetica Neue', Helvetica, Arial, sans-serif",
+      'times': "'Times New Roman', Times, serif",
+      'courier': "'Courier New', Courier, monospace",
+      'verdana': "Verdana, Geneva, sans-serif"
+    };
     this.sheetSettings = {
       sheetId: '',
       selectedSheets: []
     };
-    
-    // 功能狀態
-    this.difficultyFilter = 0; // 0=不篩選, 1-10=最低不熟程度
     this.availableSheets = [];
     this.isLoadingWordCounts = false;
-    this.listenersSetup = false;
     this.currentSpreadsheetName = null;
     this.duplicateWords = [];
     this.currentDuplicateIndex = 0;
     this.duplicateProcessingResults = [];
-    this.progressTimer = null;
-    
-    this.mustSpellFilter = false; // false=不篩選, true=只顯示要會拼
-    
-    // 複習時間篩選相關
-    this.reviewFilter = 'all'; // 'all', 'never', '2weeks', '1month', '3months', '6months'
-    this.reviewedInSession = {}; // key: "sheetName:rowIndex", value: "YYYY-MM-DD"
-    this.reviewSyncPending = false;
-    this.reviewSyncThreshold = 20; // 每累積 20 個就同步一次
-    
-    // 圖片預加載管理
     this.preloadedImages = {};
     this.currentPreloadingImage = null;
+  };
 
-    // 防止螢幕關閉相關
+  /** 篩選相關狀態（難度、複習時間、SRS、要會拼） */
+  FlashcardApp.prototype._initFilterState = function() {
+    this.difficultyFilter = 0;
+    this.mustSpellFilter = false;
+    this.reviewFilter = 'all';
+    this.reviewedInSession = {};
+    this.reviewSyncPending = false;
+    this.reviewSyncThreshold = APP_CONSTANTS.REVIEW_SYNC_THRESHOLD;
+    this.srsData = {};
+    this.srsReviewActive = false;
+    this._srsSelectedCount = 10;
+  };
+
+  /** 防止螢幕關閉相關 */
+  FlashcardApp.prototype._initScreenAwakeState = function() {
     this.wakeLock = null;
     this.noSleepVideo = null;
     this.keepScreenAwake = false;
@@ -117,16 +303,13 @@
     this._persistentAudioElement = null;
     this._persistentAudioSource = null;
     this._persistentOscillator = null;
-    
-    // SRS 間隔重複系統
-    this.srsData = {};
-    this.srsReviewActive = false;
-    this._srsSelectedCount = 10;
-    
-    // 測驗相關屬性
+  };
+
+  /** 測驗相關屬性 */
+  FlashcardApp.prototype._initQuizState = function() {
     this.quizState = {
       isActive: false,
-      type: 'quick', // 'quick' or 'full'
+      type: 'quick',
       questions: [],
       currentQuestionIndex: 0,
       selectedAnswer: null,
@@ -135,10 +318,7 @@
       startTime: null,
       endTime: null
     };
-    
-    // 啟動初始化
-    this.init();
-  }
+  };
   
   // 初始化方法
   FlashcardApp.prototype.init = function() {
@@ -253,7 +433,7 @@
   // 載入設定
   FlashcardApp.prototype.loadSettings = function() {
     try {
-      var savedSettings = JSON.parse(localStorage.getItem('flashcard-settings') || '{}');
+      var savedSettings = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS) || '{}');
       
       // 向後相容：將舊版 reverseMode (boolean) 遷移至新版 displayMode (string)
       if (savedSettings.hasOwnProperty('reverseMode') && !savedSettings.hasOwnProperty('displayMode')) {
@@ -267,7 +447,7 @@
         }
       }
       
-      var savedVoiceSettings = JSON.parse(localStorage.getItem('flashcard-voice-settings') || '{}');
+      var savedVoiceSettings = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.VOICE_SETTINGS) || '{}');
       for (var key in savedVoiceSettings) {
         if (savedVoiceSettings.hasOwnProperty(key) && this.voiceSettings.hasOwnProperty(key)) {
           this.voiceSettings[key] = savedVoiceSettings[key];
@@ -281,7 +461,7 @@
   // 載入Sheet設定
   FlashcardApp.prototype.loadSheetSettings = function() {
     try {
-      var savedSheetSettings = JSON.parse(localStorage.getItem('flashcard-sheet-settings') || '{}');
+      var savedSheetSettings = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.SHEET_SETTINGS) || '{}');
       for (var key in savedSheetSettings) {
         if (savedSheetSettings.hasOwnProperty(key) && this.sheetSettings.hasOwnProperty(key)) {
           this.sheetSettings[key] = savedSheetSettings[key];
@@ -294,29 +474,23 @@
   
   // 儲存設定
   FlashcardApp.prototype.saveSettings = function() {
-    localStorage.setItem('flashcard-settings', JSON.stringify(this.settings));
-    localStorage.setItem('flashcard-voice-settings', JSON.stringify(this.voiceSettings));
+    localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
+    localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.VOICE_SETTINGS, JSON.stringify(this.voiceSettings));
   };
   
   // 儲存Sheet設定
   FlashcardApp.prototype.saveSheetSettings = function() {
-    localStorage.setItem('flashcard-sheet-settings', JSON.stringify(this.sheetSettings));
+    localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SHEET_SETTINGS, JSON.stringify(this.sheetSettings));
   };
   
   // 獲取預設Sheet列表
   FlashcardApp.prototype.getDefaultSheets = function() {
-    return [
-      {
-        id: '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM',
-        name: 'WordGo Data Sheet',
-        isDefault: true
-      },
-      {
-        id: '1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg',
-        name: '小學生教育部規定1200單字',
-        isDefault: true
-      }
-    ];
+    var result = [];
+    for (var i = 0; i < APP_CONSTANTS.DEFAULT_SHEETS.length; i++) {
+      var s = APP_CONSTANTS.DEFAULT_SHEETS[i];
+      result.push({ id: s.id, name: s.name, isDefault: true });
+    }
+    return result;
   };
   
   // 檢查是否為預設Sheet
@@ -333,7 +507,7 @@
   // 載入Sheet歷史記錄（不包含預設檔案）
   FlashcardApp.prototype.loadSheetHistory = function() {
     try {
-      var history = JSON.parse(localStorage.getItem('flashcard-sheet-history') || '[]');
+      var history = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.SHEET_HISTORY) || '[]');
       
       // 過濾掉任何可能混入的預設檔案
       var filteredHistory = [];
@@ -353,7 +527,7 @@
   // 儲存Sheet歷史記錄
   FlashcardApp.prototype.saveSheetHistory = function(history) {
     try {
-      localStorage.setItem('flashcard-sheet-history', JSON.stringify(history));
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SHEET_HISTORY, JSON.stringify(history));
     } catch (e) {
       console.error('儲存Sheet歷史記錄失敗:', e);
     }
@@ -397,9 +571,9 @@
         });
       }
       
-      // 限制歷史記錄數量為10個
-      if (history.length > 10) {
-        history = history.slice(0, 10);
+      // 限制歷史記錄數量
+      if (history.length > APP_CONSTANTS.HISTORY_MAX_ITEMS) {
+        history = history.slice(0, APP_CONSTANTS.HISTORY_MAX_ITEMS);
       }
       
       this.saveSheetHistory(history);
@@ -848,15 +1022,15 @@
     // 顯示初始進度
     this.updateLoadingProgress(0, total, '正在連接 Google Sheet...');
     
-    // 整體超時：30 秒
+    // 整體超時
     var loadTimeout = setTimeout(function() {
-      console.error('載入單字超時 (30秒)');
+      console.error('載入單字超時 (' + APP_CONSTANTS.LOAD_TIMEOUT_MS + 'ms)');
       if (allWords.length > 0) {
         self.finishProgressiveLoading(allWords, callback);
       } else {
         self.handleLoadingComplete(false, true);
       }
-    }, 30000);
+    }, APP_CONSTANTS.LOAD_TIMEOUT_MS);
     
     // 並行載入各工作表
     for (var i = 0; i < selectedSheets.length; i++) {

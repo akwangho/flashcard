@@ -164,3 +164,107 @@ describe('renderDifficultyLevelPreview', function() {
     expect(display.classList.contains('difficulty-level-3')).toBe(true);
   });
 });
+
+// ============================================================
+// onWordClick
+// ============================================================
+describe('onWordClick', function() {
+  var sampleWords;
+
+  beforeEach(function() {
+    sampleWords = [
+      { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 0 },
+      { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 1 },
+      { id: 2, english: 'cat', chinese: '貓', difficultyLevel: 2 }
+    ];
+    app.words = sampleWords.slice();
+    app.currentWords = sampleWords.slice();
+    app.currentIndex = 0;
+    app.showingChinese = false;
+    app.isTransitioning = false;
+    app.isPaused = false;
+    app.isProcessingClick = false;
+    app.pendingRemoval = null;
+    app.settings.displayMode = 'english-first';
+
+    // Mock dependent methods
+    app.speakWord = jest.fn();
+    app.speakChineseWord = jest.fn();
+    app.markWordAsReviewed = jest.fn();
+    app.preloadNextImage = jest.fn();
+    app.renderDifficultyLevelPreview = jest.fn();
+  });
+
+  test('does nothing when paused', function() {
+    app.isPaused = true;
+    app.onWordClick();
+    expect(app.isProcessingClick).toBe(false);
+  });
+
+  test('does nothing when transitioning', function() {
+    app.isTransitioning = true;
+    app.onWordClick();
+    expect(app.isProcessingClick).toBe(false);
+  });
+
+  test('flashes red when only 1 word left', function() {
+    app.currentWords = [sampleWords[0]];
+    app.onWordClick();
+    expect(app.pendingRemoval).toBeNull();
+  });
+
+  test('marks word as pending removal', function() {
+    app.onWordClick();
+    expect(app.pendingRemoval).not.toBeNull();
+    expect(app.pendingRemoval.word.english).toBe('apple');
+  });
+
+  test('shows Chinese text when not showing yet', function() {
+    app.showingChinese = false;
+    app.onWordClick();
+    var chineseEl = document.getElementById('chinese-word');
+    expect(chineseEl.textContent).toBe('蘋果');
+    expect(app.showingChinese).toBe(true);
+  });
+
+  test('adds word-pending-removal class to elements', function() {
+    app.onWordClick();
+    var englishEl = document.getElementById('english-word');
+    expect(englishEl.classList.contains('word-pending-removal')).toBe(true);
+  });
+
+  test('calls nextWord when word already marked', function() {
+    var englishEl = document.getElementById('english-word');
+    englishEl.classList.add('word-pending-removal');
+    var spy = jest.spyOn(app, 'nextWord');
+    app.onWordClick();
+    expect(spy).toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// openSettings / closeSettings
+// ============================================================
+describe('openSettings / closeSettings', function() {
+
+  test('opens settings modal', function() {
+    app.applySettings = jest.fn();
+    app.openSettings();
+    var modal = document.getElementById('settings-modal');
+    expect(modal.style.display).toBe('flex');
+  });
+
+  test('closes settings modal', function() {
+    app.redisplayCurrentWord = jest.fn();
+    var modal = document.getElementById('settings-modal');
+    modal.style.display = 'flex';
+    app.closeSettings(false);
+    expect(modal.style.display).toBe('none');
+  });
+
+  test('redisplays current word when requested on close', function() {
+    app.redisplayCurrentWord = jest.fn();
+    app.closeSettings(true);
+    expect(app.redisplayCurrentWord).toHaveBeenCalled();
+  });
+});

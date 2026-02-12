@@ -86,11 +86,12 @@ describe('nextWord', function() {
     expect(app.currentIndex).toBe(0);
   });
 
-  test('does nothing when paused', function() {
+  test('does nothing when paused and verifies index unchanged', function() {
     app.isPaused = true;
     app.currentIndex = 0;
+    var originalIndex = app.currentIndex;
     app.nextWord();
-    expect(app.currentIndex).toBe(0);
+    expect(app.currentIndex).toBe(originalIndex);
   });
 
   test('shows second part if chinese not showing yet', function() {
@@ -152,10 +153,11 @@ describe('previousWord', function() {
     expect(app.currentIndex).toBe(1);
   });
 
-  test('does nothing when paused', function() {
+  test('does nothing when paused and verifies index unchanged', function() {
     app.isPaused = true;
+    app.currentIndex = 2;
     app.previousWord();
-    // Should not throw or change state
+    expect(app.currentIndex).toBe(2);
   });
 
   test('does nothing when no history', function() {
@@ -205,5 +207,78 @@ describe('updateProgress', function() {
     app.updateProgress();
     var text = document.getElementById('progress-text').textContent;
     expect(text).toBe('1/4');
+  });
+});
+
+// ============================================================
+// nextWord advancing when showingChinese=true (uses setTimeout)
+// ============================================================
+describe('nextWord advances index when showing Chinese', function() {
+
+  beforeEach(function() {
+    jest.useFakeTimers();
+  });
+
+  afterEach(function() {
+    jest.useRealTimers();
+  });
+
+  test('increments currentIndex after transition delay', function() {
+    app.currentIndex = 0;
+    app.showingChinese = true;
+    app.nextWord();
+    jest.advanceTimersByTime(500);
+    expect(app.currentIndex).toBe(1);
+  });
+
+  test('wraps around to 0 at end of list', function() {
+    app.currentIndex = sampleWords.length - 1;
+    app.showingChinese = true;
+    app.nextWord();
+    jest.advanceTimersByTime(500);
+    expect(app.currentIndex).toBe(0);
+  });
+
+  test('saves navigation state before advancing', function() {
+    app.currentIndex = 1;
+    app.showingChinese = true;
+    var spy = jest.spyOn(app, 'saveNavigationState');
+    app.nextWord();
+    expect(spy).toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// previousWord restores history state (uses setTimeout)
+// ============================================================
+describe('previousWord restores history', function() {
+
+  beforeEach(function() {
+    jest.useFakeTimers();
+  });
+
+  afterEach(function() {
+    jest.useRealTimers();
+  });
+
+  test('restores previous index from history after transition delay', function() {
+    app.currentIndex = 2;
+    app.navigationHistory = [{
+      currentIndex: 1,
+      wordSequence: sampleWords.slice()
+    }];
+    app.previousWord();
+    jest.advanceTimersByTime(500);
+    expect(app.currentIndex).toBe(1);
+  });
+
+  test('pops the history entry after restoring', function() {
+    app.navigationHistory = [
+      { currentIndex: 0, wordSequence: sampleWords.slice() },
+      { currentIndex: 1, wordSequence: sampleWords.slice() }
+    ];
+    app.previousWord();
+    jest.advanceTimersByTime(500);
+    expect(app.navigationHistory.length).toBe(1);
   });
 });

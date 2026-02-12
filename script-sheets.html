@@ -1,5 +1,17 @@
 <!-- script-sheets.html -->
 <script>
+  /**
+   * @module script-sheets
+   * @description Google Sheet 設定模組：載入工作表清單（兩階段：名稱→單字數）、
+   *   Sheet ID 提取與驗證、工作表選擇 UI（含 Shift 多選）、全選/清除、
+   *   儲存設定並重新載入單字。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: loadSheetsList, extractSheetId,
+   *   renderSheetsList, toggleSheetSelection, toggleSelectAll,
+   *   saveSheetSettingsAndClose ...
+   */
+
     // Sheet設定相關（完整實現）
   FlashcardApp.prototype.loadSheetsList = function() {
     // 檢查是否需要使用預設表單（使用自訂對話框，避免離開全螢幕）
@@ -13,7 +25,7 @@
         cancelText: '取消'
       }, function() {
         // 用戶選擇使用預設表單
-        var defaultSheetId = '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
+        var defaultSheetId = APP_CONSTANTS.DEFAULT_SHEETS[0].id;
         sheetIdInput.value = defaultSheetId;
         console.log('用戶選擇使用預設表單，已填入預設ID:', defaultSheetId);
         // 繼續執行載入流程
@@ -171,12 +183,12 @@
 
     var self = this;
     
-    // Phase 1 超時：15 秒
+    // Phase 1 超時
     var phase1Timeout = setTimeout(function() {
-      console.error('連接 Google Sheet 超時 (15秒)');
+      console.error('連接 Google Sheet 超時 (' + APP_CONSTANTS.PHASE1_TIMEOUT_MS + 'ms)');
       elements.sheetsList.innerHTML = '<div class="error-text">連接超時，請檢查網路連接或重試</div>';
       self.updateSheetLoadingUI(elements, false);
-    }, 15000);
+    }, APP_CONSTANTS.PHASE1_TIMEOUT_MS);
     
     // Phase 1: 取得工作表名稱（快速）
     google.script.run
@@ -198,8 +210,8 @@
     var spreadsheetName = result.spreadsheetName;
     var sheetNames = result.sheetNames;
     
-    // 過濾掉非單字工作表（例如「記事」）
-    var excludedSheets = ['記事'];
+    // 過濾掉非單字工作表
+    var excludedSheets = APP_CONSTANTS.EXCLUDED_SHEETS;
     var filteredNames = [];
     for (var i = 0; i < sheetNames.length; i++) {
       var shouldExclude = false;
@@ -255,12 +267,12 @@
     var self = this;
     var completed = 0;
     
-    // Phase 2 超時：30 秒
+    // Phase 2 超時
     var phase2Timeout = setTimeout(function() {
-      console.error('載入工作表資訊超時 (30秒)');
+      console.error('載入工作表資訊超時 (' + APP_CONSTANTS.PHASE2_TIMEOUT_MS + 'ms)');
       self.isLoadingWordCounts = false;
       self.updateSheetLoadingUI(elements, false);
-    }, 30000);
+    }, APP_CONSTANTS.PHASE2_TIMEOUT_MS);
     
     for (var i = 0; i < sheetNames.length; i++) {
       (function(name, index) {
@@ -341,10 +353,10 @@
   FlashcardApp.prototype.setupSheetRequestTimeout = function(elements) {
     var self = this;
     return setTimeout(function() {
-      console.error('載入工作表清單超時 (15秒)');
+      console.error('載入工作表清單超時 (' + APP_CONSTANTS.PHASE1_TIMEOUT_MS + 'ms)');
       elements.sheetsList.innerHTML = '<div class="error-text">載入超時，請檢查網路連接或重試</div>';
       self.updateSheetLoadingUI(elements, false);
-    }, 15000);
+    }, APP_CONSTANTS.PHASE1_TIMEOUT_MS);
   };
   
   FlashcardApp.prototype.handleSheetListFailure = function(error, elements, timeout) {

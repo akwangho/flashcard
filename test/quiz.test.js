@@ -187,3 +187,102 @@ describe('getResultMessage', function() {
     expect(msg).toContain('不錯');
   });
 });
+
+// ============================================================
+// createQuestion with insufficient allWords (uses generic options)
+// ============================================================
+describe('createQuestion with few words', function() {
+
+  test('fills with generic options when allWords has fewer than 4', function() {
+    var fewWords = [
+      { id: 1, english: 'apple', chinese: '蘋果' },
+      { id: 2, english: 'banana', chinese: '香蕉' }
+    ];
+    var question = app.createQuestion(fewWords[0], fewWords);
+    expect(question.options.length).toBe(4);
+    expect(question.options).toContain(question.correctAnswer);
+  });
+
+  test('uses generic options when only 1 word available', function() {
+    var oneWord = [{ id: 1, english: 'apple', chinese: '蘋果' }];
+    var question = app.createQuestion(oneWord[0], oneWord);
+    expect(question.options.length).toBe(4);
+    expect(question.options).toContain(question.correctAnswer);
+    // Should have some generic options mixed in
+    var wrongOpts = question.options.filter(function(o) {
+      return o !== question.correctAnswer;
+    });
+    expect(wrongOpts.length).toBe(3);
+  });
+});
+
+// ============================================================
+// selectAnswer
+// ============================================================
+describe('selectAnswer', function() {
+
+  var sampleWords;
+
+  beforeEach(function() {
+    sampleWords = [
+      { id: 1, english: 'apple', chinese: '蘋果' },
+      { id: 2, english: 'banana', chinese: '香蕉' },
+      { id: 3, english: 'cat', chinese: '貓' },
+      { id: 4, english: 'dog', chinese: '狗' }
+    ];
+    app.quizState.isActive = true;
+    app.quizState.currentQuestionIndex = 0;
+    app.quizState.selectedAnswer = null;
+    app.quizState.answers = [];
+    app.quizState.score = 0;
+    app.quizState.questions = [{
+      word: sampleWords[0],
+      type: 'en-zh',
+      question: 'apple',
+      correctAnswer: '蘋果',
+      options: ['蘋果', '香蕉', '貓', '狗']
+    }];
+
+    // Mock dependent methods
+    app.updateOptionStyles = jest.fn();
+    app.showAnswerFeedback = jest.fn();
+    app.markWordAsDifficult = jest.fn();
+    app.showNextButton = jest.fn();
+  });
+
+  test('records correct answer and adds score', function() {
+    app.selectAnswer('蘋果');
+    expect(app.quizState.answers.length).toBe(1);
+    expect(app.quizState.answers[0].isCorrect).toBe(true);
+    expect(app.quizState.score).toBe(10); // QUIZ_POINTS_PER_QUESTION
+  });
+
+  test('records wrong answer without adding score', function() {
+    app.selectAnswer('香蕉');
+    expect(app.quizState.answers.length).toBe(1);
+    expect(app.quizState.answers[0].isCorrect).toBe(false);
+    expect(app.quizState.score).toBe(0);
+  });
+
+  test('marks word as difficult on wrong answer', function() {
+    app.selectAnswer('香蕉');
+    expect(app.markWordAsDifficult).toHaveBeenCalledWith(sampleWords[0]);
+  });
+
+  test('does not mark word as difficult on correct answer', function() {
+    app.selectAnswer('蘋果');
+    expect(app.markWordAsDifficult).not.toHaveBeenCalled();
+  });
+
+  test('ignores duplicate answer selection', function() {
+    app.selectAnswer('蘋果');
+    app.selectAnswer('香蕉'); // second call should be ignored
+    expect(app.quizState.answers.length).toBe(1);
+  });
+
+  test('shows feedback and next button', function() {
+    app.selectAnswer('蘋果');
+    expect(app.showAnswerFeedback).toHaveBeenCalled();
+    expect(app.showNextButton).toHaveBeenCalled();
+  });
+});

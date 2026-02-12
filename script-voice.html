@@ -1,5 +1,18 @@
 <!-- script-voice.html -->
 <script>
+  /**
+   * @module script-voice
+   * @description 語音與導覽模組：多語言語音播放（英文/日文/中文）、字母拼讀、
+   *   語音等待機制（確保播放完成後再切換）、前後翻頁、重新載入、
+   *   全螢幕切換、暫停/恢復、語音設定 UI。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: speakWord, speakEnglishWord,
+   *   speakJapaneseWord, speakChineseWord, waitForSpeechThenExecute,
+   *   nextWord, previousWord, toggleVoice, togglePause, enterFullscreen,
+   *   openVoiceSettings, populateVoiceSelect ...
+   */
+
   // 檢測日文字符
   FlashcardApp.prototype.isJapaneseText = function(text) {
     if (!text) return false;
@@ -298,7 +311,7 @@
           console.log('英文/日文語音播放完成，現在播放中文');
           self.speakChineseWordNow(text);
         }
-      }, 100); // 每100ms檢查一次
+      }, APP_CONSTANTS.CHINESE_SPEECH_POLL_MS);
       
       return;
     }
@@ -434,18 +447,18 @@
           if (!self.isPaused) {
             callback();
           }
-        }, 300);
+        }, APP_CONSTANTS.TRANSITION_DELAY_MS);
       }
-    }, 100);
+    }, APP_CONSTANTS.SPEECH_WAIT_POLL_MS);
     
-    // 安全超時：最多等待 60 秒，避免永遠卡住
+    // 安全超時：避免永遠卡住
     this._speechWaitTimeout = setTimeout(function() {
-      console.log('語音等待超時（60秒），強制執行切換');
+      console.log('語音等待超時（' + APP_CONSTANTS.SPEECH_WAIT_TIMEOUT_MS + 'ms），強制執行切換');
       self.clearSpeechWait();
       if (!self.isPaused) {
         callback();
       }
-    }, 60000);
+    }, APP_CONSTANTS.SPEECH_WAIT_TIMEOUT_MS);
   };
 
   // 下一個單字
@@ -513,7 +526,7 @@
       self.displayCurrentWord();
       self.isTransitioning = false;
       
-    }, 300);
+    }, APP_CONSTANTS.TRANSITION_DELAY_MS);
     this.renderDifficultyLevel();
   };
   
@@ -595,7 +608,7 @@
       self.displayCurrentWord();
       self.isTransitioning = false;
       
-    }, 300);
+    }, APP_CONSTANTS.TRANSITION_DELAY_MS);
     this.renderDifficultyLevel();
   };
   
@@ -607,7 +620,7 @@
         wordSequence: this.currentWords.slice()
       });
       
-      if (this.navigationHistory.length > 20) {
+      if (this.navigationHistory.length > APP_CONSTANTS.NAV_HISTORY_MAX) {
         this.navigationHistory.shift();
       }
     }
@@ -960,10 +973,8 @@
   
   // 語音設定相關
   FlashcardApp.prototype.openVoiceSettings = function() {
-    var modal = document.getElementById('voice-settings-modal');
+    var modal = openModalById(this, 'voice-settings-modal');
     if (modal) {
-      modal.style.display = 'flex';
-      this.pauseTimer();
       
       var speechEnabledSetting = document.getElementById('speech-enabled-setting');
       var voiceRateSetting = document.getElementById('voice-rate-setting');
@@ -991,11 +1002,7 @@
   };
   
   FlashcardApp.prototype.closeVoiceSettings = function() {
-    var modal = document.getElementById('voice-settings-modal');
-    if (modal) {
-      modal.style.display = 'none';
-      this.resumeTimer();
-    }
+    closeModalById(this, 'voice-settings-modal');
   };
   
   // 預覽語音 - 播放示例文字

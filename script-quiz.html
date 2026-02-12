@@ -1,5 +1,17 @@
 <!-- script-quiz.html -->
 <script>
+  /**
+   * @module script-quiz
+   * @description 防螢幕休眠與測驗模組：多層防螢幕關閉機制（Wake Lock、NoSleep 視頻、
+   *   持續靜音音頻、Keep-alive），以及完整測驗系統（快速 / 完整測驗、題目生成、
+   *   計分、錯題回顧）。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: enableKeepScreenAwake, disableKeepScreenAwake,
+   *   startQuiz, generateQuestions, createQuestion, selectAnswer, showQuizResult,
+   *   markWordAsDifficult, restartQuiz ...
+   */
+
   // 防止螢幕關閉功能
   // 同時嘗試多種方法，並在首次用戶互動時重試
   // 核心方法：AudioContext + MediaStreamDestination + <audio> 元素（iOS Safari 11+ 有效）
@@ -283,7 +295,7 @@
       } catch (error) {
         // 靜默忽略
       }
-    }, 10000); // 每 10 秒檢查一次
+    }, APP_CONSTANTS.AUDIO_WATCHDOG_INTERVAL_MS);
   };
   
   // Keep-alive 備用方案：定期微操作
@@ -335,7 +347,7 @@
       } catch (error) {
         // 靜默忽略
       }
-    }, 30000); // 每 30 秒執行一次
+    }, APP_CONSTANTS.KEEP_ALIVE_INTERVAL_MS);
   };
   
   // ==========================================================================
@@ -424,8 +436,8 @@
     }
     
     // 檢查快速測驗的單字數量
-    if (type === 'quick' && availableWords.length < 3) {
-      alert('可用單字太少（少於3個），無法進行測驗。請增加更多單字或調整篩選條件。');
+    if (type === 'quick' && availableWords.length < APP_CONSTANTS.QUIZ_MIN_WORDS) {
+      alert('可用單字太少（少於' + APP_CONSTANTS.QUIZ_MIN_WORDS + '個），無法進行測驗。請增加更多單字或調整篩選條件。');
       return;
     }
     
@@ -487,11 +499,11 @@
     console.log('洗牌後單字順序:', availableWords.map(function(w, i) { return i + ':' + w.english; }).slice(0, 5));
     
     // 根據測驗類型決定題目數量
-    var questionCount = type === 'quick' ? Math.min(10, availableWords.length) : availableWords.length;
+    var questionCount = type === 'quick' ? Math.min(APP_CONSTANTS.QUIZ_QUICK_COUNT, availableWords.length) : availableWords.length;
     
     // 快速測驗只取前N個（已隨機洗牌）
-    if (type === 'quick' && availableWords.length > 10) {
-      availableWords = availableWords.slice(0, 10);
+    if (type === 'quick' && availableWords.length > APP_CONSTANTS.QUIZ_QUICK_COUNT) {
+      availableWords = availableWords.slice(0, APP_CONSTANTS.QUIZ_QUICK_COUNT);
     }
     
     // 生成題目
@@ -524,9 +536,9 @@
     // 生成錯誤選項
     var wrongOptions = [];
     var attempts = 0;
-    var maxAttempts = 100;
+    var maxAttempts = APP_CONSTANTS.QUIZ_MAX_WRONG_OPTION_ATTEMPTS;
     
-    while (wrongOptions.length < 3 && attempts < maxAttempts) {
+    while (wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT && attempts < maxAttempts) {
       attempts++;
       var randomWord = allWords[Math.floor(Math.random() * allWords.length)];
       var wrongAnswer = isEnglishToChinese ? randomWord.chinese : randomWord.english;
@@ -539,12 +551,12 @@
     }
     
     // 如果沒有足夠的錯誤選項，補充一些通用選項
-    while (wrongOptions.length < 3) {
+    while (wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT) {
       var genericOptions = isEnglishToChinese ? 
-        ['桌子', '電腦', '書本', '水果', '動物', '顏色', '天氣', '時間'] :
-        ['table', 'computer', 'book', 'fruit', 'animal', 'color', 'weather', 'time'];
+        APP_CONSTANTS.QUIZ_GENERIC_OPTIONS_ZH :
+        APP_CONSTANTS.QUIZ_GENERIC_OPTIONS_EN;
       
-      for (var i = 0; i < genericOptions.length && wrongOptions.length < 3; i++) {
+      for (var i = 0; i < genericOptions.length && wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT; i++) {
         var option = genericOptions[i];
         if (option !== question.correctAnswer && wrongOptions.indexOf(option) === -1) {
           wrongOptions.push(option);
@@ -631,16 +643,10 @@
   
   // 關閉測驗模態框
   FlashcardApp.prototype.closeQuizModal = function() {
-    var modal = document.getElementById('quiz-modal');
-    if (modal) {
-      modal.style.display = 'none';
-    }
+    closeModalById(this, 'quiz-modal');
     
     // 重置測驗狀態
     this.quizState.isActive = false;
-    
-    // 恢復閃卡播放
-    this.resumeTimer();
   };
   
   // 顯示測驗畫面
@@ -809,7 +815,7 @@
     });
     
     if (isCorrect) {
-      this.quizState.score += 10; // 每題10分
+      this.quizState.score += APP_CONSTANTS.QUIZ_POINTS_PER_QUESTION;
     }
     
     // 更新選項樣式
@@ -870,7 +876,7 @@
       var self = this;
       setTimeout(function() {
         self.speakWord(question.word.english);
-      }, 500);
+      }, APP_CONSTANTS.SPEECH_DELAY_MS);
     }
   };
   
@@ -1036,8 +1042,8 @@
     }
     
     // 檢查快速測驗的單字數量
-    if (this.quizState.type === 'quick' && availableWords.length < 3) {
-      alert('可用單字太少（少於3個），無法進行測驗。請增加更多單字或調整篩選條件。');
+    if (this.quizState.type === 'quick' && availableWords.length < APP_CONSTANTS.QUIZ_MIN_WORDS) {
+      alert('可用單字太少（少於' + APP_CONSTANTS.QUIZ_MIN_WORDS + '個），無法進行測驗。請增加更多單字或調整篩選條件。');
       this.closeQuizModal();
       return;
     }

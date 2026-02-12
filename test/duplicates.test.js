@@ -168,3 +168,98 @@ describe('processDuplicatesInMemory', function() {
     expect(result.processedCount).toBe(2); // 2 words remaining
   });
 });
+
+// ============================================================
+// Duplicate modal open/close
+// ============================================================
+describe('showDuplicateModal', function() {
+
+  test('opens modal and pauses timer', function() {
+    app.duplicateWords = [
+      {
+        english: 'apple',
+        isSameDefinition: true,
+        words: [
+          { id: 1, english: 'apple', chinese: '蘋果', sheetName: 'Sheet1' },
+          { id: 2, english: 'apple', chinese: '蘋果', sheetName: 'Sheet2' }
+        ]
+      }
+    ];
+    app.pauseTimer = jest.fn();
+    app.renderDuplicateWordsList = jest.fn();
+    app.setupDuplicateModalEvents = jest.fn();
+
+    app.showDuplicateModal();
+
+    var modal = document.getElementById('duplicate-words-modal');
+    expect(modal.style.display).toBe('flex');
+    expect(app.pauseTimer).toHaveBeenCalled();
+  });
+
+  test('still opens modal even with empty duplicate words', function() {
+    app.duplicateWords = [];
+    app.pauseTimer = jest.fn();
+    app.renderDuplicateWordsList = jest.fn();
+    app.setupDuplicateModalEvents = jest.fn();
+    app.showDuplicateModal();
+    // The modal always opens; it shows "0 組重複單字"
+    var modal = document.getElementById('duplicate-words-modal');
+    expect(modal.style.display).toBe('flex');
+  });
+});
+
+describe('closeDuplicateModal', function() {
+
+  test('hides modal and resumes timer', function() {
+    var modal = document.getElementById('duplicate-words-modal');
+    modal.style.display = 'flex';
+    app.resumeTimer = jest.fn();
+
+    app.closeDuplicateModal();
+
+    expect(modal.style.display).toBe('none');
+    expect(app.resumeTimer).toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// skipDuplicates
+// ============================================================
+describe('skipDuplicates', function() {
+
+  test('processes duplicates in memory and updates words', function() {
+    app.words = [
+      { id: 1, english: 'apple', chinese: '蘋果', sheetName: 'Sheet1', originalRowIndex: 2 },
+      { id: 2, english: 'apple', chinese: '蘋果', sheetName: 'Sheet2', originalRowIndex: 2 },
+      { id: 3, english: 'cat', chinese: '貓', sheetName: 'Sheet1', originalRowIndex: 3 }
+    ];
+    app.currentWords = app.words.slice();
+    app.duplicateWords = [
+      {
+        english: 'apple',
+        isSameDefinition: true,
+        words: [app.words[0], app.words[1]]
+      }
+    ];
+
+    // Add modal-body and modal-footer children to the duplicate modal
+    var modal = document.getElementById('duplicate-words-modal');
+    var modalBody = document.createElement('div');
+    modalBody.className = 'modal-body';
+    var modalFooter = document.createElement('div');
+    modalFooter.className = 'modal-footer';
+    modal.appendChild(modalBody);
+    modal.appendChild(modalFooter);
+
+    app.resumeTimer = jest.fn();
+    app.closeDuplicateModal = jest.fn();
+    app.setupEventListeners = jest.fn();
+    app.applySettings = jest.fn();
+    app.startNewRound = jest.fn();
+
+    app.skipDuplicates();
+
+    // After processing, should have 2 words (apple + cat)
+    expect(app.words.length).toBe(2);
+  });
+});

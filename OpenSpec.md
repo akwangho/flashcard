@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.7.9
-> **最後更新**: 2026-02-11
+> **版本**: 1.8.0
+> **最後更新**: 2026-02-12
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -65,7 +65,7 @@ flashcard/
 │
 │   # 前端 JavaScript 模組（原 script.html 拆分為 10 個模組）
 ├── script-polyfills.html  # ES5 Polyfills（forEach, filter, map, find, includes）
-├── script-core.html       # 建構函式、初始化、設定管理、單字載入
+├── script-core.html       # 全域常數(APP_CONSTANTS)、共用工具函式、建構函式、初始化、設定管理、單字載入
 ├── script-events.html     # 事件監聽器設定、語音啟用、基本 UI 顯示
 ├── script-display.html    # 設定模態框、計時器/暫停、不熟程度、閃卡互動、滑桿
 ├── script-voice.html      # 語音朗讀（英/日/中）、導覽、全螢幕、語音設定
@@ -94,11 +94,12 @@ flashcard/
 ├── test/pause.test.js     # 暫停/繼續功能單元測試
 ├── test/srs.test.js       # 間隔重複系統(SRS)單元測試
 ├── test/history.test.js   # 單字檔歷史記錄單元測試
-├── test/sheets.test.js    # Sheet ID 解析單元測試
+├── test/sheets.test.js    # Sheet 載入/驗證/選擇/渲染單元測試
 ├── test/filter.test.js    # 篩選邏輯單元測試
-├── test/quiz.test.js      # 測驗系統單元測試
-├── test/export.test.js    # 匯出功能單元測試
-├── test/duplicates.test.js# 重複處理單元測試
+├── test/quiz.test.js      # 測驗系統單元測試（含題目生成、答題流程、generic options）
+├── test/export.test.js    # 匯出功能單元測試（含批次匯出、進度更新、覆寫處理）
+├── test/display.test.js   # 顯示邏輯單元測試（含 onWordClick、設定 modal 操作）
+├── test/duplicates.test.js# 重複處理單元測試（含 modal 開關、自動處理）
 │
 └── OpenSpec.md            # 專案規格說明文件
 ```
@@ -137,10 +138,13 @@ bash deploy.sh setup
 ### 2.5 前端架構
 
 - **設計模式**: 單一建構函式 `FlashcardApp`，所有方法掛載於 `FlashcardApp.prototype`
-- **模組化**: 前端程式碼拆分為 10 個 HTML 模組檔案，透過 `<?!= include('filename'); ?>` 在 `index.html` 中按順序載入
+- **模組化**: 前端程式碼拆分為 10 個 HTML 模組檔案，透過 `<?!= include('filename'); ?>` 在 `index.html` 中按順序載入。每個模組檔案頂部有 JSDoc 風格的結構化註釋，說明模組用途、相依性和提供的函式
+- **全域常數**: `APP_CONSTANTS` 物件集中管理所有 magic numbers（超時時間、篩選天數、SRS 間隔、測驗設定、匯出設定、localStorage keys 等），定義於 `script-core.html`
+- **共用工具函式**: `formatDateYYYYMMDD`、`isModalBackgroundClick`、`selectVoiceByURIOrLang`、`applyDifficultyClass`、`openModalById`、`closeModalById` 等全域函式，定義於 `script-core.html`，消除跨模組重複程式碼
+- **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 300 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史等核心功能）
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 355 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作等核心功能）
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -578,7 +582,7 @@ bash deploy.sh setup
   - 「覆寫現有工作表」: 刪除舊工作表後重新建立
 
 #### 4.7.4 批次匯出
-- **描述**: 單字以批次方式匯出（每批 50 個），顯示進度條
+- **描述**: 單字以批次方式匯出（每批 15 個，由 `APP_CONSTANTS.EXPORT_BATCH_SIZE` 控制），顯示進度條
 - **進度顯示**: 進度條 + 百分比 + 已處理/總數
 
 ### 4.8 重複單字處理
@@ -667,6 +671,7 @@ bash deploy.sh setup
 
 #### 4.10.6 模態框系統
 - **描述**: 所有設定和功能介面使用模態框呈現
+- **通用抽象層**: `openModalById(app, modalId)` 和 `closeModalById(app, modalId)` 全域函式（定義於 `script-core.html`），統一處理 modal 的 `display: flex/none` 切換和 `pauseTimer()`/`resumeTimer()` 呼叫，消除 10+ 處重複的 modal 開關程式碼
 - **共通行為**:
   - 點擊背景（模態框外部）可關閉
   - 有關閉按鈕 (×)、取消按鈕、確認按鈕
@@ -690,7 +695,9 @@ bash deploy.sh setup
 
 | 按鍵 | 功能 |
 |------|------|
-| 空白鍵 / Enter | 暫停/繼續，或在已暫停時跳到下一個 |
+| `B` 鍵 | 暫停/繼續（任何狀態下皆可使用，最高優先級） |
+| 空白鍵 | 點擊單字卡（顯示翻譯/標記移除） |
+| Enter | 增加不熟程度（toggleDifficultCurrentWord） |
 | 右方向鍵 | 下一個單字 |
 | 左方向鍵 | 上一個單字 |
 | `M` 鍵 | 切換靜音/取消靜音 |
@@ -701,7 +708,7 @@ bash deploy.sh setup
 | `E` 鍵 | 開啟編輯當前單字模態框（**暫停時也可使用**） |
 | Escape | 關閉選單或結束全螢幕，取消 D 鍵待確認狀態 |
 
-> **注意**: 模態框開啟時，鍵盤快捷鍵不生效（避免干擾輸入）。暫停時僅 B 鍵（暫停/繼續）和 E 鍵（編輯單字）可使用，其他快捷鍵不生效
+> **注意**: 鍵盤快捷鍵使用 key-action mapping 模式（定義於 `script-events.html`），每個按鍵支援 keyCode、code、key 三種匹配方式以相容 iPad 4。模態框開啟時（焦點在表單控件上），鍵盤快捷鍵不生效（避免干擾輸入）。暫停時僅 B 鍵（暫停/繼續）和 E 鍵（編輯單字，標記 `allowWhenPaused: true`）可使用，其他快捷鍵不生效
 
 ### 4.12 複習時間篩選
 
@@ -1033,17 +1040,29 @@ bash deploy.sh setup
 ```
 1. HTML 載入完成
 2. 建立 FlashcardApp 實例
+   ├── _initCoreState()         → 核心狀態（單字、索引、計時器、導航）
+   ├── _initVoiceState()        → 語音相關狀態
+   ├── _initSettingsState()     → 設定、字型映射、Sheet 設定
+   ├── _initFilterState()       → 篩選相關狀態（難度、複習時間、SRS）
+   ├── _initScreenAwakeState()  → 防止螢幕關閉相關
+   └── _initQuizState()         → 測驗相關屬性
 3. FlashcardApp.init() 執行：
    ├── 3a. loadSettings()        → 從 LocalStorage 載入一般設定和語音設定
    ├── 3b. loadSheetSettings()   → 從 LocalStorage 載入試算表設定
    ├── 3c. detectLegacyBrowser() → 偵測是否為舊版瀏覽器
-   ├── 3d. setupEventListeners() → 設定所有事件監聽器
+   ├── 3d. setupEventListeners() → 設定所有事件監聯器
    │   ├── setupCoreListeners()
    │   ├── setupMenuListeners()
-   │   ├── setupModalListeners()
-   │   ├── setupKeyboardListeners()
-   │   ├── setupProgressAndExportListeners()
-   │   └── setupQuizListeners()
+   │   ├── setupModalListeners()  → 拆分為 7 個子函式
+   │   │   ├── _setupSettingsModalListeners()
+   │   │   ├── _setupSheetSettingsModalListeners()
+   │   │   ├── _setupVoiceSettingsModalListeners()
+   │   │   ├── _setupExportModalListeners()
+   │   │   ├── _setupOverwriteModalListeners()
+   │   │   ├── _setupSrsModalListeners()
+   │   │   └── setupQuizListeners()
+   │   ├── setupKeyboardListeners()  → 使用 key-action mapping 模式
+   │   └── setupProgressAndExportListeners()
    └── 3e. 判斷是否有已設定的 Google Sheet
        ├── 有 → loadWords() → handleLoadingComplete()
        │   ├── 舊版瀏覽器 → showSpeechActivation() → 使用者點擊 → activateSpeech()
@@ -1136,7 +1155,7 @@ bash deploy.sh setup
 | 日文語音語系 | ja-JP |
 | 歷史記錄上限 | 10 筆 |
 | 快速測驗題數 | 10 題 |
-| 批次匯出數量 | 每批 50 個 |
+| 批次匯出數量 | 每批 15 個（`APP_CONSTANTS.EXPORT_BATCH_SIZE`） |
 | 防螢幕休眠 Keep-Alive 間隔 | 30 秒 |
 | 複習日期同步閾值 | 每 20 個已複習單字 |
 | 複習時間篩選預設 | 全部（不篩選） |

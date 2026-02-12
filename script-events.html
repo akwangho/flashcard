@@ -1,5 +1,17 @@
 <!-- script-events.html -->
 <script>
+  /**
+   * @module script-events
+   * @description 事件綁定與 UI 互動模組：所有事件監聽器的設置（核心點擊、選單委派、
+   *   模態框、鍵盤快捷鍵、進度區、匯出）、舊版瀏覽器語音啟用、
+   *   顯示單字、更新進度、開始新回合、自訂確認對話框。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: setupEventListeners, handleKeyDown,
+   *   setupModalListeners, displayCurrentWord, startNewRound, shuffleArray,
+   *   toggleMenu, closeMenu, hideLoading, showError, customConfirm ...
+   */
+
   // 設置事件監聽器
   FlashcardApp.prototype.setupEventListeners = function() {
     console.log('設置事件監聽器...');
@@ -413,7 +425,7 @@
     
     // 儲存當前單字到 localStorage（載入畫面用）
     try {
-      localStorage.setItem('flashcard-last-word', JSON.stringify({
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.LAST_WORD, JSON.stringify({
         english: currentWord.english,
         chinese: currentWord.chinese
       }));
@@ -428,14 +440,14 @@
         // 反向模式：先顯示中文，播放中文語音
         setTimeout(function() {
           self.speakChineseWord(currentWord.chinese);
-        }, 500);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
       } else {
         firstElement.textContent = currentWord.english;
         // 只有在未啟用延遲發音時才立即播放語音
         if (!self.settings.delaySpeechInNormalMode) {
           setTimeout(function() {
             self.speakWord(currentWord.english);
-          }, 500);
+          }, APP_CONSTANTS.SPEECH_DELAY_MS);
         }
       }
       firstElement.classList.add('show');
@@ -562,9 +574,18 @@
   
   // 模態框監聽器
   FlashcardApp.prototype.setupModalListeners = function() {
+    this._setupSettingsModalListeners();
+    this._setupSheetSettingsModalListeners();
+    this._setupVoiceSettingsModalListeners();
+    this._setupExportModalListeners();
+    this._setupOverwriteModalListeners();
+    this._setupSrsModalListeners();
+    this.setupQuizListeners();
+  };
+
+  // --- 主設定模態框 ---
+  FlashcardApp.prototype._setupSettingsModalListeners = function() {
     var self = this;
-    
-    // 主設定模態框
     var settingsModal = document.getElementById('settings-modal');
     var closeSettings = document.getElementById('close-settings');
     var saveSettings = document.getElementById('save-settings');
@@ -583,11 +604,8 @@
     }
     if (settingsModal) {
       settingsModal.addEventListener('click', function(e) {
-        // 檢查點擊目標，排除select元素及其相關元素
         var target = e.target;
         var isSelectRelated = false;
-        
-        // 向上遍歷DOM樹檢查是否點擊了select或其相關元素
         var element = target;
         while (element && element !== settingsModal) {
           if (element.tagName === 'SELECT' || 
@@ -599,20 +617,16 @@
           }
           element = element.parentElement;
         }
-        
-        // 只有點擊模態框背景且不是select相關元素時才關閉
         if (e.target === settingsModal && !isSelectRelated) {
           self.closeSettings();
         }
       });
     }
     
-    // 修復：設定滑桿實時更新
     if (delaySlider) {
       delaySlider.addEventListener('input', function(e) {
         var delayValue = document.getElementById('delay-value');
         if (delayValue) {
-          // 修復浮點數精度問題
           var value = parseFloat(e.target.value);
           var step = parseFloat(e.target.step) || 0.5;
           var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
@@ -620,8 +634,6 @@
           delayValue.textContent = formattedValue;
         }
       });
-      
-      // 增強觸控體驗：點擊軌道直接設置值
       this.enhanceSliderInteraction(delaySlider, 'delay-value');
     }
     
@@ -631,7 +643,6 @@
         if (fontSizeValue) {
           fontSizeValue.textContent = e.target.value + 'px';
         }
-        // 即時預覽字體大小
         var englishWord = document.getElementById('english-word');
         var chineseWord = document.getElementById('chinese-word');
         var previewEnglish = document.querySelector('.preview-english');
@@ -642,8 +653,6 @@
         if (previewEnglish) previewEnglish.style.fontSize = Math.max(16, e.target.value * 0.2) + 'px';
         if (previewChinese) previewChinese.style.fontSize = Math.max(14, e.target.value * 0.18) + 'px';
       });
-      
-      // 增強觸控體驗：點擊軌道直接設置值
       this.enhanceSliderInteraction(fontSizeSlider, 'font-size-value', 'px');
     }
     
@@ -661,33 +670,29 @@
     // 字型選擇器事件監聽
     var fontFamilySelect = document.getElementById('font-family-setting');
     if (fontFamilySelect) {
-      var self = this;
-      
-      // 保護select元素不受全域事件干擾
       this.protectSelectElement(fontFamilySelect);
       
       fontFamilySelect.addEventListener('change', function(e) {
         console.log('字型選擇改變:', e.target.value);
-        
-        // 即時預覽字型效果
         var selectedFont = e.target.value;
         var fontFamily = self.fontFamilyMap[selectedFont] || self.fontFamilyMap['system-default'];
         
-        // 更新主要元素的字型
         var englishWord = document.getElementById('english-word');
         var chineseWord = document.getElementById('chinese-word');
         if (englishWord) englishWord.style.fontFamily = fontFamily;
         if (chineseWord) chineseWord.style.fontFamily = fontFamily;
         
-        // 更新預覽
         var previewEnglish = document.querySelector('.preview-english');
         var previewChinese = document.querySelector('.preview-chinese');
         if (previewEnglish) previewEnglish.style.fontFamily = fontFamily;
         if (previewChinese) previewChinese.style.fontFamily = fontFamily;
       });
     }
-    
-    // Google Sheet 設定模態框
+  };
+
+  // --- Google Sheet 設定模態框 ---
+  FlashcardApp.prototype._setupSheetSettingsModalListeners = function() {
+    var self = this;
     var sheetSettingsModal = document.getElementById('sheet-settings-modal');
     var closeSheetSettings = document.getElementById('close-sheet-settings');
     var cancelSheetSettings = document.getElementById('cancel-sheet-settings');
@@ -722,10 +727,8 @@
     }
     if (sheetSettingsModal) {
       sheetSettingsModal.addEventListener('click', function(e) {
-        // 檢查點擊目標，排除select元素及其相關元素
         var target = e.target;
         var isSelectRelated = false;
-        
         var element = target;
         while (element && element !== sheetSettingsModal) {
           if (element.tagName === 'SELECT' || 
@@ -736,14 +739,16 @@
           }
           element = element.parentElement;
         }
-        
         if (e.target === sheetSettingsModal && !isSelectRelated) {
           self.closeSheetSettings();
         }
       });
     }
-    
-    // 語音設定模態框
+  };
+
+  // --- 語音設定模態框 ---
+  FlashcardApp.prototype._setupVoiceSettingsModalListeners = function() {
+    var self = this;
     var voiceSettingsModal = document.getElementById('voice-settings-modal');
     var closeVoiceSettings = document.getElementById('close-voice-settings');
     var cancelVoiceSettings = document.getElementById('cancel-voice-settings');
@@ -761,10 +766,8 @@
     }
     if (voiceSettingsModal) {
       voiceSettingsModal.addEventListener('click', function(e) {
-        // 檢查點擊目標，排除select元素及其相關元素（與主設定模態框相同的邏輯）
         var target = e.target;
         var isSelectRelated = false;
-        
         var element = target;
         while (element && element !== voiceSettingsModal) {
           if (element.tagName === 'SELECT' || 
@@ -775,7 +778,6 @@
           }
           element = element.parentElement;
         }
-        
         if (e.target === voiceSettingsModal && !isSelectRelated) {
           self.closeVoiceSettings();
         }
@@ -785,7 +787,6 @@
       voiceRateSlider.addEventListener('input', function(e) {
         var voiceRateValue = document.getElementById('voice-rate-value');
         if (voiceRateValue) {
-          // 修復浮點數精度問題
           var value = parseFloat(e.target.value);
           var step = parseFloat(e.target.step) || 0.1;
           var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
@@ -793,28 +794,24 @@
           voiceRateValue.textContent = formattedValue;
         }
       });
-      
-      // 當用戶松開滑杆時，播放示例語音
       voiceRateSlider.addEventListener('change', function(e) {
-        // 獲取當前選擇的英文語音
         var voiceSelect = document.getElementById('voice-select-setting');
         if (voiceSelect && voiceSelect.value) {
           self.previewVoice(voiceSelect.value, 'Hello, this is a sample voice.');
         }
       });
-      
-      // 增強觸控體驗：點擊軌道直接設置值
       this.enhanceSliderInteraction(voiceRateSlider, 'voice-rate-value');
     }
-    
-    // 匯出模態框
+  };
+
+  // --- 匯出模態框 ---
+  FlashcardApp.prototype._setupExportModalListeners = function() {
+    var self = this;
     var exportModal = document.getElementById('export-modal');
     if (exportModal) {
       exportModal.addEventListener('click', function(e) {
-        // 檢查點擊目標，排除select元素及其相關元素
         var target = e.target;
         var isSelectRelated = false;
-        
         var element = target;
         while (element && element !== exportModal) {
           if (element.tagName === 'SELECT' || 
@@ -825,21 +822,21 @@
           }
           element = element.parentElement;
         }
-        
         if (e.target === exportModal && !isSelectRelated) {
           self.closeExportModal();
         }
       });
     }
-    
-    // 覆寫確認模態框
+  };
+
+  // --- 覆寫確認模態框 ---
+  FlashcardApp.prototype._setupOverwriteModalListeners = function() {
+    var self = this;
     var overwriteModal = document.getElementById('overwrite-confirm-modal');
     if (overwriteModal) {
       overwriteModal.addEventListener('click', function(e) {
-        // 檢查點擊目標，排除select元素及其相關元素
         var target = e.target;
         var isSelectRelated = false;
-        
         var element = target;
         while (element && element !== overwriteModal) {
           if (element.tagName === 'SELECT' || 
@@ -850,14 +847,16 @@
           }
           element = element.parentElement;
         }
-        
         if (e.target === overwriteModal && !isSelectRelated) {
           self.closeOverwriteConfirmModal();
         }
       });
     }
-    
-    // SRS 複習模態框
+  };
+
+  // --- SRS 複習模態框 ---
+  FlashcardApp.prototype._setupSrsModalListeners = function() {
+    var self = this;
     var closeSrsModal = document.getElementById('close-srs-modal');
     var srsStartBtn = document.getElementById('srs-start-btn');
     var srsReviewModal = document.getElementById('srs-review-modal');
@@ -879,9 +878,6 @@
         }
       });
     }
-    
-    // 測驗模態框
-    this.setupQuizListeners();
   };
   
     // 鍵盤監聽器 - iPad 4 兼容版本
@@ -928,15 +924,61 @@
       body.focus();
     });
     
-      // 鍵盤事件處理函數 - 使用 ES5 兼容語法
+      // 鍵盤事件處理函數 - 使用 ES5 兼容語法 + key-action mapping
+      //
+      // keyMap: 每個條目 = { keyCodes: [...], codes: [...], keys: [...], action: fn }
+      // 比對順序：keyCode → code → key（iPad 4 相容）
+      var keyMap = [
+        // Enter / iPad UIKeyInputUpArrow → 標記不熟
+        { keyCodes: [13], codes: ['Enter'], keys: ['UIKeyInputUpArrow'],
+          action: function() { self.toggleDifficultCurrentWord(); } },
+        // 空格 / iPad UIKeyInputDownArrow → 點擊單字
+        { keyCodes: [32], codes: ['Space'], keys: ['UIKeyInputDownArrow'],
+          action: function() { self.onWordClick(); } },
+        // ← / iPad UIKeyInputLeftArrow → 上一個字
+        { keyCodes: [37], codes: ['ArrowLeft'], keys: ['UIKeyInputLeftArrow'],
+          action: function() { self.previousWord(); } },
+        // ↑ → 上一個字
+        { keyCodes: [38], codes: ['ArrowUp'], keys: [],
+          action: function() { self.previousWord(); } },
+        // → / iPad UIKeyInputRightArrow → 下一個字
+        { keyCodes: [39], codes: ['ArrowRight'], keys: ['UIKeyInputRightArrow'],
+          action: function() { self.nextWord(); } },
+        // ↓ → 下一個字
+        { keyCodes: [40], codes: ['ArrowDown'], keys: [],
+          action: function() { self.nextWord(); } },
+        // Escape → 關閉所有 modal
+        { keyCodes: [27], codes: ['Escape'], keys: [],
+          action: function() {
+            self.cancelMarkVeryFamiliar();
+            self.closeSettings();
+            self.closeVoiceSettings();
+            self.closeExportModal();
+            self.closeOverwriteConfirmModal();
+            self.closeDuplicateModal();
+            self.closeDifficultyFilterModal();
+            self.closeEditWordModal();
+            self.closeMenu();
+          } },
+        // F5 / S → 增加不熟程度
+        { keyCodes: [116, 83], codes: ['F5', 'KeyS'], keys: [],
+          action: function() { self.increaseDifficulty(); } },
+        // D → 標記非常熟（需按兩次確認）
+        { keyCodes: [68], codes: ['KeyD'], keys: [],
+          action: function() { self.handleMarkVeryFamiliar(); } },
+        // E → 編輯當前單字（暫停時也可用）
+        { keyCodes: [69], codes: ['KeyE'], keys: [],
+          action: function() { self.openEditWordModal(); },
+          allowWhenPaused: true }
+      ];
+
   function handleKeyDown(e) {
-    // 取得按鍵信息，兼容舊版瀏覽器
     e = e || window.event;
     var keyCode = e.keyCode || e.which;
     var code = e.code || '';
     var key = e.key || '';
     
-    // 檢查當前焦點是否在select元素或其他表單控件上
+    // 焦點在表單控件上時不攔截
     var activeElement = document.activeElement;
     if (activeElement && (
         activeElement.tagName === 'SELECT' ||
@@ -944,92 +986,44 @@
         activeElement.tagName === 'TEXTAREA' ||
         activeElement.contentEditable === 'true'
     )) {
-      console.log('焦點在表單控件上，跳過鍵盤快捷鍵處理:', activeElement.tagName);
-      return; // 不處理任何鍵盤快捷鍵，讓表單控件正常工作
+      return;
     }
     
-    // B 鍵 (keyCode 66) - 暫停/繼續功能，在任何狀態下都能使用
+    // B 鍵 - 暫停/繼續，任何狀態下都能使用
     if (keyCode === 66 || code === 'KeyB') {
-      // 防止預設行為
-      if (e.preventDefault) {
-        e.preventDefault();
-      } else {
-        e.returnValue = false; // IE8 及更早版本
-      }
-      
+      if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
       self.togglePause();
       return;
     }
     
-    // 如果已暫停，除了 B 鍵和 E 鍵（編輯單字）外不處理其他按鍵
-    if (self.isPaused && keyCode !== 69 && code !== 'KeyE') return;
-    
-    // 處理特殊按鍵對應
-    var keyActions = {};
-    
-    // Enter 鍵 (keyCode 13, 或 iPad 4 的 UIKeyInputUpArrow)
-    if (keyCode === 13 || code === 'Enter' || key === 'UIKeyInputUpArrow') {
-      keyActions['action'] = function() { self.toggleDifficultCurrentWord(); };
-    }
-    // 空格鍵 (keyCode 32, 或 iPad 4 的 UIKeyInputDownArrow)
-    else if (keyCode === 32 || code === 'Space' || key === 'UIKeyInputDownArrow') {
-      keyActions['action'] = function() { self.onWordClick(); };
-    }
-    // 左方向鍵 (keyCode 37, ArrowLeft, 或 iPad 4 的 UIKeyInputLeftArrow)
-    else if (keyCode === 37 || code === 'ArrowLeft' || key === 'UIKeyInputLeftArrow') {
-      keyActions['action'] = function() { self.previousWord(); };
-    }
-    // 上方向鍵 (keyCode 38, ArrowUp)
-    else if (keyCode === 38 || code === 'ArrowUp') {
-      keyActions['action'] = function() { self.previousWord(); };
-    }
-    // 右方向鍵 (keyCode 39, ArrowRight, 或 iPad 4 的 UIKeyInputRightArrow)
-    else if (keyCode === 39 || code === 'ArrowRight' || key === 'UIKeyInputRightArrow') {
-      keyActions['action'] = function() { self.nextWord(); };
-    }
-    // 下方向鍵 (keyCode 40)
-    else if (keyCode === 40 || code === 'ArrowDown') {
-      keyActions['action'] = function() { self.nextWord(); };
-    }
-    // Escape 鍵 (keyCode 27)
-    else if (keyCode === 27 || code === 'Escape') {
-      keyActions['action'] = function() {
-        // 先取消非常熟標記的待確認狀態
-        self.cancelMarkVeryFamiliar();
-        self.closeSettings();
-        self.closeVoiceSettings();
-        self.closeExportModal();
-        self.closeOverwriteConfirmModal();
-        self.closeDuplicateModal();
-        self.closeDifficultyFilterModal();
-        self.closeEditWordModal();
-        self.closeMenu();
-      };
-    }
-    // F5 鍵 (keyCode 116) 跟 S 鍵 (keyCode 83)  - 增加不熟程度
-    else if (keyCode === 116 || code === 'F5' || keyCode === 83 || code === 'KeyS') {
-      keyActions['action'] = function() { self.increaseDifficulty(); };
-    }
-    // D 鍵 (keyCode 68) - 標記為非常熟（-1），需按兩次確認
-    else if (keyCode === 68 || code === 'KeyD') {
-      keyActions['action'] = function() { self.handleMarkVeryFamiliar(); };
-    }
-    // E 鍵 (keyCode 69) - 編輯當前單字
-    else if (keyCode === 69 || code === 'KeyE') {
-      keyActions['action'] = function() { self.openEditWordModal(); };
-    }
-
-      // 執行對應的動作
-      if (keyActions['action']) {
-        // 防止預設行為
-        if (e.preventDefault) {
-          e.preventDefault();
-        } else {
-          e.returnValue = false; // IE8 及更早版本
-        }
-        
-        keyActions['action']();
+    // 查找匹配的 action
+    var matched = null;
+    for (var i = 0; i < keyMap.length; i++) {
+      var entry = keyMap[i];
+      var hit = false;
+      for (var j = 0; j < entry.keyCodes.length; j++) {
+        if (keyCode === entry.keyCodes[j]) { hit = true; break; }
       }
+      if (!hit) {
+        for (var k = 0; k < entry.codes.length; k++) {
+          if (code === entry.codes[k]) { hit = true; break; }
+        }
+      }
+      if (!hit && entry.keys) {
+        for (var m = 0; m < entry.keys.length; m++) {
+          if (key === entry.keys[m]) { hit = true; break; }
+        }
+      }
+      if (hit) { matched = entry; break; }
+    }
+    
+    if (!matched) return;
+    
+    // 暫停時只允許標記為 allowWhenPaused 的按鍵
+    if (self.isPaused && !matched.allowWhenPaused) return;
+    
+    if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
+    matched.action();
     }
     
     // 監聽整個 document 的鍵盤事件

@@ -1,25 +1,31 @@
 <!-- script-display.html -->
 <script>
+  /**
+   * @module script-display
+   * @description 顯示與互動模組：設定開啟/關閉/儲存/重置、暫停/恢復計時器、
+   *   Sheet 設定 UI、不熟程度增減與同步、單字點擊（暫時刪除）、
+   *   D 鍵雙按確認標記非常熟、進度條動畫、圖片預加載、滑桿增強。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: openSettings, closeSettings,
+   *   saveSettingsAndClose, pauseTimer, resumeTimer, increaseDifficulty,
+   *   onWordClick, confirmRemoval, cancelRemoval, showSecondPartAndScheduleNext,
+   *   handleMarkVeryFamiliar, startProgressBar, enhanceSliderInteraction ...
+   */
+
   // 開啟設定
   FlashcardApp.prototype.openSettings = function() {
-    var settingsModal = document.getElementById('settings-modal');
-    if (settingsModal) {
-      settingsModal.style.display = 'flex';
-      this.pauseTimer();
+    var modal = openModalById(this, 'settings-modal');
+    if (modal) {
       this.applySettings();
     }
   };
   
   // 關閉設定
   FlashcardApp.prototype.closeSettings = function(shouldRedisplay) {
-    var settingsModal = document.getElementById('settings-modal');
-    if (settingsModal) {
-      settingsModal.style.display = 'none';
-      this.resumeTimer();
-      
-      if (shouldRedisplay) {
-        this.redisplayCurrentWord();
-      }
+    closeModalById(this, 'settings-modal');
+    if (shouldRedisplay) {
+      this.redisplayCurrentWord();
     }
   };
   
@@ -140,9 +146,8 @@
   // 開啟Google Sheet設定
   FlashcardApp.prototype.openSheetSettings = function() {
     console.log('開啟 Google Sheet 設定畫面');
-    var modal = document.getElementById('sheet-settings-modal');
+    var modal = openModalById(this, 'sheet-settings-modal');
     if (modal) {
-      modal.style.display = 'flex';
       
       // 還原所有區塊的可見性（上次選擇預設檔後可能被隱藏）
       var showIds = ['default-sheets-group', 'recent-sheets-group', 'sheet-id-group', 'load-sheets-group'];
@@ -168,18 +173,12 @@
       
       // 顯示歷史記錄
       this.displaySheetHistory();
-      
-      this.pauseTimer();
     }
   };
   
   // 關閉Google Sheet設定
   FlashcardApp.prototype.closeSheetSettings = function() {
-    var modal = document.getElementById('sheet-settings-modal');
-    if (modal) {
-      modal.style.display = 'none';
-      this.resumeTimer();
-    }
+    closeModalById(this, 'sheet-settings-modal');
   };
   
   // 增加不熟程度（+1，最高10；-1 → 0）
@@ -398,7 +397,7 @@
         (function(section) {
           setTimeout(function() {
             section.style.backgroundColor = '';
-          }, 300);
+          }, APP_CONSTANTS.TRANSITION_DELAY_MS);
         })(sections[i]);
       }
       return;
@@ -449,18 +448,18 @@
         // 反向模式：用戶點擊顯示英文，播放英文語音
         setTimeout(function() {
           self.speakWord(currentWord.english);
-        }, 500);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
       } else {
         // 正常模式：用戶點擊顯示中文，播放中文語音
         setTimeout(function() {
           self.speakChineseWord(currentWord.chinese);
-        }, 500);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
         
         // 如果啟用了延遲發音，也在此時播放英文語音
         if (this.settings.delaySpeechInNormalMode) {
           setTimeout(function() {
             self.speakWord(currentWord.english);
-          }, 500);
+          }, APP_CONSTANTS.SPEECH_DELAY_MS);
         }
       }
     }
@@ -676,18 +675,18 @@
       // 反向模式：第二部分顯示英文，播放英文語音
       setTimeout(function() {
         self.speakWord(currentWord.english);
-      }, 500);
+      }, APP_CONSTANTS.SPEECH_DELAY_MS);
     } else {
       // 正常模式：第二部分顯示中文，播放中文語音
       setTimeout(function() {
         self.speakChineseWord(currentWord.chinese);
-      }, 500);
+      }, APP_CONSTANTS.SPEECH_DELAY_MS);
       
       // 如果啟用了延遲發音，也在此時播放英文語音
       if (this.settings.delaySpeechInNormalMode) {
         setTimeout(function() {
           self.speakWord(currentWord.english);
-        }, 500);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
       }
     }
   };
@@ -752,7 +751,7 @@
       wordId: currentWord.id,
       timer: setTimeout(function() {
         self.cancelMarkVeryFamiliar();
-      }, 3000) // 3 秒超時自動取消
+      }, APP_CONSTANTS.VERY_FAMILIAR_TIMEOUT_MS)
     };
     
     this.showVeryFamiliarToast('再按一下 D 設為非常熟（ESC 取消）');
@@ -866,7 +865,7 @@
     toast.style.opacity = '0';
     setTimeout(function() {
       toast.style.display = 'none';
-    }, 300);
+    }, APP_CONSTANTS.NOTIFICATION_FADE_MS);
   };
 
   // 增強滑塊交互體驗（ES5兼容版本）
