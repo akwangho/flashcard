@@ -482,9 +482,6 @@
       chineseElement.classList.add('show');
       this.showingChinese = true;
       
-      // 標記該單字為已複習
-      this.markWordAsReviewed(currentWord);
-      
       // 同時顯示圖片（如果有的話）- 使用預加載的圖片
       var flashcardDiv = document.getElementById('flashcard');
       var hasImage = currentWord.image && currentWord.image !== '';
@@ -569,9 +566,30 @@
     
     var word = this.pendingRemoval.word;
     var index = this.pendingRemoval.index;
+    var isVeryFamiliar = this.pendingRemoval.isVeryFamiliar;
     
-    // 暫時移除單字時，減少不熟程度 -1
-    this.decreaseDifficulty(word);
+    if (isVeryFamiliar) {
+      // 標記為非常熟（-1）
+      word.difficultyLevel = -1;
+      
+      // 同步到 words 主陣列
+      var mainWord = this.words.find(function(w) { return w.id === word.id; });
+      if (mainWord) mainWord.difficultyLevel = -1;
+      
+      // 後端同步
+      this.syncDifficultyToBackend(word);
+      
+      // 更新 SRS 資料
+      this.updateSrsData(word);
+      
+      console.log('已設為非常熟:', word.english);
+    } else {
+      // 暫時移除單字時，減少不熟程度 -1
+      this.decreaseDifficulty(word);
+    }
+    
+    // 標記該單字為已複習（暫時刪除才算已複習）
+    this.markWordAsReviewed(word);
     
     this.removedWords.push(word);
     this.currentWords.splice(index, 1);
@@ -601,6 +619,8 @@
   FlashcardApp.prototype.cancelRemoval = function() {
     if (!this.pendingRemoval) return;
     
+    var isVeryFamiliar = this.pendingRemoval.isVeryFamiliar;
+    
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
     
@@ -610,6 +630,11 @@
     // 恢復原本的不熟程度顯示
     if (this.pendingRemoval.originalDifficultyLevel !== undefined) {
       this.renderDifficultyLevelPreview(this.pendingRemoval.originalDifficultyLevel);
+    }
+    
+    // 如果是取消非常熟標記，隱藏 toast
+    if (isVeryFamiliar) {
+      this.hideVeryFamiliarToast();
     }
     
     this.pendingRemoval = null;
@@ -711,9 +736,6 @@
     chineseElement.classList.add('show');
     this.showingChinese = true;
     
-    // 標記該單字為已複習
-    this.markWordAsReviewed(currentWord);
-    
     // 設定下一個單字的計時器（智慧計時：Phase 2 可能縮短）
     var phase2Delay = this.getPhase2Delay();
     this._setDisplayTimer(function() {
@@ -792,14 +814,34 @@
       return;
     }
     
+    // 如果已經在非常熟暫時刪除狀態中，忽略
+    if (this.pendingRemoval && this.pendingRemoval.isVeryFamiliar) {
+      return;
+    }
+    
     // 如果已有待確認狀態（第二次按 D）
     if (this._pendingVeryFamiliar && this._pendingVeryFamiliar.wordId === currentWord.id) {
-      // 確認標記為非常熟
+      // 確認標記為非常熟（進入暫時刪除狀態）
       this.confirmMarkVeryFamiliar();
       return;
     }
     
-    // 第一次按 D：顯示確認提示
+    // 第一次按 D：暫停計時器並顯示確認提示
+    var savedRemainingMs = 0;
+    var savedProgressPhase = this._progressPhase;
+    if (this._activeTimerInfo) {
+      var elapsed = Date.now() - this._activeTimerInfo.setAt;
+      savedRemainingMs = Math.max(0, this._activeTimerInfo.delay - elapsed);
+    }
+    this._clearDisplayTimer();
+    this.pauseProgressBar();
+    
+    // 儲存計時器狀態，供取消或特殊路徑恢復使用
+    this._vfSavedTimer = {
+      remainingMs: savedRemainingMs,
+      progressPhase: savedProgressPhase
+    };
+    
     var self = this;
     this._pendingVeryFamiliar = {
       wordId: currentWord.id,
@@ -811,7 +853,7 @@
     this.showVeryFamiliarToast('再按一下 D 設為非常熟（ESC 取消）');
   };
 
-  // 確認標記為非常熟（-1）
+  // 確認標記為非常熟（-1）— 進入暫時刪除狀態（灰色字顯示答案）
   FlashcardApp.prototype.confirmMarkVeryFamiliar = function() {
     if (!this._pendingVeryFamiliar) return;
     
@@ -827,63 +869,149 @@
     var currentWord = this.currentWords[this.currentIndex];
     if (!currentWord || currentWord.id !== wordId) return;
     
-    // 設定為 -1
-    currentWord.difficultyLevel = -1;
+    // 如果在 -1 篩選模式下，直接設定並更新顯示（不需要移除）
+    if (this.difficultyFilter === -1) {
+      currentWord.difficultyLevel = -1;
+      var mainWord = this.words.find(function(w) { return w.id === wordId; });
+      if (mainWord) mainWord.difficultyLevel = -1;
+      this.syncDifficultyToBackend(currentWord);
+      this.updateSrsData(currentWord);
+      this.showVeryFamiliarToast('✓ 已設為非常熟');
+      this.renderDifficultyLevel();
+      // 恢復被第一次 D 暫停的計時器
+      this._resumeTimerAfterVeryFamiliarCancel();
+      return;
+    }
     
-    // 同步到 words 主陣列
-    var mainWord = this.words.find(function(w) { return w.id === wordId; });
-    if (mainWord) mainWord.difficultyLevel = -1;
+    // 如果已經有 pendingRemoval（例如已經點擊過單字卡），升級為非常熟
+    if (this.pendingRemoval && this.pendingRemoval.word && this.pendingRemoval.word.id === wordId) {
+      this.pendingRemoval.isVeryFamiliar = true;
+      // 更新不熟程度預覽為 ✓（-1）
+      this.renderDifficultyLevelPreview(-1);
+      this.showVeryFamiliarToast('✓ 已設為非常熟');
+      // 恢復被第一次 D 暫停的計時器（pendingRemoval 自身的計時器）
+      this._resumeTimerAfterVeryFamiliarCancel();
+      return;
+    }
     
-    // 後端同步
-    this.syncDifficultyToBackend(currentWord);
+    // === 進入類似暫時刪除的狀態 ===
     
-    // 更新 SRS 資料
-    this.updateSrsData(currentWord);
+    // 清除 D 鍵暫停時儲存的計時器狀態（不再需要，將使用新的計時器）
+    this._vfSavedTimer = null;
     
-    console.log('已設為非常熟:', currentWord.english);
+    var englishElement = document.getElementById('english-word');
+    var chineseElement = document.getElementById('chinese-word');
+    
+    this.isProcessingClick = true;
+    this._clearDisplayTimer();
+    
+    // 如果中文（第二語言）尚未顯示，立即顯示
+    if (!this.showingChinese) {
+      var isReversed = this.isReversedForCurrentWord();
+      var secondText = isReversed ? currentWord.english : currentWord.chinese;
+      chineseElement.textContent = secondText;
+      chineseElement.classList.add('show');
+      this.showingChinese = true;
+      
+      // 顯示圖片（如果有的話）
+      var flashcardDiv = document.getElementById('flashcard');
+      var hasImage = currentWord.image && currentWord.image !== '';
+      if (hasImage) {
+        flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+        flashcardDiv.classList.add('has-image');
+      } else {
+        flashcardDiv.style.backgroundImage = '';
+        flashcardDiv.classList.remove('has-image');
+      }
+      
+      var self = this;
+      if (isReversed) {
+        setTimeout(function() {
+          self.speakWord(currentWord.english);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
+      } else {
+        setTimeout(function() {
+          self.speakChineseWord(currentWord.chinese);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        if (this.settings.delaySpeechInNormalMode) {
+          setTimeout(function() {
+            self.speakWord(currentWord.english);
+          }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        }
+      }
+    }
+    
+    // 灰色字顯示（pending removal 視覺效果）
+    englishElement.classList.add('word-pending-removal');
+    chineseElement.classList.add('word-pending-removal');
+    
+    // 記錄原始不熟程度，以便取消時恢復
+    var originalDifficultyLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    
+    // 建立 pendingRemoval 狀態（標記為 isVeryFamiliar）
+    this.pendingRemoval = {
+      word: currentWord,
+      index: this.currentIndex,
+      originalEnglishColor: englishElement.style.color,
+      originalChineseColor: chineseElement.style.color,
+      originalDifficultyLevel: originalDifficultyLevel,
+      isVeryFamiliar: true
+    };
+    
+    // 預覽不熟程度為 ✓（-1）
+    this.renderDifficultyLevelPreview(-1);
+    
+    this.showRestoreButton();
+    this.updateButtonStates();
     
     // 顯示確認訊息
     this.showVeryFamiliarToast('✓ 已設為非常熟');
     
-    // 如果不在 -1 篩選模式下，從 currentWords 移除並跳到下一個
-    if (this.difficultyFilter !== -1) {
+    // 設定計時器，到期後透過 confirmRemoval 確認
+    var self = this;
+    var phase2Delay = this.getPhase2Delay();
+    this._setDisplayTimer(function() {
+      self.waitForSpeechThenExecute(function() {
+        self.confirmRemoval();
+      });
+    }, phase2Delay * 1000);
+    
+    // 進度條第二階段
+    this.startProgressBar(2, phase2Delay);
+  };
+
+  // 恢復被第一次 D 鍵暫停的計時器（共用邏輯）
+  FlashcardApp.prototype._resumeTimerAfterVeryFamiliarCancel = function() {
+    if (!this._vfSavedTimer) return;
+    
+    var savedRemainingMs = this._vfSavedTimer.remainingMs;
+    var savedProgressPhase = this._vfSavedTimer.progressPhase;
+    this._vfSavedTimer = null;
+    
+    // 恢復計時器和進度條（如果不在暫停狀態）
+    if (!this.isPaused && savedRemainingMs > 0) {
       var self = this;
-      setTimeout(function() {
-        // 從 currentWords 移除（因為篩選會排除 -1）
-        var idx = -1;
-        for (var i = 0; i < self.currentWords.length; i++) {
-          if (self.currentWords[i].id === wordId) {
-            idx = i;
-            break;
-          }
-        }
-        if (idx !== -1) {
-          self.currentWords.splice(idx, 1);
-          if (self.currentIndex >= self.currentWords.length) {
-            self.currentIndex = 0;
-            // 回到開頭時重新打亂順序
-            if (self.currentWords.length > 1) {
-              self.shuffleArray(self.currentWords);
-            }
-          }
-        }
-        
-        if (self.currentWords.length === 0) {
-          self.startNewRound();
-        } else {
-          self.displayCurrentWord();
-          self.updateButtonStates();
-          self.renderDifficultyLevel();
-          self.updateActiveFilterDisplay();
-        }
-      }, 800);
-    } else {
-      // 在 -1 篩選模式下，只更新顯示
-      this.renderDifficultyLevel();
+      if (savedProgressPhase === 2 || this.showingChinese) {
+        this._setDisplayTimer(function() {
+          self.waitForSpeechThenExecute(function() {
+            self.nextWord();
+          });
+        }, savedRemainingMs);
+        this._progressPhase = 2;
+        this.resumeProgressBar(savedRemainingMs / 1000);
+      } else {
+        this._setDisplayTimer(function() {
+          self.waitForSpeechThenExecute(function() {
+            self.showSecondPartAndScheduleNext();
+          });
+        }, savedRemainingMs);
+        this._progressPhase = 1;
+        this.resumeProgressBar(savedRemainingMs / 1000);
+      }
     }
   };
 
-  // 取消標記為非常熟
+  // 取消標記為非常熟（恢復計時器）
   FlashcardApp.prototype.cancelMarkVeryFamiliar = function() {
     if (!this._pendingVeryFamiliar) return;
     
@@ -892,6 +1020,9 @@
     }
     this._pendingVeryFamiliar = null;
     this.hideVeryFamiliarToast();
+    
+    // 恢復被第一次 D 暫停的計時器
+    this._resumeTimerAfterVeryFamiliarCancel();
   };
 
   // 顯示非常熟提示訊息（toast）
