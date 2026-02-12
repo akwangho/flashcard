@@ -186,9 +186,10 @@
       return;
     }
 
-    // 取指定數量（已依優先度排序，直接取前 N 個）
+    // 取指定數量（已依優先度排序，取前 N 個後打亂顯示順序）
     var reviewCount = Math.min(count, recommendedWords.length);
     this.currentWords = recommendedWords.slice(0, reviewCount);
+    this.shuffleArray(this.currentWords);
     this.currentIndex = 0;
     this.srsReviewActive = true;
 
