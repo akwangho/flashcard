@@ -75,10 +75,15 @@
     // === 複習同步 ===
     REVIEW_SYNC_THRESHOLD: 20,
 
-    // === 智慧計時器（Beta） ===
-    SMART_TIMER_BASE_TIME: 1.0,       // 基本記憶吸收時間（秒）
-    SMART_TIMER_PER_CHAR_TIME: 0.15,  // 每字元閱讀時間（秒）
-    SMART_TIMER_MIN_TIME: 1.2,        // 最短等待時間（秒）
+    // === 智慧計時器 ===
+    // 中文（第二語言為中文時）
+    SMART_TIMER_BASE_TIME: 1.0,            // 中文基本記憶吸收時間（秒）
+    SMART_TIMER_PER_CHAR_TIME: 0.15,       // 中文每字元閱讀時間（秒）
+    SMART_TIMER_MIN_TIME: 1.2,             // 中文最短等待時間（秒）
+    // 英文（第二語言為英文時）
+    SMART_TIMER_EN_BASE_TIME: 0.5,         // 英文基本辨識時間（秒）
+    SMART_TIMER_EN_PER_LETTER_TIME: 0.3,   // 英文每字母閱讀時間（秒）
+    SMART_TIMER_EN_MIN_TIME: 1.2,          // 英文最短等待時間（秒）
 
     // === localStorage 鍵名 ===
     STORAGE_KEYS: {

@@ -324,29 +324,59 @@
   };
 
   // 計算 Phase 2（翻譯顯示後）的智慧延遲秒數
-  // 僅在智慧計時啟用且第二語言為中文時生效，否則回傳原始 delayTime
+  // 根據第二語言內容自動調整：
+  //   中文：依中文字數計算，上限為 delayTime（母語閱讀快，只會加速）
+  //   英文：依英文字母數計算，短字加速，上限為 delayTime
+  //   英文（要會拼 + 不熟程度≥1）：不加速（至少等待 delayTime）
   FlashcardApp.prototype.getPhase2Delay = function() {
     if (!this.settings.smartTimerEnabled) {
       return this.settings.delayTime;
     }
 
-    // 反向模式（第二語言為英文）不適用智慧計時
-    if (this.isReversedForCurrentWord()) {
-      return this.settings.delayTime;
-    }
-
     var currentWord = this.currentWords[this.currentIndex];
-    if (!currentWord || !currentWord.chinese) {
+    if (!currentWord) {
       return this.settings.delayTime;
     }
 
-    var charCount = currentWord.chinese.length;
-    var baseTime = APP_CONSTANTS.SMART_TIMER_BASE_TIME;
-    var perCharTime = APP_CONSTANTS.SMART_TIMER_PER_CHAR_TIME;
-    var minTime = APP_CONSTANTS.SMART_TIMER_MIN_TIME;
+    var isReversed = this.isReversedForCurrentWord();
+    var smartDelay;
 
-    var smartDelay = Math.max(minTime, baseTime + charCount * perCharTime);
-    return Math.min(smartDelay, this.settings.delayTime);
+    if (isReversed) {
+      // 反向模式：第二語言為英文，根據英文字母數計算
+      var english = currentWord.english || '';
+      // 只計算字母數（排除空格、連字號、數字等）
+      var letterCount = english.replace(/[^a-zA-Z]/g, '').length;
+      if (letterCount === 0) return this.settings.delayTime;
+
+      var baseTime = APP_CONSTANTS.SMART_TIMER_EN_BASE_TIME;
+      var perLetterTime = APP_CONSTANTS.SMART_TIMER_EN_PER_LETTER_TIME;
+      var minTime = APP_CONSTANTS.SMART_TIMER_EN_MIN_TIME;
+
+      smartDelay = Math.max(minTime, baseTime + letterCount * perLetterTime);
+      // 上限為 delayTime（不減速）
+      smartDelay = Math.min(smartDelay, this.settings.delayTime);
+
+      // 要會拼 + 不熟程度≥1：不加速（至少等待 delayTime）
+      var difficulty = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+      if (currentWord.mustSpell && difficulty >= 1) {
+        smartDelay = this.settings.delayTime;
+      }
+    } else {
+      // 正常模式：第二語言為中文，根據中文字數計算
+      var chinese = currentWord.chinese || '';
+      var charCount = chinese.length;
+      if (charCount === 0) return this.settings.delayTime;
+
+      var baseTime = APP_CONSTANTS.SMART_TIMER_BASE_TIME;
+      var perCharTime = APP_CONSTANTS.SMART_TIMER_PER_CHAR_TIME;
+      var minTime = APP_CONSTANTS.SMART_TIMER_MIN_TIME;
+
+      smartDelay = Math.max(minTime, baseTime + charCount * perCharTime);
+      // 中文是母語，閱讀速度快，上限為 delayTime（只會加速不會減速）
+      smartDelay = Math.min(smartDelay, this.settings.delayTime);
+    }
+
+    return smartDelay;
   };
     
   // 渲染不熟程度預覽（暫時刪除時立即顯示減少後的數字）
