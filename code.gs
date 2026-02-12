@@ -13,6 +13,33 @@
   }
 
   // ===========================================
+  // 欄位常數（Google Sheet 欄位對照）
+  // 格式：A=要會拼, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期
+  // ===========================================
+
+  /** 0-based 欄位索引（用於 getValues() 陣列存取） */
+  var COL = {
+    MUST_SPELL: 0,     // A 欄：要會拼
+    ENGLISH: 1,        // B 欄：單字
+    CHINESE: 2,        // C 欄：翻譯
+    DIFFICULTY: 3,     // D 欄：不熟程度
+    IMAGE_URL: 4,      // E 欄：圖片URL
+    IMAGE_FORMULA: 5,  // F 欄：圖片顯示公式
+    LAST_REVIEW: 6     // G 欄：最後複習日期
+  };
+
+  /** 1-based 欄位編號（用於 getRange(row, col)） */
+  var COL_NUM = {
+    MUST_SPELL: 1,     // A 欄
+    ENGLISH: 2,        // B 欄
+    CHINESE: 3,        // C 欄
+    DIFFICULTY: 4,     // D 欄
+    IMAGE_URL: 5,      // E 欄
+    IMAGE_FORMULA: 6,  // F 欄
+    LAST_REVIEW: 7     // G 欄
+  };
+
+  // ===========================================
   // 工具函數 (Utility Functions)
   // ===========================================
 
@@ -45,7 +72,7 @@
 */
 function countValidWords(sheet) {
   try {
-    // 讀取第1行第1欄（A1）的值
+    // 讀取 A1 欄位（存放總單字數，與欄位常數無關）
     const countValue = sheet.getRange(1, 1).getValue();
     
     // 檢查值是否存在
@@ -76,8 +103,8 @@ function countValidWords(sheet) {
   function createWordObject(rowData, id, sheetName, rowIndex) {
     // 計算不熟程度（支援數字 -1~10 或舊版 * 符號）
     let difficultyLevel = 0;
-    if (rowData[3] !== undefined && rowData[3] !== null && rowData[3] !== '') {
-      const diffStr = rowData[3].toString().trim();
+    if (rowData[COL.DIFFICULTY] !== undefined && rowData[COL.DIFFICULTY] !== null && rowData[COL.DIFFICULTY] !== '') {
+      const diffStr = rowData[COL.DIFFICULTY].toString().trim();
       const parsed = Number(diffStr);
       if (!isNaN(parsed) && diffStr !== '') {
         // 數字格式（支援 -1 到 10）
@@ -93,8 +120,8 @@ function countValidWords(sheet) {
 
     // 讀取 G 欄（第7欄，index 6）的最後複習日期
     let lastReviewDate = '';
-    if (rowData.length > 6 && rowData[6]) {
-      const rawValue = rowData[6];
+    if (rowData.length > COL.LAST_REVIEW && rowData[COL.LAST_REVIEW]) {
+      const rawValue = rowData[COL.LAST_REVIEW];
       // 如果是 Date 物件，轉換為 YYYY-MM-DD 格式
       if (rawValue instanceof Date) {
         const year = rawValue.getFullYear();
@@ -107,17 +134,17 @@ function countValidWords(sheet) {
     }
 
     // 讀取 A 欄（第1欄，index 0）的「要會拼」標記
-    var mustSpell = (rowData[0] !== undefined && rowData[0] !== null && rowData[0] !== '') ? true : false;
+    var mustSpell = (rowData[COL.MUST_SPELL] !== undefined && rowData[COL.MUST_SPELL] !== null && rowData[COL.MUST_SPELL] !== '') ? true : false;
 
     return {
       id: id,
-      english: rowData[1].toString().trim(),       // B 欄：單字
-      chinese: rowData[2].toString().trim(),       // C 欄：翻譯
-      difficultyLevel: difficultyLevel,            // D 欄：不熟程度（-1~10，-1=非常熟）
-      image: rowData[4] ? rowData[4].toString().trim() : '',       // E 欄：圖片URL
-      imageFormula: rowData[5] ? rowData[5].toString().trim() : '', // F 欄：圖片顯示公式
-      lastReviewDate: lastReviewDate,              // G 欄：最後複習日期
-      mustSpell: mustSpell,                        // A 欄：要會拼（混合模式下強制先顯示中文）
+      english: rowData[COL.ENGLISH].toString().trim(),
+      chinese: rowData[COL.CHINESE].toString().trim(),
+      difficultyLevel: difficultyLevel,
+      image: rowData[COL.IMAGE_URL] ? rowData[COL.IMAGE_URL].toString().trim() : '',
+      imageFormula: rowData[COL.IMAGE_FORMULA] ? rowData[COL.IMAGE_FORMULA].toString().trim() : '',
+      lastReviewDate: lastReviewDate,
+      mustSpell: mustSpell,
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
@@ -146,8 +173,8 @@ function countValidWords(sheet) {
     
     // 從第2行開始搜尋（跳過標題列），B欄=單字，C欄=翻譯
     for (let i = 1; i < data.length; i++) {
-      const rowEnglish = data[i][1] ? data[i][1].toString().trim() : '';
-      const rowChinese = data[i][2] ? data[i][2].toString().trim() : '';
+      const rowEnglish = data[i][COL.ENGLISH] ? data[i][COL.ENGLISH].toString().trim() : '';
+      const rowChinese = data[i][COL.CHINESE] ? data[i][COL.CHINESE].toString().trim() : '';
       
       if (rowEnglish.toLowerCase() === englishWord.toLowerCase().trim() && 
           rowChinese.toLowerCase() === chineseWord.toLowerCase().trim()) {
@@ -296,7 +323,7 @@ function countValidWords(sheet) {
       const words = [];
 
       for (let j = 1; j < data.length; j++) {
-        if (data[j][1] && data[j][2]) {
+        if (data[j][COL.ENGLISH] && data[j][COL.CHINESE]) {
           words.push(createWordObject(data[j], 0, sheetName, j));
         }
       }
@@ -342,7 +369,7 @@ function countValidWords(sheet) {
         
         // 從第2行開始（跳過標題列），檢查 B欄(單字) 和 C欄(翻譯) 是否有資料
         for (let j = 1; j < data.length; j++) {
-          if (data[j][1] && data[j][2]) {
+          if (data[j][COL.ENGLISH] && data[j][COL.CHINESE]) {
             allWords.push(createWordObject(data[j], currentId++, sheetName, j));
             sheetWordCount++;
           }
@@ -396,11 +423,10 @@ function countValidWords(sheet) {
       }
       
       const row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
-      const col = 4; // D 欄（第四欄）
       
       // 以數字格式寫入（0 寫空字串，其他寫數字）
       const level = Math.max(-1, Math.min(10, parseInt(difficultyLevel) || 0));
-      sheet.getRange(row, col).setValue(level === 0 ? '' : level);
+      sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
       
       console.log('成功更新不熟程度為', level);
       return true;
@@ -437,32 +463,32 @@ function countValidWords(sheet) {
       
       // 更新 B 欄：單字
       if (properties.english !== undefined && properties.english !== null) {
-        sheet.getRange(row, 2).setValue(properties.english.toString().trim());
+        sheet.getRange(row, COL_NUM.ENGLISH).setValue(properties.english.toString().trim());
         console.log('已更新單字:', properties.english);
       }
       
       // 更新 C 欄：翻譯
       if (properties.chinese !== undefined && properties.chinese !== null) {
-        sheet.getRange(row, 3).setValue(properties.chinese.toString().trim());
+        sheet.getRange(row, COL_NUM.CHINESE).setValue(properties.chinese.toString().trim());
         console.log('已更新翻譯:', properties.chinese);
       }
       
       // 更新 D 欄：不熟程度（以數字格式寫入，0 寫空字串）
       if (properties.difficultyLevel !== undefined && properties.difficultyLevel !== null) {
         var level = Math.max(-1, Math.min(10, parseInt(properties.difficultyLevel) || 0));
-        sheet.getRange(row, 4).setValue(level === 0 ? '' : level);
+        sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
         console.log('已更新不熟程度:', level);
       }
       
       // 更新 E 欄：圖片URL
       if (properties.imageUrl !== undefined && properties.imageUrl !== null) {
-        sheet.getRange(row, 5).setValue(properties.imageUrl.toString().trim());
+        sheet.getRange(row, COL_NUM.IMAGE_URL).setValue(properties.imageUrl.toString().trim());
         console.log('已更新圖片URL:', properties.imageUrl);
       }
       
       // 更新 A 欄：要會拼（1 為要會拼，空字串為不需要）
       if (properties.mustSpell !== undefined && properties.mustSpell !== null) {
-        sheet.getRange(row, 1).setValue(properties.mustSpell ? 1 : '');
+        sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(properties.mustSpell ? 1 : '');
         console.log('已更新要會拼:', properties.mustSpell);
       }
       
@@ -631,8 +657,7 @@ function countValidWords(sheet) {
           try {
             const update = sheetUpdates[i];
             const row = update.rowIndex + 1; // 轉換為 1-based
-            const col = 7; // G 欄
-            sheet.getRange(row, col).setValue(update.date);
+            sheet.getRange(row, COL_NUM.LAST_REVIEW).setValue(update.date);
             updatedCount++;
           } catch (cellError) {
             console.error('更新單一複習日期失敗:', sheetUpdates[i], cellError);
@@ -770,7 +795,7 @@ function countValidWords(sheet) {
         
         if (foundRowIndex !== -1) {
           const targetRow = foundRowIndex + 1; // 轉換為1-based索引
-          targetSheet.getRange(targetRow, 3).setValue(mergedDefinition); // C 欄（第3欄）是中文定義
+          targetSheet.getRange(targetRow, COL_NUM.CHINESE).setValue(mergedDefinition);
           console.log('已更新目標定義:', targetWord.sheetName, '第', targetRow, '行');
         } else {
           console.error('找不到目標單字:', targetWord.english, '-', targetWord.chinese);

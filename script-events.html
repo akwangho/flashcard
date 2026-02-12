@@ -12,7 +12,10 @@
    *   toggleMenu, closeMenu, hideLoading, showError, customConfirm ...
    */
 
-  // 設置事件監聽器
+  /**
+   * 設置所有事件監聽器（鍵盤、觸控、按鈕、Modal、滑動手勢等）。
+   * 呼叫一次後設定 listenersSetup 旗標，防止重複綁定。
+   */
   FlashcardApp.prototype.setupEventListeners = function() {
     console.log('設置事件監聽器...');
   
@@ -474,7 +477,7 @@
       // 進度條第一階段：0% → 50%（到 50% 時顯示翻譯）
       self.startProgressBar(1);
       
-    }, 100);
+    }, APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
     
     this.renderDifficultyLevel();
     this.renderMustSpellIndicator();
@@ -1056,8 +1059,8 @@
     var touchStartY = 0;
     var touchStartTime = 0;
     var isSwiping = false;
-    var SWIPE_THRESHOLD = 50;      // 最小滑動距離（px）
-    var SWIPE_TIME_LIMIT = 500;    // 最大滑動時間（ms）
+    var SWIPE_THRESHOLD = APP_CONSTANTS.SWIPE_THRESHOLD_PX;
+    var SWIPE_TIME_LIMIT = APP_CONSTANTS.SWIPE_TIME_LIMIT_MS;
 
     flashcardDiv.addEventListener('touchstart', function(e) {
       if (!e.touches || e.touches.length === 0) return;

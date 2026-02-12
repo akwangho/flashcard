@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.11.2
+> **版本**: 1.11.3
 > **最後更新**: 2026-02-12
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -53,7 +53,7 @@
 
 ```
 flashcard/
-├── code.gs                # Google Apps Script 後端程式碼（約 758 行）
+├── code.gs                # Google Apps Script 後端程式碼（含 COL/COL_NUM 欄位常數）
 ├── index.html             # 主要 HTML 結構（含所有模態框）
 │
 │   # CSS 樣式模組（原 style.html 拆分為 5 個模組）
@@ -63,17 +63,21 @@ flashcard/
 ├── style-sheets.html      # 匯出進度、Google Sheet 元件、歷史清單、重複單字、通知、輔助說明、錯誤
 ├── style-quiz.html        # 測驗元件、複習篩選模態框
 │
-│   # 前端 JavaScript 模組（原 script.html 拆分為 10 個模組）
+│   # 前端 JavaScript 模組（原 script.html 拆分為 14 個模組）
 ├── script-polyfills.html  # ES5 Polyfills（forEach, filter, map, find, includes）
 ├── script-core.html       # 全域常數(APP_CONSTANTS)、共用工具函式、建構函式、初始化、設定管理、單字載入
-├── script-events.html     # 事件監聽器設定、語音啟用、基本 UI 顯示
+├── script-events.html     # 事件監聯器設定、語音啟用、基本 UI 顯示
 ├── script-display.html    # 設定模態框、計時器/暫停、不熟程度、閃卡互動、滑桿
 ├── script-voice.html      # 語音朗讀（英/日/中）、導覽、全螢幕、語音設定
 ├── script-export.html     # 匯出功能（批次匯出、覆寫處理）
 ├── script-sheets.html     # Google Sheet 載入、驗證、工作表選擇
 ├── script-duplicates.html # 重複單字偵測與處理
-├── script-filter.html     # 複習時間篩選、不熟程度篩選、要會拼篩選、編輯單字、SRS 間隔重複系統
-├── script-quiz.html       # 防螢幕關閉、Android 背景執行（Web Worker 計時器）、測驗系統、全域初始化
+├── script-filter.html     # 複習時間篩選、不熟程度篩選、要會拼篩選
+├── script-edit-word.html  # 編輯單字模態框（開啟、關閉、儲存、圖片預覽）
+├── script-srs.html        # SRS 間隔重複系統（Leitner Box、到期判定、快速複習 UI）
+├── script-screen-awake.html # 防螢幕關閉（Wake Lock、NoSleep Video、持續音頻、Keep-Alive）
+├── script-quiz.html       # 測驗系統（題目生成、答題流程、計分）
+├── script-bootstrap.html  # 全域初始化（window.onload、FlashcardApp 實例建立、cleanup）
 │
 │   # 部署與工具設定
 ├── appsscript.json        # Google Apps Script 專案清單（clasp 用）
@@ -138,13 +142,13 @@ bash deploy.sh setup
 ### 2.5 前端架構
 
 - **設計模式**: 單一建構函式 `FlashcardApp`，所有方法掛載於 `FlashcardApp.prototype`
-- **模組化**: 前端程式碼拆分為 10 個 HTML 模組檔案，透過 `<?!= include('filename'); ?>` 在 `index.html` 中按順序載入。每個模組檔案頂部有 JSDoc 風格的結構化註釋，說明模組用途、相依性和提供的函式
-- **全域常數**: `APP_CONSTANTS` 物件集中管理所有 magic numbers（超時時間、篩選天數、SRS 間隔、測驗設定、匯出設定、localStorage keys 等），定義於 `script-core.html`
+- **模組化**: 前端程式碼拆分為 14 個 HTML 模組檔案，透過 `<?!= include('filename'); ?>` 在 `index.html` 中按順序載入。每個模組檔案頂部有 JSDoc 風格的結構化註釋，說明模組用途、相依性和提供的函式
+- **全域常數**: `APP_CONSTANTS` 物件集中管理所有 magic numbers（超時時間、篩選天數、SRS 間隔、測驗設定、匯出設定、UI 延遲門檻、localStorage keys 等），定義於 `script-core.html`。後端 `code.gs` 使用 `COL`（0-based）/ `COL_NUM`（1-based）欄位常數取代欄位數字
 - **共用工具函式**: `formatDateYYYYMMDD`、`isModalBackgroundClick`、`selectVoiceByURIOrLang`、`applyDifficultyClass`、`openModalById`、`closeModalById` 等全域函式，定義於 `script-core.html`，消除跨模組重複程式碼
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 355 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作等核心功能）
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 431 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -331,6 +335,7 @@ bash deploy.sh setup
   5. 再等待「延遲時間」秒數
   6. 自動切換到下一個單字
   7. 循環結束後重新洗牌並開始新回合（包括篩選模式下的每一輪）
+- **篩選後洗牌**: 套用所有篩選條件後，對篩選結果再執行一次洗牌，確保多工作表載入時不同工作表的單字充分混合，避免同一工作表的單字聚集出現
 - **延遲時間**: 可設定 1 至 10 秒，步進 0.5 秒，預設 4.5 秒
 - **語音等待機制**: 當任何語音功能啟用時（英日文發音或中文發音），若延遲時間到期而語音尚未播放完畢，系統會自動等待語音播放完成後才進行切換（最長等待 60 秒）。此機制確保所有語音（包括基本英文發音、字母拼讀、中文發音）都不會被截斷。系統使用 `_speechSequenceActive` 標記追蹤「字母拼讀 → 單字發音」的完整序列，避免字母拼讀結束與單字發音開始之間的短暫空檔被誤判為語音完成。使用者手動操作（點擊「下一個」、「上一個」等）不受此機制影響，會立即切換並取消語音
 - **載入失敗容錯**: 當已儲存的工作表被刪除或無法載入時（所有工作表皆載入失敗、逾時、或回傳零筆單字），系統不會顯示錯誤畫面，而是自動開啟單字檔設定對話框，讓使用者重新選擇工作表
@@ -746,8 +751,8 @@ bash deploy.sh setup
 | 往右滑 | 上一個單字（`previousWord()`） | 左方向鍵 ← |
 
 - **觸發條件**:
-  - 水平滑動距離 ≥ 50px（`SWIPE_THRESHOLD`）
-  - 滑動時間 ≤ 500ms（`SWIPE_TIME_LIMIT`）
+  - 水平滑動距離 ≥ 50px（`APP_CONSTANTS.SWIPE_THRESHOLD_PX`）
+  - 滑動時間 ≤ 500ms（`APP_CONSTANTS.SWIPE_TIME_LIMIT_MS`）
   - 水平滑動距離 > 垂直滑動距離（避免與頁面上下捲動衝突）
 - **限制**: 暫停時滑動手勢不生效
 - **防衝突**: 偵測到水平滑動時呼叫 `preventDefault()` 阻止頁面捲動和後續 click 事件
@@ -816,7 +821,6 @@ bash deploy.sh setup
 #### 4.13.2 篩選指示器
 - **描述**: 當有任何篩選條件啟用時，在主畫面進度區域上方顯示篩選狀態
 - **位置**: 定位於進度區域正上方（`bottom: 55px`，左對齊），避免遮擋進度區域內的要會拼指示器
-- **恢復按鈕聯動**: 當恢復按鈕顯示時，篩選指示器隨進度區域一起上移（加上 `active-filters-shifted` class）
 - **格式**: `篩選: ⭐ ★5+ | 📅 >2週 | ✍️ 要會拼 | 📖 快速複習 (42個)` 或 `篩選: ⭐ 非常熟 (10個)`（-1 篩選時）
 - **清除按鈕**: 提供「✕ 清除」按鈕一鍵清除所有篩選（包括結束 SRS 複習模式）
 
@@ -955,14 +959,16 @@ bash deploy.sh setup
 | `autoHandleSkippedDuplicatesInMemory(allWords, duplicates)` | 全部單字, 重複組 | `Object` | 在記憶體中自動處理重複（不修改 Sheet） |
 | `autoHandleSkippedDuplicates(sheetId, duplicates)` | Sheet ID, 重複組 | `Object` | 自動處理重複（修改 Sheet） |
 
-### 5.6 工具函式
+### 5.6 工具函式與常數
 
-| 函式 | 說明 |
+| 函式/常數 | 說明 |
 |------|------|
+| `COL` | 0-based 欄位索引常數（`MUST_SPELL=0, ENGLISH=1, CHINESE=2, DIFFICULTY=3, IMAGE_URL=4, IMAGE_FORMULA=5, LAST_REVIEW=6`），用於 `getValues()` 陣列存取 |
+| `COL_NUM` | 1-based 欄位編號常數（`MUST_SPELL=1, ..., LAST_REVIEW=7`），用於 `getRange(row, col)` |
 | `validateAndCleanSheetId(sheetId)` | 驗證和清理 Sheet ID |
 | `openSpreadsheetSafely(sheetId)` | 安全地開啟 Google Spreadsheet（含錯誤處理） |
 | `countValidWords(sheet)` | 讀取工作表 A1 格的值作為有效單字數 |
-| `createWordObject(rowData, id, sheetName, rowIndex)` | 從列資料建立單字物件 |
+| `createWordObject(rowData, id, sheetName, rowIndex)` | 從列資料建立單字物件（使用 `COL` 常數存取欄位） |
 | `findWordRowIndex(sheet, englishWord, chineseWord)` | 根據英文和中文在工作表中尋找列索引 |
 
 ---

@@ -122,7 +122,20 @@ function createDOMElements() {
     'srs-count-options', 'srs-count-buttons',
     'srs-start-btn',
     // Loading screen word display
-    'loading-word-english', 'loading-word-chinese'
+    'loading-word-english', 'loading-word-chinese',
+    // Timer progress bar
+    'timer-progress-bar',
+    // Very familiar toast
+    'very-familiar-toast',
+    // Smart timer setting
+    'smart-timer-setting',
+    // Custom confirm modal
+    'custom-confirm-modal', 'custom-confirm-message',
+    'custom-confirm-yes', 'custom-confirm-no',
+    // Image fit mode
+    'image-fit-setting',
+    // Select all sheets
+    'select-all-sheets-btn'
   ];
 
   elementIds.forEach(function(id) {
@@ -190,6 +203,11 @@ function createDOMElements() {
       el.max = '1';
       el.value = '0.8';
       el.step = '0.1';
+    }
+    if (id === 'smart-timer-setting' || id === 'image-fit-setting') {
+      el = document.createElement('input');
+      el.id = id;
+      el.type = 'checkbox';
     }
     if (id === 'edit-word-image-preview-img') {
       el = document.createElement('img');
@@ -348,7 +366,11 @@ function loadAllScripts() {
     'script-sheets.html',
     'script-duplicates.html',
     'script-filter.html',
-    'script-quiz.html'
+    'script-edit-word.html',
+    'script-srs.html',
+    'script-screen-awake.html',
+    'script-quiz.html',
+    'script-bootstrap.html'
   ];
 
   var splitContent = splitFiles.map(function(f) { return loadScriptFile(f); });
@@ -393,7 +415,9 @@ function bootstrapApp() {
   // Execute the code and expose FlashcardApp globally.
   // new Function() creates a local scope, so we append code to export to global.
   var exportCode = code + '\n' +
-    'if (typeof FlashcardApp !== "undefined") { global.FlashcardApp = FlashcardApp; }\n';
+    'if (typeof FlashcardApp !== "undefined") { global.FlashcardApp = FlashcardApp; }\n' +
+    'if (typeof APP_CONSTANTS !== "undefined") { global.APP_CONSTANTS = APP_CONSTANTS; }\n' +
+    'if (typeof formatDateYYYYMMDD !== "undefined") { global.formatDateYYYYMMDD = formatDateYYYYMMDD; }\n';
   var script = new Function(exportCode);
   script.call(global);
 }

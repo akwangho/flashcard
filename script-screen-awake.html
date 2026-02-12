@@ -1,0 +1,563 @@
+<!-- script-screen-awake.html -->
+<script>
+  /**
+   * @module script-screen-awake
+   * @description 防螢幕休眠模組：多層防螢幕關閉機制（Wake Lock、NoSleep 視頻、
+   *   持續靜音音頻、Keep-alive）、Android 背景執行支援（Web Worker 計時器 +
+   *   可見性補償）。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: _isAndroidDevice, _createBackgroundWorker,
+   *   _setDisplayTimer, _clearDisplayTimer, _handleVisibilityResume,
+   *   enableKeepScreenAwake, _requestWakeLock, _prepareNoSleepVideo,
+   *   _startPersistentAudio, _resumePersistentAudio, _setupWakeGestureActivation,
+   *   _startAudioWatchdog, _startKeepAlive, disableKeepScreenAwake
+   */
+
+  // ==========================================================================
+  // Android 背景執行支援：Web Worker 計時器 + 可見性補償
+  // ==========================================================================
+  
+  // 檢測是否為 Android 裝置
+  FlashcardApp.prototype._isAndroidDevice = function() {
+    return /Android/i.test(navigator.userAgent);
+  };
+  
+  // 建立背景計時 Web Worker（Android 背景執行的關鍵）
+  // Web Worker 的 setTimeout 不受主執行緒的背景節流限制
+  FlashcardApp.prototype._createBackgroundWorker = function() {
+    if (this._bgWorker) return;
+    
+    try {
+      var workerCode =
+        'var timers = {};' +
+        'self.onmessage = function(e) {' +
+        '  var d = e.data;' +
+        '  if (d.type === "setTimeout") {' +
+        '    timers[d.id] = setTimeout(function() {' +
+        '      self.postMessage({ type: "timeout", id: d.id });' +
+        '      delete timers[d.id];' +
+        '    }, d.delay);' +
+        '  } else if (d.type === "clearTimeout") {' +
+        '    if (timers[d.id]) {' +
+        '      clearTimeout(timers[d.id]);' +
+        '      delete timers[d.id];' +
+        '    }' +
+        '  }' +
+        '};';
+      
+      var blob = new Blob([workerCode], { type: 'application/javascript' });
+      var workerUrl = URL.createObjectURL(blob);
+      this._bgWorker = new Worker(workerUrl);
+      
+      var self = this;
+      this._bgWorker.onmessage = function(e) {
+        var data = e.data;
+        if (data.type === 'timeout') {
+          var entry = self._bgWorkerCallbacks[data.id];
+          if (entry && entry.fn) {
+            delete self._bgWorkerCallbacks[data.id];
+            entry.fn();
+          }
+        }
+      };
+      
+      this._bgWorker.onerror = function(e) {
+        console.log('Web Worker 錯誤:', e.message);
+      };
+      
+      console.log('背景計時 Web Worker 已建立');
+    } catch (error) {
+      console.log('無法建立背景 Web Worker（不影響正常使用）:', error.message || error);
+      this._bgWorker = null;
+    }
+  };
+  
+  // ★ 設定可在背景執行的顯示計時器
+  // 同時在主執行緒和 Web Worker 設定 setTimeout，
+  // 哪個先觸發就執行 callback 並取消另一個，
+  // 確保 Android 背景時計時器仍能正常觸發
+  FlashcardApp.prototype._setDisplayTimer = function(callback, delay) {
+    var self = this;
+    
+    // 先清除舊的計時器
+    this._clearDisplayTimer();
+    
+    var fired = false;
+    
+    var execute = function() {
+      if (fired) return;
+      fired = true;
+      self._clearDisplayTimer();
+      callback();
+    };
+    
+    // 主執行緒計時器
+    this.displayTimer = setTimeout(execute, delay);
+    
+    // Web Worker 背景計時器（如果可用）
+    var bgId = null;
+    if (this._bgWorker) {
+      bgId = this._bgWorkerNextId++;
+      this._bgWorkerCallbacks[bgId] = { fn: execute };
+      try {
+        this._bgWorker.postMessage({ type: 'setTimeout', id: bgId, delay: delay });
+      } catch (e) {
+        // Worker 通訊失敗，只用主執行緒計時器
+      }
+    }
+    
+    // 追蹤計時器資訊（用於 visibilitychange 補償）
+    this._activeTimerInfo = {
+      setAt: Date.now(),
+      delay: delay,
+      execute: execute,
+      bgId: bgId
+    };
+  };
+  
+  // 清除顯示計時器（同時清除主執行緒和 Worker 的計時器）
+  FlashcardApp.prototype._clearDisplayTimer = function() {
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+    
+    // 清除 Web Worker 計時器
+    if (this._activeTimerInfo && this._activeTimerInfo.bgId && this._bgWorker) {
+      try {
+        this._bgWorker.postMessage({ type: 'clearTimeout', id: this._activeTimerInfo.bgId });
+      } catch (e) {}
+      if (this._bgWorkerCallbacks) {
+        delete this._bgWorkerCallbacks[this._activeTimerInfo.bgId];
+      }
+    }
+    
+    this._activeTimerInfo = null;
+  };
+  
+  // 頁面重新可見時的補償處理（Android 背景恢復的安全網）
+  // 即使 Web Worker 計時器未能觸發，此方法也會在頁面重新可見時補償
+  FlashcardApp.prototype._handleVisibilityResume = function() {
+    // 如果暫停中或沒有活躍計時器，不處理
+    if (this.isPaused || !this._activeTimerInfo) return;
+    
+    var elapsed = Date.now() - this._activeTimerInfo.setAt;
+    if (elapsed >= this._activeTimerInfo.delay) {
+      console.log('背景恢復：計時器已到期（經過 ' + Math.round(elapsed / 1000) + ' 秒），立即觸發');
+      var execute = this._activeTimerInfo.execute;
+      if (execute) {
+        execute();
+      }
+    }
+    
+    // 嘗試恢復被暫停的 SpeechSynthesis（Android Chrome 背景會暫停語音）
+    try {
+      if (this.speechSynthesis && this.speechSynthesis.paused) {
+        this.speechSynthesis.resume();
+        console.log('SpeechSynthesis 已恢復');
+      }
+    } catch (e) {}
+  };
+  
+  // ==========================================================================
+  // 防止螢幕關閉功能（多層策略）
+  // ==========================================================================
+
+  // 防止螢幕關閉功能
+  // 同時嘗試多種方法，並在首次用戶互動時重試
+  // 核心方法：AudioContext + MediaStreamDestination + <audio> 元素（iOS Safari 11+ 有效）
+  FlashcardApp.prototype.enableKeepScreenAwake = function() {
+    console.log('啟用防止螢幕關閉功能');
+    var self = this;
+    this.keepScreenAwake = true;
+    this._wakeLockAcquired = false;
+    this._noSleepVideoPlaying = false;
+    this._persistentAudioRunning = false;
+    
+    // 方法 0：建立背景計時 Web Worker（Android 背景執行的關鍵）
+    this._createBackgroundWorker();
+    
+    // 方法 1：嘗試 Wake Lock API（現代瀏覽器，可能在 iframe 中失敗）
+    this._requestWakeLock();
+    
+    // 方法 2：準備 NoSleep 無聲視頻（舊版 iOS 及 Android）
+    this._prepareNoSleepVideo();
+    
+    // 方法 3：Keep-alive 備用方案（始終啟用）
+    this._startKeepAlive();
+    
+    // 關鍵：每次用戶互動時啟動/恢復持續靜音音頻（iOS Safari 必須在 user gesture 中啟動）
+    this._setupWakeGestureActivation();
+    
+    // 定期監控音頻狀態（每 10 秒）
+    this._startAudioWatchdog();
+    
+    // 頁面重新可見時恢復所有防螢幕關閉機制 + Android 背景計時器補償
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        // 恢復防螢幕關閉機制
+        if (self.keepScreenAwake) {
+          console.log('頁面重新可見，重試防螢幕關閉');
+          self._requestWakeLock();
+          self._resumePersistentAudio();
+          if (self.noSleepVideo && self.noSleepVideo.paused) {
+            var playPromise = self.noSleepVideo.play();
+            if (playPromise !== undefined) {
+              playPromise.then(function() {
+                self._noSleepVideoPlaying = true;
+              }).catch(function() {});
+            }
+          }
+        }
+        // Android 背景恢復：檢查計時器狀態並補償（安全網）
+        self._handleVisibilityResume();
+      }
+    });
+  };
+  
+  // 嘗試取得 Wake Lock（非同步，不阻擋其他方法）
+  FlashcardApp.prototype._requestWakeLock = function() {
+    if (!('wakeLock' in navigator)) return;
+    var self = this;
+    try {
+      navigator.wakeLock.request('screen').then(function(wakeLock) {
+        self.wakeLock = wakeLock;
+        self._wakeLockAcquired = true;
+        console.log('Wake Lock API 已啟用');
+        
+        // 監聽 Wake Lock 被釋放（例如切換分頁）
+        wakeLock.addEventListener('release', function() {
+          console.log('Wake Lock 被釋放');
+          self._wakeLockAcquired = false;
+        });
+      }).catch(function(error) {
+        console.log('Wake Lock API 請求失敗:', error.message || error);
+        self._wakeLockAcquired = false;
+      });
+    } catch (error) {
+      console.log('Wake Lock API 異常:', error);
+    }
+  };
+  
+  // 準備 NoSleep 無聲視頻（建立元素並嘗試播放）
+  FlashcardApp.prototype._prepareNoSleepVideo = function() {
+    if (this.noSleepVideo) return; // 已建立
+    try {
+      var video = document.createElement('video');
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      video.setAttribute('loop', '');
+      video.muted = true; // 同時設定屬性，確保 iOS 相容
+      video.style.position = 'fixed';
+      video.style.top = '0';
+      video.style.left = '0';
+      video.style.width = '1px';
+      video.style.height = '1px';
+      video.style.opacity = '0.01';
+      video.style.pointerEvents = 'none';
+      video.style.zIndex = '-1';
+      
+      // 1x1 像素極短無聲 MP4 視頻（data URL）
+      var videoDataUrl = 'data:video/mp4;base64,AAAAIGZ0eXBtcDQyAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAr1tZGF0AAACrgYF//+q3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE0OCByMjYwMSBNIGU5YjVmMzMgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDE2IC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MSByZWY9MyBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgzOjB4MTEzIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0xIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS0yIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBicmFtZXM9MyBiX3B5cmFtaWQ9MiBiX2FkYXB0PTEgYl9iaWFzPTAgZGlyZWN0PTEgd2VpZ2h0Yj0xIG9wZW5fZ29wPTAgd2VpZ2h0cD0yIGtleWludD0yNTAga2V5aW50X21pbj0yNSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTQwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAFZliIQL8mKAAKvMnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycH//2Q==';
+      
+      video.src = videoDataUrl;
+      
+      document.body.appendChild(video);
+      this.noSleepVideo = video;
+      
+      // 嘗試立即播放（iOS 上可能因缺少 user gesture 而失敗）
+      var self = this;
+      var playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.then(function() {
+          console.log('NoSleep 視頻已開始播放');
+          self._noSleepVideoPlaying = true;
+        }).catch(function(error) {
+          console.log('NoSleep 視頻需要用戶互動才能播放:', error.message || error);
+          // 不移除視頻元素，稍後在用戶互動時重試
+        });
+      }
+    } catch (error) {
+      console.log('創建 NoSleep 視頻失敗:', error);
+    }
+  };
+  
+  // ★ 核心方法：啟動持續靜音音頻（iOS Safari 防螢幕休眠的關鍵）
+  // 同時啟動兩種音頻輸出：
+  //   A) oscillator → 喇叭（直接音頻輸出，iOS 視為活躍音頻）
+  //   B) AudioContext → MediaStreamDestination → <audio> 元素（iOS 15+ 有效）
+  // 必須在 user gesture 中呼叫
+  FlashcardApp.prototype._startPersistentAudio = function() {
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) {
+      console.log('AudioContext 不可用');
+      return;
+    }
+    
+    try {
+      // 如果已有 AudioContext 且沒有被關閉，先嘗試恢復
+      if (this._persistentAudioContext && this._persistentAudioContext.state !== 'closed') {
+        this._resumePersistentAudio();
+        return;
+      }
+      
+      var ctx = new AudioCtx();
+      this._persistentAudioContext = ctx;
+      
+      // ===== 方法 A：oscillator 直接輸出到喇叭 =====
+      // 使用超高頻（20kHz）+ 極低音量，人耳聽不到但 iOS 視為活躍音頻
+      try {
+        var oscillator = ctx.createOscillator();
+        var gainNode = ctx.createGain();
+        gainNode.gain.value = 0.001;
+        oscillator.frequency.value = 20000;
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.start(0);
+        this._persistentOscillator = oscillator;
+        console.log('持續靜音 oscillator 已啟動');
+      } catch (oscError) {
+        console.log('oscillator 啟動失敗:', oscError);
+      }
+      
+      // ===== 方法 B：MediaStream → <audio> 元素 =====
+      if (typeof ctx.createMediaStreamDestination === 'function') {
+        try {
+          var bufferSize = 2 * ctx.sampleRate;
+          var emptyBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          // buffer 預設已是 0（靜音），不需要填充
+          
+          var source = ctx.createBufferSource();
+          source.buffer = emptyBuffer;
+          source.loop = true;
+          
+          var streamDest = ctx.createMediaStreamDestination();
+          source.connect(streamDest);
+          source.start(0);
+          
+          var audio = document.createElement('audio');
+          audio.style.display = 'none';
+          audio.loop = true;
+          document.body.appendChild(audio);
+          audio.srcObject = streamDest.stream;
+          
+          var self = this;
+          var playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(function() {
+              console.log('MediaStream <audio> 已啟動');
+            }).catch(function(error) {
+              console.log('MediaStream <audio> 播放失敗:', error.message || error);
+            });
+          }
+          
+          this._persistentAudioElement = audio;
+          this._persistentAudioSource = source;
+        } catch (msError) {
+          console.log('MediaStream 方法失敗:', msError);
+        }
+      }
+      
+      this._persistentAudioRunning = true;
+      console.log('持續靜音音頻系統已啟動');
+      
+    } catch (error) {
+      console.log('啟動持續靜音音頻失敗:', error);
+    }
+  };
+  
+  // 恢復持續靜音音頻（iOS 會在各種情況下暫停 AudioContext）
+  FlashcardApp.prototype._resumePersistentAudio = function() {
+    try {
+      if (this._persistentAudioContext) {
+        var state = this._persistentAudioContext.state;
+        if (state === 'suspended' || state === 'interrupted') {
+          this._persistentAudioContext.resume();
+          console.log('AudioContext 已恢復 (原狀態: ' + state + ')');
+        }
+      }
+      if (this._persistentAudioElement && this._persistentAudioElement.paused) {
+        var playPromise = this._persistentAudioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.then(function() {
+            console.log('持續靜音 <audio> 已恢復播放');
+          }).catch(function() {});
+        }
+      }
+    } catch (error) {
+      console.log('恢復持續靜音音頻失敗:', error);
+    }
+  };
+  
+  // ★ 每次用戶互動時都嘗試啟動/恢復防螢幕關閉
+  // 不移除監聽器 —— iOS 可能隨時暫停 AudioContext，需要在下次手勢中恢復
+  FlashcardApp.prototype._setupWakeGestureActivation = function() {
+    var self = this;
+    
+    var activateOnGesture = function() {
+      if (!self.keepScreenAwake) return;
+      
+      // 啟動或恢復持續靜音音頻
+      if (!self._persistentAudioRunning) {
+        self._startPersistentAudio();
+      } else {
+        self._resumePersistentAudio();
+      }
+      
+      // 嘗試播放 NoSleep 視頻
+      if (self.noSleepVideo && self.noSleepVideo.paused) {
+        var playPromise = self.noSleepVideo.play();
+        if (playPromise !== undefined) {
+          playPromise.then(function() {
+            self._noSleepVideoPlaying = true;
+          }).catch(function() {});
+        }
+      }
+      
+      // 若 Wake Lock 尚未取得，重試
+      if (!self._wakeLockAcquired) {
+        self._requestWakeLock();
+      }
+    };
+    
+    // ★ 不移除監聽器 —— 每次觸碰都嘗試恢復
+    document.addEventListener('touchstart', activateOnGesture, true);
+    document.addEventListener('touchend', activateOnGesture, true);
+    document.addEventListener('click', activateOnGesture, true);
+  };
+  
+  // 定期監控：每 10 秒檢查音頻是否仍在運行，嘗試恢復
+  FlashcardApp.prototype._startAudioWatchdog = function() {
+    var self = this;
+    setInterval(function() {
+      if (!self.keepScreenAwake) return;
+      if (!self._persistentAudioRunning) return;
+      
+      try {
+        // 檢查 AudioContext 是否被暫停
+        if (self._persistentAudioContext) {
+          var state = self._persistentAudioContext.state;
+          if (state === 'suspended' || state === 'interrupted') {
+            console.log('Watchdog: AudioContext 狀態異常 (' + state + ')，嘗試恢復');
+            self._persistentAudioContext.resume();
+          }
+        }
+        // 檢查 <audio> 元素是否停止播放
+        if (self._persistentAudioElement && self._persistentAudioElement.paused) {
+          console.log('Watchdog: <audio> 已暫停，嘗試恢復');
+          var playPromise = self._persistentAudioElement.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(function() {});
+          }
+        }
+      } catch (error) {
+        // 靜默忽略
+      }
+    }, APP_CONSTANTS.AUDIO_WATCHDOG_INTERVAL_MS);
+  };
+  
+  // Keep-alive 備用方案：定期微操作
+  FlashcardApp.prototype._startKeepAlive = function() {
+    var self = this;
+    
+    setInterval(function() {
+      if (!self.keepScreenAwake) return;
+      
+      // 創建極短的高頻無聲音頻
+      try {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          var audioContext = new AudioCtx();
+          var oscillator = audioContext.createOscillator();
+          var gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          gainNode.gain.value = 0.001;
+          oscillator.frequency.value = 20000; // 人耳聽不到
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.001);
+          
+          setTimeout(function() {
+            try { audioContext.close(); } catch (e) {}
+          }, 10);
+        }
+      } catch (error) {
+        // 靜默忽略
+      }
+      
+      // 觸發極小的 DOM 操作
+      try {
+        var dummyDiv = document.createElement('div');
+        dummyDiv.style.position = 'fixed';
+        dummyDiv.style.top = '-1px';
+        dummyDiv.style.left = '-1px';
+        dummyDiv.style.width = '1px';
+        dummyDiv.style.height = '1px';
+        dummyDiv.style.opacity = '0';
+        document.body.appendChild(dummyDiv);
+        
+        setTimeout(function() {
+          if (dummyDiv.parentNode) {
+            dummyDiv.parentNode.removeChild(dummyDiv);
+          }
+        }, 1);
+      } catch (error) {
+        // 靜默忽略
+      }
+    }, APP_CONSTANTS.KEEP_ALIVE_INTERVAL_MS);
+  };
+
+  // 禁用防止螢幕關閉功能
+  FlashcardApp.prototype.disableKeepScreenAwake = function() {
+    console.log('禁用防止螢幕關閉功能');
+    this.keepScreenAwake = false;
+    this._wakeLockAcquired = false;
+    this._noSleepVideoPlaying = false;
+    this._persistentAudioRunning = false;
+    
+    // 釋放 Wake Lock
+    if (this.wakeLock) {
+      try { this.wakeLock.release(); } catch (e) {}
+      this.wakeLock = null;
+    }
+    
+    // 停止 NoSleep 視頻
+    if (this.noSleepVideo) {
+      this.noSleepVideo.pause();
+      if (this.noSleepVideo.parentNode) {
+        this.noSleepVideo.parentNode.removeChild(this.noSleepVideo);
+      }
+      this.noSleepVideo = null;
+    }
+    
+    // 停止持續靜音音頻
+    if (this._persistentOscillator) {
+      try { this._persistentOscillator.stop(); } catch (e) {}
+      this._persistentOscillator = null;
+    }
+    if (this._persistentAudioElement) {
+      this._persistentAudioElement.pause();
+      if (this._persistentAudioElement.parentNode) {
+        this._persistentAudioElement.parentNode.removeChild(this._persistentAudioElement);
+      }
+      this._persistentAudioElement = null;
+    }
+    if (this._persistentAudioContext) {
+      try { this._persistentAudioContext.close(); } catch (e) {}
+      this._persistentAudioContext = null;
+    }
+    this._persistentAudioSource = null;
+    
+    // 停止背景計時 Web Worker
+    if (this._bgWorker) {
+      try { this._bgWorker.terminate(); } catch (e) {}
+      this._bgWorker = null;
+    }
+    this._bgWorkerCallbacks = {};
+    this._activeTimerInfo = null;
+  };
+
+</script>

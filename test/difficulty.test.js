@@ -154,19 +154,31 @@ describe('handleMarkVeryFamiliar', function() {
 // ============================================================
 describe('confirmMarkVeryFamiliar', function() {
 
-  test('sets difficulty to -1', function() {
+  test('enters pending removal state with isVeryFamiliar flag', function() {
     app.currentIndex = 0; // apple, difficulty 0
     app._pendingVeryFamiliar = { wordId: 0, timer: null };
     app.confirmMarkVeryFamiliar();
-    expect(app.currentWords[0].difficultyLevel).toBe(-1);
+    expect(app.pendingRemoval).not.toBeNull();
+    expect(app.pendingRemoval.isVeryFamiliar).toBe(true);
+    expect(app.pendingRemoval.word.id).toBe(0);
   });
 
-  test('syncs -1 to words main array', function() {
-    app.currentIndex = 0;
+  test('sets -1 directly in difficultyFilter -1 mode', function() {
+    app.currentIndex = 0; // apple, difficulty 0
+    app.difficultyFilter = -1;
     app._pendingVeryFamiliar = { wordId: 0, timer: null };
     app.confirmMarkVeryFamiliar();
+    expect(app.currentWords[0].difficultyLevel).toBe(-1);
     var mainWord = app.words.find(function(w) { return w.id === 0; });
     expect(mainWord.difficultyLevel).toBe(-1);
+  });
+
+  test('upgrades existing pendingRemoval to isVeryFamiliar', function() {
+    app.currentIndex = 0;
+    app.pendingRemoval = { word: app.currentWords[0], index: 0, isVeryFamiliar: false };
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    app.confirmMarkVeryFamiliar();
+    expect(app.pendingRemoval.isVeryFamiliar).toBe(true);
   });
 
   test('clears pending state', function() {

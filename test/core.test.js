@@ -285,3 +285,39 @@ describe('fontFamilyMap', function() {
     });
   });
 });
+
+// ============================================================
+// formatDateYYYYMMDD (utility)
+// ============================================================
+describe('formatDateYYYYMMDD', function() {
+
+  test('formats a specific date correctly', function() {
+    var date = new Date(2025, 0, 15); // Jan 15, 2025
+    expect(formatDateYYYYMMDD(date)).toBe('2025-01-15');
+  });
+
+  test('pads single-digit month', function() {
+    var date = new Date(2025, 2, 5); // Mar 5, 2025
+    expect(formatDateYYYYMMDD(date)).toBe('2025-03-05');
+  });
+
+  test('pads single-digit day', function() {
+    var date = new Date(2025, 11, 1); // Dec 1, 2025
+    expect(formatDateYYYYMMDD(date)).toBe('2025-12-01');
+  });
+
+  test('handles double-digit month and day', function() {
+    var date = new Date(2025, 10, 25); // Nov 25, 2025
+    expect(formatDateYYYYMMDD(date)).toBe('2025-11-25');
+  });
+
+  test('returns today when no argument', function() {
+    var result = formatDateYYYYMMDD();
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test('returns today when null argument', function() {
+    var result = formatDateYYYYMMDD(null);
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});

@@ -400,3 +400,155 @@ describe('getTodayDateString', function() {
     expect(result).toBe(expected);
   });
 });
+
+// ============================================================
+// saveEditWord (4.14)
+// ============================================================
+describe('saveEditWord', function() {
+  var sampleWords;
+
+  beforeEach(function() {
+    sampleWords = [
+      { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 3, sheetName: 'Sheet1', originalRowIndex: 2, image: '', mustSpell: false },
+      { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 5, sheetName: 'Sheet1', originalRowIndex: 3, image: '', mustSpell: true }
+    ];
+    app.words = sampleWords.map(function(w) { return Object.assign({}, w); });
+    app.currentWords = sampleWords.map(function(w) { return Object.assign({}, w); });
+    app.currentIndex = 0;
+    app._editingWordId = 0;
+    app.sheetSettings = { sheetId: 'test-sheet-id' };
+
+    // Set input values
+    document.getElementById('edit-word-english').value = 'orange';
+    document.getElementById('edit-word-chinese').value = '橘子';
+    document.getElementById('edit-word-difficulty').value = '7';
+    document.getElementById('edit-word-image').value = 'http://example.com/orange.png';
+    document.getElementById('edit-word-must-spell').checked = true;
+
+    // Mock dependent methods
+    app.displayCurrentWord = jest.fn();
+    app.closeEditWordModal = jest.fn();
+  });
+
+  test('updates word in words array', function() {
+    app.saveEditWord();
+    expect(app.words[0].english).toBe('orange');
+    expect(app.words[0].chinese).toBe('橘子');
+    expect(app.words[0].difficultyLevel).toBe(7);
+    expect(app.words[0].image).toBe('http://example.com/orange.png');
+    expect(app.words[0].mustSpell).toBe(true);
+  });
+
+  test('syncs updates to currentWords array', function() {
+    app.saveEditWord();
+    expect(app.currentWords[0].english).toBe('orange');
+    expect(app.currentWords[0].chinese).toBe('橘子');
+    expect(app.currentWords[0].difficultyLevel).toBe(7);
+  });
+
+  test('does nothing if _editingWordId is undefined', function() {
+    app._editingWordId = undefined;
+    app.saveEditWord();
+    expect(app.words[0].english).toBe('apple');
+    expect(app.displayCurrentWord).not.toHaveBeenCalled();
+  });
+
+  test('alerts and returns if english is empty', function() {
+    var alertSpy = jest.spyOn(global, 'alert');
+    document.getElementById('edit-word-english').value = '';
+    app.saveEditWord();
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('不能為空'));
+    expect(app.words[0].english).toBe('apple');
+  });
+
+  test('alerts and returns if chinese is empty', function() {
+    var alertSpy = jest.spyOn(global, 'alert');
+    document.getElementById('edit-word-chinese').value = '';
+    app.saveEditWord();
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('不能為空'));
+    expect(app.words[0].chinese).toBe('蘋果');
+  });
+
+  test('closes modal after save', function() {
+    app.saveEditWord();
+    expect(app.closeEditWordModal).toHaveBeenCalled();
+  });
+
+  test('calls displayCurrentWord after save', function() {
+    app.saveEditWord();
+    expect(app.displayCurrentWord).toHaveBeenCalled();
+  });
+
+  test('trims input values', function() {
+    document.getElementById('edit-word-english').value = '  orange  ';
+    document.getElementById('edit-word-chinese').value = '  橘子  ';
+    app.saveEditWord();
+    expect(app.words[0].english).toBe('orange');
+    expect(app.words[0].chinese).toBe('橘子');
+  });
+
+  test('handles NaN difficulty value from raw input parse', function() {
+    // Range inputs in real browsers clamp invalid values, but we test the parseInt guard
+    // Override getElementById temporarily to simulate a non-range input
+    var input = document.getElementById('edit-word-difficulty');
+    var originalType = input.type;
+    input.type = 'text';
+    input.value = 'abc';
+    app.saveEditWord();
+    expect(app.words[0].difficultyLevel).toBe(0);
+    input.type = originalType;
+  });
+
+  test('alerts when word not found', function() {
+    app._editingWordId = 999;
+    var alertSpy = jest.spyOn(global, 'alert');
+    app.saveEditWord();
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('找不到'));
+  });
+});
+
+// ============================================================
+// markWordAsReviewed (4.12)
+// ============================================================
+describe('markWordAsReviewed', function() {
+  beforeEach(function() {
+    app.reviewedInSession = {};
+    app.srsData = {};
+    app._reviewSyncTimer = null;
+  });
+
+  test('does nothing for null word', function() {
+    expect(function() { app.markWordAsReviewed(null); }).not.toThrow();
+  });
+
+  test('does nothing for Demo sheetName', function() {
+    app.markWordAsReviewed({ sheetName: 'Demo', originalRowIndex: 1 });
+    expect(Object.keys(app.reviewedInSession).length).toBe(0);
+  });
+
+  test('does nothing for word without sheetName', function() {
+    app.markWordAsReviewed({ originalRowIndex: 1 });
+    expect(Object.keys(app.reviewedInSession).length).toBe(0);
+  });
+
+  test('records review date in session', function() {
+    app.markWordAsReviewed({ sheetName: 'Sheet1', originalRowIndex: 2, id: 0 });
+    var key = 'Sheet1:2';
+    expect(app.reviewedInSession[key]).toBeTruthy();
+  });
+
+  test('updates word lastReviewDate', function() {
+    var word = { sheetName: 'Sheet1', originalRowIndex: 2, id: 0 };
+    app.markWordAsReviewed(word);
+    expect(word.lastReviewDate).toBeTruthy();
+    expect(word.lastReviewDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test('does not duplicate review in same session', function() {
+    var word = { sheetName: 'Sheet1', originalRowIndex: 2, id: 0 };
+    app.markWordAsReviewed(word);
+    var firstDate = app.reviewedInSession['Sheet1:2'];
+    app.markWordAsReviewed(word);
+    expect(app.reviewedInSession['Sheet1:2']).toBe(firstDate);
+  });
+});

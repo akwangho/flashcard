@@ -323,11 +323,14 @@
     return false; // 'english-first'
   };
 
-  // 計算 Phase 2（翻譯顯示後）的智慧延遲秒數
-  // 根據第二語言內容自動調整：
-  //   中文：依中文字數計算，上限為 delayTime（母語閱讀快，只會加速）
-  //   英文：依英文字母數計算，短字加速，上限為 delayTime
-  //   英文（要會拼 + 不熟程度≥1）：不加速（至少等待 delayTime）
+  /**
+   * 計算 Phase 2（翻譯顯示後）的智慧延遲秒數。
+   * 根據第二語言內容自動調整：
+   *   - 中文：依中文字數計算，上限為 delayTime
+   *   - 英文：依英文字母數計算，短字加速，上限為 delayTime
+   *   - 英文（要會拼 + 不熟程度≥1）：不加速（至少等待 delayTime）
+   * @returns {number} 延遲秒數
+   */
   FlashcardApp.prototype.getPhase2Delay = function() {
     if (!this.settings.smartTimerEnabled) {
       return this.settings.delayTime;
@@ -449,7 +452,7 @@
     // 動態計算下方安全區域高度
     var progressElement = document.getElementById('progress-area');
     var controlsWrapper = document.querySelector('.controls-wrapper');
-    var safeAreaHeight = 120; // 默認高度
+    var safeAreaHeight = APP_CONSTANTS.SAFE_AREA_DEFAULT_HEIGHT_PX; // 默認高度
     
     // 嘗試動態計算實際高度
     try {
@@ -590,7 +593,11 @@
     this.startProgressBar(2, phase2Delay);
   };
   
-  // 確認移除單字
+  /**
+   * 確認移除當前 pendingRemoval 的單字。
+   * 若 isVeryFamiliar 為 true，設定 difficultyLevel = -1 並同步後端；
+   * 否則從 currentWords 中移除該字。移除後自動顯示下一張卡片。
+   */
   FlashcardApp.prototype.confirmRemoval = function() {
     if (!this.pendingRemoval) return;
     
@@ -645,7 +652,9 @@
     this.updateButtonStates();
   };
   
-  // 取消移除
+  /**
+   * 取消移除：恢復原本不熟程度並重新顯示卡片內容，清除 pendingRemoval 狀態。
+   */
   FlashcardApp.prototype.cancelRemoval = function() {
     if (!this.pendingRemoval) return;
     
@@ -706,10 +715,6 @@
     if (progressArea) {
       progressArea.classList.add('progress-shifted');
     }
-    var filtersEl = document.getElementById('active-filters');
-    if (filtersEl) {
-      filtersEl.classList.add('active-filters-shifted');
-    }
   };
   
   // 隱藏恢復按鈕
@@ -722,13 +727,12 @@
     if (progressArea) {
       progressArea.classList.remove('progress-shifted');
     }
-    var filtersEl = document.getElementById('active-filters');
-    if (filtersEl) {
-      filtersEl.classList.remove('active-filters-shifted');
-    }
   };
   
-  // 顯示第二部分並安排下一個
+  /**
+   * 顯示第二部分（翻譯/原文）並安排自動切換到下一張卡片。
+   * Phase 2 延遲由 getPhase2Delay() 決定。
+   */
   FlashcardApp.prototype.showSecondPartAndScheduleNext = function() {
     if (this.isPaused || this.showingChinese || !this.currentWords[this.currentIndex]) {
       return;
@@ -883,7 +887,11 @@
     this.showVeryFamiliarToast('再按一下 D 設為非常熟');
   };
 
-  // 確認標記為非常熟（-1）— 進入暫時刪除狀態（灰色字顯示答案）
+  /**
+   * 確認標記為非常熟（difficultyLevel = -1）。
+   * 進入 pendingRemoval 暫時刪除狀態，以灰色字顯示答案供確認。
+   * 若目前已在 difficultyFilter = -1 模式下，則直接設定而不進入 pending 狀態。
+   */
   FlashcardApp.prototype.confirmMarkVeryFamiliar = function() {
     if (!this._pendingVeryFamiliar) return;
     
@@ -1069,7 +1077,7 @@
       var self = this;
       setTimeout(function() {
         self.hideVeryFamiliarToast();
-      }, 1500);
+      }, APP_CONSTANTS.TOAST_CONFIRM_DURATION_MS);
     }
   };
 

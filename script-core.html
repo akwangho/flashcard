@@ -85,6 +85,14 @@
     SMART_TIMER_EN_PER_LETTER_TIME: 0.3,   // 英文每字母閱讀時間（秒）
     SMART_TIMER_EN_MIN_TIME: 1.2,          // 英文最短等待時間（秒）
 
+    // === UI 延遲與門檻 ===
+    SAFE_AREA_DEFAULT_HEIGHT_PX: 120,  // 下方安全區域預設高度
+    SWIPE_THRESHOLD_PX: 50,            // 最小滑動距離（px）
+    SWIPE_TIME_LIMIT_MS: 500,          // 最大滑動時間（ms）
+    TOAST_CONFIRM_DURATION_MS: 1500,   // Toast 確認訊息顯示時間
+    SPELL_LETTER_GAP_MS: 100,          // 拼讀字母與單字之間的間隔
+    UI_ANIMATION_DELAY_MS: 100,        // 一般 UI 動畫延遲
+
     // === localStorage 鍵名 ===
     STORAGE_KEYS: {
       SETTINGS: 'flashcard-settings',
@@ -194,7 +202,12 @@
     if (wasOpen && app && typeof app.resumeTimer === 'function') app.resumeTimer();
   }
 
-  // 全域 FlashcardApp
+  /**
+   * 單字卡應用程式建構函式
+   * 負責初始化各模組狀態（核心、語音、設定、篩選、螢幕常亮、測驗），
+   * 並自動呼叫 init() 啟動初始化流程。
+   * @constructor
+   */
   function FlashcardApp() {
     this._initCoreState();
     this._initVoiceState();
@@ -344,7 +357,10 @@
     };
   };
   
-  // 初始化方法
+  /**
+   * 初始化方法：載入設定、連接 Google Sheet、設置 UI、開始載入單字。
+   * 依序：loadSettings → loadSheetSettings → loadSrsData → setupUI → loadWords
+   */
   FlashcardApp.prototype.init = function() {
     console.log('=== FlashcardApp 初始化開始 (ES5版本) ===');
     try {
@@ -454,7 +470,10 @@
     }
   };
   
-  // 載入設定
+  /**
+   * 從 localStorage 載入使用者設定（顯示模式、延遲時間、語音等）。
+   * 支援舊版 reverseMode → displayMode 的向後相容遷移。
+   */
   FlashcardApp.prototype.loadSettings = function() {
     try {
       var savedSettings = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS) || '{}');
@@ -496,7 +515,9 @@
     }
   };
   
-  // 儲存設定
+  /**
+   * 將目前的設定與語音設定儲存到 localStorage。
+   */
   FlashcardApp.prototype.saveSettings = function() {
     localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
     localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.VOICE_SETTINGS, JSON.stringify(this.voiceSettings));

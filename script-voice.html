@@ -70,7 +70,7 @@
         if (currentLetterIndex >= letters.length) {
           // 所有字母都唸完了，執行回調
           if (callback) {
-            setTimeout(callback, 100); // 字母拼讀和單字發音之間留一點間隔
+            setTimeout(callback, APP_CONSTANTS.SPELL_LETTER_GAP_MS); // 字母拼讀和單字發音之間留一點間隔
           }
           return;
         }
@@ -461,7 +461,10 @@
     }, APP_CONSTANTS.SPEECH_WAIT_TIMEOUT_MS);
   };
 
-  // 下一個單字
+  /**
+   * 切換到下一個單字。若有 pendingRemoval 則先確認移除。
+   * 支援循環模式（從最後一張回到第一張）。
+   */
   FlashcardApp.prototype.nextWord = function() {
     if (this.isTransitioning || this.isPaused) return;
     
@@ -528,7 +531,10 @@
     this.renderDifficultyLevel();
   };
   
-  // 上一個單字
+  /**
+   * 切換到上一個單字。若有 pendingRemoval 則先取消移除。
+   * 支援循環模式（從第一張回到最後一張）。
+   */
   FlashcardApp.prototype.previousWord = function() {
     if (this.isTransitioning || this.isPaused) return;
     

@@ -286,3 +286,74 @@ describe('selectAnswer', function() {
     expect(app.showNextButton).toHaveBeenCalled();
   });
 });
+
+// ============================================================
+// getCurrentAvailableWords (4.6)
+// ============================================================
+describe('getCurrentAvailableWords', function() {
+
+  test('returns copy of currentWords', function() {
+    app.currentWords = [
+      { id: 0, english: 'apple', chinese: '蘋果' },
+      { id: 1, english: 'banana', chinese: '香蕉' }
+    ];
+    var result = app.getCurrentAvailableWords();
+    expect(result.length).toBe(2);
+    expect(result).not.toBe(app.currentWords); // should be a copy
+  });
+
+  test('returns empty array when currentWords is empty', function() {
+    app.currentWords = [];
+    var result = app.getCurrentAvailableWords();
+    expect(result).toEqual([]);
+  });
+
+  test('returns empty array when currentWords is null', function() {
+    app.currentWords = null;
+    var result = app.getCurrentAvailableWords();
+    expect(result).toEqual([]);
+  });
+
+  test('reflects filtered state', function() {
+    app.currentWords = [
+      { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 5 }
+    ];
+    var result = app.getCurrentAvailableWords();
+    expect(result.length).toBe(1);
+    expect(result[0].english).toBe('apple');
+  });
+});
+
+// ============================================================
+// getNoWordsMessage (4.6)
+// ============================================================
+describe('getNoWordsMessage', function() {
+
+  test('returns message for -1 filter', function() {
+    app.difficultyFilter = -1;
+    var msg = app.getNoWordsMessage();
+    expect(msg).toContain('非常熟');
+  });
+
+  test('returns message for difficulty filter > 0', function() {
+    app.difficultyFilter = 5;
+    var msg = app.getNoWordsMessage();
+    expect(msg).toContain('★5');
+  });
+
+  test('returns removed words message when all removed', function() {
+    app.difficultyFilter = 0;
+    app.currentWords = [];
+    app.words = [{ id: 0, english: 'test', chinese: '測試' }];
+    var msg = app.getNoWordsMessage();
+    expect(msg).toContain('移除');
+  });
+
+  test('returns default no words message', function() {
+    app.difficultyFilter = 0;
+    app.currentWords = [];
+    app.words = [];
+    var msg = app.getNoWordsMessage();
+    expect(msg).toContain('載入');
+  });
+});

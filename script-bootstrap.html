@@ -1,0 +1,54 @@
+<!-- script-bootstrap.html -->
+<script>
+  /**
+   * @module script-bootstrap
+   * @description 應用程式啟動模組：頁面載入完成後初始化 FlashcardApp，
+   *   設定語音列表載入事件，以及頁面卸載時的資源清理。
+   *
+   * @dependencies 所有其他 script-*.html 模組
+   * @provides window.app (FlashcardApp 實例)
+   */
+
+  // 全域變數
+  var app;
+  
+  // 頁面載入完成後啟動
+  window.addEventListener('load', function() {
+    try {
+      console.log('頁面載入完成，啟動FlashcardApp');
+      app = new FlashcardApp();
+      
+      // 語音列表載入後填充語音腔調選單
+    if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = function() {
+          if (app && typeof app.populateVoiceSelect === 'function') {
+          app.populateVoiceSelect();
+        }
+      };
+    }
+    
+    // 頁面卸載時清理資源並同步複習日期
+    window.addEventListener('beforeunload', function() {
+      if (app) {
+        if (typeof app.syncReviewDates === 'function') {
+          app.syncReviewDates();
+        }
+        if (typeof app.disableKeepScreenAwake === 'function') {
+          app.disableKeepScreenAwake();
+        }
+      }
+    });
+    } catch (error) {
+      console.error('應用啟動失敗:', error);
+      var loadingDiv = document.getElementById('loading');
+      var errorDiv = document.getElementById('error');
+      if (loadingDiv) loadingDiv.style.display = 'none';
+      if (errorDiv) {
+        errorDiv.style.display = 'block';
+        errorDiv.innerHTML = '<h2>啟動失敗</h2><p>請重新整理頁面，錯誤：' + error.message + '</p>';
+      }
+    }
+  });
+  
+  console.log('FlashcardApp ES5兼容版本已載入');
+</script>
