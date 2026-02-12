@@ -405,11 +405,11 @@
     // 清除之前的等待
     this.clearSpeechWait();
     
-    // 檢查是否有需要等待的語音功能啟用
-    var hasSpellOut = this.voiceSettings.enabled && this.voiceSettings.spellOutLetters;
+    // 檢查是否有任何語音功能啟用（英日文發音或中文發音）
+    var hasVoice = this.voiceSettings.enabled;
     var hasChinese = this.voiceSettings.chineseEnabled;
     
-    if (!hasSpellOut && !hasChinese) {
+    if (!hasVoice && !hasChinese) {
       callback();
       return;
     }

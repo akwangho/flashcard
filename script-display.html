@@ -50,6 +50,10 @@
     var mustSpellChineseFirstToggle = document.getElementById('must-spell-chinese-first-setting');
     if (mustSpellChineseFirstToggle) this.settings.mustSpellChineseFirst = mustSpellChineseFirstToggle.checked;
     
+    // 讀取智慧計時開關
+    var smartTimerToggle = document.getElementById('smart-timer-setting');
+    if (smartTimerToggle) this.settings.smartTimerEnabled = smartTimerToggle.checked;
+    
     // 讀取計時進度條開關
     var showTimerToggle = document.getElementById('show-timer-progress-setting');
     if (showTimerToggle) this.settings.showTimerProgressBar = showTimerToggle.checked;
@@ -78,7 +82,8 @@
       delaySpeechInNormalMode: false,
       mustSpellChineseFirst: true,
       showTimerProgressBar: true,
-      timerProgressBarOffset: 0
+      timerProgressBarOffset: 0,
+      smartTimerEnabled: false
     };
     this.voiceSettings = {
       enabled: true,
@@ -103,6 +108,14 @@
   FlashcardApp.prototype.pauseTimer = function() {
     this.isPaused = true;
     
+    // 在清除計時器前，計算剩餘時間（用於恢復時精確還原進度）
+    if (this._activeTimerInfo) {
+      var elapsed = Date.now() - this._activeTimerInfo.setAt;
+      this._pauseRemainingMs = Math.max(0, this._activeTimerInfo.delay - elapsed);
+    } else {
+      this._pauseRemainingMs = 0;
+    }
+    
     this._clearDisplayTimer();
     
     // 清理語音等待計時器
@@ -122,28 +135,39 @@
     
     var self = this;
     if (!this.isPaused) {
+      // 使用暫停時記錄的剩餘時間，確保計時器與進度條精確同步
+      var remainingMs = this._pauseRemainingMs;
+      
       if (this.showingChinese) {
+        if (!remainingMs || remainingMs <= 0) {
+          remainingMs = this.getPhase2Delay() * 1000;
+        }
         this._setDisplayTimer(function() {
           self.waitForSpeechThenExecute(function() {
             self.nextWord();
           });
-        }, this.settings.delayTime * 1000);
-        // 恢復進度條（第二階段：等待切換下一個單字）
+        }, remainingMs);
+        // 恢復進度條（第二階段：使用剩餘時間）
         this._progressPhase = 2;
-        this.resumeProgressBar();
+        this.resumeProgressBar(remainingMs / 1000);
       } else if (!this.isTransitioning && !this.isProcessingClick) {
         var currentWord = this.currentWords[this.currentIndex];
         if (currentWord) {
+          if (!remainingMs || remainingMs <= 0) {
+            remainingMs = this.settings.delayTime * 1000;
+          }
           this._setDisplayTimer(function() {
             self.waitForSpeechThenExecute(function() {
               self.showSecondPartAndScheduleNext();
             });
-          }, this.settings.delayTime * 1000);
-          // 恢復進度條（第一階段：等待顯示翻譯）
+          }, remainingMs);
+          // 恢復進度條（第一階段：使用剩餘時間）
           this._progressPhase = 1;
-          this.resumeProgressBar();
+          this.resumeProgressBar(remainingMs / 1000);
         }
       }
+      
+      this._pauseRemainingMs = 0;
     }
     
     // 更新UI狀態
@@ -297,6 +321,32 @@
     if (this.settings.displayMode === 'chinese-first') return true;
     if (this.settings.displayMode === 'mixed') return this.currentWordReversed;
     return false; // 'english-first'
+  };
+
+  // 計算 Phase 2（翻譯顯示後）的智慧延遲秒數
+  // 僅在智慧計時啟用且第二語言為中文時生效，否則回傳原始 delayTime
+  FlashcardApp.prototype.getPhase2Delay = function() {
+    if (!this.settings.smartTimerEnabled) {
+      return this.settings.delayTime;
+    }
+
+    // 反向模式（第二語言為英文）不適用智慧計時
+    if (this.isReversedForCurrentWord()) {
+      return this.settings.delayTime;
+    }
+
+    var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord || !currentWord.chinese) {
+      return this.settings.delayTime;
+    }
+
+    var charCount = currentWord.chinese.length;
+    var baseTime = APP_CONSTANTS.SMART_TIMER_BASE_TIME;
+    var perCharTime = APP_CONSTANTS.SMART_TIMER_PER_CHAR_TIME;
+    var minTime = APP_CONSTANTS.SMART_TIMER_MIN_TIME;
+
+    var smartDelay = Math.max(minTime, baseTime + charCount * perCharTime);
+    return Math.min(smartDelay, this.settings.delayTime);
   };
     
   // 渲染不熟程度預覽（暫時刪除時立即顯示減少後的數字）
@@ -502,14 +552,15 @@
     this.updateButtonStates();
     
     var self = this;
+    var phase2Delay = this.getPhase2Delay();
     this._setDisplayTimer(function() {
       self.waitForSpeechThenExecute(function() {
         self.confirmRemoval();
       });
-    }, this.settings.delayTime * 1000);
+    }, phase2Delay * 1000);
     
-    // 進度條第二階段：50% → 100%（翻譯已顯示，等待移除確認）
-    this.startProgressBar(2);
+    // 進度條第二階段：50% → 100%（翻譯已顯示，等待移除確認，使用智慧延遲）
+    this.startProgressBar(2, phase2Delay);
   };
   
   // 確認移除單字
@@ -571,13 +622,14 @@
     
     var self = this;
     if (this.showingChinese) {
+      var phase2Delay = this.getPhase2Delay();
       this._setDisplayTimer(function() {
         self.waitForSpeechThenExecute(function() {
           self.nextWord();
         });
-      }, this.settings.delayTime * 1000);
-      // 進度條第二階段：50% → 100%
-      this.startProgressBar(2);
+      }, phase2Delay * 1000);
+      // 進度條第二階段：50% → 100%（使用智慧延遲）
+      this.startProgressBar(2, phase2Delay);
       } else {
       this._setDisplayTimer(function() {
         self.waitForSpeechThenExecute(function() {
@@ -662,15 +714,16 @@
     // 標記該單字為已複習
     this.markWordAsReviewed(currentWord);
     
-    // 設定下一個單字的計時器（等待語音播放完成後才切換）
+    // 設定下一個單字的計時器（智慧計時：Phase 2 可能縮短）
+    var phase2Delay = this.getPhase2Delay();
     this._setDisplayTimer(function() {
       self.waitForSpeechThenExecute(function() {
         self.nextWord();
       });
-    }, this.settings.delayTime * 1000);
+    }, phase2Delay * 1000);
     
-    // 進度條第二階段：50% → 100%
-    this.startProgressBar(2);
+    // 進度條第二階段：50% → 100%（使用智慧延遲）
+    this.startProgressBar(2, phase2Delay);
     
     if (isReversed) {
       // 反向模式：第二部分顯示英文，播放英文語音
@@ -974,15 +1027,17 @@
   // 開始進度條動畫
   // phase=1: 第一語言顯示中，0% → 50%（到 50% 時顯示翻譯）
   // phase=2: 翻譯已顯示，50% → 100%（到 100% 時切換下一個單字）
-  FlashcardApp.prototype.startProgressBar = function(phase) {
+  // customDuration: 可選，Phase 2 智慧計時時使用的自訂時長（秒）
+  FlashcardApp.prototype.startProgressBar = function(phase, customDuration) {
     var bar = document.getElementById('timer-progress-bar');
     if (!bar) return;
 
-    var duration = this.settings.delayTime;
+    var duration = (phase === 2 && customDuration !== undefined) ? customDuration : this.settings.delayTime;
     var startPercent = phase === 1 ? 0 : 50;
     var endPercent = phase === 1 ? 50 : 100;
 
     this._progressPhase = phase;
+    this._progressDuration = duration;
 
     // 重置到起始位置（無動畫）
     bar.style.WebkitTransition = 'none';
@@ -992,7 +1047,7 @@
     // 強制 reflow
     bar.offsetWidth;
 
-    // 啟動動畫（以 delayTime 為時長，線性成長）
+    // 啟動動畫（以 duration 為時長，線性成長）
     bar.style.WebkitTransition = 'width ' + duration + 's linear';
     bar.style.transition = 'width ' + duration + 's linear';
     bar.style.width = endPercent + '%';
@@ -1019,18 +1074,19 @@
     bar.style.width = currentPercent + '%';
   };
 
-  // 恢復進度條（從凍結位置動畫到目標，使用完整 delayTime）
-  FlashcardApp.prototype.resumeProgressBar = function() {
+  // 恢復進度條（從凍結位置動畫到目標，使用剩餘時間確保與計時器同步）
+  // remainingDuration: 可選，剩餘時長（秒），確保進度條與計時器精確同步
+  FlashcardApp.prototype.resumeProgressBar = function(remainingDuration) {
     var bar = document.getElementById('timer-progress-bar');
     if (!bar || !this._progressPhase) return;
 
-    var duration = this.settings.delayTime;
+    var duration = remainingDuration || this._progressDuration || this.settings.delayTime;
     var endPercent = this._progressPhase === 1 ? 50 : 100;
 
     // 強制 reflow（bar 目前凍結在暫停位置）
     bar.offsetWidth;
 
-    // 從當前位置動畫到目標
+    // 從當前位置動畫到目標，使用剩餘時間
     bar.style.WebkitTransition = 'width ' + duration + 's linear';
     bar.style.transition = 'width ' + duration + 's linear';
     bar.style.width = endPercent + '%';

@@ -75,6 +75,11 @@
     // === 複習同步 ===
     REVIEW_SYNC_THRESHOLD: 20,
 
+    // === 智慧計時器（Beta） ===
+    SMART_TIMER_BASE_TIME: 1.0,       // 基本記憶吸收時間（秒）
+    SMART_TIMER_PER_CHAR_TIME: 0.15,  // 每字元閱讀時間（秒）
+    SMART_TIMER_MIN_TIME: 1.2,        // 最短等待時間（秒）
+
     // === localStorage 鍵名 ===
     STORAGE_KEYS: {
       SETTINGS: 'flashcard-settings',
@@ -213,6 +218,8 @@
     this.pausedTimestamp = null;
     this.remainingTime = 0;
     this._progressPhase = null;
+    this._progressDuration = null;
+    this._pauseRemainingMs = 0;
     this.progressTimer = null;
     this.currentWordReversed = false;
     this.listenersSetup = false;
@@ -253,7 +260,8 @@
       delaySpeechInNormalMode: false,
       mustSpellChineseFirst: true,
       showTimerProgressBar: true,
-      timerProgressBarOffset: 0
+      timerProgressBarOffset: 0,
+      smartTimerEnabled: false
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -785,6 +793,10 @@
     if (mustSpellGroup) {
       mustSpellGroup.style.display = this.settings.displayMode === 'mixed' ? '' : 'none';
     }
+    
+    // 設定智慧計時開關
+    var smartTimerToggle = document.getElementById('smart-timer-setting');
+    if (smartTimerToggle) smartTimerToggle.checked = this.settings.smartTimerEnabled;
     
     // 設定計時進度條開關
     var showTimerToggle = document.getElementById('show-timer-progress-setting');
