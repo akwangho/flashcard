@@ -393,9 +393,7 @@
       this.pendingRemoval = null;
       this.hideRestoreButton();
       
-      if (this.displayTimer) {
-        clearTimeout(this.displayTimer);
-      }
+      this._clearDisplayTimer();
       
     // 重置進度條（準備開始新的週期）
     this.resetProgressBar();
@@ -465,7 +463,7 @@
         self.preloadImage(nextWord.image);
       }
   
-      self.displayTimer = setTimeout(function() {
+      self._setDisplayTimer(function() {
         self.waitForSpeechThenExecute(function() {
           self.showSecondPartAndScheduleNext();
         });

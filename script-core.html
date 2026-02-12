@@ -303,6 +303,11 @@
     this._persistentAudioElement = null;
     this._persistentAudioSource = null;
     this._persistentOscillator = null;
+    // 背景計時 Web Worker（Android 背景執行支援）
+    this._bgWorker = null;
+    this._bgWorkerCallbacks = {};
+    this._bgWorkerNextId = 1;
+    this._activeTimerInfo = null;
   };
 
   /** 測驗相關屬性 */

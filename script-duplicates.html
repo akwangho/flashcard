@@ -75,10 +75,7 @@
     }
     
     // 清除任何現有的計時器
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-      this.displayTimer = null;
-    }
+    this._clearDisplayTimer();
     
     var modal = document.getElementById('duplicate-words-modal');
     if (modal) {

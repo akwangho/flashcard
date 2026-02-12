@@ -480,9 +480,7 @@
     // 重置進度條
     this.resetProgressBar();
     
-      if (this.displayTimer) {
-        clearTimeout(this.displayTimer);
-    }
+    this._clearDisplayTimer();
     
     // 清理語音等待計時器
     this.clearSpeechWait();
@@ -544,9 +542,7 @@
     // 重置進度條
     this.resetProgressBar();
     
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-    }
+    this._clearDisplayTimer();
     
     // 清理語音等待計時器
     this.clearSpeechWait();
@@ -642,9 +638,7 @@
 
   // 重新載入單字
   FlashcardApp.prototype.restart = function() {
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-    }
+    this._clearDisplayTimer();
     
     // 清理語音等待計時器
     this.clearSpeechWait();
@@ -945,10 +939,7 @@
 
   // 重新顯示當前單字
   FlashcardApp.prototype.redisplayCurrentWord = function() {
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-      this.displayTimer = null;
-    }
+    this._clearDisplayTimer();
     
     // 清理語音等待計時器
     this.clearSpeechWait();

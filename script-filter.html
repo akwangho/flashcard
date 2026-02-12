@@ -1069,9 +1069,7 @@
     if (!modal) return;
 
     // 暫停計時器
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-    }
+    this._clearDisplayTimer();
 
     if (totalWords === 0) {
       // 沒有載入任何單字

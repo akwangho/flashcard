@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.8.0
+> **版本**: 1.9.0
 > **最後更新**: 2026-02-12
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -73,7 +73,7 @@ flashcard/
 ├── script-sheets.html     # Google Sheet 載入、驗證、工作表選擇
 ├── script-duplicates.html # 重複單字偵測與處理
 ├── script-filter.html     # 複習時間篩選、不熟程度篩選、要會拼篩選、編輯單字、SRS 間隔重複系統
-├── script-quiz.html       # 防螢幕關閉、測驗系統、全域初始化
+├── script-quiz.html       # 防螢幕關閉、Android 背景執行（Web Worker 計時器）、測驗系統、全域初始化
 │
 │   # 部署與工具設定
 ├── appsscript.json        # Google Apps Script 專案清單（clasp 用）
@@ -653,16 +653,21 @@ bash deploy.sh setup
 - **預加載**: 當前單字和下一個單字的圖片會提前預加載
 - **文字處理**: 有圖片時，文字加上半透明黑色背景以確保可讀性
 
-#### 4.10.4 防止螢幕休眠
-- **描述**: 透過多種方式同時嘗試防止裝置螢幕自動關閉（非瀑布模式，所有方法同時啟用）
+#### 4.10.4 防止螢幕休眠與背景執行
+- **描述**: 透過多種方式同時嘗試防止裝置螢幕自動關閉，並確保閃卡在應用程式離開前景或螢幕關閉後仍能繼續輪轉和發出語音（iOS 和 Android 均支援）
 - **方法（同時嘗試）**:
+  0. **背景計時 Web Worker**（Android 背景執行的關鍵）: 建立一個 inline Web Worker（透過 Blob URL），在 Worker 內部運行 `setTimeout`。Web Worker 的計時器不受主執行緒的背景節流限制，確保 Android Chrome 在應用程式離開前景或螢幕關閉時，閃卡輪轉計時器仍能正常觸發。每次設定顯示計時器時，同時在主執行緒和 Web Worker 設定 `setTimeout`，哪個先觸發就執行回調並取消另一個（`_setDisplayTimer` / `_clearDisplayTimer`）
   1. **Wake Lock API**: 現代瀏覽器原生 API（iOS 16.4+、Android Chrome 等），可能在 Google Apps Script 的 iframe 中失敗
-  2. **持續靜音音頻**（iOS Safari 核心方法）: 透過 `AudioContext` 建立靜音 buffer，連接到 `createMediaStreamDestination()`，再透過隱藏的 `<audio>` 元素播放 MediaStream。iOS Safari 偵測到有音頻播放中，即不會讓螢幕進入休眠。不支援 `createMediaStreamDestination` 的舊版瀏覽器（如 iPad 4）回退到持續的超高頻（20kHz）oscillator
+  2. **持續靜音音頻**（iOS Safari 核心方法）: 透過 `AudioContext` 建立靜音 buffer，連接到 `createMediaStreamDestination()`，再透過隱藏的 `<audio>` 元素播放 MediaStream。iOS Safari 偵測到有音頻播放中，即不會讓螢幕進入休眠。Android Chrome 也會因持續音頻而維持媒體工作階段（media session），降低背景節流程度。不支援 `createMediaStreamDestination` 的舊版瀏覽器（如 iPad 4）回退到持續的超高頻（20kHz）oscillator
   3. **NoSleep Video**: 建立 1x1 像素不可見的迴圈靜音影片持續播放（舊版 iOS 及 Android 備用）
   4. **Keep-Alive**: 每 30 秒播放極短高頻無聲音頻 + 微小 DOM 操作（最後備用）
-- **iOS 用戶手勢啟用**: iOS 瀏覽器必須在用戶互動（user gesture）中才能建立 AudioContext 和播放音頻/視頻。系統在**每次** `touchstart`/`touchend`/`click` 事件時都會檢查並嘗試啟動或恢復持續靜音音頻（不移除監聽器，因為 iOS 可能隨時暫停 AudioContext）
+- **iOS 用戶手勢啟用**: iOS 瀏覽器必須在用戶互動（user gesture）中才能建立 AudioContext 和播放音頻/視頻。系統在**每次** `touchstart`/`touchend`/`click` 事件時都會檢查並嘗試啟動或恢復持續靜音音頻（不移除監聯器，因為 iOS 可能隨時暫停 AudioContext）
 - **定期監控（Watchdog）**: 每 10 秒檢查 AudioContext 狀態和 `<audio>` 元素是否仍在播放，若被暫停則自動嘗試恢復
-- **頁面可見性恢復**: 監聽 `visibilitychange` 事件，頁面重新可見時自動恢復 AudioContext、重新取得 Wake Lock、恢復 NoSleep 視頻
+- **頁面可見性恢復與計時器補償**: 監聽 `visibilitychange` 事件，頁面重新可見時：
+  - 自動恢復 AudioContext、重新取得 Wake Lock、恢復 NoSleep 視頻
+  - 檢查背景期間是否有計時器已到期但未觸發（安全網機制）：比較計時器設定時間與當前時間，若已到期則立即觸發回調，確保即使 Web Worker 計時器也被暫停的極端情況下仍能正確推進閃卡
+  - 嘗試恢復被暫停的 SpeechSynthesis（Android Chrome 在背景時可能暫停語音合成）
+- **Android 背景執行原理**: Android Chrome 對背景頁面的 `setTimeout` 有嚴格的節流限制（最少 1 秒，甚至可能完全暫停）。本系統透過三層機制確保背景計時器正常運作：(1) Web Worker 計時器不受主執行緒節流影響；(2) 持續靜音音頻維持媒體工作階段，降低 Chrome 的背景節流程度；(3) `visibilitychange` 補償機制作為最終安全網
 
 #### 4.10.5 響應式設計
 - **描述**: 支援手機和平板裝置的不同螢幕尺寸
@@ -1152,7 +1157,7 @@ bash deploy.sh setup
 - 圖片使用預加載（當前 + 下一張）
 - 批次匯出以避免一次性處理大量資料
 - 語音播放使用佇列管理，避免重疊
-- 計時器統一管理，避免記憶體洩漏
+- 計時器統一管理（`_setDisplayTimer` / `_clearDisplayTimer`），同時在主執行緒和 Web Worker 設定，確保背景執行時仍能正常觸發，並避免記憶體洩漏
 
 ---
 
@@ -1202,7 +1207,7 @@ bash deploy.sh setup
 - [ ] **重複單字偵測與處理**: 自動/手動、記憶體/Sheet 兩種模式
 - [ ] **UI 系統**: 深色主題、模態框、選單、響應式設計
 - [ ] **圖片系統**: 背景圖片顯示、預加載
-- [ ] **防螢幕休眠**: Wake Lock / NoSleep Video / Keep-Alive
+- [ ] **防螢幕休眠與背景執行**: Wake Lock / NoSleep Video / Keep-Alive / Web Worker 背景計時器 / visibilitychange 計時器補償
 - [ ] **全螢幕支援**: 多瀏覽器相容的全螢幕 API
 - [ ] **鍵盤快捷鍵**: 空白鍵、方向鍵、M/F/S/D/R/E/Escape
 - [ ] **複習時間篩選系統**: G 欄日期追蹤、批次同步、篩選模態框、多條件疊加

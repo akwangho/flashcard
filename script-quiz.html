@@ -12,6 +12,152 @@
    *   markWordAsDifficult, restartQuiz ...
    */
 
+  // ==========================================================================
+  // Android 背景執行支援：Web Worker 計時器 + 可見性補償
+  // ==========================================================================
+  
+  // 檢測是否為 Android 裝置
+  FlashcardApp.prototype._isAndroidDevice = function() {
+    return /Android/i.test(navigator.userAgent);
+  };
+  
+  // 建立背景計時 Web Worker（Android 背景執行的關鍵）
+  // Web Worker 的 setTimeout 不受主執行緒的背景節流限制
+  FlashcardApp.prototype._createBackgroundWorker = function() {
+    if (this._bgWorker) return;
+    
+    try {
+      var workerCode =
+        'var timers = {};' +
+        'self.onmessage = function(e) {' +
+        '  var d = e.data;' +
+        '  if (d.type === "setTimeout") {' +
+        '    timers[d.id] = setTimeout(function() {' +
+        '      self.postMessage({ type: "timeout", id: d.id });' +
+        '      delete timers[d.id];' +
+        '    }, d.delay);' +
+        '  } else if (d.type === "clearTimeout") {' +
+        '    if (timers[d.id]) {' +
+        '      clearTimeout(timers[d.id]);' +
+        '      delete timers[d.id];' +
+        '    }' +
+        '  }' +
+        '};';
+      
+      var blob = new Blob([workerCode], { type: 'application/javascript' });
+      var workerUrl = URL.createObjectURL(blob);
+      this._bgWorker = new Worker(workerUrl);
+      
+      var self = this;
+      this._bgWorker.onmessage = function(e) {
+        var data = e.data;
+        if (data.type === 'timeout') {
+          var entry = self._bgWorkerCallbacks[data.id];
+          if (entry && entry.fn) {
+            delete self._bgWorkerCallbacks[data.id];
+            entry.fn();
+          }
+        }
+      };
+      
+      this._bgWorker.onerror = function(e) {
+        console.log('Web Worker 錯誤:', e.message);
+      };
+      
+      console.log('背景計時 Web Worker 已建立');
+    } catch (error) {
+      console.log('無法建立背景 Web Worker（不影響正常使用）:', error.message || error);
+      this._bgWorker = null;
+    }
+  };
+  
+  // ★ 設定可在背景執行的顯示計時器
+  // 同時在主執行緒和 Web Worker 設定 setTimeout，
+  // 哪個先觸發就執行 callback 並取消另一個，
+  // 確保 Android 背景時計時器仍能正常觸發
+  FlashcardApp.prototype._setDisplayTimer = function(callback, delay) {
+    var self = this;
+    
+    // 先清除舊的計時器
+    this._clearDisplayTimer();
+    
+    var fired = false;
+    
+    var execute = function() {
+      if (fired) return;
+      fired = true;
+      self._clearDisplayTimer();
+      callback();
+    };
+    
+    // 主執行緒計時器
+    this.displayTimer = setTimeout(execute, delay);
+    
+    // Web Worker 背景計時器（如果可用）
+    var bgId = null;
+    if (this._bgWorker) {
+      bgId = this._bgWorkerNextId++;
+      this._bgWorkerCallbacks[bgId] = { fn: execute };
+      try {
+        this._bgWorker.postMessage({ type: 'setTimeout', id: bgId, delay: delay });
+      } catch (e) {
+        // Worker 通訊失敗，只用主執行緒計時器
+      }
+    }
+    
+    // 追蹤計時器資訊（用於 visibilitychange 補償）
+    this._activeTimerInfo = {
+      setAt: Date.now(),
+      delay: delay,
+      execute: execute,
+      bgId: bgId
+    };
+  };
+  
+  // 清除顯示計時器（同時清除主執行緒和 Worker 的計時器）
+  FlashcardApp.prototype._clearDisplayTimer = function() {
+    if (this.displayTimer) {
+      clearTimeout(this.displayTimer);
+      this.displayTimer = null;
+    }
+    
+    // 清除 Web Worker 計時器
+    if (this._activeTimerInfo && this._activeTimerInfo.bgId && this._bgWorker) {
+      try {
+        this._bgWorker.postMessage({ type: 'clearTimeout', id: this._activeTimerInfo.bgId });
+      } catch (e) {}
+      if (this._bgWorkerCallbacks) {
+        delete this._bgWorkerCallbacks[this._activeTimerInfo.bgId];
+      }
+    }
+    
+    this._activeTimerInfo = null;
+  };
+  
+  // 頁面重新可見時的補償處理（Android 背景恢復的安全網）
+  // 即使 Web Worker 計時器未能觸發，此方法也會在頁面重新可見時補償
+  FlashcardApp.prototype._handleVisibilityResume = function() {
+    // 如果暫停中或沒有活躍計時器，不處理
+    if (this.isPaused || !this._activeTimerInfo) return;
+    
+    var elapsed = Date.now() - this._activeTimerInfo.setAt;
+    if (elapsed >= this._activeTimerInfo.delay) {
+      console.log('背景恢復：計時器已到期（經過 ' + Math.round(elapsed / 1000) + ' 秒），立即觸發');
+      var execute = this._activeTimerInfo.execute;
+      if (execute) {
+        execute();
+      }
+    }
+    
+    // 嘗試恢復被暫停的 SpeechSynthesis（Android Chrome 背景會暫停語音）
+    try {
+      if (this.speechSynthesis && this.speechSynthesis.paused) {
+        this.speechSynthesis.resume();
+        console.log('SpeechSynthesis 已恢復');
+      }
+    } catch (e) {}
+  };
+  
   // 防止螢幕關閉功能
   // 同時嘗試多種方法，並在首次用戶互動時重試
   // 核心方法：AudioContext + MediaStreamDestination + <audio> 元素（iOS Safari 11+ 有效）
@@ -22,6 +168,9 @@
     this._wakeLockAcquired = false;
     this._noSleepVideoPlaying = false;
     this._persistentAudioRunning = false;
+    
+    // 方法 0：建立背景計時 Web Worker（Android 背景執行的關鍵）
+    this._createBackgroundWorker();
     
     // 方法 1：嘗試 Wake Lock API（現代瀏覽器，可能在 iframe 中失敗）
     this._requestWakeLock();
@@ -38,20 +187,25 @@
     // 定期監控音頻狀態（每 10 秒）
     this._startAudioWatchdog();
     
-    // 頁面重新可見時恢復所有防螢幕關閉機制
+    // 頁面重新可見時恢復所有防螢幕關閉機制 + Android 背景計時器補償
     document.addEventListener('visibilitychange', function() {
-      if (document.visibilityState === 'visible' && self.keepScreenAwake) {
-        console.log('頁面重新可見，重試防螢幕關閉');
-        self._requestWakeLock();
-        self._resumePersistentAudio();
-        if (self.noSleepVideo && self.noSleepVideo.paused) {
-          var playPromise = self.noSleepVideo.play();
-          if (playPromise !== undefined) {
-            playPromise.then(function() {
-              self._noSleepVideoPlaying = true;
-            }).catch(function() {});
+      if (document.visibilityState === 'visible') {
+        // 恢復防螢幕關閉機制
+        if (self.keepScreenAwake) {
+          console.log('頁面重新可見，重試防螢幕關閉');
+          self._requestWakeLock();
+          self._resumePersistentAudio();
+          if (self.noSleepVideo && self.noSleepVideo.paused) {
+            var playPromise = self.noSleepVideo.play();
+            if (playPromise !== undefined) {
+              playPromise.then(function() {
+                self._noSleepVideoPlaying = true;
+              }).catch(function() {});
+            }
           }
         }
+        // Android 背景恢復：檢查計時器狀態並補償（安全網）
+        self._handleVisibilityResume();
       }
     });
   };
@@ -1105,6 +1259,14 @@
       this._persistentAudioContext = null;
     }
     this._persistentAudioSource = null;
+    
+    // 停止背景計時 Web Worker
+    if (this._bgWorker) {
+      try { this._bgWorker.terminate(); } catch (e) {}
+      this._bgWorker = null;
+    }
+    this._bgWorkerCallbacks = {};
+    this._activeTimerInfo = null;
   };
   
   // 全域變數

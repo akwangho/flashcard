@@ -93,10 +93,7 @@
   FlashcardApp.prototype.pauseTimer = function() {
     this.isPaused = true;
     
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-      this.displayTimer = null;
-    }
+    this._clearDisplayTimer();
     
     // 清理語音等待計時器
     this.clearSpeechWait();
@@ -116,7 +113,7 @@
     var self = this;
     if (!this.isPaused) {
       if (this.showingChinese) {
-        this.displayTimer = setTimeout(function() {
+        this._setDisplayTimer(function() {
           self.waitForSpeechThenExecute(function() {
             self.nextWord();
           });
@@ -127,7 +124,7 @@
       } else if (!this.isTransitioning && !this.isProcessingClick) {
         var currentWord = this.currentWords[this.currentIndex];
         if (currentWord) {
-          this.displayTimer = setTimeout(function() {
+          this._setDisplayTimer(function() {
             self.waitForSpeechThenExecute(function() {
               self.showSecondPartAndScheduleNext();
             });
@@ -416,9 +413,7 @@
       
     this.isProcessingClick = true;
     
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-    }
+    this._clearDisplayTimer();
     
     if (!this.showingChinese) {
       var isReversed = this.isReversedForCurrentWord();
@@ -497,7 +492,7 @@
     this.updateButtonStates();
     
     var self = this;
-    this.displayTimer = setTimeout(function() {
+    this._setDisplayTimer(function() {
       self.waitForSpeechThenExecute(function() {
         self.confirmRemoval();
       });
@@ -559,16 +554,14 @@
     this.pendingRemoval = null;
     this.hideRestoreButton();
     
-    if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-    }
+    this._clearDisplayTimer();
     
     this.isProcessingClick = false;
     this.updateButtonStates();
     
     var self = this;
     if (this.showingChinese) {
-      this.displayTimer = setTimeout(function() {
+      this._setDisplayTimer(function() {
         self.waitForSpeechThenExecute(function() {
           self.nextWord();
         });
@@ -576,7 +569,7 @@
       // 進度條第二階段：50% → 100%
       this.startProgressBar(2);
       } else {
-      this.displayTimer = setTimeout(function() {
+      this._setDisplayTimer(function() {
         self.waitForSpeechThenExecute(function() {
           self.showSecondPartAndScheduleNext();
         });
@@ -624,9 +617,7 @@
       return;
     }
   
-        if (this.displayTimer) {
-      clearTimeout(this.displayTimer);
-    }
+    this._clearDisplayTimer();
     
     // 清除中文延遲顯示計時器
     if (this.chineseDelayTimer) {
@@ -662,7 +653,7 @@
     this.markWordAsReviewed(currentWord);
     
     // 設定下一個單字的計時器（等待語音播放完成後才切換）
-    this.displayTimer = setTimeout(function() {
+    this._setDisplayTimer(function() {
       self.waitForSpeechThenExecute(function() {
         self.nextWord();
       });
