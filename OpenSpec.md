@@ -710,6 +710,25 @@ bash deploy.sh setup
 
 > **注意**: 鍵盤快捷鍵使用 key-action mapping 模式（定義於 `script-events.html`），每個按鍵支援 keyCode、code、key 三種匹配方式以相容 iPad 4。模態框開啟時（焦點在表單控件上），鍵盤快捷鍵不生效（避免干擾輸入）。暫停時僅 B 鍵（暫停/繼續）和 E 鍵（編輯單字，標記 `allowWhenPaused: true`）可使用，其他快捷鍵不生效
 
+### 4.11.1 觸控滑動手勢
+
+- **描述**: 支援智慧型手機（iPhone、Android）和平板（iPad）的觸控滑動手勢，用於切換單字
+- **實作位置**: `script-events.html` 的 `setupSwipeListeners()`
+- **支援裝置**: iPhone、Android 手機、iPad（包含 iPad 4）、所有支援觸控的裝置
+
+| 手勢 | 功能 | 等效鍵盤操作 |
+|------|------|-------------|
+| 往左滑 | 下一個單字（`nextWord()`） | 右方向鍵 → |
+| 往右滑 | 上一個單字（`previousWord()`） | 左方向鍵 ← |
+
+- **觸發條件**:
+  - 水平滑動距離 ≥ 50px（`SWIPE_THRESHOLD`）
+  - 滑動時間 ≤ 500ms（`SWIPE_TIME_LIMIT`）
+  - 水平滑動距離 > 垂直滑動距離（避免與頁面上下捲動衝突）
+- **限制**: 暫停時滑動手勢不生效
+- **防衝突**: 偵測到水平滑動時呼叫 `preventDefault()` 阻止頁面捲動和後續 click 事件
+- **ES5 相容**: 使用 `touchstart`/`touchmove`/`touchend` 事件，`new Date().getTime()` 計時
+
 ### 4.12 複習時間篩選
 
 #### 4.12.1 功能描述
@@ -1062,6 +1081,7 @@ bash deploy.sh setup
    │   │   ├── _setupSrsModalListeners()
    │   │   └── setupQuizListeners()
    │   ├── setupKeyboardListeners()  → 使用 key-action mapping 模式
+   │   ├── setupSwipeListeners()  → 觸控滑動手勢（左滑下一個、右滑上一個）
    │   └── setupProgressAndExportListeners()
    └── 3e. 判斷是否有已設定的 Google Sheet
        ├── 有 → loadWords() → handleLoadingComplete()
