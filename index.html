@@ -105,7 +105,7 @@
         </div>
       </div>
       
-      <!-- 計時器進度條（畫面中央細水平線，由左到右成長） -->
+      <!-- 計時器進度條（畫面最上方水平線，由左到右成長，左端有光暈圓點） -->
       <div id="timer-progress-bar"></div>
       
       <div class="progress" id="progress-area">
@@ -295,12 +295,30 @@
           </div>
           
           <div class="setting-group" id="must-spell-chinese-first-group" style="display: none;">
-            <label for="must-spell-chinese-first-setting">✍️ 要會拼單字混合模式下強制先顯示中文</label>
+            <label for="must-spell-chinese-first-setting">✍️ 混合模式下，要會拼單字強制先顯示中文</label>
             <div class="setting-control">
               <label class="switch">
                 <input type="checkbox" id="must-spell-chinese-first-setting">
                 <span class="slider"></span>
               </label>
+            </div>
+          </div>
+          
+          <div class="setting-group">
+            <label for="show-timer-progress-setting">⏱️ 顯示計時進度條</label>
+            <div class="setting-control">
+              <label class="switch">
+                <input type="checkbox" id="show-timer-progress-setting">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="setting-group" id="timer-offset-group">
+            <label for="timer-offset-setting">⏱️ 進度條頂部偏移 (px)</label>
+            <div class="setting-control">
+              <input type="number" id="timer-offset-setting" min="0" max="100" value="0" step="1" style="width: 70px; padding: 6px 8px; font-size: 14px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; text-align: center;">
+              <span style="color: #888; font-size: 12px; margin-left: 6px;">投影到電視時可調整</span>
             </div>
           </div>
         </div>

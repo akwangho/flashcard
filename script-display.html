@@ -50,6 +50,14 @@
     var mustSpellChineseFirstToggle = document.getElementById('must-spell-chinese-first-setting');
     if (mustSpellChineseFirstToggle) this.settings.mustSpellChineseFirst = mustSpellChineseFirstToggle.checked;
     
+    // 讀取計時進度條開關
+    var showTimerToggle = document.getElementById('show-timer-progress-setting');
+    if (showTimerToggle) this.settings.showTimerProgressBar = showTimerToggle.checked;
+    
+    // 讀取計時進度條偏移量
+    var timerOffsetInput = document.getElementById('timer-offset-setting');
+    if (timerOffsetInput) this.settings.timerProgressBarOffset = parseInt(timerOffsetInput.value, 10) || 0;
+    
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
@@ -68,7 +76,9 @@
       displayMode: 'english-first',
       fontFamily: 'system-default',
       delaySpeechInNormalMode: false,
-      mustSpellChineseFirst: true
+      mustSpellChineseFirst: true,
+      showTimerProgressBar: true,
+      timerProgressBarOffset: 0
     };
     this.voiceSettings = {
       enabled: true,

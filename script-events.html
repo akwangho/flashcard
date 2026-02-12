@@ -666,7 +666,18 @@
       });
     }
     
-    // 字型選擇器事件監聽
+    // 計時進度條開關切換時，即時顯示/隱藏偏移量設定
+    var showTimerToggle = document.getElementById('show-timer-progress-setting');
+    if (showTimerToggle) {
+      showTimerToggle.addEventListener('change', function() {
+        var timerOffsetGroup = document.getElementById('timer-offset-group');
+        if (timerOffsetGroup) {
+          timerOffsetGroup.style.display = this.checked ? '' : 'none';
+        }
+      });
+    }
+    
+    // 字型選擇器事件監聯
     var fontFamilySelect = document.getElementById('font-family-setting');
     if (fontFamilySelect) {
       this.protectSelectElement(fontFamilySelect);

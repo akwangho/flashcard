@@ -251,7 +251,9 @@
       displayMode: 'english-first',
       fontFamily: 'system-default',
       delaySpeechInNormalMode: false,
-      mustSpellChineseFirst: true
+      mustSpellChineseFirst: true,
+      showTimerProgressBar: true,
+      timerProgressBarOffset: 0
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -782,6 +784,34 @@
     var mustSpellGroup = document.getElementById('must-spell-chinese-first-group');
     if (mustSpellGroup) {
       mustSpellGroup.style.display = this.settings.displayMode === 'mixed' ? '' : 'none';
+    }
+    
+    // 設定計時進度條開關
+    var showTimerToggle = document.getElementById('show-timer-progress-setting');
+    if (showTimerToggle) showTimerToggle.checked = this.settings.showTimerProgressBar;
+    
+    // 設定計時進度條偏移量輸入
+    var timerOffsetInput = document.getElementById('timer-offset-setting');
+    if (timerOffsetInput) timerOffsetInput.value = this.settings.timerProgressBarOffset || 0;
+    
+    // 應用計時進度條顯示/隱藏 + 偏移量
+    var timerBar = document.getElementById('timer-progress-bar');
+    if (timerBar) {
+      if (this.settings.showTimerProgressBar) {
+        timerBar.className = timerBar.className.replace(/\btimer-bar-hidden\b/g, '').replace(/\s{2,}/g, ' ');
+      } else {
+        if (timerBar.className.indexOf('timer-bar-hidden') === -1) {
+          timerBar.className = (timerBar.className + ' timer-bar-hidden').replace(/^\s+/, '');
+        }
+      }
+      var offset = parseInt(this.settings.timerProgressBarOffset, 10) || 0;
+      timerBar.style.top = offset + 'px';
+    }
+    
+    // 依進度條開關顯示/隱藏偏移量設定
+    var timerOffsetGroup = document.getElementById('timer-offset-group');
+    if (timerOffsetGroup) {
+      timerOffsetGroup.style.display = this.settings.showTimerProgressBar ? '' : 'none';
     }
     
     // 更新字型預覽

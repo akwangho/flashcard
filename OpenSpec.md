@@ -199,7 +199,9 @@ bash deploy.sh setup
   displayMode: String,           // 顯示模式，'english-first'（預設）/ 'chinese-first' / 'mixed'（隨機混合）
   fontFamily: String,            // 字型代碼，預設 'system-default'
   delaySpeechInNormalMode: Boolean,  // 延遲發音模式，預設 false
-  mustSpellChineseFirst: Boolean     // 要會拼單字混合模式下強制先顯示中文，預設 true
+  mustSpellChineseFirst: Boolean,    // 要會拼單字混合模式下強制先顯示中文，預設 true
+  showTimerProgressBar: Boolean,     // 顯示計時進度條，預設 true
+  timerProgressBarOffset: Number     // 計時進度條頂部偏移像素，預設 0，範圍 0-100
 }
 ```
 
@@ -368,8 +370,10 @@ bash deploy.sh setup
 - **範例**: `3/25`
 
 #### 4.1.7 計時器進度條
-- **描述**: 畫面正中央（垂直 50%）有一條不明顯的細水平線，由左至右成長，讓使用者直覺感受距離翻譯出現及切換下一個單字的時間
-- **視覺**: 2px 高、半透明白色 (`rgba(255,255,255,0.12)`)，不干擾閱讀
+- **描述**: 畫面最上方有一條明顯的水平線，由左至右成長，讓使用者直覺感受距離翻譯出現及切換下一個單字的時間
+- **視覺**: 5px 高、藍色漸層 (`rgba(0,160,255,0.9)` → `rgba(0,220,255,0.7)`)，帶有藍色光暈效果
+- **右端圓點**: 線條最右端（成長前端）有明顯的圓點光暈標記（11px 圓形，帶雙層光暈），隨進度條成長移動，讓使用者更容易辨識目前進度位置
+- **顯示/隱藏**: 可在一般設定中透過「顯示計時進度條」開關切換顯示或隱藏（預設開啟）
 - **兩階段動畫**:
   - **第一階段 (0% → 50%)**: 第一語言顯示後開始，以 `delayTime` 秒線性成長至畫面寬度的一半；到達 50% 時，翻譯（第二語言）出現
   - **第二階段 (50% → 100%)**: 翻譯顯示後開始，以 `delayTime` 秒線性成長至佔滿整個螢幕寬度；到達 100% 時，切換到下一個單字
@@ -378,7 +382,7 @@ bash deploy.sh setup
   - 點擊單字卡（暫時移除）：翻譯立即顯示，進度條跳至 50% 並開始第二階段
   - 取消移除：根據當前狀態重新開始對應階段
   - 手動切換（上一個/下一個）：進度條歸零，由新單字的第一階段重新開始
-- **技術**: 使用 CSS `transition: width linear`，搭配 `-webkit-transition` 前綴確保 iPad 4 相容
+- **技術**: 使用 CSS `transition: width linear`，搭配 `-webkit-transition` 前綴確保 iPad 4 相容；使用 `position: fixed; top: 0` 固定在畫面最頂部；使用 CSS `:after` 偽元素產生右端圓點光暈
 
 ### 4.2 不熟程度（多層級困難標記）功能
 
@@ -613,6 +617,8 @@ bash deploy.sh setup
 - **字型選擇**: 下拉選單，9 種字型，含即時預覽區域
 - **顯示模式**: 三選一 radio buttons（先顯示英文 / 先顯示中文 / 隨機混合）
 - **要會拼單字混合模式下強制先顯示中文**: 開關（預設啟用）。僅在選擇「隨機混合」模式時才顯示此選項。啟用時，標記為要會拼的單字在混合模式下強制先顯示中文；關閉時，要會拼單字也隨機顯示
+- **顯示計時進度條**: 開關（預設啟用）。控制畫面最上方的計時進度條是否顯示
+- **進度條頂部偏移**: 數字輸入框，0-100px，預設 0。投影到電視時若上方被截掉，可向下偏移進度條位置。僅在計時進度條開啟時顯示
 
 #### 4.9.2 語音設定模態框
 - **啟用英日文發音**: 開關
@@ -964,7 +970,7 @@ bash deploy.sh setup
 | `muted-indicator` | div | 已靜音指示器 |
 | `english-word` | div | 英文單字顯示區 |
 | `chinese-word` | div | 中文翻譯顯示區 |
-| `timer-progress-bar` | div | 計時器進度條（畫面中央水平線，由左到右成長） |
+| `timer-progress-bar` | div | 計時器進度條（畫面最上方水平線，由左到右成長，左端有光暈圓點） |
 | `progress-text` | span | 進度文字 |
 | `difficulty-display` | span | 不熟程度顯示區（★ + 數字） |
 | `difficulty-level` | span | 不熟程度數字 |
@@ -1185,6 +1191,8 @@ bash deploy.sh setup
 | 複習日期同步閾值 | 每 20 個已複習單字 |
 | 複習時間篩選預設 | 全部（不篩選） |
 | 不熟程度篩選預設 | 0（全部，不篩選；-1 的單字預設被排除） |
+| 計時進度條顯示 | 啟用 (`showTimerProgressBar: true`) |
+| 計時進度條偏移 | 0px (`timerProgressBarOffset: 0`) |
 | 要會拼篩選預設 | false（不篩選） |
 
 ---
