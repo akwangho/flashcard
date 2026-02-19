@@ -70,6 +70,54 @@ describe('increaseDifficulty', function() {
     app.increaseDifficulty();
     expect(spy).toHaveBeenCalled();
   });
+
+  test('marks -999 in pendingRemoval state (S key behavior)', function() {
+    app.currentIndex = 0; // apple, difficulty 0
+    app.pendingRemoval = {
+      word: app.currentWords[0],
+      index: 0,
+      isVeryFamiliar: false
+    };
+    app.increaseDifficulty();
+    expect(app.pendingRemoval.isVeryFamiliar).toBe(true);
+    // Word data should NOT be changed yet (changes on confirmRemoval)
+    expect(app.currentWords[0].difficultyLevel).toBe(0);
+  });
+
+  test('shows toast in pendingRemoval state', function() {
+    app.currentIndex = 0;
+    app.pendingRemoval = {
+      word: app.currentWords[0],
+      index: 0,
+      isVeryFamiliar: false
+    };
+    var spy = jest.spyOn(app, 'showVeryFamiliarToast');
+    app.increaseDifficulty();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('-999'));
+  });
+
+  test('calls renderDifficultyLevelPreview(-999) in pendingRemoval state', function() {
+    app.currentIndex = 0;
+    app.pendingRemoval = {
+      word: app.currentWords[0],
+      index: 0,
+      isVeryFamiliar: false
+    };
+    var spy = jest.spyOn(app, 'renderDifficultyLevelPreview');
+    app.increaseDifficulty();
+    expect(spy).toHaveBeenCalledWith(-999);
+  });
+
+  test('does not change difficulty directly in pendingRemoval state', function() {
+    app.currentIndex = 1; // banana, difficulty 5
+    app.pendingRemoval = {
+      word: app.currentWords[1],
+      index: 1,
+      isVeryFamiliar: false
+    };
+    app.increaseDifficulty();
+    expect(app.currentWords[1].difficultyLevel).toBe(5);
+  });
 });
 
 // ============================================================
@@ -147,6 +195,24 @@ describe('handleMarkVeryFamiliar', function() {
     var spy = jest.spyOn(app, 'showVeryFamiliarToast');
     app.handleMarkVeryFamiliar();
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('已經是非常熟'));
+  });
+
+  test('allows marking -1 word as very familiar (not already -999)', function() {
+    app.currentWords.push({ id: 4, english: 'fox', chinese: '狐狸', difficultyLevel: -1, sheetName: 'Sheet1', originalRowIndex: 6 });
+    app.currentIndex = 4;
+    var spy = jest.spyOn(app, 'showVeryFamiliarToast');
+    app.handleMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('再按一下'));
+    expect(app._pendingVeryFamiliar).not.toBeNull();
+  });
+
+  test('allows marking -500 word as very familiar (not already -999)', function() {
+    app.currentWords.push({ id: 5, english: 'wolf', chinese: '狼', difficultyLevel: -500, sheetName: 'Sheet1', originalRowIndex: 7 });
+    app.currentIndex = 4;
+    var spy = jest.spyOn(app, 'showVeryFamiliarToast');
+    app.handleMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('再按一下'));
+    expect(app._pendingVeryFamiliar).not.toBeNull();
   });
 
   test('does nothing when no words', function() {

@@ -148,7 +148,7 @@ bash deploy.sh setup
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 432 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 469 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）
 
 ### 2.6 ES5 相容性需求（重要限制）
 

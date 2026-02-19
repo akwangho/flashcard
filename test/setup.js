@@ -86,7 +86,7 @@ function createDOMElements() {
     // Edit word modal
     'edit-word-modal', 'close-edit-word',
     'edit-word-sheet-name', 'edit-word-english', 'edit-word-chinese',
-    'edit-word-difficulty', 'edit-word-difficulty-value',
+    'edit-word-difficulty', 'edit-word-difficulty-number', 'edit-word-difficulty-value',
     'edit-word-must-spell',
     'edit-word-image', 'edit-word-image-preview',
     'edit-word-image-preview-img', 'edit-word-image-preview-error',
@@ -173,7 +173,15 @@ function createDOMElements() {
       el = document.createElement('input');
       el.id = id;
       el.type = 'range';
-      el.min = '0';
+      el.min = '-1';
+      el.max = '10';
+      el.value = '0';
+    }
+    if (id === 'edit-word-difficulty-number') {
+      el = document.createElement('input');
+      el.id = id;
+      el.type = 'number';
+      el.min = '-999';
       el.max = '10';
       el.value = '0';
     }

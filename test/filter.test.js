@@ -142,6 +142,34 @@ describe('applyAllFilters', function() {
     expect(result.length).toBe(6);
   });
 
+  test('default filter includes -500 words (not very familiar)', function() {
+    sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -500, lastReviewDate: '' });
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    var result = app.applyAllFilters(sampleWords);
+    var englishes = result.map(function(w) { return w.english; });
+    expect(englishes).toContain('fox');
+  });
+
+  test('default filter includes -998 words (one step from very familiar)', function() {
+    sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -998, lastReviewDate: '' });
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    var result = app.applyAllFilters(sampleWords);
+    var englishes = result.map(function(w) { return w.english; });
+    expect(englishes).toContain('fox');
+  });
+
+  test('difficulty -1 filter only shows -999 words, not -998', function() {
+    sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -999, lastReviewDate: '' });
+    sampleWords.push({ id: 7, english: 'wolf', chinese: '狼', difficultyLevel: -998, lastReviewDate: '' });
+    app.difficultyFilter = -1;
+    app.reviewFilter = 'all';
+    var result = app.applyAllFilters(sampleWords);
+    expect(result.length).toBe(1);
+    expect(result[0].english).toBe('fox');
+  });
+
   test('filters by must-spell only', function() {
     sampleWords[0].mustSpell = true;  // apple
     sampleWords[2].mustSpell = true;  // cat
@@ -426,6 +454,7 @@ describe('saveEditWord', function() {
     document.getElementById('edit-word-english').value = 'orange';
     document.getElementById('edit-word-chinese').value = '橘子';
     document.getElementById('edit-word-difficulty').value = '7';
+    document.getElementById('edit-word-difficulty-number').value = '7';
     document.getElementById('edit-word-image').value = 'http://example.com/orange.png';
     document.getElementById('edit-word-must-spell').checked = true;
 
@@ -492,12 +521,12 @@ describe('saveEditWord', function() {
   });
 
   test('handles NaN difficulty value from raw input parse', function() {
-    // Range inputs in real browsers clamp invalid values, but we test the parseInt guard
-    // Override getElementById temporarily to simulate a non-range input
     var input = document.getElementById('edit-word-difficulty');
+    var numberInput = document.getElementById('edit-word-difficulty-number');
     var originalType = input.type;
     input.type = 'text';
     input.value = 'abc';
+    numberInput.value = 'abc';
     app.saveEditWord();
     expect(app.words[0].difficultyLevel).toBe(0);
     input.type = originalType;
@@ -508,6 +537,35 @@ describe('saveEditWord', function() {
     var alertSpy = jest.spyOn(global, 'alert');
     app.saveEditWord();
     expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('找不到'));
+  });
+
+  test('saves negative difficulty from number input', function() {
+    var numberInput = document.getElementById('edit-word-difficulty-number');
+    numberInput.value = '-5';
+    app.saveEditWord();
+    expect(app.words[0].difficultyLevel).toBe(-5);
+    expect(app.currentWords[0].difficultyLevel).toBe(-5);
+  });
+
+  test('saves -999 difficulty from number input', function() {
+    var numberInput = document.getElementById('edit-word-difficulty-number');
+    numberInput.value = '-999';
+    app.saveEditWord();
+    expect(app.words[0].difficultyLevel).toBe(-999);
+  });
+
+  test('clamps difficulty to -999 minimum from number input', function() {
+    var numberInput = document.getElementById('edit-word-difficulty-number');
+    numberInput.value = '-1500';
+    app.saveEditWord();
+    expect(app.words[0].difficultyLevel).toBe(-999);
+  });
+
+  test('number input takes precedence over slider', function() {
+    document.getElementById('edit-word-difficulty').value = '3';
+    document.getElementById('edit-word-difficulty-number').value = '-10';
+    app.saveEditWord();
+    expect(app.words[0].difficultyLevel).toBe(-10);
   });
 });
 

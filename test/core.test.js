@@ -287,6 +287,85 @@ describe('fontFamilyMap', function() {
 });
 
 // ============================================================
+// applyQuickMode (4.16)
+// ============================================================
+describe('applyQuickMode', function() {
+  var app;
+
+  beforeEach(function() {
+    var origInit = FlashcardApp.prototype.init;
+    FlashcardApp.prototype.init = function() {};
+    app = new FlashcardApp();
+    FlashcardApp.prototype.init = origInit;
+    app.currentWords = [{ id: 0, english: 'test', chinese: '測試', difficultyLevel: 0 }];
+    app.currentIndex = 0;
+    app.showNotification = jest.fn();
+    app.closeMenu = jest.fn();
+    app.redisplayCurrentWord = jest.fn();
+  });
+
+  test('mode 1 sets chinese-first, spellOutLetters on, chinese on, 9s, smart timer', function() {
+    app.applyQuickMode(1);
+    expect(app.settings.displayMode).toBe('chinese-first');
+    expect(app.voiceSettings.spellOutLetters).toBe(true);
+    expect(app.voiceSettings.chineseEnabled).toBe(true);
+    expect(app.settings.delayTime).toBe(9);
+    expect(app.settings.smartTimerEnabled).toBe(true);
+  });
+
+  test('mode 2 sets english-first, spellOutLetters off, chinese on, 4.5s, smart timer, no delay speech', function() {
+    app.applyQuickMode(2);
+    expect(app.settings.displayMode).toBe('english-first');
+    expect(app.voiceSettings.spellOutLetters).toBe(false);
+    expect(app.voiceSettings.chineseEnabled).toBe(true);
+    expect(app.settings.delayTime).toBe(4.5);
+    expect(app.settings.smartTimerEnabled).toBe(true);
+    expect(app.settings.delaySpeechInNormalMode).toBe(false);
+  });
+
+  test('mode 3 sets mixed, delay speech on, spellOutLetters off, chinese off, smart timer', function() {
+    app.applyQuickMode(3);
+    expect(app.settings.displayMode).toBe('mixed');
+    expect(app.settings.delaySpeechInNormalMode).toBe(true);
+    expect(app.voiceSettings.spellOutLetters).toBe(false);
+    expect(app.voiceSettings.chineseEnabled).toBe(false);
+    expect(app.settings.smartTimerEnabled).toBe(true);
+  });
+
+  test('saves settings after applying mode', function() {
+    var spy = jest.spyOn(app, 'saveSettings');
+    app.applyQuickMode(1);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  test('closes menu after applying mode', function() {
+    var spy = jest.spyOn(app, 'closeMenu');
+    app.applyQuickMode(1);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  test('shows notification after applying mode', function() {
+    var spy = jest.spyOn(app, 'showNotification');
+    app.applyQuickMode(1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('用聽的背單字'), 'success');
+  });
+
+  test('calls redisplayCurrentWord after applying mode', function() {
+    var spy = jest.spyOn(app, 'redisplayCurrentWord');
+    app.applyQuickMode(2);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  test('mode 1 does not affect other modes settings after switching', function() {
+    app.applyQuickMode(2);
+    expect(app.settings.displayMode).toBe('english-first');
+    app.applyQuickMode(1);
+    expect(app.settings.displayMode).toBe('chinese-first');
+    expect(app.voiceSettings.spellOutLetters).toBe(true);
+  });
+});
+
+// ============================================================
 // formatDateYYYYMMDD (utility)
 // ============================================================
 describe('formatDateYYYYMMDD', function() {

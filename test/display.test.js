@@ -135,6 +135,30 @@ describe('renderDifficultyLevel', function() {
     expect(display.classList.contains('difficulty-level-5')).toBe(false);
     expect(display.classList.contains('difficulty-level-0')).toBe(true);
   });
+
+  test('displays -999 for very familiar word', function() {
+    app.currentWords.push({ id: 4, english: 'dog', chinese: '狗', difficultyLevel: -999 });
+    app.currentIndex = 3;
+    app.renderDifficultyLevel();
+    var levelEl = document.getElementById('difficulty-level');
+    expect(levelEl.textContent).toBe('-999');
+  });
+
+  test('adds n1 CSS class for -999 difficulty', function() {
+    app.currentWords.push({ id: 4, english: 'dog', chinese: '狗', difficultyLevel: -999 });
+    app.currentIndex = 3;
+    app.renderDifficultyLevel();
+    var display = document.getElementById('difficulty-display');
+    expect(display.classList.contains('difficulty-level-n1')).toBe(true);
+  });
+
+  test('adds n1 CSS class for -500 difficulty', function() {
+    app.currentWords.push({ id: 4, english: 'dog', chinese: '狗', difficultyLevel: -500 });
+    app.currentIndex = 3;
+    app.renderDifficultyLevel();
+    var display = document.getElementById('difficulty-display');
+    expect(display.classList.contains('difficulty-level-n1')).toBe(true);
+  });
 });
 
 describe('renderDifficultyLevelPreview', function() {
@@ -164,6 +188,114 @@ describe('renderDifficultyLevelPreview', function() {
     app.renderDifficultyLevelPreview(3);
     var display = document.getElementById('difficulty-display');
     expect(display.classList.contains('difficulty-level-3')).toBe(true);
+  });
+
+  test('shows -999 for very familiar preview', function() {
+    app.renderDifficultyLevelPreview(-999);
+    var levelEl = document.getElementById('difficulty-level');
+    expect(levelEl.textContent).toBe('-999');
+  });
+
+  test('applies n1 CSS class for -999 preview', function() {
+    app.renderDifficultyLevelPreview(-999);
+    var display = document.getElementById('difficulty-display');
+    expect(display.classList.contains('difficulty-level-n1')).toBe(true);
+  });
+
+  test('applies n1 CSS class for -5 preview', function() {
+    app.renderDifficultyLevelPreview(-5);
+    var display = document.getElementById('difficulty-display');
+    expect(display.classList.contains('difficulty-level-n1')).toBe(true);
+  });
+});
+
+// ============================================================
+// openEditWordModal difficulty label (4.14)
+// ============================================================
+describe('openEditWordModal difficulty display', function() {
+  beforeEach(function() {
+    app.currentWords = [
+      { id: 1, english: 'apple', chinese: '蘋果', difficultyLevel: 5, sheetName: 'Sheet1', image: '' },
+      { id: 2, english: 'banana', chinese: '香蕉', difficultyLevel: -1, sheetName: 'Sheet1', image: '' },
+      { id: 3, english: 'cat', chinese: '貓', difficultyLevel: -999, sheetName: 'Sheet1', image: '' },
+      { id: 4, english: 'dog', chinese: '狗', difficultyLevel: -500, sheetName: 'Sheet1', image: '' }
+    ];
+    app.currentIndex = 0;
+    app._editWordListenersSetup = true;
+  });
+
+  test('shows ★5 for positive difficulty', function() {
+    app.currentIndex = 0;
+    app.openEditWordModal();
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.textContent).toBe('★5');
+  });
+
+  test('shows ★-1 for difficulty -1 (not 非常熟)', function() {
+    app.currentIndex = 1;
+    app.openEditWordModal();
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.textContent).toBe('★-1');
+  });
+
+  test('shows 非常熟 (-999) for difficulty -999', function() {
+    app.currentIndex = 2;
+    app.openEditWordModal();
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.textContent).toBe('非常熟 (-999)');
+  });
+
+  test('shows ★-500 for difficulty -500 (not 非常熟)', function() {
+    app.currentIndex = 3;
+    app.openEditWordModal();
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.textContent).toBe('★-500');
+  });
+
+  test('sets number input to full range value', function() {
+    app.currentIndex = 3; // -500
+    app.openEditWordModal();
+    var numberInput = document.getElementById('edit-word-difficulty-number');
+    expect(numberInput.value).toBe('-500');
+  });
+
+  test('clamps slider to -1 for large negative values', function() {
+    app.currentIndex = 3; // -500
+    app.openEditWordModal();
+    var slider = document.getElementById('edit-word-difficulty');
+    expect(parseInt(slider.value)).toBe(-1);
+  });
+});
+
+// ============================================================
+// updateEditWordDifficultyColor (4.14)
+// ============================================================
+describe('updateEditWordDifficultyColor', function() {
+  test('applies n1 class for negative levels', function() {
+    app.updateEditWordDifficultyColor(-5);
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.className).toContain('difficulty-level-n1');
+  });
+
+  test('applies n1 class for -999', function() {
+    app.updateEditWordDifficultyColor(-999);
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.className).toContain('difficulty-level-n1');
+  });
+
+  test('applies specific class for positive levels', function() {
+    app.updateEditWordDifficultyColor(5);
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.className).toContain('difficulty-level-5');
+    expect(valueEl.className).not.toContain('difficulty-level-n1');
+  });
+
+  test('removes old class when changing level', function() {
+    app.updateEditWordDifficultyColor(5);
+    app.updateEditWordDifficultyColor(-1);
+    var valueEl = document.getElementById('edit-word-difficulty-value');
+    expect(valueEl.className).toContain('difficulty-level-n1');
+    expect(valueEl.className).not.toContain('difficulty-level-5');
   });
 });
 
