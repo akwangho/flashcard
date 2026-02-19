@@ -44,13 +44,15 @@
 
     if (englishInput) englishInput.value = currentWord.english || '';
     if (chineseInput) chineseInput.value = currentWord.chinese || '';
-    if (difficultyInput) {
+    var difficultyNumberInput = document.getElementById('edit-word-difficulty-number');
+    if (difficultyInput || difficultyNumberInput) {
       var diffLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-      difficultyInput.value = diffLevel;
+      if (difficultyInput) difficultyInput.value = Math.max(-1, Math.min(10, diffLevel));
+      if (difficultyNumberInput) difficultyNumberInput.value = diffLevel;
     }
     if (difficultyValue) {
       var level = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-      difficultyValue.textContent = level === -1 ? '非常熟 ✓' : '★' + level;
+      difficultyValue.textContent = level <= -999 ? '非常熟 (' + level + ')' : '★' + level;
       this.updateEditWordDifficultyColor(level);
     }
     if (imageInput) imageInput.value = currentWord.image || '';
@@ -90,12 +92,11 @@
     var valueEl = document.getElementById('edit-word-difficulty-value');
     if (!valueEl) return;
 
-    // 移除舊的顏色 class（包含 -1）
-    valueEl.className = valueEl.className.replace('difficulty-level-n1', '').trim();
+    valueEl.className = valueEl.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
     for (var i = 0; i <= 10; i++) {
-      valueEl.className = valueEl.className.replace('difficulty-level-' + i, '').trim();
+      valueEl.className = valueEl.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
     }
-    var cls = level === -1 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
+    var cls = level < 0 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
     valueEl.className = (valueEl.className + ' ' + cls).trim();
   };
 
@@ -110,6 +111,7 @@
     var cancelBtn = document.getElementById('cancel-edit-word');
     var saveBtn = document.getElementById('save-edit-word');
     var difficultyInput = document.getElementById('edit-word-difficulty');
+    var difficultyNumberInput = document.getElementById('edit-word-difficulty-number');
 
     if (closeBtn) {
       closeBtn.addEventListener('click', function() { self.closeEditWordModal(); });
@@ -120,19 +122,37 @@
     if (saveBtn) {
       saveBtn.addEventListener('click', function() { self.saveEditWord(); });
     }
+
+    var updateDiffDisplay = function(val) {
+      var valueEl = document.getElementById('edit-word-difficulty-value');
+      if (valueEl) {
+        valueEl.textContent = val <= -999 ? '非常熟 (' + val + ')' : '★' + val;
+        self.updateEditWordDifficultyColor(val);
+      }
+    };
+
     if (difficultyInput) {
-      var updateDiffDisplay = function() {
+      var onSliderChange = function() {
         var val = parseInt(difficultyInput.value);
         if (isNaN(val)) val = 0;
-        var valueEl = document.getElementById('edit-word-difficulty-value');
-        if (valueEl) {
-          valueEl.textContent = val === -1 ? '非常熟 ✓' : '★' + val;
-          self.updateEditWordDifficultyColor(val);
-        }
+        if (difficultyNumberInput) difficultyNumberInput.value = val;
+        updateDiffDisplay(val);
       };
-      difficultyInput.addEventListener('input', updateDiffDisplay);
-      // 相容舊版瀏覽器
-      difficultyInput.addEventListener('change', updateDiffDisplay);
+      difficultyInput.addEventListener('input', onSliderChange);
+      difficultyInput.addEventListener('change', onSliderChange);
+    }
+
+    if (difficultyNumberInput) {
+      var onNumberChange = function() {
+        var val = parseInt(difficultyNumberInput.value);
+        if (isNaN(val)) val = 0;
+        val = Math.max(-999, Math.min(10, val));
+        difficultyNumberInput.value = val;
+        if (difficultyInput) difficultyInput.value = Math.max(-1, Math.min(10, val));
+        updateDiffDisplay(val);
+      };
+      difficultyNumberInput.addEventListener('input', onNumberChange);
+      difficultyNumberInput.addEventListener('change', onNumberChange);
     }
     // 圖片 URL 輸入框變更時更新預覽
     var imageInput = document.getElementById('edit-word-image');
@@ -195,14 +215,16 @@
 
     var englishInput = document.getElementById('edit-word-english');
     var chineseInput = document.getElementById('edit-word-chinese');
+    var difficultyNumberInput = document.getElementById('edit-word-difficulty-number');
     var difficultyInput = document.getElementById('edit-word-difficulty');
     var imageInput = document.getElementById('edit-word-image');
     var mustSpellToggle = document.getElementById('edit-word-must-spell');
 
     var newEnglish = englishInput ? englishInput.value.trim() : '';
     var newChinese = chineseInput ? chineseInput.value.trim() : '';
-    var newDifficulty = difficultyInput ? parseInt(difficultyInput.value) : 0;
+    var newDifficulty = difficultyNumberInput ? parseInt(difficultyNumberInput.value) : (difficultyInput ? parseInt(difficultyInput.value) : 0);
     if (isNaN(newDifficulty)) newDifficulty = 0;
+    newDifficulty = Math.max(-999, Math.min(10, newDifficulty));
     var newImage = imageInput ? imageInput.value.trim() : '';
     var newMustSpell = mustSpellToggle ? mustSpellToggle.checked : false;
 

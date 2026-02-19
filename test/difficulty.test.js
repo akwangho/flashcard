@@ -22,7 +22,7 @@ beforeEach(function() {
     { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 0, sheetName: 'Sheet1', originalRowIndex: 2 },
     { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 5, sheetName: 'Sheet1', originalRowIndex: 3 },
     { id: 2, english: 'cat', chinese: '貓', difficultyLevel: 10, sheetName: 'Sheet1', originalRowIndex: 4 },
-    { id: 3, english: 'dog', chinese: '狗', difficultyLevel: -1, sheetName: 'Sheet1', originalRowIndex: 5 }
+    { id: 3, english: 'dog', chinese: '狗', difficultyLevel: -999, sheetName: 'Sheet1', originalRowIndex: 5 }
   ];
   app.words = sampleWords.slice();
   app.currentWords = sampleWords.slice();
@@ -47,10 +47,10 @@ describe('increaseDifficulty', function() {
     expect(app.currentWords[2].difficultyLevel).toBe(10);
   });
 
-  test('changes -1 to 0', function() {
-    app.currentIndex = 3; // dog, difficulty -1
+  test('increases negative difficulty by 1', function() {
+    app.currentIndex = 3; // dog, difficulty -999
     app.increaseDifficulty();
-    expect(app.currentWords[3].difficultyLevel).toBe(0);
+    expect(app.currentWords[3].difficultyLevel).toBe(-998);
   });
 
   test('syncs to words main array', function() {
@@ -83,10 +83,16 @@ describe('decreaseDifficulty', function() {
     expect(word.difficultyLevel).toBe(4);
   });
 
-  test('floors at 0 (does not go to -1)', function() {
+  test('can decrease below 0 to track review count', function() {
     var word = { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 0, sheetName: 'Sheet1', originalRowIndex: 2 };
     app.decreaseDifficulty(word);
-    expect(word.difficultyLevel).toBe(0);
+    expect(word.difficultyLevel).toBe(-1);
+  });
+
+  test('floors at -999', function() {
+    var word = { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: -999, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.decreaseDifficulty(word);
+    expect(word.difficultyLevel).toBe(-999);
   });
 
   test('decreases from 1 to 0', function() {
@@ -99,10 +105,10 @@ describe('decreaseDifficulty', function() {
     expect(function() { app.decreaseDifficulty(null); }).not.toThrow();
   });
 
-  test('handles undefined difficultyLevel as 0', function() {
+  test('handles undefined difficultyLevel as 0 and decreases to -1', function() {
     var word = { id: 0, english: 'test', chinese: '測試', sheetName: 'Sheet1', originalRowIndex: 2 };
     app.decreaseDifficulty(word);
-    expect(word.difficultyLevel).toBe(0);
+    expect(word.difficultyLevel).toBe(-1);
   });
 
   test('syncs to words main array', function() {
@@ -136,8 +142,8 @@ describe('handleMarkVeryFamiliar', function() {
     expect(spy).toHaveBeenCalled();
   });
 
-  test('shows already message when word is already -1', function() {
-    app.currentIndex = 3; // dog, difficulty -1
+  test('shows already message when word is already -999', function() {
+    app.currentIndex = 3; // dog, difficulty -999
     var spy = jest.spyOn(app, 'showVeryFamiliarToast');
     app.handleMarkVeryFamiliar();
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('已經是非常熟'));
@@ -163,14 +169,14 @@ describe('confirmMarkVeryFamiliar', function() {
     expect(app.pendingRemoval.word.id).toBe(0);
   });
 
-  test('sets -1 directly in difficultyFilter -1 mode', function() {
+  test('sets -999 directly in difficultyFilter -1 mode', function() {
     app.currentIndex = 0; // apple, difficulty 0
     app.difficultyFilter = -1;
     app._pendingVeryFamiliar = { wordId: 0, timer: null };
     app.confirmMarkVeryFamiliar();
-    expect(app.currentWords[0].difficultyLevel).toBe(-1);
+    expect(app.currentWords[0].difficultyLevel).toBe(-999);
     var mainWord = app.words.find(function(w) { return w.id === 0; });
-    expect(mainWord.difficultyLevel).toBe(-1);
+    expect(mainWord.difficultyLevel).toBe(-999);
   });
 
   test('upgrades existing pendingRemoval to isVeryFamiliar', function() {

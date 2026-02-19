@@ -25,7 +25,7 @@
 
   // 根據難度決定初始 Box 等級
   FlashcardApp.prototype.getInitialBox = function(difficulty) {
-    if (difficulty === -1) return 5;  // 非常熟
+    if (difficulty < 0) return 5;  // 非常熟
     if (difficulty === 0) return 3;   // 無標記
     if (difficulty >= 1 && difficulty <= 3) return 2; // 略不熟
     return 1; // difficulty >= 4，很不熟
@@ -70,7 +70,7 @@
       entry = { box: this.getInitialBox(difficulty) };
     } else {
       // 根據難度調整 Box
-      if (difficulty === -1 || difficulty <= 2) {
+      if (difficulty < 0 || difficulty <= 2) {
         // 熟悉：Box 上升（最高 SRS_MAX_BOX）
         entry.box = Math.min(APP_CONSTANTS.SRS_MAX_BOX, (entry.box || 1) + 1);
       } else if (difficulty >= 6) {
@@ -133,9 +133,9 @@
       if (!srs) {
         // 從未進入 SRS 系統：高優先（類別 1），依難度排序（越不熟越前面）
         var diff = (word.difficultyLevel !== undefined && word.difficultyLevel !== null) ? word.difficultyLevel : 0;
-        // difficulty -1 = 非常熟，排最後；0~10 越高越不熟
+        // difficulty < 0 = 非常熟，排最後；0~10 越高越不熟
         priority = 1;
-        sortKey = (diff === -1) ? -1 : diff; // 越高越優先
+        sortKey = (diff < 0) ? -1 : diff; // 越高越優先
         wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: '' });
       } else if (srs.nextReview <= today) {
         // 已到期/逾期：最高優先（類別 0），依逾期天數 + box 等級排序

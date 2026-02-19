@@ -164,15 +164,15 @@
   /**
    * 套用不熟程度 CSS class 到元素（清除舊 class 後加入新 class）
    * @param {HTMLElement} element - 目標元素
-   * @param {number} level - 不熟程度等級 (-1 到 10)
+   * @param {number} level - 不熟程度等級 (-999 到 10)
    */
   function applyDifficultyClass(element, level) {
     if (!element) return;
-    for (var i = -1; i <= 10; i++) {
-      var cls = 'difficulty-level-' + (i === -1 ? 'n1' : i);
-      element.className = element.className.replace(new RegExp('\\b' + cls + '\\b', 'g'), '');
+    element.className = element.className.replace(/\bdifficulty-level-n1\b/g, '');
+    for (var i = 0; i <= 10; i++) {
+      element.className = element.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '');
     }
-    var newCls = 'difficulty-level-' + (level === -1 ? 'n1' : level);
+    var newCls = level < 0 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
     element.className = (element.className + ' ' + newCls).replace(/\s+/g, ' ').trim();
   }
 

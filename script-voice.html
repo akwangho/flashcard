@@ -959,6 +959,16 @@
     this._speechSequenceActive = false;
     this.speechSynthesis.cancel();
     
+    // 清除 D 鍵待確認狀態
+    if (this._pendingVeryFamiliar) {
+      if (this._pendingVeryFamiliar.timer) {
+        clearTimeout(this._pendingVeryFamiliar.timer);
+      }
+      this._pendingVeryFamiliar = null;
+      this._vfSavedTimer = null;
+      this.hideVeryFamiliarToast();
+    }
+    
     this.showingChinese = false;
     this.isTransitioning = false;
     this.isProcessingClick = false;

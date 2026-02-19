@@ -103,11 +103,11 @@ describe('renderDifficultyLevel', function() {
     expect(levelEl.textContent).toBe('0');
   });
 
-  test('displays checkmark for -1 difficulty', function() {
+  test('displays number for negative difficulty', function() {
     app.currentIndex = 2; // cat, difficulty -1
     app.renderDifficultyLevel();
     var levelEl = document.getElementById('difficulty-level');
-    expect(levelEl.textContent).toBe('✓');
+    expect(levelEl.textContent).toBe('-1');
   });
 
   test('adds correct difficulty CSS class', function() {
@@ -154,10 +154,10 @@ describe('renderDifficultyLevelPreview', function() {
     expect(app.currentWords[0].difficultyLevel).toBe(5);
   });
 
-  test('shows checkmark for preview level -1', function() {
+  test('shows number for negative preview level', function() {
     app.renderDifficultyLevelPreview(-1);
     var levelEl = document.getElementById('difficulty-level');
-    expect(levelEl.textContent).toBe('✓');
+    expect(levelEl.textContent).toBe('-1');
   });
 
   test('applies preview level CSS class', function() {
@@ -433,7 +433,7 @@ describe('confirmRemoval', function() {
     expect(spy).toHaveBeenCalled();
   });
 
-  test('sets difficultyLevel to -1 for isVeryFamiliar removal', function() {
+  test('sets difficultyLevel to -999 for isVeryFamiliar removal', function() {
     var targetWord = app.currentWords[0];
     app.pendingRemoval = {
       word: targetWord,
@@ -441,10 +441,10 @@ describe('confirmRemoval', function() {
       isVeryFamiliar: true
     };
     app.confirmRemoval();
-    expect(targetWord.difficultyLevel).toBe(-1);
+    expect(targetWord.difficultyLevel).toBe(-999);
   });
 
-  test('syncs -1 to words main array for isVeryFamiliar', function() {
+  test('syncs -999 to words main array for isVeryFamiliar', function() {
     app.pendingRemoval = {
       word: app.currentWords[0],
       index: 0,
@@ -452,7 +452,7 @@ describe('confirmRemoval', function() {
     };
     app.confirmRemoval();
     var mainWord = app.words.find(function(w) { return w.id === 0; });
-    expect(mainWord.difficultyLevel).toBe(-1);
+    expect(mainWord.difficultyLevel).toBe(-999);
   });
 
   test('syncs to backend for isVeryFamiliar', function() {

@@ -139,7 +139,7 @@
   
   // 獲取沒有可用單字時的提示信息
   FlashcardApp.prototype.getNoWordsMessage = function() {
-    if (this.difficultyFilter === -1) {
+    if (this.difficultyFilter < 0) {
       return '沒有標記為「非常熟」的單字可以測驗！\n\n請調整篩選條件。';
     } else if (this.difficultyFilter > 0) {
       return '沒有符合不熟程度 ★' + this.difficultyFilter + ' 以上的單字可以測驗！\n\n請調整篩選條件。';
@@ -286,7 +286,7 @@
     };
     
     var parts = [];
-    if (this.difficultyFilter === -1) {
+    if (this.difficultyFilter < 0) {
       parts.push('非常熟（已掌握）');
     } else if (this.difficultyFilter > 0) {
       parts.push('★' + this.difficultyFilter + ' 以上');

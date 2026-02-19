@@ -111,15 +111,15 @@
     var self = this;
     
     // 篩選 1：不熟程度篩選
-    if (this.difficultyFilter === -1) {
-      // 特殊篩選：只顯示非常熟（-1）的單字
+    if (this.difficultyFilter < 0) {
+      // 特殊篩選：只顯示非常熟（-999）的單字
       filtered = filtered.filter(function(w) {
-        return w.difficultyLevel === -1;
+        return w.difficultyLevel <= -999;
       });
     } else {
-      // 預設排除 -1（非常熟）的單字，只有明確篩選 -1 時才顯示
+      // 預設排除 -999（非常熟）的單字，-1~-998 仍正常出現
       filtered = filtered.filter(function(w) {
-        return w.difficultyLevel !== -1;
+        return w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null;
       });
       // 再套用 >= 篩選
       if (this.difficultyFilter > 0) {
@@ -175,14 +175,14 @@
     var words = this.words;
     
     // 如果同時啟用了不熟程度篩選，先套用
-    if (this.difficultyFilter === -1) {
+    if (this.difficultyFilter < 0) {
       words = words.filter(function(w) {
-        return w.difficultyLevel === -1;
+        return w.difficultyLevel <= -999;
       });
     } else {
-      // 預設排除 -1 的單字
+      // 預設排除 -999（非常熟）的單字
       words = words.filter(function(w) {
-        return w.difficultyLevel !== -1;
+        return w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null;
       });
       if (this.difficultyFilter > 0) {
         var minLevel = this.difficultyFilter;
@@ -476,23 +476,23 @@
       });
     }
     
-    // 特殊：-1 篩選只計算 difficultyLevel === -1 的單字
-    if (minLevel === -1) {
+    // 特殊：非常熟篩選只計算 difficultyLevel <= -999 的單字
+    if (minLevel < 0) {
       return words.filter(function(w) {
-        return w.difficultyLevel === -1;
+        return w.difficultyLevel <= -999;
       }).length;
     }
     
-    // 0 = 全部（但排除 -1）
+    // 0 = 全部（但排除 -999）
     if (minLevel === 0) {
       return words.filter(function(w) {
-        return w.difficultyLevel !== -1;
+        return w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null;
       }).length;
     }
     
-    // >= minLevel（排除 -1）
+    // >= minLevel（排除 -999）
     return words.filter(function(w) {
-      return w.difficultyLevel !== -1 && (w.difficultyLevel || 0) >= minLevel;
+      return (w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null) && (w.difficultyLevel || 0) >= minLevel;
     }).length;
   };
 
@@ -501,7 +501,7 @@
     var btn = document.getElementById('difficulty-filter-btn');
     if (!btn) return;
     
-    if (this.difficultyFilter === -1) {
+    if (this.difficultyFilter < 0) {
       btn.textContent = '⭐ 篩選：非常熟';
       btn.style.color = '#00CC00';
     } else if (this.difficultyFilter > 0) {
@@ -551,7 +551,7 @@
     
     var parts = [];
     
-    if (this.difficultyFilter === -1) {
+    if (this.difficultyFilter < 0) {
       parts.push('⭐ 非常熟');
     } else if (this.difficultyFilter > 0) {
       parts.push('⭐ ★' + this.difficultyFilter + '+');

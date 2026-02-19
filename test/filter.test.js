@@ -119,8 +119,9 @@ describe('applyAllFilters', function() {
     expect(sampleWords.length).toBe(5);
   });
 
-  test('filters by difficulty -1 (very familiar only)', function() {
-    sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -1, lastReviewDate: '' });
+  test('filters by difficulty -1 shows only -999 (very familiar)', function() {
+    sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -999, lastReviewDate: '' });
+    sampleWords.push({ id: 7, english: 'wolf', chinese: '狼', difficultyLevel: -5, lastReviewDate: '' });
     app.difficultyFilter = -1;
     app.reviewFilter = 'all';
     var result = app.applyAllFilters(sampleWords);
@@ -128,15 +129,17 @@ describe('applyAllFilters', function() {
     expect(result[0].english).toBe('fox');
   });
 
-  test('default difficulty filter 0 excludes -1 words', function() {
+  test('default difficulty filter 0 excludes only -999 words, not -1', function() {
     sampleWords.push({ id: 6, english: 'fox', chinese: '狐狸', difficultyLevel: -1, lastReviewDate: '' });
+    sampleWords.push({ id: 7, english: 'wolf', chinese: '狼', difficultyLevel: -999, lastReviewDate: '' });
     app.difficultyFilter = 0;
     app.reviewFilter = 'all';
     var result = app.applyAllFilters(sampleWords);
-    // fox(-1) should be excluded
-    expect(result.length).toBe(5);
+    // fox(-1) should be included, wolf(-999) should be excluded
     var englishes = result.map(function(w) { return w.english; });
-    expect(englishes).not.toContain('fox');
+    expect(englishes).toContain('fox');
+    expect(englishes).not.toContain('wolf');
+    expect(result.length).toBe(6);
   });
 
   test('filters by must-spell only', function() {
@@ -207,14 +210,15 @@ describe('countWordsForDifficultyFilter', function() {
       { id: 2, english: 'banana', difficultyLevel: 3, lastReviewDate: '', mustSpell: false },
       { id: 3, english: 'cat', difficultyLevel: 5, lastReviewDate: '', mustSpell: true },
       { id: 4, english: 'dog', difficultyLevel: 8, lastReviewDate: '', mustSpell: false },
-      { id: 5, english: 'fox', difficultyLevel: -1, lastReviewDate: '', mustSpell: false }
+      { id: 5, english: 'fox', difficultyLevel: -1, lastReviewDate: '', mustSpell: false },
+      { id: 6, english: 'wolf', difficultyLevel: -999, lastReviewDate: '', mustSpell: false }
     ];
     app.reviewFilter = 'all';
     app.mustSpellFilter = false;
   });
 
-  test('returns all words count for minLevel 0 (excludes -1)', function() {
-    expect(app.countWordsForDifficultyFilter(0)).toBe(4);
+  test('returns all words count for minLevel 0 (excludes only -999)', function() {
+    expect(app.countWordsForDifficultyFilter(0)).toBe(5); // apple, banana, cat, dog, fox(-1 included)
   });
 
   test('returns count of words >= minLevel', function() {
@@ -224,8 +228,8 @@ describe('countWordsForDifficultyFilter', function() {
     expect(app.countWordsForDifficultyFilter(10)).toBe(0);
   });
 
-  test('returns count for -1 (very familiar)', function() {
-    expect(app.countWordsForDifficultyFilter(-1)).toBe(1); // fox(-1)
+  test('returns count for -1 (very familiar = only -999)', function() {
+    expect(app.countWordsForDifficultyFilter(-1)).toBe(1); // wolf(-999) only
   });
 
   test('counts with mustSpellFilter active', function() {

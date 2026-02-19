@@ -157,6 +157,11 @@
               <button id="export-btn" class="menu-item">📤 匯出單字</button>
               <button id="restart-btn" class="menu-item">🔄 重新載入單字</button>
               <div class="menu-divider"></div>
+              <div class="menu-section-title">快速模式</div>
+              <button id="quick-mode-1-btn" class="menu-item">🎧 用聽的背單字</button>
+              <button id="quick-mode-2-btn" class="menu-item">👂 用聽的認識單字</button>
+              <button id="quick-mode-3-btn" class="menu-item">📝 日常複習</button>
+              <div class="menu-divider"></div>
               <div class="menu-section-title">設定</div>
               <button id="sheet-settings-btn" class="menu-item">📋 單字檔設定</button>
               <button id="voice-settings-btn" class="menu-item">🔊 語音設定</button>
@@ -568,6 +573,7 @@
           <label for="edit-word-difficulty">不熟程度</label>
           <div class="setting-control edit-word-difficulty-control">
             <input type="range" id="edit-word-difficulty" min="-1" max="10" value="0" step="1">
+            <input type="number" id="edit-word-difficulty-number" min="-999" max="10" value="0" step="1" style="width: 60px; padding: 4px 6px; font-size: 14px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; text-align: center; margin-left: 8px;">
             <span id="edit-word-difficulty-value" class="edit-word-difficulty-value">★0</span>
           </div>
         </div>

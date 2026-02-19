@@ -101,14 +101,14 @@ function countValidWords(sheet) {
   * 格式：A=要會拼, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期（A1=總數）
   */
   function createWordObject(rowData, id, sheetName, rowIndex) {
-    // 計算不熟程度（支援數字 -1~10 或舊版 * 符號）
+    // 計算不熟程度（支援數字 -999~10 或舊版 * 符號）
     let difficultyLevel = 0;
     if (rowData[COL.DIFFICULTY] !== undefined && rowData[COL.DIFFICULTY] !== null && rowData[COL.DIFFICULTY] !== '') {
       const diffStr = rowData[COL.DIFFICULTY].toString().trim();
       const parsed = Number(diffStr);
       if (!isNaN(parsed) && diffStr !== '') {
-        // 數字格式（支援 -1 到 10）
-        difficultyLevel = Math.max(-1, Math.min(10, Math.round(parsed)));
+        // 數字格式（支援 -999 到 10）
+        difficultyLevel = Math.max(-999, Math.min(10, Math.round(parsed)));
       } else {
         // 向後相容：計算 * 符號數量
         for (let i = 0; i < diffStr.length; i++) {
@@ -425,7 +425,7 @@ function countValidWords(sheet) {
       const row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
       
       // 以數字格式寫入（0 寫空字串，其他寫數字）
-      const level = Math.max(-1, Math.min(10, parseInt(difficultyLevel) || 0));
+      const level = Math.max(-999, Math.min(10, parseInt(difficultyLevel) || 0));
       sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
       
       console.log('成功更新不熟程度為', level);
@@ -475,7 +475,7 @@ function countValidWords(sheet) {
       
       // 更新 D 欄：不熟程度（以數字格式寫入，0 寫空字串）
       if (properties.difficultyLevel !== undefined && properties.difficultyLevel !== null) {
-        var level = Math.max(-1, Math.min(10, parseInt(properties.difficultyLevel) || 0));
+        var level = Math.max(-999, Math.min(10, parseInt(properties.difficultyLevel) || 0));
         sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
         console.log('已更新不熟程度:', level);
       }
