@@ -16,6 +16,9 @@
   // 全域常數定義（集中管理所有 magic numbers，方便維護）
   // =====================================================================
   var APP_CONSTANTS = {
+    // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
+    APP_VERSION: '1.12.5',
+
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -103,6 +106,12 @@
       SRS: 'flashcard-srs'
     }
   };
+
+  // 載入畫面版本號同步（從 APP_CONSTANTS 取得，避免硬編碼不同步）
+  (function() {
+    var vEl = document.getElementById('loading-version');
+    if (vEl) { vEl.textContent = 'v' + APP_CONSTANTS.APP_VERSION; }
+  })();
 
   // =====================================================================
   // 共用工具函式（消除跨檔案重複程式碼）

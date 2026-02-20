@@ -1289,6 +1289,10 @@ bash deploy.sh setup
 
 ### v1.12.5 (2026-02-20) — 重構與測試強化
 
+**版本號集中管理**
+- 新增 `APP_CONSTANTS.APP_VERSION` 作為唯一版本來源，載入畫面自動從此常數同步顯示版本號
+- 移除 `index.html` 中硬編碼的版本號，避免日後版本不同步
+
 **程式碼重構 (Part A)**
 - 修正 `isModalBackgroundClick` 函式的 dead-loop bug，簡化為 `e.target === modal`
 - 移除 `script-events.html` 中 5 處重複的 modal 背景點擊偵測邏輯（~80 行），統一使用 `isModalBackgroundClick`

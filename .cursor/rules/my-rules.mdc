@@ -5,4 +5,4 @@ alwaysApply: true
 ---
 - 寫出能在ipad 4正常執行的ES5兼容的完整版本
 - 每次新增、修改功能或調整程式碼時，都要記得更改OpenSpec.md
-- OpenSpec.md裡面的版本號碼變更時，程式載入畫面的版本號碼也都要跟著變更。
+- 版本號集中管理在 script-core.html 的 APP_CONSTANTS.APP_VERSION，載入畫面會自動同步。更新版本時只需改 APP_CONSTANTS.APP_VERSION 和 OpenSpec.md 這兩處。
