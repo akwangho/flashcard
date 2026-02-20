@@ -118,7 +118,7 @@ function createDOMElements() {
     // SRS review modal
     'srs-review-btn', 'srs-due-badge',
     'srs-review-modal', 'close-srs-modal',
-    'srs-due-count', 'srs-no-due',
+    'srs-stats', 'srs-no-due',
     'srs-count-options', 'srs-count-buttons',
     'srs-start-btn',
     // Loading screen word display

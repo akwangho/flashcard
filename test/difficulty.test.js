@@ -93,7 +93,7 @@ describe('increaseDifficulty', function() {
     };
     var spy = jest.spyOn(app, 'showVeryFamiliarToast');
     app.increaseDifficulty();
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('-999'));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('非常熟'));
   });
 
   test('calls renderDifficultyLevelPreview(-999) in pendingRemoval state', function() {

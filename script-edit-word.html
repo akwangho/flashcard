@@ -52,7 +52,7 @@
     }
     if (difficultyValue) {
       var level = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-      difficultyValue.textContent = level <= -999 ? '非常熟 (' + level + ')' : '★' + level;
+      difficultyValue.textContent = level <= -999 ? '✓ 已掌握' : (level < 0 ? '★0' : '★' + level);
       this.updateEditWordDifficultyColor(level);
     }
     if (imageInput) imageInput.value = currentWord.image || '';
@@ -129,7 +129,7 @@
     var updateDiffDisplay = function(val) {
       var valueEl = document.getElementById('edit-word-difficulty-value');
       if (valueEl) {
-        valueEl.textContent = val <= -999 ? '非常熟 (' + val + ')' : '★' + val;
+        valueEl.textContent = val <= -999 ? '✓ 已掌握' : (val < 0 ? '★0' : '★' + val);
         self.updateEditWordDifficultyColor(val);
       }
     };

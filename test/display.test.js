@@ -103,11 +103,11 @@ describe('renderDifficultyLevel', function() {
     expect(levelEl.textContent).toBe('0');
   });
 
-  test('displays number for negative difficulty', function() {
+  test('displays 0 for negative difficulty (UI hides negatives)', function() {
     app.currentIndex = 2; // cat, difficulty -1
     app.renderDifficultyLevel();
     var levelEl = document.getElementById('difficulty-level');
-    expect(levelEl.textContent).toBe('-1');
+    expect(levelEl.textContent).toBe('0');
   });
 
   test('adds correct difficulty CSS class', function() {
@@ -117,11 +117,11 @@ describe('renderDifficultyLevel', function() {
     expect(display.classList.contains('difficulty-level-5')).toBe(true);
   });
 
-  test('adds n1 CSS class for -1 difficulty', function() {
+  test('adds difficulty-level-0 CSS class for -1 difficulty (UI maps negatives to 0)', function() {
     app.currentIndex = 2; // cat, difficulty -1
     app.renderDifficultyLevel();
     var display = document.getElementById('difficulty-display');
-    expect(display.classList.contains('difficulty-level-n1')).toBe(true);
+    expect(display.classList.contains('difficulty-level-0')).toBe(true);
   });
 
   test('removes old difficulty class when switching words', function() {
@@ -136,12 +136,12 @@ describe('renderDifficultyLevel', function() {
     expect(display.classList.contains('difficulty-level-0')).toBe(true);
   });
 
-  test('displays -999 for very familiar word', function() {
+  test('displays ✓ for very familiar word (-999)', function() {
     app.currentWords.push({ id: 4, english: 'dog', chinese: '狗', difficultyLevel: -999 });
     app.currentIndex = 3;
     app.renderDifficultyLevel();
     var levelEl = document.getElementById('difficulty-level');
-    expect(levelEl.textContent).toBe('-999');
+    expect(levelEl.textContent).toBe('✓');
   });
 
   test('adds n1 CSS class for -999 difficulty', function() {
@@ -152,12 +152,12 @@ describe('renderDifficultyLevel', function() {
     expect(display.classList.contains('difficulty-level-n1')).toBe(true);
   });
 
-  test('adds n1 CSS class for -500 difficulty', function() {
+  test('adds difficulty-level-0 CSS class for -500 difficulty', function() {
     app.currentWords.push({ id: 4, english: 'dog', chinese: '狗', difficultyLevel: -500 });
     app.currentIndex = 3;
     app.renderDifficultyLevel();
     var display = document.getElementById('difficulty-display');
-    expect(display.classList.contains('difficulty-level-n1')).toBe(true);
+    expect(display.classList.contains('difficulty-level-0')).toBe(true);
   });
 });
 
@@ -178,10 +178,10 @@ describe('renderDifficultyLevelPreview', function() {
     expect(app.currentWords[0].difficultyLevel).toBe(5);
   });
 
-  test('shows number for negative preview level', function() {
+  test('shows 0 for negative preview level (UI hides negatives)', function() {
     app.renderDifficultyLevelPreview(-1);
     var levelEl = document.getElementById('difficulty-level');
-    expect(levelEl.textContent).toBe('-1');
+    expect(levelEl.textContent).toBe('0');
   });
 
   test('applies preview level CSS class', function() {
@@ -190,10 +190,10 @@ describe('renderDifficultyLevelPreview', function() {
     expect(display.classList.contains('difficulty-level-3')).toBe(true);
   });
 
-  test('shows -999 for very familiar preview', function() {
+  test('shows ✓ for very familiar preview (-999)', function() {
     app.renderDifficultyLevelPreview(-999);
     var levelEl = document.getElementById('difficulty-level');
-    expect(levelEl.textContent).toBe('-999');
+    expect(levelEl.textContent).toBe('✓');
   });
 
   test('applies n1 CSS class for -999 preview', function() {
@@ -202,10 +202,10 @@ describe('renderDifficultyLevelPreview', function() {
     expect(display.classList.contains('difficulty-level-n1')).toBe(true);
   });
 
-  test('applies n1 CSS class for -5 preview', function() {
+  test('applies difficulty-level-0 CSS class for -5 preview', function() {
     app.renderDifficultyLevelPreview(-5);
     var display = document.getElementById('difficulty-display');
-    expect(display.classList.contains('difficulty-level-n1')).toBe(true);
+    expect(display.classList.contains('difficulty-level-0')).toBe(true);
   });
 });
 
@@ -231,25 +231,25 @@ describe('openEditWordModal difficulty display', function() {
     expect(valueEl.textContent).toBe('★5');
   });
 
-  test('shows ★-1 for difficulty -1 (not 非常熟)', function() {
+  test('shows ★0 for difficulty -1 (UI hides negatives)', function() {
     app.currentIndex = 1;
     app.openEditWordModal();
     var valueEl = document.getElementById('edit-word-difficulty-value');
-    expect(valueEl.textContent).toBe('★-1');
+    expect(valueEl.textContent).toBe('★0');
   });
 
-  test('shows 非常熟 (-999) for difficulty -999', function() {
+  test('shows ✓ 已掌握 for difficulty -999', function() {
     app.currentIndex = 2;
     app.openEditWordModal();
     var valueEl = document.getElementById('edit-word-difficulty-value');
-    expect(valueEl.textContent).toBe('非常熟 (-999)');
+    expect(valueEl.textContent).toBe('✓ 已掌握');
   });
 
-  test('shows ★-500 for difficulty -500 (not 非常熟)', function() {
+  test('shows ★0 for difficulty -500 (UI hides negatives)', function() {
     app.currentIndex = 3;
     app.openEditWordModal();
     var valueEl = document.getElementById('edit-word-difficulty-value');
-    expect(valueEl.textContent).toBe('★-500');
+    expect(valueEl.textContent).toBe('★0');
   });
 
   test('sets number input to full range value', function() {

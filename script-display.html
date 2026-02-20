@@ -257,7 +257,7 @@
     if (this.pendingRemoval) {
       this.pendingRemoval.isVeryFamiliar = true;
       this.renderDifficultyLevelPreview(-999);
-      this.showVeryFamiliarToast('✓ 已設為非常熟 (-999)');
+      this.showVeryFamiliarToast('✓ 已設為非常熟');
       return;
     }
     
@@ -327,9 +327,15 @@
     
     var level = (currentWord && currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
     
-    levelEl.textContent = level < 0 ? 0 : level;
+    // UI：非常熟(≤-999)顯示✓，其餘負數顯示0，正數正常顯示
+    if (level <= -999) {
+      levelEl.textContent = '✓';
+    } else if (level < 0) {
+      levelEl.textContent = 0;
+    } else {
+      levelEl.textContent = level;
+    }
     
-    // 移除所有等級 class（包含 n1 代表負數）
     display.className = display.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
     for (var i = 0; i <= 10; i++) {
       display.className = display.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
@@ -426,9 +432,15 @@
     
     if (!display || !levelEl) return;
     
-    levelEl.textContent = level < 0 ? 0 : level;
+    // UI：非常熟(≤-999)顯示✓，其餘負數顯示0，正數正常顯示
+    if (level <= -999) {
+      levelEl.textContent = '✓';
+    } else if (level < 0) {
+      levelEl.textContent = 0;
+    } else {
+      levelEl.textContent = level;
+    }
     
-    // 移除所有等級 class（包含 n1 代表負數）
     display.className = display.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
     for (var i = 0; i <= 10; i++) {
       display.className = display.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
@@ -946,7 +958,7 @@
       if (mainWord) mainWord.difficultyLevel = -999;
       this.syncDifficultyToBackend(currentWord);
       this.updateSrsData(currentWord);
-      this.showVeryFamiliarToast('✓ 已設為非常熟 (-999)');
+      this.showVeryFamiliarToast('✓ 已設為非常熟');
       this.renderDifficultyLevel();
       // 恢復被第一次 D 暫停的計時器
       this._resumeTimerAfterVeryFamiliarCancel();
@@ -958,7 +970,7 @@
       this.pendingRemoval.isVeryFamiliar = true;
       // 更新不熟程度預覽為 -999
       this.renderDifficultyLevelPreview(-999);
-      this.showVeryFamiliarToast('✓ 已設為非常熟 (-999)');
+      this.showVeryFamiliarToast('✓ 已設為非常熟');
       // 恢復被第一次 D 暫停的計時器（pendingRemoval 自身的計時器）
       this._resumeTimerAfterVeryFamiliarCancel();
       return;
@@ -1035,7 +1047,7 @@
     this.updateButtonStates();
     
     // 顯示確認訊息
-    this.showVeryFamiliarToast('✓ 已設為非常熟 (-999)');
+    this.showVeryFamiliarToast('✓ 已設為非常熟');
     
     // 設定計時器，到期後透過 confirmRemoval 確認
     var self = this;

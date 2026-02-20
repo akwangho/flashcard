@@ -11,7 +11,7 @@
    *   loadSrsData, saveSrsData, getSrsForWord, updateSrsData,
    *   getDueWords, getDueWordCount, getRecommendedWords, startSrsReview,
    *   openSrsReviewModal, renderSrsCountOptions, closeSrsReviewModal,
-   *   updateSrsBadge
+   *   updateSrsBadge, calculateSrsStats, renderSrsStats
    */
 
   // ==========================================================================
@@ -206,9 +206,8 @@
   // 開啟快速複習模態框
   FlashcardApp.prototype.openSrsReviewModal = function() {
     var totalWords = this.words ? this.words.length : 0;
-    var dueCount = this.getDueWordCount();
     var modal = document.getElementById('srs-review-modal');
-    var countEl = document.getElementById('srs-due-count');
+    var statsEl = document.getElementById('srs-stats');
     var optionsEl = document.getElementById('srs-count-options');
     var noDueEl = document.getElementById('srs-no-due');
     var startBtn = document.getElementById('srs-start-btn');
@@ -219,26 +218,19 @@
     this._clearDisplayTimer();
 
     if (totalWords === 0) {
-      // 沒有載入任何單字
-      if (countEl) countEl.style.display = 'none';
+      if (statsEl) statsEl.style.display = 'none';
       if (optionsEl) optionsEl.style.display = 'none';
       if (startBtn) startBtn.style.display = 'none';
       if (noDueEl) noDueEl.style.display = 'block';
     } else {
-      // 總是顯示可複習的單字（依優先度排序）
       if (noDueEl) noDueEl.style.display = 'none';
-      if (countEl) {
-        countEl.style.display = 'block';
-        if (dueCount > 0) {
-          countEl.textContent = '共 ' + totalWords + ' 個單字，其中 ' + dueCount + ' 個建議優先複習';
-        } else {
-          countEl.textContent = '共 ' + totalWords + ' 個單字，依複習優先度排列';
-        }
-      }
+
+      var stats = this.calculateSrsStats();
+      this.renderSrsStats(stats);
+
       if (optionsEl) optionsEl.style.display = 'block';
       if (startBtn) startBtn.style.display = 'block';
 
-      // 更新數量選項（使用全部單字數量）
       this.renderSrsCountOptions(totalWords);
     }
 
@@ -303,6 +295,130 @@
   // 關閉 SRS 複習模態框
   FlashcardApp.prototype.closeSrsReviewModal = function() {
     closeModalById(this, 'srs-review-modal');
+  };
+
+  // 計算 SRS 統計數據（複習覆蓋率 + 難度分佈）
+  FlashcardApp.prototype.calculateSrsStats = function() {
+    var total = this.words ? this.words.length : 0;
+    if (total === 0) return null;
+
+    var today = new Date();
+    var todayMs = today.getTime();
+    var DAY_MS = 24 * 60 * 60 * 1000;
+    var cutoffs = [
+      { days: 3, label: '三天內已複習' },
+      { days: 7, label: '七天內已複習' },
+      { days: 14, label: '兩週內已複習' },
+      { days: 30, label: '一個月內已複習' }
+    ];
+
+    var reviewCounts = [0, 0, 0, 0];
+    var neverReviewed = 0;
+
+    // difficulty buckets: mastered(-999), 0(-1~0), 1-2, 3-4, 5-6, 7-8, 9-10
+    var diffBuckets = [
+      { label: '非常熟', min: -Infinity, max: -999, count: 0, color: '#00CC00' },
+      { label: '★0', min: -998, max: 0, count: 0, color: '#666' },
+      { label: '★1-2', min: 1, max: 2, count: 0, color: '#FFD700' },
+      { label: '★3-4', min: 3, max: 4, count: 0, color: '#FFA500' },
+      { label: '★5-6', min: 5, max: 6, count: 0, color: '#FF8C00' },
+      { label: '★7-8', min: 7, max: 8, count: 0, color: '#FF4500' },
+      { label: '★9-10', min: 9, max: 10, count: 0, color: '#FF0000' }
+    ];
+
+    for (var i = 0; i < this.words.length; i++) {
+      var word = this.words[i];
+
+      // --- Review coverage ---
+      if (word.lastReviewDate) {
+        var parts = word.lastReviewDate.split('-');
+        var reviewDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        var diffDays = Math.floor((todayMs - reviewDate.getTime()) / DAY_MS);
+        for (var c = 0; c < cutoffs.length; c++) {
+          if (diffDays <= cutoffs[c].days) {
+            reviewCounts[c]++;
+          }
+        }
+      } else {
+        neverReviewed++;
+      }
+
+      // --- Difficulty distribution ---
+      var level = (word.difficultyLevel !== undefined && word.difficultyLevel !== null) ? word.difficultyLevel : 0;
+      for (var d = 0; d < diffBuckets.length; d++) {
+        if (level >= diffBuckets[d].min && level <= diffBuckets[d].max) {
+          diffBuckets[d].count++;
+          break;
+        }
+      }
+    }
+
+    var reviewStats = [];
+    for (var r = 0; r < cutoffs.length; r++) {
+      reviewStats.push({
+        label: cutoffs[r].label,
+        count: reviewCounts[r],
+        total: total,
+        pct: Math.round(reviewCounts[r] / total * 100)
+      });
+    }
+
+    return {
+      total: total,
+      neverReviewed: neverReviewed,
+      reviewStats: reviewStats,
+      diffBuckets: diffBuckets
+    };
+  };
+
+  // 渲染 SRS 統計數據到模態框
+  FlashcardApp.prototype.renderSrsStats = function(stats) {
+    var container = document.getElementById('srs-stats');
+    if (!container) return;
+    if (!stats) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+
+    var html = '';
+
+    // --- Total ---
+    html += '<p class="srs-stats-total">共 ' + stats.total + ' 個單字</p>';
+
+    // --- Review Coverage ---
+    html += '<div class="srs-stats-section">';
+    html += '<div class="srs-stats-title">複習進度</div>';
+    for (var i = 0; i < stats.reviewStats.length; i++) {
+      var rs = stats.reviewStats[i];
+      html += '<div class="srs-stat-row">';
+      html += '<span class="srs-stat-label">' + rs.label + '</span>';
+      html += '<span class="srs-stat-bar"><span class="srs-stat-fill srs-fill-review" style="width:' + rs.pct + '%;"></span></span>';
+      html += '<span class="srs-stat-value">' + rs.count + ' (' + rs.pct + '%)</span>';
+      html += '</div>';
+    }
+    html += '<div class="srs-stat-row srs-stat-row-minor">';
+    html += '<span class="srs-stat-label">從未複習</span>';
+    html += '<span class="srs-stat-value-only">' + stats.neverReviewed + ' 個</span>';
+    html += '</div>';
+    html += '</div>';
+
+    // --- Difficulty Distribution ---
+    html += '<div class="srs-stats-section">';
+    html += '<div class="srs-stats-title">難度分佈</div>';
+    for (var j = 0; j < stats.diffBuckets.length; j++) {
+      var b = stats.diffBuckets[j];
+      if (b.count === 0) continue;
+      var pct = Math.round(b.count / stats.total * 100);
+      html += '<div class="srs-stat-row">';
+      html += '<span class="srs-stat-label">' + b.label + '</span>';
+      html += '<span class="srs-stat-bar"><span class="srs-stat-fill" style="width:' + pct + '%; background-color:' + b.color + ';"></span></span>';
+      html += '<span class="srs-stat-value">' + b.count + ' (' + pct + '%)</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
   };
 
   // 更新 SRS 徽章（顯示待複習數量）

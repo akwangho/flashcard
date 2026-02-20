@@ -549,7 +549,7 @@
   }
 
   .srs-modal-content {
-    max-width: 420px;
+    max-width: 480px;
   }
 
   .srs-count-buttons {
@@ -587,6 +587,92 @@
     border-color: #FFFF00;
     border-color: var(--primary-color);
     font-weight: bold;
+  }
+
+  /* SRS Stats Dashboard */
+  .srs-stats-total {
+    font-size: 18px;
+    text-align: center;
+    margin: 0 0 16px 0;
+    color: #FFFF00;
+    color: var(--primary-color);
+    font-weight: bold;
+  }
+
+  .srs-stats-section {
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+
+  .srs-stats-title {
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #333;
+  }
+
+  .srs-stat-row {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: center;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+
+  .srs-stat-label {
+    width: 90px;
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+    color: #ccc;
+    text-align: right;
+    padding-right: 10px;
+  }
+
+  .srs-stat-bar {
+    -webkit-flex: 1;
+    flex: 1;
+    height: 14px;
+    background-color: #222;
+    border-radius: 7px;
+    overflow: hidden;
+    margin-right: 10px;
+  }
+
+  .srs-stat-fill {
+    display: block;
+    height: 100%;
+    border-radius: 7px;
+    -webkit-transition: width 0.4s ease;
+    transition: width 0.4s ease;
+    min-width: 0;
+  }
+
+  .srs-fill-review {
+    background-color: #4CAF50;
+  }
+
+  .srs-stat-value {
+    width: 80px;
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+    color: #aaa;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .srs-stat-row-minor {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed #333;
+  }
+
+  .srs-stat-value-only {
+    -webkit-flex: 1;
+    flex: 1;
+    color: #888;
+    font-size: 12px;
   }
 
   .btn-primary {
