@@ -192,6 +192,7 @@
           'quick-mode-1-btn':     function() { self.applyQuickMode(1); },
           'quick-mode-2-btn':     function() { self.applyQuickMode(2); },
           'quick-mode-3-btn':     function() { self.applyQuickMode(3); },
+          'quick-mode-4-btn':     function() { self.applyQuickMode(4); },
           'export-btn':           function() { self.openExportModal(); },
           'difficulty-filter-btn': function() { self.openDifficultyFilterModal(); },
           'review-filter-btn':    function() { self.openReviewFilterModal(); },
@@ -465,13 +466,9 @@
       var firstElement = document.getElementById('english-word');
       
       if (self.settings.listeningMode) {
-        // 聽力模式：Phase 1 不顯示文字，一律立即播放語音（忽略延遲發音設定）
+        // 聽力模式：Phase 1 不顯示文字，一律播放英文語音（不管顯示順序）
         firstElement.textContent = '';
-        if (self.isReversedForCurrentWord()) {
-          setTimeout(function() { self.speakChineseWord(currentWord.chinese); }, APP_CONSTANTS.SPEECH_DELAY_MS);
-        } else {
-          setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
-        }
+        setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
       } else if (self.isReversedForCurrentWord()) {
         firstElement.textContent = currentWord.chinese;
         setTimeout(function() {

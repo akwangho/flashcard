@@ -210,6 +210,23 @@
       if (e.keyCode === 13) { self._submitListeningSpell(); }
     });
 
+    // Enter / Right / Down 鍵跳下一題（答案回饋顯示時）
+    document.addEventListener('keydown', function(e) {
+      if (!self.listeningState || !self.listeningState.isActive) return;
+      var code = e.keyCode;
+      // 13=Enter, 39=Right, 40=Down
+      if (code !== 13 && code !== 39 && code !== 40) return;
+
+      var nBtn = document.getElementById('listening-next');
+      if (nBtn && nBtn.style.display !== 'none') {
+        e.preventDefault();
+        self.nextListeningQuestion();
+        return;
+      }
+
+      // Enter 在 choose 模式沒有其他作用，但在 spell 模式已由 input keydown 處理
+    });
+
     if (modal) {
       modal.addEventListener('click', function(e) {
         if (isModalBackgroundClick(e, modal)) {

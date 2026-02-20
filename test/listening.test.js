@@ -465,17 +465,61 @@ describe('Flashcard Listening Mode', function() {
     expect(el.textContent).toBe('apple');
   });
 
-  test('listening mode setting saved and loaded', function() {
+  test('listening mode skips speech in phase 2', function() {
     app.settings.listeningMode = true;
-    app.applySettings();
+    app.displayCurrentWord();
+    jest.advanceTimersByTime(APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
+    app.speakWord.mockClear();
+    app.speakChineseWord.mockClear();
+    jest.advanceTimersByTime(app.settings.delayTime * 1000);
+    jest.advanceTimersByTime(APP_CONSTANTS.SPEECH_DELAY_MS);
+    expect(app.speakChineseWord).not.toHaveBeenCalled();
+  });
+
+  test('quick modes 1-3 disable listening mode', function() {
+    app.settings.listeningMode = true;
+    app.showNotification = jest.fn();
+    app.saveSettings = jest.fn();
+    app.redisplayCurrentWord = jest.fn();
+    app.closeMenu = jest.fn();
+    app.applyQuickMode(1);
+    expect(app.settings.listeningMode).toBe(false);
+    expect(app.showNotification).toHaveBeenCalledWith(expect.stringContaining('聽力模式已自動關閉'), 'success');
+  });
+
+  test('quick mode 4 enables listening mode', function() {
+    app.settings.listeningMode = false;
+    app.showNotification = jest.fn();
+    app.saveSettings = jest.fn();
+    app.redisplayCurrentWord = jest.fn();
+    app.closeMenu = jest.fn();
+    app.applyQuickMode(4);
+    expect(app.settings.listeningMode).toBe(true);
+    expect(app.voiceSettings.spellOutLetters).toBe(false);
+    expect(app.voiceSettings.chineseEnabled).toBe(false);
+    expect(app.settings.smartTimerEnabled).toBe(true);
+  });
+
+  test('listening mode always plays English audio even in reversed mode', function() {
+    app.settings.listeningMode = true;
+    app.settings.displayMode = 'chinese-first';
+    app.displayCurrentWord();
+    jest.advanceTimersByTime(APP_CONSTANTS.UI_ANIMATION_DELAY_MS + APP_CONSTANTS.SPEECH_DELAY_MS);
+    expect(app.speakWord).toHaveBeenCalledWith('apple');
+    expect(app.speakChineseWord).not.toHaveBeenCalled();
+  });
+
+  test('listening mode setting loaded in voice settings', function() {
+    app.settings.listeningMode = true;
+    app.openVoiceSettings();
     var toggle = document.getElementById('listening-mode-setting');
     expect(toggle.checked).toBe(true);
   });
 
-  test('listening mode setting read from toggle', function() {
+  test('listening mode setting saved from voice settings', function() {
     var toggle = document.getElementById('listening-mode-setting');
     toggle.checked = true;
-    app.saveSettingsAndClose();
+    app.saveVoiceSettingsAndClose();
     expect(app.settings.listeningMode).toBe(true);
   });
 });

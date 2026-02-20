@@ -58,9 +58,6 @@
     var showTimerToggle = document.getElementById('show-timer-progress-setting');
     if (showTimerToggle) this.settings.showTimerProgressBar = showTimerToggle.checked;
     
-    var listeningModeToggle = document.getElementById('listening-mode-setting');
-    if (listeningModeToggle) this.settings.listeningMode = listeningModeToggle.checked;
-    
     // 讀取計時進度條偏移量
     var timerOffsetInput = document.getElementById('timer-offset-setting');
     if (timerOffsetInput) this.settings.timerProgressBarOffset = parseInt(timerOffsetInput.value, 10) || 0;
@@ -111,12 +108,15 @@
   FlashcardApp.prototype.applyQuickMode = function(mode) {
     var details = [];
 
+    var wasListeningMode = this.settings.listeningMode;
+
     if (mode === 1) {
       this.settings.displayMode = 'chinese-first';
       this.voiceSettings.spellOutLetters = true;
       this.voiceSettings.chineseEnabled = true;
       this.settings.delayTime = 9;
       this.settings.smartTimerEnabled = true;
+      this.settings.listeningMode = false;
       details = ['🎧 用聽的背單字', '先中文 → 字母拼讀開 → 中文發音開', '延遲 9 秒 → 智慧計時開'];
     } else if (mode === 2) {
       this.settings.displayMode = 'english-first';
@@ -125,6 +125,7 @@
       this.settings.delayTime = 4.5;
       this.settings.smartTimerEnabled = true;
       this.settings.delaySpeechInNormalMode = false;
+      this.settings.listeningMode = false;
       details = ['👂 用聽的認識單字', '先英文 → 字母拼讀關 → 中文發音開', '延遲 4.5 秒 → 智慧計時開 → 延遲發音關'];
     } else if (mode === 3) {
       this.settings.displayMode = 'mixed';
@@ -132,7 +133,18 @@
       this.voiceSettings.spellOutLetters = false;
       this.voiceSettings.chineseEnabled = false;
       this.settings.smartTimerEnabled = true;
+      this.settings.listeningMode = false;
       details = ['📝 日常複習', '隨機混合 → 字母拼讀關 → 中文發音關', '延遲發音開 → 智慧計時開'];
+    } else if (mode === 4) {
+      this.settings.listeningMode = true;
+      this.voiceSettings.spellOutLetters = false;
+      this.voiceSettings.chineseEnabled = false;
+      this.settings.smartTimerEnabled = true;
+      details = ['🎧 聽力訓練', '聽力模式開 → 字母拼讀關 → 中文發音關', '智慧計時開'];
+    }
+
+    if (wasListeningMode && !this.settings.listeningMode) {
+      details.push('🔇 聽力模式已自動關閉');
     }
 
     this.saveSettings();
@@ -757,13 +769,16 @@
       flashcardDiv.classList.remove('has-image');
     }
 
-    var self = this;
-    if (isReversed) {
-      setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
-    } else {
-      setTimeout(function() { self.speakChineseWord(currentWord.chinese); }, APP_CONSTANTS.SPEECH_DELAY_MS);
-      if (this.settings.delaySpeechInNormalMode) {
+    // 聽力模式下 Phase 1 已發音，Phase 2 不再重複
+    if (!this.settings.listeningMode) {
+      var self = this;
+      if (isReversed) {
         setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+      } else {
+        setTimeout(function() { self.speakChineseWord(currentWord.chinese); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        if (this.settings.delaySpeechInNormalMode) {
+          setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        }
       }
     }
   };
@@ -1074,6 +1089,10 @@
     if (existing && existing.parentNode) {
       existing.parentNode.removeChild(existing);
     }
+    if (this._notificationTimer) {
+      clearTimeout(this._notificationTimer);
+      this._notificationTimer = null;
+    }
 
     var toast = document.createElement('div');
     toast.id = 'app-notification-toast';
@@ -1085,12 +1104,26 @@
     setTimeout(function() { toast.classList.add('show'); }, 10);
 
     var self = this;
-    this._notificationTimer = setTimeout(function() {
-      toast.classList.remove('show');
-      setTimeout(function() {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 300);
-    }, 3000);
+    var scheduleHide = function() {
+      self._notificationTimer = setTimeout(function() {
+        toast.classList.remove('show');
+        setTimeout(function() {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 300);
+      }, 3000);
+    };
+
+    toast.addEventListener('mouseenter', function() {
+      if (self._notificationTimer) {
+        clearTimeout(self._notificationTimer);
+        self._notificationTimer = null;
+      }
+    });
+    toast.addEventListener('mouseleave', function() {
+      scheduleHide();
+    });
+
+    scheduleHide();
   };
 
   // 增強滑塊交互體驗（ES5兼容版本）

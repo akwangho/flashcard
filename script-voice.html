@@ -1004,6 +1004,9 @@
       var delaySpeechToggle = document.getElementById('delay-speech-setting');
       if (delaySpeechToggle) delaySpeechToggle.checked = this.settings.delaySpeechInNormalMode;
       
+      var listeningModeToggle = document.getElementById('listening-mode-setting');
+      if (listeningModeToggle) listeningModeToggle.checked = this.settings.listeningMode;
+      
       this.populateVoiceSelect();
     }
   };
@@ -1089,6 +1092,9 @@
     if (spellOutLettersSetting) this.voiceSettings.spellOutLetters = spellOutLettersSetting.checked;
     if (chineseSpeechEnabledSetting) this.voiceSettings.chineseEnabled = chineseSpeechEnabledSetting.checked;
     if (delaySpeechToggle) this.settings.delaySpeechInNormalMode = delaySpeechToggle.checked;
+    
+    var listeningModeToggle = document.getElementById('listening-mode-setting');
+    if (listeningModeToggle) this.settings.listeningMode = listeningModeToggle.checked;
     
     if (voiceSelectSetting) {
       var selectedVoiceURI = voiceSelectSetting.value;
