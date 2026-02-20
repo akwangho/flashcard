@@ -246,7 +246,7 @@
     closeModalById(this, 'sheet-settings-modal');
   };
   
-  // 增加不熟程度（+1，最高10；-1 → 0）
+  // 增加不熟程度（+1，最高10；負數直接跳到3）
   FlashcardApp.prototype.increaseDifficulty = function() {
     if (this.currentWords.length === 0) return;
     
@@ -261,9 +261,8 @@
       return;
     }
     
-    // 增加不熟程度（任何負數 +1, 0 → 1, ..., 9 → 10）
     var currentLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-    var newLevel = Math.min(10, currentLevel + 1);
+    var newLevel = currentLevel < 0 ? 3 : Math.min(10, currentLevel + 1);
     currentWord.difficultyLevel = newLevel;
     
     // 同步到 words 主陣列
