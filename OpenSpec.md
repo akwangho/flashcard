@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.12.4
-> **最後更新**: 2026-02-19
+> **版本**: 1.12.5
+> **最後更新**: 2026-02-20
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -1285,7 +1285,31 @@ bash deploy.sh setup
 
 ---
 
-## 11. 待移植/重建清單
+## 11. 變更紀錄
+
+### v1.12.5 (2026-02-20) — 重構與測試強化
+
+**程式碼重構 (Part A)**
+- 修正 `isModalBackgroundClick` 函式的 dead-loop bug，簡化為 `e.target === modal`
+- 移除 `script-events.html` 中 5 處重複的 modal 背景點擊偵測邏輯（~80 行），統一使用 `isModalBackgroundClick`
+- 提取 `_renderDifficultyUI` 共用方法，消除 `renderDifficultyLevel` 與 `renderDifficultyLevelPreview` 之間的重複邏輯
+- 提取 `_revealSecondPart` 共用方法，統一 `showSecondPartAndScheduleNext`、`onWordClick`、`confirmMarkVeryFamiliar` 三處重複的顯示第二語言 + 圖片 + 語音邏輯（~60 行）
+- 將 `setupMenuListeners` 中 18 個 if-else 分支重構為資料驅動的 `menuActions` 對照表，新增/移除選單項目更容易維護
+
+**測試強化 (Part B)**
+- 新增 `screen-awake.test.js`：24 個測試覆蓋 `_isAndroidDevice`、`_setDisplayTimer`、`_clearDisplayTimer`、`_handleVisibilityResume`、`enableKeepScreenAwake`、`disableKeepScreenAwake`（原 0% 覆蓋率）
+- 新增 `events.test.js`：20 個測試覆蓋 `displayCurrentWord` 與 `startNewRound`
+- 新增 `settings.test.js`：19 個測試覆蓋 `applySettings`、`applyFontFamily`、`saveSettingsAndClose`
+- 新增 `filter-modal.test.js`：14 個測試覆蓋複習時間/不熟程度篩選模態框的 open/apply/close 流程
+- 新增 `export-batch.test.js`：7 個測試覆蓋 `processBatch` 批次匯出與模態框開關
+- 新增 `quiz-flow.test.js`：26 個測試覆蓋測驗 UI 流程（`startQuiz` → `beginQuiz` → `showQuestion` → `nextQuestion`）
+- 擴充 `difficulty.test.js`：新增 9 個 `confirmMarkVeryFamiliar` 邊界情境測試
+- 修正 1 個失敗測試（負數不熟程度跳轉至 3）
+- 測試數量：469 → 588（+119 個）
+
+---
+
+## 12. 待移植/重建清單
 
 以下是在新平台重建此應用程式時需要實作的所有模組：
 

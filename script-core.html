@@ -124,25 +124,14 @@
   }
 
   /**
-   * 判斷 modal 背景點擊是否應關閉 modal（排除 SELECT 等表單元素）
+   * 判斷 modal 背景點擊是否應關閉 modal。
+   * 當使用者直接點擊 modal 背景（而非其內部元素）時回傳 true。
    * @param {Event} e - 點擊事件
    * @param {HTMLElement} modal - modal 元素
    * @returns {boolean} 是否應該關閉 modal
    */
   function isModalBackgroundClick(e, modal) {
-    if (e.target !== modal) return false;
-    var checkEl = e.target;
-    while (checkEl && checkEl !== modal) {
-      var tag = checkEl.tagName;
-      if (tag === 'SELECT' || tag === 'OPTION' ||
-          (checkEl.classList && (
-            checkEl.classList.contains('setting-control') ||
-            checkEl.classList.contains('font-preview')))) {
-        return false;
-      }
-      checkEl = checkEl.parentElement;
-    }
-    return true;
+    return e.target === modal;
   }
 
   /**

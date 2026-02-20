@@ -316,17 +316,13 @@
     this.increaseDifficulty();
   };
   
-  // 渲染不熟程度顯示
-  FlashcardApp.prototype.renderDifficultyLevel = function() {
-    var currentWord = this.currentWords[this.currentIndex];
-    var display = document.getElementById('difficulty-display');
-    var levelEl = document.getElementById('difficulty-level');
-    
-    if (!display || !levelEl) return;
-    
-    var level = (currentWord && currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-    
-    // UI：非常熟(≤-999)顯示✓，其餘負數顯示0，正數正常顯示
+  /**
+   * 共用：更新不熟程度 UI（文字 + CSS class）
+   * @param {HTMLElement} display - 外層容器
+   * @param {HTMLElement} levelEl - 文字元素
+   * @param {number} level - 不熟程度值
+   */
+  FlashcardApp.prototype._renderDifficultyUI = function(display, levelEl, level) {
     if (level <= -999) {
       levelEl.textContent = '✓';
     } else if (level < 0) {
@@ -334,7 +330,7 @@
     } else {
       levelEl.textContent = level;
     }
-    
+
     display.className = display.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
     for (var i = 0; i <= 10; i++) {
       display.className = display.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
@@ -343,6 +339,17 @@
     display.classList.add('difficulty-display');
     var cls = level <= -999 ? 'difficulty-level-n1' : 'difficulty-level-' + Math.max(0, level);
     display.classList.add(cls);
+  };
+
+  // 渲染不熟程度顯示
+  FlashcardApp.prototype.renderDifficultyLevel = function() {
+    var currentWord = this.currentWords[this.currentIndex];
+    var display = document.getElementById('difficulty-display');
+    var levelEl = document.getElementById('difficulty-level');
+    if (!display || !levelEl) return;
+
+    var level = (currentWord && currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    this._renderDifficultyUI(display, levelEl, level);
   };
 
   // 渲染「要會拼」指示器
@@ -428,26 +435,9 @@
   FlashcardApp.prototype.renderDifficultyLevelPreview = function(level) {
     var display = document.getElementById('difficulty-display');
     var levelEl = document.getElementById('difficulty-level');
-    
     if (!display || !levelEl) return;
-    
-    // UI：非常熟(≤-999)顯示✓，其餘負數顯示0，正數正常顯示
-    if (level <= -999) {
-      levelEl.textContent = '✓';
-    } else if (level < 0) {
-      levelEl.textContent = 0;
-    } else {
-      levelEl.textContent = level;
-    }
-    
-    display.className = display.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
-    for (var i = 0; i <= 10; i++) {
-      display.className = display.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
-    }
-    display.className = display.className.replace(/\s+/g, ' ').trim();
-    display.classList.add('difficulty-display');
-    var cls = level <= -999 ? 'difficulty-level-n1' : 'difficulty-level-' + Math.max(0, level);
-    display.classList.add(cls);
+
+    this._renderDifficultyUI(display, levelEl, level);
   };
 
   // 重新套用篩選（用於切換篩選條件後）
@@ -552,44 +542,7 @@
     this._clearDisplayTimer();
     
     if (!this.showingChinese) {
-      var isReversed = this.isReversedForCurrentWord();
-      var secondText = isReversed ? currentWord.english : currentWord.chinese;
-      chineseElement.textContent = secondText;
-      chineseElement.classList.add('show');
-      this.showingChinese = true;
-      
-      // 同時顯示圖片（如果有的話）- 使用預加載的圖片
-      var flashcardDiv = document.getElementById('flashcard');
-      var hasImage = currentWord.image && currentWord.image !== '';
-      if (hasImage) {
-        // 由於圖片已經預加載，可以直接設定，無需等待
-        flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
-        flashcardDiv.classList.add('has-image');
-      } else {
-        flashcardDiv.style.backgroundImage = '';
-        flashcardDiv.classList.remove('has-image');
-      }
-      
-      var self = this;
-      
-      if (isReversed) {
-        // 反向模式：用戶點擊顯示英文，播放英文語音
-        setTimeout(function() {
-          self.speakWord(currentWord.english);
-        }, APP_CONSTANTS.SPEECH_DELAY_MS);
-      } else {
-        // 正常模式：用戶點擊顯示中文，播放中文語音
-        setTimeout(function() {
-          self.speakChineseWord(currentWord.chinese);
-        }, APP_CONSTANTS.SPEECH_DELAY_MS);
-        
-        // 如果啟用了延遲發音，也在此時播放英文語音
-        if (this.settings.delaySpeechInNormalMode) {
-          setTimeout(function() {
-            self.speakWord(currentWord.english);
-          }, APP_CONSTANTS.SPEECH_DELAY_MS);
-        }
-      }
+      this._revealSecondPart(currentWord);
     }
     
     englishElement.classList.add('word-pending-removal');
@@ -773,6 +726,41 @@
   };
   
   /**
+   * 共用：顯示第二語言文字、背景圖片、並派送語音。
+   * 被 showSecondPartAndScheduleNext / onWordClick / confirmMarkVeryFamiliar 共同使用。
+   * @param {Object} currentWord - 當前單字物件
+   */
+  FlashcardApp.prototype._revealSecondPart = function(currentWord) {
+    var chineseElement = document.getElementById('chinese-word');
+    var flashcardDiv = document.getElementById('flashcard');
+    var isReversed = this.isReversedForCurrentWord();
+    var secondText = isReversed ? currentWord.english : currentWord.chinese;
+
+    chineseElement.textContent = secondText;
+    chineseElement.classList.add('show');
+    this.showingChinese = true;
+
+    var hasImage = currentWord.image && currentWord.image !== '';
+    if (hasImage) {
+      flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+      flashcardDiv.classList.add('has-image');
+    } else {
+      flashcardDiv.style.backgroundImage = '';
+      flashcardDiv.classList.remove('has-image');
+    }
+
+    var self = this;
+    if (isReversed) {
+      setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+    } else {
+      setTimeout(function() { self.speakChineseWord(currentWord.chinese); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+      if (this.settings.delaySpeechInNormalMode) {
+        setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+      }
+    }
+  };
+
+  /**
    * 顯示第二部分（翻譯/原文）並安排自動切換到下一張卡片。
    * Phase 2 延遲由 getPhase2Delay() 決定。
    */
@@ -783,37 +771,15 @@
   
     this._clearDisplayTimer();
     
-    // 清除中文延遲顯示計時器
     if (this.chineseDelayTimer) {
       clearTimeout(this.chineseDelayTimer);
       this.chineseDelayTimer = null;
     }
 
     var currentWord = this.currentWords[this.currentIndex];
-    var chineseElement = document.getElementById('chinese-word');
-    var flashcardDiv = document.getElementById('flashcard');
-    
-    // 設定背景圖片（圖片佔滿整個畫面）- 使用預加載的圖片
-    var hasImage = currentWord.image && currentWord.image !== '';
-    if (hasImage) {
-      // 由於圖片已經預加載，可以直接設定，無需等待
-      flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
-      flashcardDiv.classList.add('has-image');
-    } else {
-      flashcardDiv.style.backgroundImage = '';
-      flashcardDiv.classList.remove('has-image');
-    }
+    this._revealSecondPart(currentWord);
     
     var self = this;
-    var isReversed = this.isReversedForCurrentWord();
-    var secondText = isReversed ? currentWord.english : currentWord.chinese;
-    
-    // 圖片和中文同時顯示（移除延遲）
-    chineseElement.textContent = secondText;
-    chineseElement.classList.add('show');
-    this.showingChinese = true;
-    
-    // 設定下一個單字的計時器（智慧計時：Phase 2 可能縮短）
     var phase2Delay = this.getPhase2Delay();
     this._setDisplayTimer(function() {
       self.waitForSpeechThenExecute(function() {
@@ -821,27 +787,7 @@
       });
     }, phase2Delay * 1000);
     
-    // 進度條第二階段：50% → 100%（使用智慧延遲）
     this.startProgressBar(2, phase2Delay);
-    
-    if (isReversed) {
-      // 反向模式：第二部分顯示英文，播放英文語音
-      setTimeout(function() {
-        self.speakWord(currentWord.english);
-      }, APP_CONSTANTS.SPEECH_DELAY_MS);
-    } else {
-      // 正常模式：第二部分顯示中文，播放中文語音
-      setTimeout(function() {
-        self.speakChineseWord(currentWord.chinese);
-      }, APP_CONSTANTS.SPEECH_DELAY_MS);
-      
-      // 如果啟用了延遲發音，也在此時播放英文語音
-      if (this.settings.delaySpeechInNormalMode) {
-        setTimeout(function() {
-          self.speakWord(currentWord.english);
-        }, APP_CONSTANTS.SPEECH_DELAY_MS);
-      }
-    }
   };
   
   // 預加載圖片方法
@@ -986,40 +932,8 @@
     this.isProcessingClick = true;
     this._clearDisplayTimer();
     
-    // 如果中文（第二語言）尚未顯示，立即顯示
     if (!this.showingChinese) {
-      var isReversed = this.isReversedForCurrentWord();
-      var secondText = isReversed ? currentWord.english : currentWord.chinese;
-      chineseElement.textContent = secondText;
-      chineseElement.classList.add('show');
-      this.showingChinese = true;
-      
-      // 顯示圖片（如果有的話）
-      var flashcardDiv = document.getElementById('flashcard');
-      var hasImage = currentWord.image && currentWord.image !== '';
-      if (hasImage) {
-        flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
-        flashcardDiv.classList.add('has-image');
-      } else {
-        flashcardDiv.style.backgroundImage = '';
-        flashcardDiv.classList.remove('has-image');
-      }
-      
-      var self = this;
-      if (isReversed) {
-        setTimeout(function() {
-          self.speakWord(currentWord.english);
-        }, APP_CONSTANTS.SPEECH_DELAY_MS);
-      } else {
-        setTimeout(function() {
-          self.speakChineseWord(currentWord.chinese);
-        }, APP_CONSTANTS.SPEECH_DELAY_MS);
-        if (this.settings.delaySpeechInNormalMode) {
-          setTimeout(function() {
-            self.speakWord(currentWord.english);
-          }, APP_CONSTANTS.SPEECH_DELAY_MS);
-        }
-      }
+      this._revealSecondPart(currentWord);
     }
     
     // 灰色字顯示（pending removal 視覺效果）

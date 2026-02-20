@@ -182,72 +182,41 @@
           return;
         }
 
-        if (e.target.id === 'restart-btn') {
-          console.log('重新開始按鈕被點擊');
-          self.closeMenu();
-          self.confirmRestart();
-        } else if (e.target.id === 'fullscreen-btn') {
-          console.log('全螢幕按鈕被點擊');
-          self.closeMenu();
-          self.toggleFullscreen();
-        } else if (e.target.id === 'sheet-settings-btn') {
-          console.log('Google Sheet 設定按鈕被點擊');
-          self.closeMenu();
-          self.openSheetSettings();
-        } else if (e.target.id === 'voice-settings-btn') {
-          console.log('語音設定按鈕被點擊');
-          self.closeMenu();
-          self.openVoiceSettings();
-        } else if (e.target.id === 'settings-btn') {
-          console.log('設定按鈕被點擊');
-          self.closeMenu();
-          self.openSettings();
-        } else if (e.target.id === 'quick-mode-1-btn') {
-          self.applyQuickMode(1);
-        } else if (e.target.id === 'quick-mode-2-btn') {
-          self.applyQuickMode(2);
-        } else if (e.target.id === 'quick-mode-3-btn') {
-          self.applyQuickMode(3);
-        } else if (e.target.id === 'export-btn') {
-          console.log('匯出按鈕被點擊');
-          self.closeMenu();
-          self.openExportModal();
-        } else if (e.target.id === 'difficulty-filter-btn') {
-          console.log('不熟程度篩選按鈕被點擊');
-          self.closeMenu();
-          self.openDifficultyFilterModal();
-        } else if (e.target.id === 'review-filter-btn') {
-          console.log('複習時間篩選按鈕被點擊');
-          self.closeMenu();
-          self.openReviewFilterModal();
-        } else if (e.target.id === 'must-spell-filter-btn') {
-          console.log('要會拼篩選按鈕被點擊');
-          self.closeMenu();
-          self.toggleMustSpellFilter();
-        } else if (e.target.id === 'type-filter-btn') {
-          console.log('類型篩選按鈕被點擊');
-          self.closeMenu();
-          self.openTypeFilterModal();
-        } else if (e.target.id === 'tag-filter-btn') {
-          console.log('標籤篩選按鈕被點擊');
-          self.closeMenu();
-          self.openTagFilterModal();
-        } else if (e.target.id === 'edit-word-btn') {
-          console.log('編輯單字按鈕被點擊');
-          self.closeMenu();
-          self.openEditWordModal();
-        } else if (e.target.id === 'srs-review-btn' || (e.target.parentElement && e.target.parentElement.id === 'srs-review-btn')) {
-          console.log('快速複習按鈕被點擊');
-          self.closeMenu();
-          self.openSrsReviewModal();
-        } else if (e.target.id === 'quick-quiz-btn') {
-          console.log('快速測驗按鈕被點擊');
-          self.closeMenu();
-          self.startQuiz('quick');
-        } else if (e.target.id === 'full-quiz-btn') {
-          console.log('完整測驗按鈕被點擊');
-          self.closeMenu();
-          self.startQuiz('full');
+        // 資料驅動的選單動作對照表（新增/移除選單項目只需編輯此表）
+        var menuActions = {
+          'restart-btn':          function() { self.confirmRestart(); },
+          'fullscreen-btn':       function() { self.toggleFullscreen(); },
+          'sheet-settings-btn':   function() { self.openSheetSettings(); },
+          'voice-settings-btn':   function() { self.openVoiceSettings(); },
+          'settings-btn':         function() { self.openSettings(); },
+          'quick-mode-1-btn':     function() { self.applyQuickMode(1); },
+          'quick-mode-2-btn':     function() { self.applyQuickMode(2); },
+          'quick-mode-3-btn':     function() { self.applyQuickMode(3); },
+          'export-btn':           function() { self.openExportModal(); },
+          'difficulty-filter-btn': function() { self.openDifficultyFilterModal(); },
+          'review-filter-btn':    function() { self.openReviewFilterModal(); },
+          'must-spell-filter-btn': function() { self.toggleMustSpellFilter(); },
+          'type-filter-btn':      function() { self.openTypeFilterModal(); },
+          'tag-filter-btn':       function() { self.openTagFilterModal(); },
+          'edit-word-btn':        function() { self.openEditWordModal(); },
+          'srs-review-btn':       function() { self.openSrsReviewModal(); },
+          'quick-quiz-btn':       function() { self.startQuiz('quick'); },
+          'full-quiz-btn':        function() { self.startQuiz('full'); }
+        };
+
+        // 解析點擊目標 ID（含 srs-review-btn 子元素相容）
+        var targetId = e.target.id;
+        if (!menuActions[targetId] && e.target.parentElement && e.target.parentElement.id === 'srs-review-btn') {
+          targetId = 'srs-review-btn';
+        }
+
+        var action = menuActions[targetId];
+        if (action) {
+          // quick-mode 按鈕不需要先 closeMenu（applyQuickMode 內部會呼叫）
+          if (targetId.indexOf('quick-mode') !== 0) {
+            self.closeMenu();
+          }
+          action();
         }
         return;
       }
@@ -654,20 +623,7 @@
     }
     if (settingsModal) {
       settingsModal.addEventListener('click', function(e) {
-        var target = e.target;
-        var isSelectRelated = false;
-        var element = target;
-        while (element && element !== settingsModal) {
-          if (element.tagName === 'SELECT' || 
-              element.tagName === 'OPTION' ||
-              element.classList.contains('setting-control') ||
-              element.classList.contains('font-preview')) {
-            isSelectRelated = true;
-            break;
-          }
-          element = element.parentElement;
-        }
-        if (e.target === settingsModal && !isSelectRelated) {
+        if (isModalBackgroundClick(e, settingsModal)) {
           self.closeSettings();
         }
       });
@@ -788,19 +744,7 @@
     }
     if (sheetSettingsModal) {
       sheetSettingsModal.addEventListener('click', function(e) {
-        var target = e.target;
-        var isSelectRelated = false;
-        var element = target;
-        while (element && element !== sheetSettingsModal) {
-          if (element.tagName === 'SELECT' || 
-              element.tagName === 'OPTION' ||
-              element.classList.contains('setting-control')) {
-            isSelectRelated = true;
-            break;
-          }
-          element = element.parentElement;
-        }
-        if (e.target === sheetSettingsModal && !isSelectRelated) {
+        if (isModalBackgroundClick(e, sheetSettingsModal)) {
           self.closeSheetSettings();
         }
       });
@@ -827,19 +771,7 @@
     }
     if (voiceSettingsModal) {
       voiceSettingsModal.addEventListener('click', function(e) {
-        var target = e.target;
-        var isSelectRelated = false;
-        var element = target;
-        while (element && element !== voiceSettingsModal) {
-          if (element.tagName === 'SELECT' || 
-              element.tagName === 'OPTION' ||
-              element.classList.contains('setting-control')) {
-            isSelectRelated = true;
-            break;
-          }
-          element = element.parentElement;
-        }
-        if (e.target === voiceSettingsModal && !isSelectRelated) {
+        if (isModalBackgroundClick(e, voiceSettingsModal)) {
           self.closeVoiceSettings();
         }
       });
@@ -871,19 +803,7 @@
     var exportModal = document.getElementById('export-modal');
     if (exportModal) {
       exportModal.addEventListener('click', function(e) {
-        var target = e.target;
-        var isSelectRelated = false;
-        var element = target;
-        while (element && element !== exportModal) {
-          if (element.tagName === 'SELECT' || 
-              element.tagName === 'OPTION' ||
-              element.classList.contains('setting-control')) {
-            isSelectRelated = true;
-            break;
-          }
-          element = element.parentElement;
-        }
-        if (e.target === exportModal && !isSelectRelated) {
+        if (isModalBackgroundClick(e, exportModal)) {
           self.closeExportModal();
         }
       });
@@ -896,19 +816,7 @@
     var overwriteModal = document.getElementById('overwrite-confirm-modal');
     if (overwriteModal) {
       overwriteModal.addEventListener('click', function(e) {
-        var target = e.target;
-        var isSelectRelated = false;
-        var element = target;
-        while (element && element !== overwriteModal) {
-          if (element.tagName === 'SELECT' || 
-              element.tagName === 'OPTION' ||
-              element.classList.contains('setting-control')) {
-            isSelectRelated = true;
-            break;
-          }
-          element = element.parentElement;
-        }
-        if (e.target === overwriteModal && !isSelectRelated) {
+        if (isModalBackgroundClick(e, overwriteModal)) {
           self.closeOverwriteConfirmModal();
         }
       });

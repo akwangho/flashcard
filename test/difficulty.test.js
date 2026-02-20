@@ -47,10 +47,10 @@ describe('increaseDifficulty', function() {
     expect(app.currentWords[2].difficultyLevel).toBe(10);
   });
 
-  test('increases negative difficulty by 1', function() {
+  test('jumps negative difficulty directly to 3', function() {
     app.currentIndex = 3; // dog, difficulty -999
     app.increaseDifficulty();
-    expect(app.currentWords[3].difficultyLevel).toBe(-998);
+    expect(app.currentWords[3].difficultyLevel).toBe(3);
   });
 
   test('syncs to words main array', function() {
@@ -275,6 +275,84 @@ describe('confirmMarkVeryFamiliar', function() {
 });
 
 // ============================================================
+// confirmMarkVeryFamiliar – edge cases
+// ============================================================
+describe('confirmMarkVeryFamiliar edge cases', function() {
+
+  test('syncs to backend when setting -999 in difficultyFilter mode', function() {
+    app.currentIndex = 0;
+    app.difficultyFilter = -1;
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    var spy = jest.spyOn(app, 'syncDifficultyToBackend');
+    app.confirmMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ id: 0 }));
+    spy.mockRestore();
+  });
+
+  test('updates SRS data when setting -999 in difficultyFilter mode', function() {
+    app.currentIndex = 0;
+    app.difficultyFilter = -1;
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    var spy = jest.spyOn(app, 'updateSrsData');
+    app.confirmMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  test('does nothing when wordId does not match current word', function() {
+    app.currentIndex = 0;
+    app._pendingVeryFamiliar = { wordId: 999, timer: null };
+    app.confirmMarkVeryFamiliar();
+    expect(app.pendingRemoval).toBeNull();
+  });
+
+  test('shows second part UI if chinese not yet showing', function() {
+    app.currentIndex = 0;
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    app.showingChinese = false;
+    var spy = jest.spyOn(app, '_revealSecondPart');
+    app.confirmMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  test('sets isProcessingClick when entering pending state', function() {
+    app.currentIndex = 0;
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    app.isProcessingClick = false;
+    app.confirmMarkVeryFamiliar();
+    expect(app.isProcessingClick).toBe(true);
+  });
+
+  test('renders difficulty preview as -999', function() {
+    app.currentIndex = 0;
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    var spy = jest.spyOn(app, 'renderDifficultyLevelPreview');
+    app.confirmMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalledWith(-999);
+    spy.mockRestore();
+  });
+
+  test('records original difficulty for undo', function() {
+    app.currentIndex = 1; // banana, difficulty 5
+    app._pendingVeryFamiliar = { wordId: 1, timer: null };
+    app.confirmMarkVeryFamiliar();
+    expect(app.pendingRemoval.originalDifficultyLevel).toBe(5);
+  });
+
+  test('resumes timer after direct-set in difficultyFilter mode', function() {
+    app.currentIndex = 0;
+    app.difficultyFilter = -1;
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    app._vfSavedTimer = { remainingMs: 2000, progressPhase: 1 };
+    var spy = jest.spyOn(app, '_resumeTimerAfterVeryFamiliarCancel');
+    app.confirmMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+
+// ============================================================
 // cancelMarkVeryFamiliar (4.2.4)
 // ============================================================
 describe('cancelMarkVeryFamiliar', function() {
@@ -297,5 +375,13 @@ describe('cancelMarkVeryFamiliar', function() {
     var spy = jest.spyOn(app, 'hideVeryFamiliarToast');
     app.cancelMarkVeryFamiliar();
     expect(spy).toHaveBeenCalled();
+  });
+
+  test('calls _resumeTimerAfterVeryFamiliarCancel', function() {
+    app._pendingVeryFamiliar = { wordId: 0, timer: null };
+    var spy = jest.spyOn(app, '_resumeTimerAfterVeryFamiliarCancel');
+    app.cancelMarkVeryFamiliar();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

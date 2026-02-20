@@ -103,6 +103,14 @@ function createDOMElements() {
     'review-count-2weeks', 'review-count-1month',
     'review-count-3months', 'review-count-6months',
     'cancel-review-filter', 'apply-review-filter',
+    // Type filter modal
+    'type-filter-modal', 'close-type-filter',
+    'type-filter-options', 'type-filter-btn',
+    'cancel-type-filter', 'apply-type-filter',
+    // Tag filter modal
+    'tag-filter-modal', 'close-tag-filter',
+    'tag-filter-options', 'tag-filter-btn',
+    'cancel-tag-filter', 'apply-tag-filter',
     // Quiz modal
     'quiz-modal', 'quiz-title', 'close-quiz',
     'quiz-start-screen', 'quiz-intro-title', 'quiz-intro-description',
@@ -244,9 +252,11 @@ function createDOMElements() {
     });
   }
 
-  // Add radio buttons for filters inside their containers
+  // Nest filter option containers inside their modals so querySelectorAll works
+  var diffModal = document.getElementById('difficulty-filter-modal');
   var diffOpts = document.getElementById('difficulty-filter-options');
-  if (diffOpts) {
+  if (diffModal && diffOpts) {
+    diffModal.appendChild(diffOpts);
     [-1, 0, 1, 3, 5, 7, 10].forEach(function(val) {
       var label = document.createElement('label');
       var radio = document.createElement('input');
@@ -259,8 +269,10 @@ function createDOMElements() {
     });
   }
 
+  var revModal = document.getElementById('review-filter-modal');
   var revOpts = document.getElementById('review-filter-options');
-  if (revOpts) {
+  if (revModal && revOpts) {
+    revModal.appendChild(revOpts);
     ['all', 'never', '2weeks', '1month', '3months', '6months'].forEach(function(val) {
       var label = document.createElement('label');
       var radio = document.createElement('input');
@@ -425,7 +437,8 @@ function bootstrapApp() {
   var exportCode = code + '\n' +
     'if (typeof FlashcardApp !== "undefined") { global.FlashcardApp = FlashcardApp; }\n' +
     'if (typeof APP_CONSTANTS !== "undefined") { global.APP_CONSTANTS = APP_CONSTANTS; }\n' +
-    'if (typeof formatDateYYYYMMDD !== "undefined") { global.formatDateYYYYMMDD = formatDateYYYYMMDD; }\n';
+    'if (typeof formatDateYYYYMMDD !== "undefined") { global.formatDateYYYYMMDD = formatDateYYYYMMDD; }\n' +
+    'if (typeof isModalBackgroundClick !== "undefined") { global.isModalBackgroundClick = isModalBackgroundClick; }\n';
   var script = new Function(exportCode);
   script.call(global);
 }
