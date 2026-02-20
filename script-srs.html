@@ -220,8 +220,7 @@
 
     if (!modal) return;
 
-    // 暫停計時器
-    this._clearDisplayTimer();
+    this.pauseTimer();
 
     if (filteredCount === 0) {
       if (statsEl) statsEl.style.display = 'none';
