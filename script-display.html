@@ -106,11 +106,7 @@
   
   // 快速模式切換
   FlashcardApp.prototype.applyQuickMode = function(mode) {
-    var modeNames = {
-      1: '用聽的背單字',
-      2: '用聽的認識單字',
-      3: '日常複習'
-    };
+    var details = [];
 
     if (mode === 1) {
       this.settings.displayMode = 'chinese-first';
@@ -118,6 +114,7 @@
       this.voiceSettings.chineseEnabled = true;
       this.settings.delayTime = 9;
       this.settings.smartTimerEnabled = true;
+      details = ['🎧 用聽的背單字', '先中文 → 字母拼讀開 → 中文發音開', '延遲 9 秒 → 智慧計時開'];
     } else if (mode === 2) {
       this.settings.displayMode = 'english-first';
       this.voiceSettings.spellOutLetters = false;
@@ -125,17 +122,19 @@
       this.settings.delayTime = 4.5;
       this.settings.smartTimerEnabled = true;
       this.settings.delaySpeechInNormalMode = false;
+      details = ['👂 用聽的認識單字', '先英文 → 字母拼讀關 → 中文發音開', '延遲 4.5 秒 → 智慧計時開 → 延遲發音關'];
     } else if (mode === 3) {
       this.settings.displayMode = 'mixed';
       this.settings.delaySpeechInNormalMode = true;
       this.voiceSettings.spellOutLetters = false;
       this.voiceSettings.chineseEnabled = false;
       this.settings.smartTimerEnabled = true;
+      details = ['📝 日常複習', '隨機混合 → 字母拼讀關 → 中文發音關', '延遲發音開 → 智慧計時開'];
     }
 
     this.saveSettings();
     this.closeMenu();
-    this.showNotification('已切換至：' + (modeNames[mode] || '模式' + mode), 'success');
+    this.showNotification(details.join('\n'), 'success');
     this.redisplayCurrentWord();
   };
 
@@ -1122,6 +1121,31 @@
     setTimeout(function() {
       toast.style.display = 'none';
     }, APP_CONSTANTS.NOTIFICATION_FADE_MS);
+  };
+
+  // 通用通知 toast
+  FlashcardApp.prototype.showNotification = function(message, type) {
+    var existing = document.getElementById('app-notification-toast');
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing);
+    }
+
+    var toast = document.createElement('div');
+    toast.id = 'app-notification-toast';
+    toast.className = 'app-notification-toast' + (type === 'success' ? ' toast-success' : type === 'info' ? ' toast-info' : '');
+    toast.style.whiteSpace = 'pre-line';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(function() { toast.classList.add('show'); }, 10);
+
+    var self = this;
+    this._notificationTimer = setTimeout(function() {
+      toast.classList.remove('show');
+      setTimeout(function() {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 300);
+    }, 3000);
   };
 
   // 增強滑塊交互體驗（ES5兼容版本）
