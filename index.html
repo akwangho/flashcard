@@ -147,6 +147,7 @@
                 <button id="difficulty-filter-btn" class="menu-item menu-sub-item">⭐ 不熟程度篩選</button>
                 <button id="review-filter-btn" class="menu-item menu-sub-item">📅 複習時間篩選</button>
                 <button id="must-spell-filter-btn" class="menu-item menu-sub-item">✍️ 要會拼篩選</button>
+                <button id="type-filter-btn" class="menu-item menu-sub-item">📝 類型篩選</button>
               </div>
               <div class="menu-divider"></div>
               <button id="srs-review-btn" class="menu-item">📖 快速複習 <span id="srs-due-badge" class="srs-badge" style="display:none;"></span></button>
@@ -659,6 +660,41 @@
       <div class="modal-footer">
         <button id="cancel-difficulty-filter" class="secondary-btn">取消</button>
         <button id="apply-difficulty-filter" class="primary-btn">套用篩選</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 類型篩選模態框 -->
+  <div id="type-filter-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📝 類型篩選</h2>
+        <button id="close-type-filter" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <div class="review-filter-options" id="type-filter-options">
+            <label class="review-filter-option">
+              <input type="checkbox" name="type-filter" value="word" checked>
+              <span class="review-filter-label">單字</span>
+              <span class="review-filter-count" id="type-count-word"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="checkbox" name="type-filter" value="phrase" checked>
+              <span class="review-filter-label">片語</span>
+              <span class="review-filter-count" id="type-count-phrase"></span>
+            </label>
+            <label class="review-filter-option">
+              <input type="checkbox" name="type-filter" value="sentence" checked>
+              <span class="review-filter-label">句子</span>
+              <span class="review-filter-count" id="type-count-sentence"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-type-filter" class="secondary-btn">取消</button>
+        <button id="apply-type-filter" class="primary-btn">套用篩選</button>
       </div>
     </div>
   </div>

@@ -2,14 +2,14 @@
 <script>
   /**
    * @module script-filter
-   * @description 篩選模組：複習時間篩選、不熟程度篩選、要會拼篩選、
+   * @description 篩選模組：複習時間篩選、不熟程度篩選、要會拼篩選、類型篩選、
    *   篩選指示器、篩選清除。
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD, closeModalById)
    * @provides FlashcardApp.prototype: getTodayDateString, markWordAsReviewed,
    *   syncReviewDates, applyAllFilters, getFilterCutoffDate, countWordsForFilter,
    *   openReviewFilterModal, openDifficultyFilterModal, toggleMustSpellFilter,
-   *   updateActiveFilterDisplay, clearAllFilters ...
+   *   openTypeFilterModal, updateActiveFilterDisplay, clearAllFilters ...
    */
 
   // ===========================================
@@ -106,6 +106,15 @@
   };
 
   // 套用所有篩選條件（不熟單字 + 複習時間）
+  // 判斷單字類型：sentence（句號/問號/驚嘆號結尾）、phrase（含空格）、word（其他）
+  function getWordType(english) {
+    var trimmed = (english || '').trim();
+    var last = trimmed.charAt(trimmed.length - 1);
+    if (last === '.' || last === '?' || last === '!') return 'sentence';
+    if (trimmed.indexOf(' ') !== -1) return 'phrase';
+    return 'word';
+  }
+
   FlashcardApp.prototype.applyAllFilters = function(words) {
     var filtered = words.slice();
     var self = this;
@@ -149,6 +158,18 @@
     if (this.mustSpellFilter) {
       filtered = filtered.filter(function(w) {
         return w.mustSpell;
+      });
+    }
+
+    // 篩選 4：類型篩選（全選時不篩選）
+    if (this.typeFilter.length < 3) {
+      var typeFilterSet = this.typeFilter;
+      filtered = filtered.filter(function(w) {
+        var type = getWordType(w.english);
+        for (var i = 0; i < typeFilterSet.length; i++) {
+          if (typeFilterSet[i] === type) return true;
+        }
+        return false;
       });
     }
     
@@ -540,6 +561,145 @@
   };
 
   // ===================================================================
+  // 類型篩選功能
+  // ===================================================================
+
+  // 開啟類型篩選模態框
+  FlashcardApp.prototype.openTypeFilterModal = function() {
+    console.log('開啟類型篩選模態框');
+    this.pauseTimer();
+
+    var modal = document.getElementById('type-filter-modal');
+    if (!modal) return;
+
+    // 計算各類型的單字數量（使用原始 words，不含其他篩選）
+    var counts = { word: 0, phrase: 0, sentence: 0 };
+    for (var i = 0; i < this.words.length; i++) {
+      var type = getWordType(this.words[i].english);
+      counts[type]++;
+    }
+
+    var types = ['word', 'phrase', 'sentence'];
+    for (var t = 0; t < types.length; t++) {
+      var countEl = document.getElementById('type-count-' + types[t]);
+      if (countEl) {
+        countEl.textContent = '(' + counts[types[t]] + ' 個)';
+      }
+    }
+
+    // 設定目前選中的篩選條件
+    var checkboxes = modal.querySelectorAll('input[name="type-filter"]');
+    for (var j = 0; j < checkboxes.length; j++) {
+      var val = checkboxes[j].value;
+      checkboxes[j].checked = false;
+      for (var k = 0; k < this.typeFilter.length; k++) {
+        if (this.typeFilter[k] === val) {
+          checkboxes[j].checked = true;
+          break;
+        }
+      }
+    }
+
+    modal.style.display = 'flex';
+    this.setupTypeFilterListeners();
+  };
+
+  // 關閉類型篩選模態框
+  FlashcardApp.prototype.closeTypeFilterModal = function() {
+    closeModalById(this, 'type-filter-modal');
+  };
+
+  // 設置類型篩選模態框事件監聽器
+  FlashcardApp.prototype.setupTypeFilterListeners = function() {
+    if (this._typeFilterListenersSetup) return;
+    this._typeFilterListenersSetup = true;
+
+    var self = this;
+    var modal = document.getElementById('type-filter-modal');
+    var closeBtn = document.getElementById('close-type-filter');
+    var cancelBtn = document.getElementById('cancel-type-filter');
+    var applyBtn = document.getElementById('apply-type-filter');
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self.closeTypeFilterModal(); });
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() { self.closeTypeFilterModal(); });
+    }
+    if (applyBtn) {
+      applyBtn.addEventListener('click', function() { self.applyTypeFilterFromModal(); });
+    }
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          self.closeTypeFilterModal();
+        }
+      });
+    }
+  };
+
+  // 從模態框套用類型篩選
+  FlashcardApp.prototype.applyTypeFilterFromModal = function() {
+    var modal = document.getElementById('type-filter-modal');
+    if (!modal) return;
+
+    var checkboxes = modal.querySelectorAll('input[name="type-filter"]');
+    var selected = [];
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) {
+        selected.push(checkboxes[i].value);
+      }
+    }
+
+    if (selected.length === 0) {
+      alert('請至少選擇一種類型！');
+      return;
+    }
+
+    console.log('套用類型篩選:', selected);
+    this.typeFilter = selected;
+
+    this.updateTypeFilterButtonText();
+    this.closeTypeFilterModal();
+
+    this.shuffleArray(this.words);
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+
+    if (this.currentWords.length === 0) {
+      alert('沒有符合篩選條件的單字！篩選已重設為「全部」。');
+      this.typeFilter = ['word', 'phrase', 'sentence'];
+      this.updateTypeFilterButtonText();
+      this.currentWords = this.applyAllFilters(this.words);
+    }
+
+    this.displayCurrentWord();
+    this.updateButtonStates();
+    this.renderDifficultyLevel();
+    this.updateActiveFilterDisplay();
+  };
+
+  // 更新類型篩選按鈕文字
+  FlashcardApp.prototype.updateTypeFilterButtonText = function() {
+    var btn = document.getElementById('type-filter-btn');
+    if (!btn) return;
+
+    var labels = { word: '單字', phrase: '片語', sentence: '句子' };
+    if (this.typeFilter.length >= 3) {
+      btn.textContent = '📝 類型篩選';
+      btn.style.color = '';
+    } else {
+      var names = [];
+      for (var i = 0; i < this.typeFilter.length; i++) {
+        names.push(labels[this.typeFilter[i]]);
+      }
+      btn.textContent = '📝 篩選：' + names.join('、');
+      btn.style.color = '#87CEEB';
+    }
+  };
+
+  // ===================================================================
   // 篩選指示器
   // ===================================================================
 
@@ -571,6 +731,15 @@
     if (this.mustSpellFilter) {
       parts.push('✍️ 要會拼');
     }
+
+    if (this.typeFilter.length < 3) {
+      var typeLabels = { word: '單字', phrase: '片語', sentence: '句子' };
+      var typeNames = [];
+      for (var ti = 0; ti < this.typeFilter.length; ti++) {
+        typeNames.push(typeLabels[this.typeFilter[ti]]);
+      }
+      parts.push('📝 ' + typeNames.join('、'));
+    }
     
     if (this.srsReviewActive) {
       parts.push('📖 快速複習');
@@ -590,10 +759,12 @@
     this.difficultyFilter = 0;
     this.reviewFilter = 'all';
     this.mustSpellFilter = false;
+    this.typeFilter = ['word', 'phrase', 'sentence'];
     this.srsReviewActive = false;
     this.updateDifficultyFilterButtonText();
     this.updateReviewFilterButtonText();
     this.updateMustSpellFilterButtonText();
+    this.updateTypeFilterButtonText();
     this.reapplyFilters();
   };
 

@@ -310,10 +310,11 @@
     this.currentPreloadingImage = null;
   };
 
-  /** 篩選相關狀態（難度、複習時間、SRS、要會拼） */
+  /** 篩選相關狀態（難度、複習時間、SRS、要會拼、類型） */
   FlashcardApp.prototype._initFilterState = function() {
     this.difficultyFilter = 0;
     this.mustSpellFilter = false;
+    this.typeFilter = ['word', 'phrase', 'sentence'];
     this.reviewFilter = 'all';
     this.reviewedInSession = {};
     this.reviewSyncPending = false;
