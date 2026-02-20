@@ -142,36 +142,46 @@
           <div class="menu-container">
             <button id="menu-btn" class="menu-toggle">選單 ▼</button>
             <div class="menu-dropdown" id="menu-dropdown">
-              <button class="menu-item menu-parent" data-submenu="filter-submenu">⭐ 篩選 <span class="menu-arrow">▸</span></button>
-              <div class="menu-submenu" id="filter-submenu">
-                <button id="difficulty-filter-btn" class="menu-item menu-sub-item">⭐ 不熟程度篩選</button>
-                <button id="review-filter-btn" class="menu-item menu-sub-item">📅 複習時間篩選</button>
-                <button id="must-spell-filter-btn" class="menu-item menu-sub-item">✍️ 要會拼篩選</button>
-                <button id="type-filter-btn" class="menu-item menu-sub-item">📝 類型篩選</button>
-                <button id="tag-filter-btn" class="menu-item menu-sub-item">🏷️ 標籤篩選</button>
+              <div class="menu-flyout">
+                <button class="menu-item menu-flyout-trigger">◂ 篩選</button>
+                <div class="menu-flyout-sub">
+                  <button id="difficulty-filter-btn" class="menu-item">⭐ 不熟程度篩選</button>
+                  <button id="review-filter-btn" class="menu-item">📅 複習時間篩選</button>
+                  <button id="must-spell-filter-btn" class="menu-item">✍️ 要會拼篩選</button>
+                  <button id="type-filter-btn" class="menu-item">📝 類型篩選</button>
+                  <button id="tag-filter-btn" class="menu-item">🏷️ 標籤篩選</button>
+                </div>
               </div>
-              <div class="menu-divider"></div>
               <button id="srs-review-btn" class="menu-item">📖 快速複習 <span id="srs-due-badge" class="srs-badge" style="display:none;"></span></button>
-              <button class="menu-item menu-parent" data-submenu="quiz-submenu">🎯 測驗 <span class="menu-arrow">▸</span></button>
-              <div class="menu-submenu" id="quiz-submenu">
-                <button id="quick-quiz-btn" class="menu-item menu-sub-item">🎯 快速測驗 (10題)</button>
-                <button id="full-quiz-btn" class="menu-item menu-sub-item">📝 完整測驗</button>
+              <div class="menu-flyout">
+                <button class="menu-item menu-flyout-trigger">◂ 測驗</button>
+                <div class="menu-flyout-sub">
+                  <button id="quick-quiz-btn" class="menu-item">🎯 快速測驗 (10題)</button>
+                  <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
+                </div>
               </div>
               <div class="menu-divider"></div>
-              <div class="menu-section-title">工具</div>
               <button id="edit-word-btn" class="menu-item">✏️ 編輯當前單字</button>
               <button id="export-btn" class="menu-item">📤 匯出單字</button>
               <button id="restart-btn" class="menu-item">🔄 重新載入單字</button>
               <div class="menu-divider"></div>
-              <div class="menu-section-title">快速模式</div>
-              <button id="quick-mode-1-btn" class="menu-item">🎧 用聽的背單字</button>
-              <button id="quick-mode-2-btn" class="menu-item">👂 用聽的認識單字</button>
-              <button id="quick-mode-3-btn" class="menu-item">📝 日常複習</button>
+              <div class="menu-flyout">
+                <button class="menu-item menu-flyout-trigger">◂ 快速模式</button>
+                <div class="menu-flyout-sub">
+                  <button id="quick-mode-1-btn" class="menu-item">🎧 用聽的背單字</button>
+                  <button id="quick-mode-2-btn" class="menu-item">👂 用聽的認識單字</button>
+                  <button id="quick-mode-3-btn" class="menu-item">📝 日常複習</button>
+                </div>
+              </div>
               <div class="menu-divider"></div>
-              <div class="menu-section-title">設定</div>
               <button id="sheet-settings-btn" class="menu-item">📋 單字檔設定</button>
-              <button id="voice-settings-btn" class="menu-item">🔊 語音設定</button>
-              <button id="settings-btn" class="menu-item">⚙️ 一般設定</button>
+              <div class="menu-flyout">
+                <button class="menu-item menu-flyout-trigger">◂ 設定</button>
+                <div class="menu-flyout-sub">
+                  <button id="voice-settings-btn" class="menu-item">🔊 語音設定</button>
+                  <button id="settings-btn" class="menu-item">⚙️ 一般設定</button>
+                </div>
+              </div>
               <button id="fullscreen-btn" class="menu-item">📺 全螢幕</button>
             </div>
           </div>

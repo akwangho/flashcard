@@ -385,10 +385,7 @@
     border: 2px solid var(--primary-color);
     border-radius: var(--radius-md);
     min-width: 200px;
-    max-height: 70vh;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
     display: none;
     z-index: 1000;
   }
@@ -444,43 +441,35 @@
     user-select: none;
   }
 
-  .menu-parent {
+  .menu-flyout {
     position: relative;
-    display: -webkit-box;
-    display: -webkit-flex;
-    display: flex;
-    -webkit-box-pack: justify;
-    -webkit-justify-content: space-between;
-    justify-content: space-between;
-    -webkit-box-align: center;
-    -webkit-align-items: center;
-    align-items: center;
   }
 
-  .menu-arrow {
-    font-size: 12px;
-    -webkit-transition: -webkit-transform 0.2s;
-    transition: transform 0.2s;
-    display: inline-block;
+  .menu-flyout-trigger {
+    width: 100%;
   }
 
-  .menu-parent.expanded .menu-arrow {
-    -webkit-transform: rotate(90deg);
-    transform: rotate(90deg);
-  }
-
-  .menu-submenu {
+  .menu-flyout-sub {
     display: none;
-    background: rgba(255, 255, 0, 0.05);
+    position: absolute;
+    right: 100%;
+    top: 0;
+    min-width: 200px;
+    background-color: rgba(0, 0, 0, 0.95);
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-md);
+    z-index: 1001;
+    margin-right: 4px;
   }
 
-  .menu-submenu.show {
+  .menu-flyout:hover > .menu-flyout-sub,
+  .menu-flyout.active > .menu-flyout-sub {
     display: block;
   }
 
-  .menu-sub-item {
-    padding-left: 30px;
-    font-size: 13px;
+  .menu-flyout:hover > .menu-flyout-trigger,
+  .menu-flyout.active > .menu-flyout-trigger {
+    background-color: rgba(255, 255, 0, 0.2);
   }
 
   .menu-divider {

@@ -172,12 +172,12 @@
         console.log('點擊選單下拉選項');
         e.stopPropagation();
 
-        // 處理可展開的母選單點擊
-        var parentBtn = e.target.closest('.menu-parent');
-        if (parentBtn) {
-          var submenuId = parentBtn.getAttribute('data-submenu');
-          if (submenuId) {
-            self.toggleSubmenu(submenuId, parentBtn);
+        // 處理飛出式子選單觸發（觸控裝置用）
+        var flyoutTrigger = e.target.closest('.menu-flyout-trigger');
+        if (flyoutTrigger) {
+          var flyout = flyoutTrigger.parentElement;
+          if (flyout && flyout.classList.contains('menu-flyout')) {
+            self.toggleFlyout(flyout);
           }
           return;
         }
@@ -572,39 +572,20 @@
     }
   };
   
-  // 展開/收合子選單
-  FlashcardApp.prototype.toggleSubmenu = function(submenuId, parentBtn) {
-    var submenu = document.getElementById(submenuId);
-    if (!submenu) return;
-
-    var isOpen = submenu.classList.contains('show');
-
-    // 收合所有子選單
-    var allSubmenus = document.querySelectorAll('.menu-submenu.show');
-    var allParents = document.querySelectorAll('.menu-parent.expanded');
-    for (var i = 0; i < allSubmenus.length; i++) {
-      allSubmenus[i].classList.remove('show');
-    }
-    for (var j = 0; j < allParents.length; j++) {
-      allParents[j].classList.remove('expanded');
-    }
-
-    // 若原本是收合，則展開目標子選單
+  // 切換飛出式子選單（觸控裝置用）
+  FlashcardApp.prototype.toggleFlyout = function(flyout) {
+    var isOpen = flyout.classList.contains('active');
+    this.closeAllFlyouts();
     if (!isOpen) {
-      submenu.classList.add('show');
-      parentBtn.classList.add('expanded');
+      flyout.classList.add('active');
     }
   };
 
-  // 收合所有子選單
-  FlashcardApp.prototype.collapseAllSubmenus = function() {
-    var allSubmenus = document.querySelectorAll('.menu-submenu.show');
-    var allParents = document.querySelectorAll('.menu-parent.expanded');
-    for (var i = 0; i < allSubmenus.length; i++) {
-      allSubmenus[i].classList.remove('show');
-    }
-    for (var j = 0; j < allParents.length; j++) {
-      allParents[j].classList.remove('expanded');
+  // 關閉所有飛出式子選單
+  FlashcardApp.prototype.closeAllFlyouts = function() {
+    var allFlyouts = document.querySelectorAll('.menu-flyout.active');
+    for (var i = 0; i < allFlyouts.length; i++) {
+      allFlyouts[i].classList.remove('active');
     }
   };
 
@@ -619,7 +600,7 @@
       console.log('關閉選單');
       menuBtn.classList.remove('active');
       menuDropdown.classList.remove('show');
-      this.collapseAllSubmenus();
+      this.closeAllFlyouts();
 
       // 只有選單確實是開啟狀態才恢復暫停
       if (wasOpen && !this._wasPausedBeforeMenu) {
