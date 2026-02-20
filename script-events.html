@@ -201,7 +201,9 @@
           'edit-word-btn':        function() { self.openEditWordModal(); },
           'srs-review-btn':       function() { self.openSrsReviewModal(); },
           'quick-quiz-btn':       function() { self.startQuiz('quick'); },
-          'full-quiz-btn':        function() { self.startQuiz('full'); }
+          'full-quiz-btn':        function() { self.startQuiz('full'); },
+          'listen-choose-btn':    function() { self.startListeningQuiz('choose'); },
+          'listen-spell-btn':     function() { self.startListeningQuiz('spell'); }
         };
 
         // 解析點擊目標 ID（含 srs-review-btn 子元素相容）
@@ -462,15 +464,21 @@
     setTimeout(function() {
       var firstElement = document.getElementById('english-word');
       
-      if (self.isReversedForCurrentWord()) {
+      if (self.settings.listeningMode) {
+        // 聽力模式：Phase 1 不顯示文字，一律立即播放語音（忽略延遲發音設定）
+        firstElement.textContent = '';
+        if (self.isReversedForCurrentWord()) {
+          setTimeout(function() { self.speakChineseWord(currentWord.chinese); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        } else {
+          setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        }
+      } else if (self.isReversedForCurrentWord()) {
         firstElement.textContent = currentWord.chinese;
-        // 反向模式：先顯示中文，播放中文語音
         setTimeout(function() {
           self.speakChineseWord(currentWord.chinese);
         }, APP_CONSTANTS.SPEECH_DELAY_MS);
       } else {
         firstElement.textContent = currentWord.english;
-        // 只有在未啟用延遲發音時才立即播放語音
         if (!self.settings.delaySpeechInNormalMode) {
           setTimeout(function() {
             self.speakWord(currentWord.english);

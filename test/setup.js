@@ -123,6 +123,23 @@ function createDOMElements() {
     'quiz-final-score', 'quiz-correct-count', 'quiz-wrong-count',
     'quiz-result-message', 'quiz-wrong-review', 'quiz-wrong-list',
     'quiz-start', 'quiz-next', 'quiz-restart', 'quiz-finish',
+    // Listening quiz modal
+    'listening-modal', 'listening-title', 'close-listening',
+    'listening-start-screen', 'listening-icon',
+    'listening-intro-title', 'listening-intro-description',
+    'listening-scope-info', 'listening-question-count',
+    'listening-progress-screen', 'listening-current-number', 'listening-total-number',
+    'listening-current-score', 'listening-progress-fill',
+    'listening-audio-area', 'listening-speaker-icon',
+    'listening-options', 'listening-spell-area',
+    'listening-letter-hint', 'listening-spell-input',
+    'listening-feedback', 'listening-feedback-result', 'listening-feedback-explanation',
+    'listening-result-screen', 'listening-result-icon', 'listening-result-title',
+    'listening-final-score', 'listening-correct-count', 'listening-wrong-count',
+    'listening-result-message', 'listening-wrong-review', 'listening-wrong-list',
+    'listening-start', 'listening-next', 'listening-restart', 'listening-finish',
+    // Listening mode setting
+    'listening-mode-setting',
     // SRS review modal
     'srs-review-btn', 'srs-due-badge',
     'srs-review-modal', 'close-srs-modal',
@@ -151,7 +168,7 @@ function createDOMElements() {
     el.id = id;
     // Some elements need special types
     if (id.indexOf('-setting') !== -1 && id.indexOf('select') === -1) {
-      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting' || id === 'edit-word-must-spell') {
+      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting' || id === 'edit-word-must-spell' || id === 'listening-mode-setting') {
         el = document.createElement('input');
         el.id = id;
         el.type = 'checkbox';
@@ -166,7 +183,7 @@ function createDOMElements() {
       el = document.createElement('select');
       el.id = id;
     }
-    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image') {
+    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'listening-spell-input') {
       el = document.createElement('input');
       el.id = id;
       el.type = 'text';
@@ -390,6 +407,7 @@ function loadAllScripts() {
     'script-srs.html',
     'script-screen-awake.html',
     'script-quiz.html',
+    'script-listening.html',
     'script-bootstrap.html'
   ];
 

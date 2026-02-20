@@ -58,6 +58,9 @@
     var showTimerToggle = document.getElementById('show-timer-progress-setting');
     if (showTimerToggle) this.settings.showTimerProgressBar = showTimerToggle.checked;
     
+    var listeningModeToggle = document.getElementById('listening-mode-setting');
+    if (listeningModeToggle) this.settings.listeningMode = listeningModeToggle.checked;
+    
     // 讀取計時進度條偏移量
     var timerOffsetInput = document.getElementById('timer-offset-setting');
     if (timerOffsetInput) this.settings.timerProgressBarOffset = parseInt(timerOffsetInput.value, 10) || 0;
@@ -542,6 +545,11 @@
     this._clearDisplayTimer();
     
     if (!this.showingChinese) {
+      // 聽力模式：點擊時同時顯示第一語言
+      if (this.settings.listeningMode) {
+        var isReversed = this.isReversedForCurrentWord();
+        englishElement.textContent = isReversed ? currentWord.chinese : currentWord.english;
+      }
       this._revealSecondPart(currentWord);
     }
     
@@ -777,6 +785,14 @@
     }
 
     var currentWord = this.currentWords[this.currentIndex];
+
+    // 聽力模式：Phase 2 時同時顯示第一語言文字
+    if (this.settings.listeningMode) {
+      var firstElement = document.getElementById('english-word');
+      var isReversed = this.isReversedForCurrentWord();
+      firstElement.textContent = isReversed ? currentWord.chinese : currentWord.english;
+    }
+
     this._revealSecondPart(currentWord);
     
     var self = this;
@@ -933,6 +949,10 @@
     this._clearDisplayTimer();
     
     if (!this.showingChinese) {
+      if (this.settings.listeningMode) {
+        var isReversed = this.isReversedForCurrentWord();
+        englishElement.textContent = isReversed ? currentWord.chinese : currentWord.english;
+      }
       this._revealSecondPart(currentWord);
     }
     

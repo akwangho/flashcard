@@ -476,4 +476,85 @@
     vertical-align: middle;
     font-weight: bold;
   }
+
+  /* ==========================================================================
+     LISTENING QUIZ COMPONENTS
+     ========================================================================== */
+
+  .listening-audio-area {
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    gap: var(--spacing-sm);
+  }
+
+  .listening-speaker-icon {
+    font-size: 4rem;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-transition: transform 0.15s ease;
+    transition: transform 0.15s ease;
+  }
+
+  .listening-speaker-icon:active {
+    -webkit-transform: scale(1.2);
+    transform: scale(1.2);
+  }
+
+  .listening-speaker-icon.speaking {
+    -webkit-animation: speakerPulse 0.6s ease-in-out infinite;
+    animation: speakerPulse 0.6s ease-in-out infinite;
+  }
+
+  @-webkit-keyframes speakerPulse {
+    0%, 100% { -webkit-transform: scale(1); }
+    50% { -webkit-transform: scale(1.15); }
+  }
+  @keyframes speakerPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+
+  .listening-spell-input {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    margin: var(--spacing-md) auto;
+    padding: 12px 16px;
+    font-size: var(--font-xl);
+    text-align: center;
+    background: #333333;
+    color: #FFFFFF;
+    border: 2px solid #555555;
+    border-radius: var(--radius-md);
+    outline: none;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+  }
+
+  .listening-spell-input:focus {
+    border-color: var(--primary-color);
+  }
+
+  .listening-letter-hint {
+    text-align: center;
+    font-size: var(--font-xl);
+    letter-spacing: 6px;
+    color: #888888;
+    margin-bottom: var(--spacing-sm);
+    font-family: monospace;
+  }
+
+  #listening-spell-area {
+    text-align: center;
+    padding: var(--spacing-md) 0;
+  }
 </style>

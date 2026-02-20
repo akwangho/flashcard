@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.12.5',
+    APP_VERSION: '1.13.0',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -57,6 +57,10 @@
     QUIZ_WRONG_OPTIONS_COUNT: 3,
     QUIZ_GENERIC_OPTIONS_ZH: ['桌子', '電腦', '書本', '水果', '動物', '顏色', '天氣', '時間'],
     QUIZ_GENERIC_OPTIONS_EN: ['table', 'computer', 'book', 'fruit', 'animal', 'color', 'weather', 'time'],
+
+    // === 聽力練習 ===
+    LISTENING_QUICK_COUNT: 10,
+    LISTENING_MIN_WORDS: 3,
 
     // === 匯出 ===
     EXPORT_BATCH_SIZE: 15,
@@ -282,7 +286,8 @@
       mustSpellChineseFirst: true,
       showTimerProgressBar: true,
       timerProgressBarOffset: 0,
-      smartTimerEnabled: false
+      smartTimerEnabled: false,
+      listeningMode: false
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -833,6 +838,9 @@
     // 設定計時進度條開關
     var showTimerToggle = document.getElementById('show-timer-progress-setting');
     if (showTimerToggle) showTimerToggle.checked = this.settings.showTimerProgressBar;
+    
+    var listeningModeToggle = document.getElementById('listening-mode-setting');
+    if (listeningModeToggle) listeningModeToggle.checked = this.settings.listeningMode;
     
     // 設定計時進度條偏移量輸入
     var timerOffsetInput = document.getElementById('timer-offset-setting');

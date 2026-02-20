@@ -159,6 +159,8 @@
                 <div class="menu-flyout-sub">
                   <button id="quick-quiz-btn" class="menu-item">🎯 快速測驗 (10題)</button>
                   <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
+                  <button id="listen-choose-btn" class="menu-item">👂 聽音辨字</button>
+                  <button id="listen-spell-btn" class="menu-item">✍️ 聽音拼字</button>
                 </div>
               </div>
               <div class="menu-divider"></div>
@@ -349,6 +351,19 @@
             </div>
           </div>
           
+          <div class="setting-group">
+            <label for="listening-mode-setting">🎧 聽力模式（先聽後看）</label>
+            <div class="setting-control">
+              <label class="switch">
+                <input type="checkbox" id="listening-mode-setting">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-help">
+              <small>啟用後，每張單字卡一開始只播放語音不顯示文字，等時間過半才同時顯示單字與翻譯</small>
+            </div>
+          </div>
+
           <div class="setting-group" id="timer-offset-group">
             <label for="timer-offset-setting">⏱️ 進度條頂部偏移 (px)</label>
             <div class="setting-control">
@@ -919,6 +934,88 @@
     </div>
   </div>
 
+  <!-- 聽力練習模態框 -->
+  <div id="listening-modal" class="modal" style="display: none;">
+    <div class="modal-content quiz-modal-content">
+      <div class="modal-header">
+        <h2 id="listening-title">👂 聽音辨字</h2>
+        <button id="close-listening" class="close-btn">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- 開始畫面 -->
+        <div id="listening-start-screen" class="quiz-screen">
+          <div class="quiz-intro">
+            <div class="quiz-icon" id="listening-icon">👂</div>
+            <h3 id="listening-intro-title">準備開始聽力練習！</h3>
+            <p id="listening-intro-description">聆聽英文發音，選出正確的中文意思</p>
+            <div class="quiz-scope" id="listening-scope-info"></div>
+            <div class="quiz-info">
+              <p>共 <strong id="listening-question-count">0</strong> 題</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 練習進行畫面 -->
+        <div id="listening-progress-screen" class="quiz-screen" style="display: none;">
+          <div class="quiz-progress-header">
+            <span>第 <span id="listening-current-number">1</span> / <span id="listening-total-number">10</span> 題</span>
+            <span>得分：<span id="listening-current-score">0</span></span>
+          </div>
+          <div class="quiz-progress-bar">
+            <div class="quiz-progress-fill" id="listening-progress-fill"></div>
+          </div>
+          
+          <div class="listening-audio-area" id="listening-audio-area">
+            <div class="listening-speaker-icon" id="listening-speaker-icon">🔊</div>
+          </div>
+          
+          <!-- 聽音辨字：選項區 -->
+          <div id="listening-options" class="quiz-options"></div>
+          
+          <!-- 聽音拼字：輸入區 -->
+          <div id="listening-spell-area" style="display: none;">
+            <div class="listening-letter-hint" id="listening-letter-hint"></div>
+            <input type="text" id="listening-spell-input" class="listening-spell-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="輸入後按 Enter...">
+          </div>
+          
+          <!-- 回饋區 -->
+          <div id="listening-feedback" class="quiz-feedback" style="display: none;">
+            <div class="quiz-feedback-result" id="listening-feedback-result"></div>
+            <div class="quiz-feedback-explanation" id="listening-feedback-explanation"></div>
+          </div>
+        </div>
+        
+        <!-- 結果畫面 -->
+        <div id="listening-result-screen" class="quiz-screen" style="display: none;">
+          <div class="quiz-result">
+            <div class="quiz-result-icon" id="listening-result-icon">🎉</div>
+            <h3 id="listening-result-title">練習結束！</h3>
+            <div class="quiz-score">
+              <span class="quiz-final-score" id="listening-final-score">0</span> 分
+            </div>
+            <div class="quiz-stats">
+              <span class="quiz-stat correct">✓ <span id="listening-correct-count">0</span></span>
+              <span class="quiz-stat wrong">✗ <span id="listening-wrong-count">0</span></span>
+            </div>
+            <p id="listening-result-message"></p>
+          </div>
+          <div id="listening-wrong-review" style="display: none;">
+            <h4>需要加強的單字：</h4>
+            <div id="listening-wrong-list" class="quiz-wrong-list"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button id="listening-start" class="primary-btn">開始練習</button>
+        <button id="listening-next" class="primary-btn" style="display: none;">下一題</button>
+        <button id="listening-restart" class="primary-btn" style="display: none;">再來一次</button>
+        <button id="listening-finish" class="secondary-btn" style="display: none;">結束</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 自訂確認對話框（取代瀏覽器內建 confirm，避免離開全螢幕） -->
     <div id="custom-confirm-modal" class="modal" style="display: none;">
       <div class="modal-content custom-confirm-content">
@@ -949,6 +1046,7 @@
   <?!= include('script-srs'); ?>
   <?!= include('script-screen-awake'); ?>
   <?!= include('script-quiz'); ?>
+  <?!= include('script-listening'); ?>
   <?!= include('script-bootstrap'); ?>
 </body>
 </html>

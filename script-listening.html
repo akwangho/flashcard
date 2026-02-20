@@ -1,0 +1,530 @@
+<!-- script-listening.html -->
+<script>
+  /**
+   * @module script-listening
+   * @description 聽力練習模組：聽音辨字（listen-and-choose）與聽音拼字（listen-and-spell）。
+   *   播放英文語音，學生選擇正確中文或拼出英文單字。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS),
+   *   script-voice.html (speakWord), script-quiz.html (shuffleArray),
+   *   script-filter.html (getWordType)
+   * @provides FlashcardApp.prototype: startListeningQuiz,
+   *   _filterListeningWords, _generateListeningQuestions,
+   *   _createListeningQuestion, showListeningModal, _showListeningScreen,
+   *   setupListeningListeners, beginListeningQuiz, showListeningQuestion,
+   *   _playListeningAudio, _renderListeningChooseOptions,
+   *   _renderListeningSpellInput, _selectListeningAnswer,
+   *   _submitListeningSpell, _checkListeningAnswer,
+   *   _showListeningFeedback, _showListeningNextButton,
+   *   nextListeningQuestion, showListeningResult, _showListeningWrongReview,
+   *   closeListeningModal, isListeningInProgress
+   */
+
+  // ==========================================================================
+  // 聽力練習主流程
+  // ==========================================================================
+
+  FlashcardApp.prototype.startListeningQuiz = function(mode) {
+    var availableWords = this._filterListeningWords();
+
+    if (availableWords.length === 0) {
+      alert('沒有可用的單字進行聽力練習！');
+      return;
+    }
+
+    if (availableWords.length < APP_CONSTANTS.LISTENING_MIN_WORDS) {
+      alert('可用單字太少（少於' + APP_CONSTANTS.LISTENING_MIN_WORDS + '個），無法進行聽力練習。');
+      return;
+    }
+
+    this.pauseTimer();
+
+    this.listeningState = {
+      isActive: true,
+      mode: mode,
+      questions: [],
+      currentQuestionIndex: 0,
+      selectedAnswer: null,
+      answers: [],
+      score: 0,
+      availableWords: availableWords
+    };
+
+    this._generateListeningQuestions();
+    this.showListeningModal(mode);
+  };
+
+  FlashcardApp.prototype._filterListeningWords = function() {
+    var words = this.currentWords ? this.currentWords.slice() : [];
+    return words.filter(function(w) {
+      return getWordType(w.english) !== 'sentence';
+    });
+  };
+
+  FlashcardApp.prototype._generateListeningQuestions = function() {
+    var available = this.listeningState.availableWords.slice();
+    this.shuffleArray(available);
+
+    var count = Math.min(APP_CONSTANTS.LISTENING_QUICK_COUNT, available.length);
+    available = available.slice(0, count);
+
+    this.listeningState.questions = [];
+    for (var i = 0; i < available.length; i++) {
+      var q = this._createListeningQuestion(available[i], this.words);
+      if (q) {
+        this.listeningState.questions.push(q);
+      }
+    }
+  };
+
+  FlashcardApp.prototype._createListeningQuestion = function(targetWord, allWords) {
+    var question = {
+      word: targetWord,
+      correctAnswer: targetWord.chinese,
+      correctEnglish: targetWord.english,
+      options: []
+    };
+
+    if (this.listeningState.mode === 'choose') {
+      var wrongOptions = [];
+      var attempts = 0;
+      var maxAttempts = APP_CONSTANTS.QUIZ_MAX_WRONG_OPTION_ATTEMPTS;
+
+      while (wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT && attempts < maxAttempts) {
+        attempts++;
+        var randomWord = allWords[Math.floor(Math.random() * allWords.length)];
+        var wrongAnswer = randomWord.chinese;
+        if (wrongAnswer !== question.correctAnswer && wrongOptions.indexOf(wrongAnswer) === -1) {
+          wrongOptions.push(wrongAnswer);
+        }
+      }
+
+      while (wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT) {
+        var generics = APP_CONSTANTS.QUIZ_GENERIC_OPTIONS_ZH;
+        for (var i = 0; i < generics.length && wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT; i++) {
+          if (generics[i] !== question.correctAnswer && wrongOptions.indexOf(generics[i]) === -1) {
+            wrongOptions.push(generics[i]);
+          }
+        }
+        break;
+      }
+
+      question.options = [question.correctAnswer].concat(wrongOptions);
+      this.shuffleArray(question.options);
+    }
+
+    return question;
+  };
+
+  // ==========================================================================
+  // 模態框顯示
+  // ==========================================================================
+
+  FlashcardApp.prototype.showListeningModal = function(mode) {
+    var modal = document.getElementById('listening-modal');
+    var title = document.getElementById('listening-title');
+    var icon = document.getElementById('listening-icon');
+    var introTitle = document.getElementById('listening-intro-title');
+    var introDesc = document.getElementById('listening-intro-description');
+    var questionCount = document.getElementById('listening-question-count');
+    var scopeInfo = document.getElementById('listening-scope-info');
+
+    if (modal) modal.style.display = 'flex';
+
+    if (mode === 'spell') {
+      if (title) title.textContent = '✍️ 聽音拼字';
+      if (icon) icon.textContent = '✍️';
+      if (introTitle) introTitle.textContent = '準備開始聽音拼字！';
+      if (introDesc) introDesc.textContent = '聆聽英文發音，拼出你聽到的單字';
+    } else {
+      if (title) title.textContent = '👂 聽音辨字';
+      if (icon) icon.textContent = '👂';
+      if (introTitle) introTitle.textContent = '準備開始聽音辨字！';
+      if (introDesc) introDesc.textContent = '聆聽英文發音，選出正確的中文意思';
+    }
+
+    if (questionCount) questionCount.textContent = this.listeningState.questions.length;
+    if (scopeInfo) scopeInfo.textContent = '共 ' + this.listeningState.questions.length + ' 題（不含句子）';
+
+    this._showListeningScreen('start');
+    this.setupListeningListeners();
+  };
+
+  FlashcardApp.prototype._showListeningScreen = function(screenType) {
+    var screens = ['listening-start-screen', 'listening-progress-screen', 'listening-result-screen'];
+    for (var i = 0; i < screens.length; i++) {
+      var screen = document.getElementById(screens[i]);
+      if (screen) screen.style.display = 'none';
+    }
+
+    var buttons = ['listening-start', 'listening-next', 'listening-restart', 'listening-finish'];
+    for (var j = 0; j < buttons.length; j++) {
+      var btn = document.getElementById(buttons[j]);
+      if (btn) btn.style.display = 'none';
+    }
+
+    var target = document.getElementById('listening-' + screenType + '-screen');
+    if (target) target.style.display = 'block';
+
+    if (screenType === 'start') {
+      var startBtn = document.getElementById('listening-start');
+      if (startBtn) startBtn.style.display = 'inline-block';
+    } else if (screenType === 'result') {
+      var restartBtn = document.getElementById('listening-restart');
+      var finishBtn = document.getElementById('listening-finish');
+      if (restartBtn) restartBtn.style.display = 'inline-block';
+      if (finishBtn) finishBtn.style.display = 'inline-block';
+    }
+  };
+
+  // ==========================================================================
+  // 事件監聽器（只設定一次）
+  // ==========================================================================
+
+  FlashcardApp.prototype.setupListeningListeners = function() {
+    if (this._listeningListenersSetup) return;
+    this._listeningListenersSetup = true;
+
+    var self = this;
+    var modal = document.getElementById('listening-modal');
+    var closeBtn = document.getElementById('close-listening');
+    var startBtn = document.getElementById('listening-start');
+    var nextBtn = document.getElementById('listening-next');
+    var restartBtn = document.getElementById('listening-restart');
+    var finishBtn = document.getElementById('listening-finish');
+    var speakerIcon = document.getElementById('listening-speaker-icon');
+    var spellInput = document.getElementById('listening-spell-input');
+
+    if (closeBtn) closeBtn.addEventListener('click', function() {
+      self.closeListeningModal();
+    });
+    if (startBtn) startBtn.addEventListener('click', function() { self.beginListeningQuiz(); });
+    if (nextBtn) nextBtn.addEventListener('click', function() { self.nextListeningQuestion(); });
+    if (restartBtn) restartBtn.addEventListener('click', function() {
+      self._generateListeningQuestions();
+      self.beginListeningQuiz();
+    });
+    if (finishBtn) finishBtn.addEventListener('click', function() { self.closeListeningModal(); });
+    if (speakerIcon) speakerIcon.addEventListener('click', function() { self._playListeningAudio(); });
+    if (spellInput) spellInput.addEventListener('keydown', function(e) {
+      if (e.keyCode === 13) { self._submitListeningSpell(); }
+    });
+
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (isModalBackgroundClick(e, modal)) {
+          self.closeListeningModal();
+        }
+      });
+    }
+  };
+
+  // ==========================================================================
+  // 練習流程
+  // ==========================================================================
+
+  FlashcardApp.prototype.beginListeningQuiz = function() {
+    this.listeningState.currentQuestionIndex = 0;
+    this.listeningState.answers = [];
+    this.listeningState.score = 0;
+    this.listeningState.selectedAnswer = null;
+    this._showListeningScreen('progress');
+    this.showListeningQuestion();
+  };
+
+  FlashcardApp.prototype.showListeningQuestion = function() {
+    var q = this.listeningState.questions[this.listeningState.currentQuestionIndex];
+    if (!q) return;
+
+    var currentNum = document.getElementById('listening-current-number');
+    var totalNum = document.getElementById('listening-total-number');
+    var currentScore = document.getElementById('listening-current-score');
+    var progressFill = document.getElementById('listening-progress-fill');
+
+    if (currentNum) currentNum.textContent = this.listeningState.currentQuestionIndex + 1;
+    if (totalNum) totalNum.textContent = this.listeningState.questions.length;
+    if (currentScore) currentScore.textContent = this.listeningState.score;
+    if (progressFill) {
+      var pct = (this.listeningState.currentQuestionIndex / this.listeningState.questions.length) * 100;
+      progressFill.style.width = pct + '%';
+    }
+
+    // 隱藏回饋與下一題按鈕
+    var feedback = document.getElementById('listening-feedback');
+    var nextBtn = document.getElementById('listening-next');
+    if (feedback) feedback.style.display = 'none';
+    if (nextBtn) nextBtn.style.display = 'none';
+
+    this.listeningState.selectedAnswer = null;
+
+    // 根據模式渲染答題區
+    if (this.listeningState.mode === 'choose') {
+      this._renderListeningChooseOptions(q);
+    } else {
+      this._renderListeningSpellInput(q);
+    }
+
+    // 播放語音
+    var self = this;
+    setTimeout(function() { self._playListeningAudio(); }, 300);
+  };
+
+  FlashcardApp.prototype._playListeningAudio = function() {
+    var q = this.listeningState.questions[this.listeningState.currentQuestionIndex];
+    if (!q) return;
+
+    var icon = document.getElementById('listening-speaker-icon');
+    if (icon) {
+      icon.classList.add('speaking');
+      setTimeout(function() { icon.classList.remove('speaking'); }, 1200);
+    }
+
+    this.speakWord(q.word.english);
+  };
+
+  // ==========================================================================
+  // 聽音辨字模式
+  // ==========================================================================
+
+  FlashcardApp.prototype._renderListeningChooseOptions = function(question) {
+    var optionsContainer = document.getElementById('listening-options');
+    var spellArea = document.getElementById('listening-spell-area');
+    if (optionsContainer) {
+      optionsContainer.style.display = '';
+      optionsContainer.innerHTML = '';
+    }
+    if (spellArea) spellArea.style.display = 'none';
+
+    if (!optionsContainer) return;
+
+    var self = this;
+    var letters = ['A', 'B', 'C', 'D'];
+
+    for (var i = 0; i < question.options.length; i++) {
+      var option = question.options[i];
+      var btn = document.createElement('button');
+      btn.className = 'quiz-option';
+      btn.innerHTML = '<span class="quiz-option-letter">' + letters[i] + '</span>' + option;
+      btn.setAttribute('data-answer', option);
+
+      (function(answer) {
+        btn.addEventListener('click', function() {
+          self._selectListeningAnswer(answer);
+        });
+      })(option);
+
+      optionsContainer.appendChild(btn);
+    }
+  };
+
+  FlashcardApp.prototype._selectListeningAnswer = function(answer) {
+    if (this.listeningState.selectedAnswer !== null) return;
+    this.listeningState.selectedAnswer = answer;
+
+    var q = this.listeningState.questions[this.listeningState.currentQuestionIndex];
+    var isCorrect = answer === q.correctAnswer;
+
+    this._checkListeningAnswer(isCorrect, answer, q);
+
+    // 更新選項樣式
+    var options = document.getElementById('listening-options');
+    if (options) {
+      var btns = options.querySelectorAll('.quiz-option');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.add('disabled');
+        var btnAnswer = btns[i].getAttribute('data-answer');
+        if (btnAnswer === q.correctAnswer) {
+          btns[i].classList.add('correct');
+        } else if (btnAnswer === answer) {
+          btns[i].classList.add('wrong');
+        }
+      }
+    }
+  };
+
+  // ==========================================================================
+  // 聽音拼字模式
+  // ==========================================================================
+
+  FlashcardApp.prototype._renderListeningSpellInput = function(question) {
+    var optionsContainer = document.getElementById('listening-options');
+    var spellArea = document.getElementById('listening-spell-area');
+    if (optionsContainer) optionsContainer.style.display = 'none';
+    if (spellArea) spellArea.style.display = '';
+
+    var hint = document.getElementById('listening-letter-hint');
+    var input = document.getElementById('listening-spell-input');
+
+    if (hint) {
+      var letters = [];
+      for (var i = 0; i < question.correctEnglish.length; i++) {
+        var ch = question.correctEnglish.charAt(i);
+        letters.push(ch === ' ' ? ' ' : '_');
+      }
+      hint.textContent = letters.join(' ');
+    }
+
+    if (input) {
+      input.value = '';
+      input.disabled = false;
+      input.style.borderColor = '';
+      input.focus();
+    }
+  };
+
+  FlashcardApp.prototype._submitListeningSpell = function() {
+    if (this.listeningState.selectedAnswer !== null) return;
+
+    var input = document.getElementById('listening-spell-input');
+    if (!input) return;
+
+    var userAnswer = input.value.trim();
+    if (userAnswer === '') return;
+
+    this.listeningState.selectedAnswer = userAnswer;
+
+    var q = this.listeningState.questions[this.listeningState.currentQuestionIndex];
+    var isCorrect = userAnswer.toLowerCase() === q.correctEnglish.toLowerCase();
+
+    this._checkListeningAnswer(isCorrect, userAnswer, q);
+
+    input.disabled = true;
+
+    // 視覺回饋
+    if (isCorrect) {
+      input.style.borderColor = '#4CAF50';
+    } else {
+      input.style.borderColor = '#f44336';
+    }
+  };
+
+  // ==========================================================================
+  // 共用：檢查答案、回饋、下一題、結果
+  // ==========================================================================
+
+  FlashcardApp.prototype._checkListeningAnswer = function(isCorrect, userAnswer, question) {
+    this.listeningState.answers.push({
+      question: question,
+      selectedAnswer: userAnswer,
+      isCorrect: isCorrect
+    });
+
+    if (isCorrect) {
+      this.listeningState.score += APP_CONSTANTS.QUIZ_POINTS_PER_QUESTION;
+      var scoreEl = document.getElementById('listening-current-score');
+      if (scoreEl) scoreEl.textContent = this.listeningState.score;
+    }
+
+    this._showListeningFeedback(isCorrect, question);
+    this._showListeningNextButton();
+  };
+
+  FlashcardApp.prototype._showListeningFeedback = function(isCorrect, question) {
+    var feedback = document.getElementById('listening-feedback');
+    var result = document.getElementById('listening-feedback-result');
+    var explanation = document.getElementById('listening-feedback-explanation');
+
+    if (!feedback) return;
+    feedback.className = 'quiz-feedback ' + (isCorrect ? 'correct' : 'wrong');
+    feedback.style.display = 'block';
+
+    if (result) result.textContent = isCorrect ? '✅ 答對了！' : '❌ 答錯了！';
+    if (explanation) {
+      explanation.textContent = question.word.english + ' → ' + question.word.chinese;
+    }
+  };
+
+  FlashcardApp.prototype._showListeningNextButton = function() {
+    var nextBtn = document.getElementById('listening-next');
+    if (nextBtn) {
+      var isLast = this.listeningState.currentQuestionIndex >= this.listeningState.questions.length - 1;
+      nextBtn.textContent = isLast ? '查看結果' : '下一題';
+      nextBtn.style.display = 'inline-block';
+    }
+  };
+
+  FlashcardApp.prototype.nextListeningQuestion = function() {
+    this.listeningState.currentQuestionIndex++;
+    if (this.listeningState.currentQuestionIndex >= this.listeningState.questions.length) {
+      this.showListeningResult();
+    } else {
+      this.showListeningQuestion();
+    }
+  };
+
+  FlashcardApp.prototype.showListeningResult = function() {
+    var total = this.listeningState.questions.length;
+    var correct = this.listeningState.answers.filter(function(a) { return a.isCorrect; }).length;
+    var wrong = total - correct;
+    var finalScore = Math.round((correct / total) * 100);
+
+    var resultIcon = document.getElementById('listening-result-icon');
+    var resultTitle = document.getElementById('listening-result-title');
+    var finalScoreEl = document.getElementById('listening-final-score');
+    var correctCountEl = document.getElementById('listening-correct-count');
+    var wrongCountEl = document.getElementById('listening-wrong-count');
+    var resultMsg = document.getElementById('listening-result-message');
+
+    if (resultIcon) {
+      if (finalScore >= 90) resultIcon.textContent = '🏆';
+      else if (finalScore >= 80) resultIcon.textContent = '🎉';
+      else if (finalScore >= 70) resultIcon.textContent = '👏';
+      else resultIcon.textContent = '💪';
+    }
+
+    if (resultTitle) resultTitle.textContent = '聽力練習完成！';
+    if (finalScoreEl) finalScoreEl.textContent = finalScore;
+    if (correctCountEl) correctCountEl.textContent = correct;
+    if (wrongCountEl) wrongCountEl.textContent = wrong;
+    if (resultMsg) resultMsg.textContent = this.getResultMessage(finalScore);
+
+    this._showListeningWrongReview();
+    this._showListeningScreen('result');
+  };
+
+  FlashcardApp.prototype._showListeningWrongReview = function() {
+    var wrongAnswers = this.listeningState.answers.filter(function(a) { return !a.isCorrect; });
+    var wrongReview = document.getElementById('listening-wrong-review');
+    var wrongList = document.getElementById('listening-wrong-list');
+
+    if (wrongAnswers.length === 0) {
+      if (wrongReview) wrongReview.style.display = 'none';
+      return;
+    }
+
+    if (wrongReview) wrongReview.style.display = 'block';
+    if (wrongList) {
+      wrongList.innerHTML = '';
+      for (var i = 0; i < wrongAnswers.length; i++) {
+        var a = wrongAnswers[i];
+        var item = document.createElement('div');
+        item.className = 'quiz-wrong-item';
+        item.innerHTML =
+          '<div class="quiz-wrong-word">' + a.question.word.english + '</div>' +
+          '<div>' +
+            '<div class="quiz-wrong-answer">你的答案：' + a.selectedAnswer + '</div>' +
+            '<div class="quiz-wrong-correct">正確答案：' + a.question.word.english + ' → ' + a.question.word.chinese + '</div>' +
+          '</div>';
+        wrongList.appendChild(item);
+      }
+    }
+  };
+
+  // ==========================================================================
+  // 關閉與狀態
+  // ==========================================================================
+
+  FlashcardApp.prototype.closeListeningModal = function() {
+    closeModalById(this, 'listening-modal');
+    if (this.listeningState) {
+      this.listeningState.isActive = false;
+    }
+  };
+
+  FlashcardApp.prototype.isListeningInProgress = function() {
+    if (!this.listeningState || !this.listeningState.isActive) return false;
+    return this.listeningState.currentQuestionIndex < this.listeningState.questions.length &&
+           this.listeningState.answers.length < this.listeningState.questions.length;
+  };
+
+</script>
