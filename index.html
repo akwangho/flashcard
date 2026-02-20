@@ -142,15 +142,19 @@
           <div class="menu-container">
             <button id="menu-btn" class="menu-toggle">選單 ▼</button>
             <div class="menu-dropdown" id="menu-dropdown">
-              <div class="menu-section-title">篩選</div>
-              <button id="difficulty-filter-btn" class="menu-item">⭐ 不熟程度篩選</button>
-              <button id="review-filter-btn" class="menu-item">📅 複習時間篩選</button>
-              <button id="must-spell-filter-btn" class="menu-item">✍️ 要會拼篩選</button>
+              <button class="menu-item menu-parent" data-submenu="filter-submenu">⭐ 篩選 <span class="menu-arrow">▸</span></button>
+              <div class="menu-submenu" id="filter-submenu">
+                <button id="difficulty-filter-btn" class="menu-item menu-sub-item">⭐ 不熟程度篩選</button>
+                <button id="review-filter-btn" class="menu-item menu-sub-item">📅 複習時間篩選</button>
+                <button id="must-spell-filter-btn" class="menu-item menu-sub-item">✍️ 要會拼篩選</button>
+              </div>
               <div class="menu-divider"></div>
-              <div class="menu-section-title">學習</div>
               <button id="srs-review-btn" class="menu-item">📖 快速複習 <span id="srs-due-badge" class="srs-badge" style="display:none;"></span></button>
-              <button id="quick-quiz-btn" class="menu-item">🎯 快速測驗 (10題)</button>
-              <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
+              <button class="menu-item menu-parent" data-submenu="quiz-submenu">🎯 測驗 <span class="menu-arrow">▸</span></button>
+              <div class="menu-submenu" id="quiz-submenu">
+                <button id="quick-quiz-btn" class="menu-item menu-sub-item">🎯 快速測驗 (10題)</button>
+                <button id="full-quiz-btn" class="menu-item menu-sub-item">📝 完整測驗</button>
+              </div>
               <div class="menu-divider"></div>
               <div class="menu-section-title">工具</div>
               <button id="edit-word-btn" class="menu-item">✏️ 編輯當前單字</button>

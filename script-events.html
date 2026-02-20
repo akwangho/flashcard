@@ -172,6 +172,16 @@
         console.log('點擊選單下拉選項');
         e.stopPropagation();
 
+        // 處理可展開的母選單點擊
+        var parentBtn = e.target.closest('.menu-parent');
+        if (parentBtn) {
+          var submenuId = parentBtn.getAttribute('data-submenu');
+          if (submenuId) {
+            self.toggleSubmenu(submenuId, parentBtn);
+          }
+          return;
+        }
+
         if (e.target.id === 'restart-btn') {
           console.log('重新開始按鈕被點擊');
           self.closeMenu();
@@ -554,6 +564,42 @@
     }
   };
   
+  // 展開/收合子選單
+  FlashcardApp.prototype.toggleSubmenu = function(submenuId, parentBtn) {
+    var submenu = document.getElementById(submenuId);
+    if (!submenu) return;
+
+    var isOpen = submenu.classList.contains('show');
+
+    // 收合所有子選單
+    var allSubmenus = document.querySelectorAll('.menu-submenu.show');
+    var allParents = document.querySelectorAll('.menu-parent.expanded');
+    for (var i = 0; i < allSubmenus.length; i++) {
+      allSubmenus[i].classList.remove('show');
+    }
+    for (var j = 0; j < allParents.length; j++) {
+      allParents[j].classList.remove('expanded');
+    }
+
+    // 若原本是收合，則展開目標子選單
+    if (!isOpen) {
+      submenu.classList.add('show');
+      parentBtn.classList.add('expanded');
+    }
+  };
+
+  // 收合所有子選單
+  FlashcardApp.prototype.collapseAllSubmenus = function() {
+    var allSubmenus = document.querySelectorAll('.menu-submenu.show');
+    var allParents = document.querySelectorAll('.menu-parent.expanded');
+    for (var i = 0; i < allSubmenus.length; i++) {
+      allSubmenus[i].classList.remove('show');
+    }
+    for (var j = 0; j < allParents.length; j++) {
+      allParents[j].classList.remove('expanded');
+    }
+  };
+
   // 關閉選單
   FlashcardApp.prototype.closeMenu = function() {
     console.log('closeMenu 被調用');
@@ -565,6 +611,7 @@
       console.log('關閉選單');
       menuBtn.classList.remove('active');
       menuDropdown.classList.remove('show');
+      this.collapseAllSubmenus();
 
       // 只有選單確實是開啟狀態才恢復暫停
       if (wasOpen && !this._wasPausedBeforeMenu) {
