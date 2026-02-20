@@ -1,7 +1,7 @@
 /**
  * Tests for SRS (Spaced Repetition System):
  * getBoxInterval, getInitialBox, updateSrsData, getDueWords,
- * loadSrsData, saveSrsData, getSrsForWord, updateSrsBadge
+ * loadSrsData, saveSrsData, getSrsForWord
  * OpenSpec 4.15
  */
 var setup = require('./setup');
@@ -285,13 +285,3 @@ describe('loadSrsData and saveSrsData', function() {
   });
 });
 
-// ============================================================
-// updateSrsBadge (4.15.5) — 已停用，保留空函式不報錯
-// ============================================================
-describe('updateSrsBadge', function() {
-
-  test('is a no-op function', function() {
-    expect(typeof app.updateSrsBadge).toBe('function');
-    app.updateSrsBadge();
-  });
-});

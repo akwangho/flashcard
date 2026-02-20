@@ -32,7 +32,6 @@ describe('Filter modal open/apply flows', function() {
     app.updateActiveFilterDisplay = jest.fn();
     app.displayCurrentWord = jest.fn();
     app.updateButtonStates = jest.fn();
-    app.updateSrsBadge = jest.fn();
     app.speakWord = jest.fn();
     app.speakChineseWord = jest.fn();
   });

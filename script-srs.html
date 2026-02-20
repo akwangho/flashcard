@@ -11,7 +11,7 @@
    *   loadSrsData, saveSrsData, getSrsForWord, updateSrsData,
    *   getDueWords, getDueWordCount, getRecommendedWords, startSrsReview,
    *   openSrsReviewModal, renderSrsCountOptions, closeSrsReviewModal,
-   *   updateSrsBadge, calculateSrsStats, renderSrsStats
+   *   calculateSrsStats, renderSrsStats
    */
 
   // ==========================================================================
@@ -202,7 +202,6 @@
     this.updateActiveFilterDisplay();
     this.displayCurrentWord();
     this.updateProgress();
-    this.updateSrsBadge();
 
     this.closeSrsReviewModal();
     this.showNotification('開始複習 ' + reviewCount + ' 個單字', 'success');
@@ -444,7 +443,5 @@
     container.innerHTML = html;
   };
 
-  // 更新 SRS 徽章（已停用，保留空函式避免呼叫端報錯）
-  FlashcardApp.prototype.updateSrsBadge = function() {};
 
 </script>

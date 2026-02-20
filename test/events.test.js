@@ -33,7 +33,6 @@ describe('displayCurrentWord and startNewRound', function() {
     app.speakChineseWord = jest.fn();
     app.waitForSpeechThenExecute = jest.fn(function(cb) { cb(); });
     app.clearSpeechWait = jest.fn();
-    app.updateSrsBadge = jest.fn();
     app.updateActiveFilterDisplay = jest.fn();
     app.updateDifficultyFilterButtonText = jest.fn();
     app.updateReviewFilterButtonText = jest.fn();
@@ -177,11 +176,6 @@ describe('displayCurrentWord and startNewRound', function() {
       app.startNewRound();
       expect(spy).toHaveBeenCalled();
       spy.mockRestore();
-    });
-
-    test('calls updateSrsBadge', function() {
-      app.startNewRound();
-      expect(app.updateSrsBadge).toHaveBeenCalled();
     });
 
     test('clears pendingRemoval', function() {
