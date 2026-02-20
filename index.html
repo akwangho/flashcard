@@ -148,6 +148,7 @@
                 <button id="review-filter-btn" class="menu-item menu-sub-item">📅 複習時間篩選</button>
                 <button id="must-spell-filter-btn" class="menu-item menu-sub-item">✍️ 要會拼篩選</button>
                 <button id="type-filter-btn" class="menu-item menu-sub-item">📝 類型篩選</button>
+                <button id="tag-filter-btn" class="menu-item menu-sub-item">🏷️ 標籤篩選</button>
               </div>
               <div class="menu-divider"></div>
               <button id="srs-review-btn" class="menu-item">📖 快速複習 <span id="srs-due-badge" class="srs-badge" style="display:none;"></span></button>
@@ -601,6 +602,12 @@
             <div id="edit-word-image-preview-error" class="edit-word-image-preview-error" style="display: none;">圖片載入失敗</div>
           </div>
         </div>
+        <div class="setting-group">
+          <label for="edit-word-tags">🏷️ 標籤</label>
+          <div class="setting-control">
+            <input type="text" id="edit-word-tags" placeholder="標籤（以逗號分隔，如：動詞,基礎）" autocomplete="off">
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button id="cancel-edit-word" class="secondary-btn">取消</button>
@@ -695,6 +702,29 @@
       <div class="modal-footer">
         <button id="cancel-type-filter" class="secondary-btn">取消</button>
         <button id="apply-type-filter" class="primary-btn">套用篩選</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 標籤篩選模態框 -->
+  <div id="tag-filter-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🏷️ 標籤篩選</h2>
+        <button id="close-tag-filter" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <div class="review-filter-options" id="tag-filter-options">
+          </div>
+          <div id="tag-filter-empty" style="display: none; color: #888; text-align: center; padding: 20px;">
+            目前沒有任何標籤
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-tag-filter" class="secondary-btn">取消</button>
+        <button id="apply-tag-filter" class="primary-btn">套用篩選</button>
       </div>
     </div>
   </div>

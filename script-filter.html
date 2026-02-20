@@ -2,14 +2,14 @@
 <script>
   /**
    * @module script-filter
-   * @description 篩選模組：複習時間篩選、不熟程度篩選、要會拼篩選、類型篩選、
+   * @description 篩選模組：複習時間篩選、不熟程度篩選、要會拼篩選、類型篩選、標籤篩選、
    *   篩選指示器、篩選清除。
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD, closeModalById)
    * @provides FlashcardApp.prototype: getTodayDateString, markWordAsReviewed,
    *   syncReviewDates, applyAllFilters, getFilterCutoffDate, countWordsForFilter,
    *   openReviewFilterModal, openDifficultyFilterModal, toggleMustSpellFilter,
-   *   openTypeFilterModal, updateActiveFilterDisplay, clearAllFilters ...
+   *   openTypeFilterModal, openTagFilterModal, updateActiveFilterDisplay, clearAllFilters ...
    */
 
   // ===========================================
@@ -168,6 +168,20 @@
         var type = getWordType(w.english);
         for (var i = 0; i < typeFilterSet.length; i++) {
           if (typeFilterSet[i] === type) return true;
+        }
+        return false;
+      });
+    }
+
+    // 篩選 5：標籤篩選（OR 邏輯，含任一所選標籤即顯示）
+    if (this.tagFilter.length > 0) {
+      var tagFilterSet = this.tagFilter;
+      filtered = filtered.filter(function(w) {
+        if (!w.tags || w.tags.length === 0) return false;
+        for (var i = 0; i < tagFilterSet.length; i++) {
+          for (var j = 0; j < w.tags.length; j++) {
+            if (w.tags[j] === tagFilterSet[i]) return true;
+          }
         }
         return false;
       });
@@ -700,6 +714,170 @@
   };
 
   // ===================================================================
+  // 標籤篩選功能
+  // ===================================================================
+
+  // 開啟標籤篩選模態框
+  FlashcardApp.prototype.openTagFilterModal = function() {
+    console.log('開啟標籤篩選模態框');
+    this.pauseTimer();
+
+    var modal = document.getElementById('tag-filter-modal');
+    var optionsContainer = document.getElementById('tag-filter-options');
+    var emptyMsg = document.getElementById('tag-filter-empty');
+    if (!modal || !optionsContainer) return;
+
+    // 收集所有唯一標籤及數量
+    var tagCounts = {};
+    for (var i = 0; i < this.words.length; i++) {
+      var w = this.words[i];
+      if (w.tags && w.tags.length > 0) {
+        for (var j = 0; j < w.tags.length; j++) {
+          var tag = w.tags[j];
+          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        }
+      }
+    }
+
+    // 取得所有標籤名稱並排序
+    var allTags = [];
+    for (var key in tagCounts) {
+      if (tagCounts.hasOwnProperty(key)) {
+        allTags.push(key);
+      }
+    }
+    allTags.sort();
+
+    // 動態生成 checkbox 列表
+    optionsContainer.innerHTML = '';
+
+    if (allTags.length === 0) {
+      if (emptyMsg) emptyMsg.style.display = 'block';
+    } else {
+      if (emptyMsg) emptyMsg.style.display = 'none';
+      for (var k = 0; k < allTags.length; k++) {
+        var tagName = allTags[k];
+        var isChecked = false;
+        for (var c = 0; c < this.tagFilter.length; c++) {
+          if (this.tagFilter[c] === tagName) { isChecked = true; break; }
+        }
+
+        var label = document.createElement('label');
+        label.className = 'review-filter-option';
+
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'tag-filter';
+        checkbox.value = tagName;
+        checkbox.checked = isChecked;
+
+        var span = document.createElement('span');
+        span.className = 'review-filter-label';
+        span.textContent = tagName;
+
+        var countSpan = document.createElement('span');
+        countSpan.className = 'review-filter-count';
+        countSpan.textContent = '(' + tagCounts[tagName] + ' 個)';
+
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        label.appendChild(countSpan);
+        optionsContainer.appendChild(label);
+      }
+    }
+
+    modal.style.display = 'flex';
+    this.setupTagFilterListeners();
+  };
+
+  // 關閉標籤篩選模態框
+  FlashcardApp.prototype.closeTagFilterModal = function() {
+    closeModalById(this, 'tag-filter-modal');
+  };
+
+  // 設置標籤篩選模態框事件監聽器
+  FlashcardApp.prototype.setupTagFilterListeners = function() {
+    if (this._tagFilterListenersSetup) return;
+    this._tagFilterListenersSetup = true;
+
+    var self = this;
+    var modal = document.getElementById('tag-filter-modal');
+    var closeBtn = document.getElementById('close-tag-filter');
+    var cancelBtn = document.getElementById('cancel-tag-filter');
+    var applyBtn = document.getElementById('apply-tag-filter');
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self.closeTagFilterModal(); });
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() { self.closeTagFilterModal(); });
+    }
+    if (applyBtn) {
+      applyBtn.addEventListener('click', function() { self.applyTagFilterFromModal(); });
+    }
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          self.closeTagFilterModal();
+        }
+      });
+    }
+  };
+
+  // 從模態框套用標籤篩選
+  FlashcardApp.prototype.applyTagFilterFromModal = function() {
+    var modal = document.getElementById('tag-filter-modal');
+    if (!modal) return;
+
+    var checkboxes = modal.querySelectorAll('input[name="tag-filter"]');
+    var selected = [];
+    for (var i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) {
+        selected.push(checkboxes[i].value);
+      }
+    }
+
+    console.log('套用標籤篩選:', selected);
+    this.tagFilter = selected;
+
+    this.updateTagFilterButtonText();
+    this.closeTagFilterModal();
+
+    this.shuffleArray(this.words);
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+
+    if (this.currentWords.length === 0) {
+      alert('沒有符合篩選條件的單字！篩選已重設。');
+      this.tagFilter = [];
+      this.updateTagFilterButtonText();
+      this.currentWords = this.applyAllFilters(this.words);
+    }
+
+    this.displayCurrentWord();
+    this.updateButtonStates();
+    this.renderDifficultyLevel();
+    this.updateActiveFilterDisplay();
+  };
+
+  // 更新標籤篩選按鈕文字
+  FlashcardApp.prototype.updateTagFilterButtonText = function() {
+    var btn = document.getElementById('tag-filter-btn');
+    if (!btn) return;
+
+    if (this.tagFilter.length === 0) {
+      btn.textContent = '🏷️ 標籤篩選';
+      btn.style.color = '';
+    } else {
+      var displayTags = this.tagFilter.slice(0, 3).join('、');
+      if (this.tagFilter.length > 3) displayTags += '…';
+      btn.textContent = '🏷️ 篩選：' + displayTags;
+      btn.style.color = '#87CEEB';
+    }
+  };
+
+  // ===================================================================
   // 篩選指示器
   // ===================================================================
 
@@ -740,6 +918,12 @@
       }
       parts.push('📝 ' + typeNames.join('、'));
     }
+
+    if (this.tagFilter.length > 0) {
+      var displayTags = this.tagFilter.slice(0, 2).join('、');
+      if (this.tagFilter.length > 2) displayTags += '…';
+      parts.push('🏷️ ' + displayTags);
+    }
     
     if (this.srsReviewActive) {
       parts.push('📖 快速複習');
@@ -760,11 +944,13 @@
     this.reviewFilter = 'all';
     this.mustSpellFilter = false;
     this.typeFilter = ['word', 'phrase', 'sentence'];
+    this.tagFilter = [];
     this.srsReviewActive = false;
     this.updateDifficultyFilterButtonText();
     this.updateReviewFilterButtonText();
     this.updateMustSpellFilterButtonText();
     this.updateTypeFilterButtonText();
+    this.updateTagFilterButtonText();
     this.reapplyFilters();
   };
 

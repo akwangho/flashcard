@@ -228,6 +228,10 @@
           console.log('類型篩選按鈕被點擊');
           self.closeMenu();
           self.openTypeFilterModal();
+        } else if (e.target.id === 'tag-filter-btn') {
+          console.log('標籤篩選按鈕被點擊');
+          self.closeMenu();
+          self.openTagFilterModal();
         } else if (e.target.id === 'edit-word-btn') {
           console.log('編輯單字按鈕被點擊');
           self.closeMenu();

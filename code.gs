@@ -14,7 +14,7 @@
 
   // ===========================================
   // 欄位常數（Google Sheet 欄位對照）
-  // 格式：A=要會拼, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期
+  // 格式：A=要會拼, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期, H=標籤
   // ===========================================
 
   /** 0-based 欄位索引（用於 getValues() 陣列存取） */
@@ -25,7 +25,8 @@
     DIFFICULTY: 3,     // D 欄：不熟程度
     IMAGE_URL: 4,      // E 欄：圖片URL
     IMAGE_FORMULA: 5,  // F 欄：圖片顯示公式
-    LAST_REVIEW: 6     // G 欄：最後複習日期
+    LAST_REVIEW: 6,    // G 欄：最後複習日期
+    TAGS: 7            // H 欄：標籤
   };
 
   /** 1-based 欄位編號（用於 getRange(row, col)） */
@@ -36,7 +37,8 @@
     DIFFICULTY: 4,     // D 欄
     IMAGE_URL: 5,      // E 欄
     IMAGE_FORMULA: 6,  // F 欄
-    LAST_REVIEW: 7     // G 欄
+    LAST_REVIEW: 7,    // G 欄
+    TAGS: 8            // H 欄
   };
 
   // ===========================================
@@ -136,6 +138,19 @@ function countValidWords(sheet) {
     // 讀取 A 欄（第1欄，index 0）的「要會拼」標記
     var mustSpell = (rowData[COL.MUST_SPELL] !== undefined && rowData[COL.MUST_SPELL] !== null && rowData[COL.MUST_SPELL] !== '') ? true : false;
 
+    // 讀取 H 欄：標籤（以半形或全形逗號分隔）
+    var tags = [];
+    if (rowData.length > COL.TAGS && rowData[COL.TAGS]) {
+      var rawTags = rowData[COL.TAGS].toString().trim();
+      if (rawTags) {
+        var parts = rawTags.split(/[,，]/);
+        for (var t = 0; t < parts.length; t++) {
+          var tag = parts[t].trim();
+          if (tag) tags.push(tag);
+        }
+      }
+    }
+
     return {
       id: id,
       english: rowData[COL.ENGLISH].toString().trim(),
@@ -145,6 +160,7 @@ function countValidWords(sheet) {
       imageFormula: rowData[COL.IMAGE_FORMULA] ? rowData[COL.IMAGE_FORMULA].toString().trim() : '',
       lastReviewDate: lastReviewDate,
       mustSpell: mustSpell,
+      tags: tags,
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
@@ -491,6 +507,13 @@ function countValidWords(sheet) {
         sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(properties.mustSpell ? 1 : '');
         console.log('已更新要會拼:', properties.mustSpell);
       }
+
+      // 更新 H 欄：標籤（以半形逗號分隔的字串）
+      if (properties.tags !== undefined && properties.tags !== null) {
+        var tagsStr = Array.isArray(properties.tags) ? properties.tags.join(',') : properties.tags.toString();
+        sheet.getRange(row, COL_NUM.TAGS).setValue(tagsStr);
+        console.log('已更新標籤:', tagsStr);
+      }
       
       console.log('成功更新單字屬性');
       return { success: true };
@@ -564,7 +587,7 @@ function countValidWords(sheet) {
       
       // 寫入第一列：A1 放總數（如果是新工作表或覆寫模式）
       if (isFirstBatch || overwrite || !sheetExists) {
-        targetSheet.appendRow([words.length, '單字', '翻譯', '不熟程度', '圖片URL']);
+        targetSheet.appendRow([words.length, '單字', '翻譯', '不熟程度', '圖片URL', '', '', '標籤']);
       }
       
       // 寫入資料
@@ -576,12 +599,16 @@ function countValidWords(sheet) {
         // 以數字格式寫入不熟程度（0 寫空字串）
         const level = w.difficultyLevel || 0;
         
+        var tagsStr = (w.tags && w.tags.length > 0) ? w.tags.join(',') : '';
         targetSheet.appendRow([
           w.mustSpell ? 1 : '',      // A 欄：要會拼標記
           w.english || '',           // B 欄：單字
           w.chinese || '',           // C 欄：翻譯
           level === 0 ? '' : level,  // D 欄：不熟程度（數字格式）
-          imageUrl                   // E 欄：圖片URL
+          imageUrl,                  // E 欄：圖片URL
+          '',                        // F 欄：圖片公式（略）
+          '',                        // G 欄：複習日期（略）
+          tagsStr                    // H 欄：標籤
         ]);
       }
       
