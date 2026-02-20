@@ -1293,6 +1293,25 @@ bash deploy.sh setup
 - 新增 `APP_CONSTANTS.APP_VERSION` 作為唯一版本來源，載入畫面自動從此常數同步顯示版本號
 - 移除 `index.html` 中硬編碼的版本號，避免日後版本不同步
 
+**篩選條件持久化**
+- 新增 `saveFilterSettings()` / `loadFilterSettings()`，將 5 種篩選條件（不熟程度、複習時間、要會拼、類型、標籤）及快速複習數量存入 localStorage
+- 頁面重新載入時自動恢復上次的篩選條件，選單按鈕文字與篩選指示器同步更新
+- 新增 `updateAllFilterButtonTexts()` 統一更新所有篩選按鈕文字
+- 改善 `startNewRound()` 空結果處理：原本只重設不熟程度和複習時間篩選，現在涵蓋所有 5 種篩選條件
+- 所有篩選套用/清除操作（含空結果回退）皆同步儲存至 localStorage
+- 新增 `STORAGE_KEYS.FILTER_SETTINGS` 鍵名（`flashcard-filter-settings`）
+- `loadFilterSettings()` 含完整驗證邏輯，防止無效資料導致異常
+
+**快速複習與篩選整合**
+- 快速複習數量（`_srsSelectedCount`）與啟用狀態（`srsReviewActive`）持久化至 localStorage
+- 重新載入時自動恢復快速複習模式（使用一次性 `_srsRestorePending` 旗標，避免一般回合結束時誤觸恢復）
+- 快速複習模態框打開時預選上次儲存的數量
+- 快速複習與其他篩選條件為 AND 關係：先套用所有篩選條件，再從結果中依 SRS 優先度排序
+- `getRecommendedWords(sourceWords)`、`getDueWords(sourceWords)`、`calculateSrsStats(sourceWords)` 新增可選 `sourceWords` 參數
+- `openSrsReviewModal()` 統計與數量選項基於篩選後的單字集
+- 篩選條件下無可複習單字時，模態框顯示「目前篩選條件下沒有可複習的單字」
+- `startNewRound()` 重構：區分頁面載入恢復（restore SRS）與一般回合結束（結束 SRS），後者正確清除 localStorage 中的 SRS 狀態
+
 **程式碼重構 (Part A)**
 - 修正 `isModalBackgroundClick` 函式的 dead-loop bug，簡化為 `e.target === modal`
 - 移除 `script-events.html` 中 5 處重複的 modal 背景點擊偵測邏輯（~80 行），統一使用 `isModalBackgroundClick`

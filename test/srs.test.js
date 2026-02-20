@@ -286,40 +286,12 @@ describe('loadSrsData and saveSrsData', function() {
 });
 
 // ============================================================
-// updateSrsBadge (4.15.5)
+// updateSrsBadge (4.15.5) — 已停用，保留空函式不報錯
 // ============================================================
 describe('updateSrsBadge', function() {
 
-  test('shows badge with due count', function() {
-    app.words = [
-      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1 },
-      { id: 1, english: 'banana', sheetName: 'S1', originalRowIndex: 2 }
-    ];
-    app.srsData = {}; // all words are due (no SRS data)
+  test('is a no-op function', function() {
+    expect(typeof app.updateSrsBadge).toBe('function');
     app.updateSrsBadge();
-    var badge = document.getElementById('srs-due-badge');
-    expect(badge.style.display).toBe('inline-block');
-    expect(badge.textContent).toBe('2');
-  });
-
-  test('hides badge when no words are due', function() {
-    app.words = [
-      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1 }
-    ];
-    app.srsData = { 'S1:1': { box: 1, nextReview: '2099-12-31' } };
-    app.updateSrsBadge();
-    var badge = document.getElementById('srs-due-badge');
-    expect(badge.style.display).toBe('none');
-  });
-
-  test('shows 99+ for counts over 99', function() {
-    app.words = [];
-    for (var i = 0; i < 105; i++) {
-      app.words.push({ id: i, english: 'word' + i, sheetName: 'S1', originalRowIndex: i + 1 });
-    }
-    app.srsData = {}; // all due
-    app.updateSrsBadge();
-    var badge = document.getElementById('srs-due-badge');
-    expect(badge.textContent).toBe('99+');
   });
 });

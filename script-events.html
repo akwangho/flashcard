@@ -321,38 +321,65 @@
   
   // 開始新回合
   FlashcardApp.prototype.startNewRound = function() {
-    // 結束 SRS 複習模式（如果有的話）
+    // _srsRestorePending 是由 loadFilterSettings() 設置的一次性旗標
+    var restoreSrs = this._srsRestorePending && this._srsSelectedCount > 0;
+    this._srsRestorePending = false;
     this.srsReviewActive = false;
-    
-    this.shuffleArray(this.words);
-    this.currentWords = this.applyAllFilters(this.words);
-    this.currentIndex = 0;
-    this.removedWords = [];
+
     this.navigationHistory = [];
     this.pendingRemoval = null;
     this.userPaused = false;
     this.isPaused = false;
     this.hideRestoreButton();
-          
-    if (this.currentWords.length === 0) {
-      if (this.difficultyFilter > 0 || this.reviewFilter !== 'all') {
-        var filterMsg = '';
-        if (this.difficultyFilter > 0 && this.reviewFilter !== 'all') {
-          filterMsg = '沒有同時符合「不熟程度」和「複習時間」兩個篩選條件的單字！';
-        } else if (this.difficultyFilter > 0) {
-          filterMsg = '沒有符合不熟程度 ★' + this.difficultyFilter + ' 以上的單字！';
-        } else {
-          filterMsg = '沒有符合複習時間篩選條件的單字！';
-        }
-        alert(filterMsg);
-        this.difficultyFilter = 0;
-        this.reviewFilter = 'all';
-        this.updateDifficultyFilterButtonText();
-        this.updateReviewFilterButtonText();
-        this.currentWords = this.words.slice();
+
+    if (restoreSrs) {
+      // 從 localStorage 恢復快速複習模式
+      var filteredWords = this.applyAllFilters(this.words);
+      var recommendedWords = this.getRecommendedWords(filteredWords);
+
+      if (recommendedWords.length > 0) {
+        var reviewCount = Math.min(this._srsSelectedCount, recommendedWords.length);
+        this.currentWords = recommendedWords.slice(0, reviewCount);
+        this.shuffleArray(this.currentWords);
+        this.currentIndex = 0;
+        this.removedWords = [];
+        this.srsReviewActive = true;
+        console.log('已從 localStorage 恢復快速複習模式，共', reviewCount, '個單字');
+      } else {
+        restoreSrs = false;
+        this.saveFilterSettings();
       }
     }
-        
+
+    if (!restoreSrs) {
+      this.srsReviewActive = false;
+      this.saveFilterSettings();
+      this.shuffleArray(this.words);
+      this.currentWords = this.applyAllFilters(this.words);
+      this.currentIndex = 0;
+      this.removedWords = [];
+
+      if (this.currentWords.length === 0) {
+        var hasAnyFilter = this.difficultyFilter !== 0 ||
+                           this.reviewFilter !== 'all' ||
+                           this.mustSpellFilter ||
+                           this.typeFilter.length < 3 ||
+                           this.tagFilter.length > 0;
+
+        if (hasAnyFilter) {
+          alert('沒有符合目前篩選條件的單字！所有篩選已重設。');
+          this.difficultyFilter = 0;
+          this.reviewFilter = 'all';
+          this.mustSpellFilter = false;
+          this.typeFilter = ['word', 'phrase', 'sentence'];
+          this.tagFilter = [];
+          this.saveFilterSettings();
+          this.currentWords = this.applyAllFilters(this.words);
+        }
+      }
+    }
+
+    this.updateAllFilterButtonTexts();
     this.displayCurrentWord();
     this.updateButtonStates();
     this.updateVoiceButtonState();

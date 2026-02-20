@@ -103,7 +103,8 @@
       SHEET_SETTINGS: 'flashcard-sheet-settings',
       SHEET_HISTORY: 'flashcard-sheet-history',
       LAST_WORD: 'flashcard-last-word',
-      SRS: 'flashcard-srs'
+      SRS: 'flashcard-srs',
+      FILTER_SETTINGS: 'flashcard-filter-settings'
     }
   };
 
@@ -321,6 +322,9 @@
     this.srsData = {};
     this.srsReviewActive = false;
     this._srsSelectedCount = 10;
+
+    // 從 localStorage 恢復上次的篩選條件
+    this.loadFilterSettings();
   };
 
   /** 防止螢幕關閉相關 */
