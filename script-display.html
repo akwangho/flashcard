@@ -117,7 +117,14 @@
       this.settings.delayTime = 9;
       this.settings.smartTimerEnabled = true;
       this.settings.listeningMode = false;
-      details = ['🎧 用聽的背單字', '先中文 → 字母拼讀開 → 中文發音開', '延遲 9 秒 → 智慧計時開'];
+      details = [
+        '🎧 用聽的背單字',
+        '🔄 顯示模式：先中文',
+        '🔤 字母拼讀：開',
+        '🗣️ 中文發音：開',
+        '⏱️ 延遲秒數：9 秒',
+        '⏱️ 智慧計時：開'
+      ];
     } else if (mode === 2) {
       this.settings.displayMode = 'english-first';
       this.voiceSettings.spellOutLetters = false;
@@ -126,7 +133,15 @@
       this.settings.smartTimerEnabled = true;
       this.settings.delaySpeechInNormalMode = false;
       this.settings.listeningMode = false;
-      details = ['👂 用聽的認識單字', '先英文 → 字母拼讀關 → 中文發音開', '延遲 4.5 秒 → 智慧計時開 → 延遲發音關'];
+      details = [
+        '👂 用聽的認識單字',
+        '🔄 顯示模式：先英文',
+        '🔤 字母拼讀：關',
+        '🗣️ 中文發音：開',
+        '⏱️ 延遲秒數：4.5 秒',
+        '⏱️ 智慧計時：開',
+        '⏳ 延遲發音：關'
+      ];
     } else if (mode === 3) {
       this.settings.displayMode = 'mixed';
       this.settings.delaySpeechInNormalMode = true;
@@ -134,13 +149,26 @@
       this.voiceSettings.chineseEnabled = false;
       this.settings.smartTimerEnabled = true;
       this.settings.listeningMode = false;
-      details = ['📝 日常複習', '隨機混合 → 字母拼讀關 → 中文發音關', '延遲發音開 → 智慧計時開'];
+      details = [
+        '📝 日常複習',
+        '🔄 顯示模式：隨機混合',
+        '🔤 字母拼讀：關',
+        '🗣️ 中文發音：關',
+        '⏱️ 智慧計時：開',
+        '⏳ 延遲發音：開'
+      ];
     } else if (mode === 4) {
       this.settings.listeningMode = true;
       this.voiceSettings.spellOutLetters = false;
       this.voiceSettings.chineseEnabled = false;
       this.settings.smartTimerEnabled = true;
-      details = ['🎧 聽力訓練', '聽力模式開 → 字母拼讀關 → 中文發音關', '智慧計時開'];
+      details = [
+        '🎧 聽力訓練',
+        '🎧 聽力模式：開',
+        '🔤 字母拼讀：關',
+        '🗣️ 中文發音：關',
+        '⏱️ 智慧計時：開'
+      ];
     }
 
     if (wasListeningMode && !this.settings.listeningMode) {
@@ -1088,8 +1116,27 @@
     var toast = document.createElement('div');
     toast.id = 'app-notification-toast';
     toast.className = 'app-notification-toast' + (type === 'success' ? ' toast-success' : type === 'info' ? ' toast-info' : '');
-    toast.style.whiteSpace = 'pre-line';
-    toast.textContent = message;
+
+    var lines = message.split('\n');
+    if (lines.length > 1) {
+      var title = document.createElement('div');
+      title.className = 'toast-title';
+      title.textContent = lines[0];
+      toast.appendChild(title);
+      var list = document.createElement('div');
+      list.className = 'toast-details';
+      for (var i = 1; i < lines.length; i++) {
+        var row = document.createElement('div');
+        row.className = 'toast-detail-row';
+        row.textContent = lines[i];
+        list.appendChild(row);
+      }
+      toast.appendChild(list);
+    } else {
+      toast.style.whiteSpace = 'pre-line';
+      toast.textContent = message;
+    }
+
     document.body.appendChild(toast);
 
     setTimeout(function() { toast.classList.add('show'); }, 10);
