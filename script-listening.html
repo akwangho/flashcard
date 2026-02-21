@@ -188,7 +188,10 @@
     if (finishBtn) finishBtn.addEventListener('click', function() { self.closeListeningModal(); });
     if (speakerIcon) speakerIcon.addEventListener('click', function() { self._playListeningAudio(); });
     if (spellInput) spellInput.addEventListener('keydown', function(e) {
-      if (e.keyCode === 13) { self._submitListeningSpell(); }
+      if (e.keyCode === 13) {
+        e.stopPropagation();
+        self._submitListeningSpell();
+      }
     });
 
     // Enter / Right / Down 鍵跳下一題（答案回饋顯示時）

@@ -976,6 +976,14 @@
     var keyCode = e.keyCode || e.which;
     var code = e.code || '';
     var key = e.key || '';
+
+    // ESC 鍵關閉最上層開啟的 modal（優先於所有其他按鍵處理）
+    if (keyCode === 27 || code === 'Escape' || key === 'Escape') {
+      if (self._closeTopmostModal()) {
+        if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
+        return;
+      }
+    }
     
     // 焦點在表單控件上時不攔截
     var activeElement = document.activeElement;
@@ -1175,6 +1183,48 @@
 
     
     console.log('隱藏控制按鈕事件監聽器設置完成');
+  };
+
+  // ESC 鍵：由上而下關閉最頂層開啟的 modal，回傳是否有 modal 被關閉
+  FlashcardApp.prototype._closeTopmostModal = function() {
+    // custom-confirm 優先（它是最上層的覆蓋對話框）
+    var confirmModal = document.getElementById('custom-confirm-modal');
+    if (confirmModal && confirmModal.style.display === 'flex') {
+      var cancelBtn = document.getElementById('custom-confirm-cancel');
+      if (cancelBtn && cancelBtn.onclick) cancelBtn.onclick();
+      return true;
+    }
+
+    // 其他 modal：按 z-index / 疊加順序，最上層優先
+    var modalCloseMap = [
+      { id: 'overwrite-confirm-modal', method: 'closeOverwriteConfirmModal' },
+      { id: 'quiz-modal',              method: 'closeQuizModal' },
+      { id: 'listening-modal',         method: 'closeListeningModal' },
+      { id: 'export-modal',            method: 'closeExportModal' },
+      { id: 'duplicate-words-modal',   method: 'closeDuplicateModal' },
+      { id: 'edit-word-modal',         method: 'closeEditWordModal' },
+      { id: 'srs-review-modal',        method: 'closeSrsReviewModal' },
+      { id: 'difficulty-filter-modal',  method: 'closeDifficultyFilterModal' },
+      { id: 'review-filter-modal',     method: 'closeReviewFilterModal' },
+      { id: 'type-filter-modal',       method: 'closeTypeFilterModal' },
+      { id: 'tag-filter-modal',        method: 'closeTagFilterModal' },
+      { id: 'voice-settings-modal',    method: 'closeVoiceSettings' },
+      { id: 'settings-modal',          method: 'closeSettings' },
+      { id: 'sheet-settings-modal',    method: 'closeSheetSettings' }
+    ];
+
+    for (var i = 0; i < modalCloseMap.length; i++) {
+      var entry = modalCloseMap[i];
+      var modal = document.getElementById(entry.id);
+      if (modal && modal.style.display === 'flex') {
+        if (typeof this[entry.method] === 'function') {
+          this[entry.method]();
+        }
+        return true;
+      }
+    }
+
+    return false;
   };
 
   // 自訂確認對話框（取代瀏覽器內建 confirm，避免離開全螢幕）

@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.13.3
+> **版本**: 1.13.4
 > **最後更新**: 2026-02-21
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -1294,6 +1294,18 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.13.4 (2026-02-21) — 聽音拼字 Enter 流程修正 + ESC 關閉所有 Modal
+
+**聽音拼字 Enter 鍵修正**
+- 修正按下 Enter 提交拼字後立即跳下一題的問題（`e.stopPropagation()` 阻止事件冒泡到 document handler）
+- 提交後顯示正確/錯誤回饋與正確答案，再按 Enter / 方向右鍵 / 方向下鍵 進入下一題
+
+**ESC 鍵關閉 Modal**
+- 新增 `_closeTopmostModal()` 方法，由上而下偵測所有開啟的 modal 並關閉最頂層的那個
+- custom-confirm-modal 優先級最高（觸發 cancel 回呼），其次為 quiz/listening/export/edit-word/filter/settings 等 14 種 modal
+- ESC 按鍵處理放在 `handleKeyDown` 最前端，即使焦點在表單控件內也能觸發
+- 新增 7 個測試驗證 `_closeTopmostModal` 在各種 modal 狀態下的行為
 
 ### v1.13.3 (2026-02-21) — 快速模式 Toast 格式統一
 

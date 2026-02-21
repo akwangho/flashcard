@@ -91,3 +91,93 @@ describe('customConfirm', function() {
     expect(function() { cancel.onclick(); }).not.toThrow();
   });
 });
+
+describe('_closeTopmostModal (ESC key)', function() {
+  var app;
+
+  beforeAll(function() {
+    setup.bootstrapApp();
+  });
+
+  beforeEach(function() {
+    app = setup.createApp();
+    app.resumeTimer = jest.fn();
+    app.pauseTimer = jest.fn();
+  });
+
+  afterEach(function() {
+    var modals = document.querySelectorAll('.modal');
+    for (var i = 0; i < modals.length; i++) {
+      modals[i].style.display = 'none';
+    }
+  });
+
+  test('returns false when no modal is open', function() {
+    expect(app._closeTopmostModal()).toBe(false);
+  });
+
+  test('closes custom-confirm-modal first (highest priority)', function() {
+    var cancelled = false;
+    app.customConfirm({ message: 'test' }, function() {}, function() { cancelled = true; });
+    var settingsModal = document.getElementById('settings-modal');
+    settingsModal.style.display = 'flex';
+
+    var result = app._closeTopmostModal();
+    expect(result).toBe(true);
+    var confirmModal = document.getElementById('custom-confirm-modal');
+    expect(confirmModal.style.display).toBe('none');
+    expect(cancelled).toBe(true);
+    expect(settingsModal.style.display).toBe('flex');
+  });
+
+  test('closes settings-modal', function() {
+    var modal = document.getElementById('settings-modal');
+    modal.style.display = 'flex';
+    var result = app._closeTopmostModal();
+    expect(result).toBe(true);
+    expect(modal.style.display).toBe('none');
+  });
+
+  test('closes edit-word-modal', function() {
+    app._wasPausedBeforeEdit = true;
+    var modal = document.getElementById('edit-word-modal');
+    modal.style.display = 'flex';
+    var result = app._closeTopmostModal();
+    expect(result).toBe(true);
+    expect(modal.style.display).toBe('none');
+  });
+
+  test('closes quiz-modal', function() {
+    app.quizState = { isActive: true };
+    var modal = document.getElementById('quiz-modal');
+    modal.style.display = 'flex';
+    var result = app._closeTopmostModal();
+    expect(result).toBe(true);
+    expect(modal.style.display).toBe('none');
+  });
+
+  test('closes listening-modal', function() {
+    app.listeningState = { isActive: true };
+    var modal = document.getElementById('listening-modal');
+    modal.style.display = 'flex';
+    var result = app._closeTopmostModal();
+    expect(result).toBe(true);
+    expect(modal.style.display).toBe('none');
+  });
+
+  test('closes filter modals', function() {
+    var ids = [
+      'difficulty-filter-modal',
+      'review-filter-modal',
+      'type-filter-modal',
+      'tag-filter-modal'
+    ];
+    for (var i = 0; i < ids.length; i++) {
+      var modal = document.getElementById(ids[i]);
+      modal.style.display = 'flex';
+      var result = app._closeTopmostModal();
+      expect(result).toBe(true);
+      expect(modal.style.display).toBe('none');
+    }
+  });
+});
