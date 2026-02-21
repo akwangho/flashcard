@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.13.7',
+    APP_VERSION: '1.13.8',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -173,13 +173,16 @@
   }
 
   /**
-   * 判斷單字類型：sentence（句號/問號/驚嘆號結尾）、phrase（含空格）、word（其他）
+   * 判斷單字類型：sentence（句號/問號/驚嘆號結尾，含引號包裹）、phrase（含空格）、word（其他）
    * @param {string} english - 英文字串
    * @returns {string} 'sentence' | 'phrase' | 'word'
    */
   function getWordType(english) {
     var trimmed = (english || '').trim();
     var last = trimmed.charAt(trimmed.length - 1);
+    if (last === '"' || last === '\u201D' || last === "'") {
+      last = trimmed.charAt(trimmed.length - 2);
+    }
     if (last === '.' || last === '?' || last === '!') return 'sentence';
     if (trimmed.indexOf(' ') !== -1) return 'phrase';
     return 'word';

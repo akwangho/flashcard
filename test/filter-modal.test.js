@@ -164,6 +164,48 @@ describe('Filter modal open/apply flows', function() {
   });
 
   // ===========================================
+  // getWordType
+  // ===========================================
+  describe('getWordType', function() {
+    test('returns word for single word', function() {
+      expect(getWordType('apple')).toBe('word');
+    });
+
+    test('returns phrase for multi-word without sentence punctuation', function() {
+      expect(getWordType('hot dog')).toBe('phrase');
+    });
+
+    test('returns sentence for period ending', function() {
+      expect(getWordType('I like cats.')).toBe('sentence');
+    });
+
+    test('returns sentence for question mark ending', function() {
+      expect(getWordType('How are you?')).toBe('sentence');
+    });
+
+    test('returns sentence for exclamation mark ending', function() {
+      expect(getWordType('Watch out!')).toBe('sentence');
+    });
+
+    test('returns sentence when ending with double quote after punctuation', function() {
+      expect(getWordType('He said "hello."')).toBe('sentence');
+    });
+
+    test('returns sentence when ending with curly double quote after punctuation', function() {
+      expect(getWordType('He said \u201Chello.\u201D')).toBe('sentence');
+    });
+
+    test('returns sentence when ending with single quote after punctuation', function() {
+      expect(getWordType("She asked 'why?'")).toBe('sentence');
+    });
+
+    test('returns word for empty or undefined input', function() {
+      expect(getWordType('')).toBe('word');
+      expect(getWordType(undefined)).toBe('word');
+    });
+  });
+
+  // ===========================================
   // Type Filter
   // ===========================================
   describe('openTypeFilterModal', function() {

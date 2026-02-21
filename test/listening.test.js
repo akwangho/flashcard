@@ -36,6 +36,17 @@ describe('Listening Quiz Module', function() {
       expect(englishWords.indexOf('I like cats.')).toBe(-1);
     });
 
+    test('excludes sentences ending with quote after punctuation', function() {
+      app.words = app.words.concat([
+        { id: 10, english: 'He said "hello."', chinese: '他說了「你好。」', difficultyLevel: 0 },
+        { id: 11, english: "She asked 'why?'", chinese: '她問了「為什麼？」', difficultyLevel: 0 }
+      ]);
+      var filtered = app._filterListeningWords();
+      var englishWords = filtered.map(function(w) { return w.english; });
+      expect(englishWords.indexOf('He said "hello."')).toBe(-1);
+      expect(englishWords.indexOf("She asked 'why?'")).toBe(-1);
+    });
+
     test('includes words and phrases', function() {
       var filtered = app._filterListeningWords();
       var englishWords = filtered.map(function(w) { return w.english; });
