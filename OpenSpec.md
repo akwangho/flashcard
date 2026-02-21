@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.13.1
+> **版本**: 1.13.2
 > **最後更新**: 2026-02-21
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -1294,6 +1294,11 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.13.2 (2026-02-21) — Toast 滑鼠懸停保持顯示
+
+- 修正通知 toast（`.app-notification-toast`）的 `pointer-events: none` 導致 mouseenter/mouseleave 事件無法觸發的問題
+- 在 `.show` 狀態加上 `pointer-events: auto`，使滑鼠移至 toast 上方時暫停自動消失計時器，方便使用者閱讀快速模式切換等多行通知
 
 ### v1.13.1 (2026-02-21) — 代碼重構與測試強化
 
