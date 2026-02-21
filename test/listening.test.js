@@ -29,27 +29,11 @@ describe('Listening Quiz Module', function() {
   });
 
   describe('_filterListeningWords', function() {
-    test('excludes sentences (ending with . ? !)', function() {
+    test('excludes sentences and includes words and phrases', function() {
       var filtered = app._filterListeningWords();
       expect(filtered.length).toBe(4);
       var englishWords = filtered.map(function(w) { return w.english; });
       expect(englishWords.indexOf('I like cats.')).toBe(-1);
-    });
-
-    test('excludes sentences ending with quote after punctuation', function() {
-      app.words = app.words.concat([
-        { id: 10, english: 'He said "hello."', chinese: '他說了「你好。」', difficultyLevel: 0 },
-        { id: 11, english: "She asked 'why?'", chinese: '她問了「為什麼？」', difficultyLevel: 0 }
-      ]);
-      var filtered = app._filterListeningWords();
-      var englishWords = filtered.map(function(w) { return w.english; });
-      expect(englishWords.indexOf('He said "hello."')).toBe(-1);
-      expect(englishWords.indexOf("She asked 'why?'")).toBe(-1);
-    });
-
-    test('includes words and phrases', function() {
-      var filtered = app._filterListeningWords();
-      var englishWords = filtered.map(function(w) { return w.english; });
       expect(englishWords.indexOf('apple')).not.toBe(-1);
       expect(englishWords.indexOf('hot dog')).not.toBe(-1);
     });
@@ -313,14 +297,13 @@ describe('Listening Quiz Module', function() {
       expect(app.listeningState.currentQuestionIndex).toBe(1);
     });
 
-    test('shows result on last question', function() {
+    test('shows result screen on last question', function() {
       app.listeningState.currentQuestionIndex = app.listeningState.questions.length - 1;
       var q = app.listeningState.questions[app.listeningState.currentQuestionIndex];
       app._selectListeningAnswer(q.correctAnswer);
-      var spy = jest.spyOn(app, 'showListeningResult');
       app.nextListeningQuestion();
-      expect(spy).toHaveBeenCalled();
-      spy.mockRestore();
+      var resultScreen = document.getElementById('listening-result-screen');
+      expect(resultScreen.style.display).toBe('block');
     });
   });
 

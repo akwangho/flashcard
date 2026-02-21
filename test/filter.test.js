@@ -387,33 +387,6 @@ describe('updateActiveFilterDisplay', function() {
   });
 });
 
-describe('clearAllFilters', function() {
-  beforeEach(function() {
-    app.words = [
-      { id: 1, english: 'apple', chinese: '蘋果', difficultyLevel: 3, mustSpell: true },
-      { id: 2, english: 'banana', chinese: '香蕉', difficultyLevel: 5, mustSpell: false }
-    ];
-    app.currentWords = [];
-    app.currentIndex = 0;
-    app.removedWords = [];
-    app.difficultyFilter = 5;
-    app.reviewFilter = 'never';
-    app.mustSpellFilter = true;
-  });
-
-  test('resets all filter states to defaults', function() {
-    app.clearAllFilters();
-    expect(app.difficultyFilter).toBe(0);
-    expect(app.reviewFilter).toBe('all');
-    expect(app.mustSpellFilter).toBe(false);
-  });
-
-  test('restores all words after clearing', function() {
-    app.clearAllFilters();
-    expect(app.currentWords.length).toBe(2);
-  });
-});
-
 describe('getTodayDateString', function() {
   test('returns date in YYYY-MM-DD format', function() {
     var result = app.getTodayDateString();

@@ -244,18 +244,17 @@ describe('Quiz UI flow', function() {
       expect(app.quizState.currentQuestionIndex).toBe(initial + 1);
     });
 
-    test('shows result when all questions answered', function() {
+    test('shows result screen when all questions answered', function() {
       app.quizState.currentQuestionIndex = app.quizState.questions.length - 1;
       app.quizState.selectedAnswer = 'x';
-      var spy = jest.spyOn(app, 'showQuizResult');
       app.nextQuestion();
-      expect(spy).toHaveBeenCalled();
-      spy.mockRestore();
+      var resultScreen = document.getElementById('quiz-result-screen');
+      expect(resultScreen.style.display).toBe('block');
     });
   });
 
   describe('getCurrentAvailableWords', function() {
-    test('returns freshly filtered words from this.words', function() {
+    test('returns freshly filtered words', function() {
       var result = app.getCurrentAvailableWords();
       expect(result.length).toBe(app.words.length);
       result.push({ id: 999 });
@@ -264,16 +263,23 @@ describe('Quiz UI flow', function() {
 
     test('returns empty array when words is empty', function() {
       app.words = [];
-      var result = app.getCurrentAvailableWords();
-      expect(result).toEqual([]);
+      expect(app.getCurrentAvailableWords()).toEqual([]);
     });
 
-    test('respects difficulty filter', function() {
+    test('returns empty array when words is null', function() {
+      app.words = null;
+      expect(app.getCurrentAvailableWords()).toEqual([]);
+    });
+
+    test('reflects difficulty filter', function() {
+      app.words = [
+        { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 5 },
+        { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 1 }
+      ];
       app.difficultyFilter = 5;
       var result = app.getCurrentAvailableWords();
-      result.forEach(function(w) {
-        expect(w.difficultyLevel).toBeGreaterThanOrEqual(5);
-      });
+      expect(result.length).toBe(1);
+      expect(result[0].english).toBe('apple');
     });
   });
 
@@ -281,29 +287,97 @@ describe('Quiz UI flow', function() {
   // createQuestion
   // ===========================================
   describe('createQuestion', function() {
-    test('returns a question with correct structure', function() {
-      var q = app.createQuestion(app.words[0], app.words);
-      expect(q.word).toBe(app.words[0]);
-      expect(q.correctAnswer).toBeDefined();
+    var sampleWords;
+
+    beforeEach(function() {
+      sampleWords = [
+        { id: 1, english: 'apple', chinese: '蘋果' },
+        { id: 2, english: 'banana', chinese: '香蕉' },
+        { id: 3, english: 'cat', chinese: '貓' },
+        { id: 4, english: 'dog', chinese: '狗' },
+        { id: 5, english: 'egg', chinese: '蛋' },
+        { id: 6, english: 'fish', chinese: '魚' },
+        { id: 7, english: 'grape', chinese: '葡萄' }
+      ];
+    });
+
+    test('returns a question object with required properties', function() {
+      var q = app.createQuestion(sampleWords[0], sampleWords);
+      expect(q).toHaveProperty('word');
+      expect(q).toHaveProperty('type');
+      expect(q).toHaveProperty('question');
+      expect(q).toHaveProperty('correctAnswer');
+      expect(q).toHaveProperty('options');
+    });
+
+    test('question type is either en-zh or zh-en', function() {
+      var q = app.createQuestion(sampleWords[0], sampleWords);
+      expect(['en-zh', 'zh-en']).toContain(q.type);
+    });
+
+    test('options contain exactly 4 items', function() {
+      var q = app.createQuestion(sampleWords[0], sampleWords);
       expect(q.options.length).toBe(4);
     });
 
-    test('correct answer is always in options', function() {
+    test('options contain the correct answer', function() {
+      var q = app.createQuestion(sampleWords[0], sampleWords);
+      expect(q.options).toContain(q.correctAnswer);
+    });
+
+    test('correct answer matches the target word', function() {
       for (var i = 0; i < 10; i++) {
-        var q = app.createQuestion(app.words[0], app.words);
-        expect(q.options).toContain(q.correctAnswer);
+        var q = app.createQuestion(sampleWords[0], sampleWords);
+        if (q.type === 'en-zh') {
+          expect(q.question).toBe('apple');
+          expect(q.correctAnswer).toBe('蘋果');
+        } else {
+          expect(q.question).toBe('蘋果');
+          expect(q.correctAnswer).toBe('apple');
+        }
       }
     });
 
-    test('options contain no duplicates', function() {
-      var q = app.createQuestion(app.words[0], app.words);
-      var unique = q.options.filter(function(v, i, arr) { return arr.indexOf(v) === i; });
-      expect(unique.length).toBe(q.options.length);
+    test('wrong options are different from correct answer', function() {
+      var q = app.createQuestion(sampleWords[0], sampleWords);
+      q.options.forEach(function(opt) {
+        if (opt !== q.correctAnswer) {
+          expect(opt).not.toBe(q.correctAnswer);
+        }
+      });
     });
 
-    test('type is en-zh or zh-en', function() {
-      var q = app.createQuestion(app.words[0], app.words);
-      expect(['en-zh', 'zh-en']).toContain(q.type);
+    test('options have no duplicates', function() {
+      var q = app.createQuestion(sampleWords[0], sampleWords);
+      var unique = [];
+      q.options.forEach(function(opt) {
+        if (unique.indexOf(opt) === -1) unique.push(opt);
+      });
+      expect(unique.length).toBe(q.options.length);
+    });
+  });
+
+  // ===========================================
+  // createQuestion with few words (generic fallback)
+  // ===========================================
+  describe('createQuestion with few words', function() {
+    test('fills with generic options when allWords has fewer than 4', function() {
+      var fewWords = [
+        { id: 1, english: 'apple', chinese: '蘋果' },
+        { id: 2, english: 'banana', chinese: '香蕉' }
+      ];
+      var q = app.createQuestion(fewWords[0], fewWords);
+      expect(q.options.length).toBe(4);
+      expect(q.options).toContain(q.correctAnswer);
+    });
+
+    test('uses generic options when only 1 word available', function() {
+      var oneWord = [{ id: 1, english: 'apple', chinese: '蘋果' }];
+      var q = app.createQuestion(oneWord[0], oneWord);
+      expect(q.options.length).toBe(4);
+      expect(q.options).toContain(q.correctAnswer);
+      var wrongOpts = q.options.filter(function(o) { return o !== q.correctAnswer; });
+      expect(wrongOpts.length).toBe(3);
     });
   });
 
@@ -311,17 +385,31 @@ describe('Quiz UI flow', function() {
   // generateQuestions
   // ===========================================
   describe('generateQuestions', function() {
-    beforeEach(function() {
-      app.startQuiz('quick');
-    });
-
     test('quick quiz limits question count', function() {
+      app.startQuiz('quick');
       expect(app.quizState.questions.length).toBeLessThanOrEqual(APP_CONSTANTS.QUIZ_QUICK_COUNT);
     });
 
     test('full quiz uses all available words', function() {
       app.startQuiz('full');
       expect(app.quizState.questions.length).toBe(app.words.length);
+    });
+
+    test('quick quiz with few words uses all available', function() {
+      app.words = app.words.slice(0, 3);
+      app.startQuiz('quick');
+      expect(app.quizState.questions.length).toBe(3);
+    });
+
+    test('each generated question has valid structure', function() {
+      app.startQuiz('quick');
+      app.quizState.questions.forEach(function(q) {
+        expect(q).toHaveProperty('word');
+        expect(q).toHaveProperty('type');
+        expect(q).toHaveProperty('options');
+        expect(q.options.length).toBe(4);
+        expect(q.options).toContain(q.correctAnswer);
+      });
     });
 
     test('wrong options come from filtered words, not all words', function() {
@@ -478,24 +566,64 @@ describe('Quiz UI flow', function() {
   // getResultMessage
   // ===========================================
   describe('getResultMessage', function() {
-    test('returns trophy message for 90+', function() {
-      expect(app.getResultMessage(95)).toContain('太棒了');
+    test('returns trophy message for score >= 90', function() {
+      expect(app.getResultMessage(100)).toContain('太棒了');
+      expect(app.getResultMessage(90)).toContain('太棒了');
     });
 
-    test('returns good message for 80-89', function() {
+    test('returns good message for score 80-89', function() {
       expect(app.getResultMessage(85)).toContain('很好');
+      expect(app.getResultMessage(80)).toContain('很好');
     });
 
-    test('returns ok message for 70-79', function() {
-      expect(app.getResultMessage(75)).toContain('不錯');
+    test('returns ok message for score 70-79', function() {
+      expect(app.getResultMessage(75)).toContain('努力');
+      expect(app.getResultMessage(70)).toContain('努力');
+      expect(app.getResultMessage(79)).toContain('努力');
     });
 
-    test('returns encouraging message for 60-69', function() {
+    test('returns encouraging message for score 60-69', function() {
       expect(app.getResultMessage(65)).toContain('還可以');
+      expect(app.getResultMessage(60)).toContain('還可以');
     });
 
-    test('returns keep-going message for below 60', function() {
-      expect(app.getResultMessage(50)).toContain('加油');
+    test('returns keep-going message for score < 60', function() {
+      expect(app.getResultMessage(40)).toContain('加油');
+      expect(app.getResultMessage(59)).toContain('加油');
+      expect(app.getResultMessage(0)).toContain('加油');
+    });
+
+    test('boundary: 89 is not in 90+ tier', function() {
+      expect(app.getResultMessage(89)).not.toContain('太棒了');
+    });
+  });
+
+  // ===========================================
+  // getNoWordsMessage
+  // ===========================================
+  describe('getNoWordsMessage', function() {
+    test('returns message for very-familiar filter', function() {
+      app.difficultyFilter = -1;
+      expect(app.getNoWordsMessage()).toContain('非常熟');
+    });
+
+    test('returns message for difficulty filter > 0', function() {
+      app.difficultyFilter = 5;
+      expect(app.getNoWordsMessage()).toContain('★5');
+    });
+
+    test('returns removed words message when all removed', function() {
+      app.difficultyFilter = 0;
+      app.currentWords = [];
+      app.words = [{ id: 0, english: 'test', chinese: '測試' }];
+      expect(app.getNoWordsMessage()).toContain('移除');
+    });
+
+    test('returns default no words message', function() {
+      app.difficultyFilter = 0;
+      app.currentWords = [];
+      app.words = [];
+      expect(app.getNoWordsMessage()).toContain('載入');
     });
   });
 

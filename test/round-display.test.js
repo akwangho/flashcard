@@ -171,11 +171,11 @@ describe('displayCurrentWord and startNewRound', function() {
       expect(app.srsReviewActive).toBe(false);
     });
 
-    test('calls displayCurrentWord', function() {
-      var spy = jest.spyOn(app, 'displayCurrentWord');
+    test('displays a word after starting', function() {
       app.startNewRound();
-      expect(spy).toHaveBeenCalled();
-      spy.mockRestore();
+      jest.advanceTimersByTime(APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
+      var el = document.getElementById('english-word');
+      expect(el.textContent).not.toBe('');
     });
 
     test('clears pendingRemoval', function() {

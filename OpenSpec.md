@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.13.8
+> **版本**: 1.13.9
 > **最後更新**: 2026-02-21
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -101,8 +101,7 @@ flashcard/
 ├── test/sheets.test.js        # Sheet 載入/驗證/選擇/渲染單元測試
 ├── test/filter.test.js        # 篩選邏輯單元測試
 ├── test/filter-modal.test.js  # 篩選模態框測試（review/difficulty/type/tag + 持久化 round-trip）
-├── test/quiz.test.js          # 測驗系統單元測試（含題目生成、generic options）
-├── test/quiz-flow.test.js     # 測驗流程測試（含 selectAnswer、showQuizResult、createQuestion）
+├── test/quiz-flow.test.js     # 測驗系統完整測試（題目生成、generic options、流程、計分、篩選）
 ├── test/listening.test.js     # 聽力練習測試（含 choose/spell 模式、wrong review、edge cases）
 ├── test/export.test.js        # 匯出功能單元測試（含批次匯出、進度更新、覆寫處理）
 ├── test/export-batch.test.js  # 批次匯出流程測試
@@ -1294,6 +1293,15 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.13.9 (2026-02-21) — 測試精簡與去重
+
+- 合併 `quiz.test.js` 至 `quiz-flow.test.js`，消除 `createQuestion`、`generateQuestions`、`getResultMessage`、`selectAnswer`、`getCurrentAvailableWords` 的重複測試，刪除 `quiz.test.js`（22 → 21 test suites）
+- 移除 `core.test.js` 中與 `history.test.js` 重複的 `isDefaultSheet` 測試
+- 合併 `filter.test.js` 中與 `filter-modal.test.js` 重複的 `clearAllFilters` 測試
+- 將 `quiz-flow`、`listening`、`round-display` 中的 spy 斷言改為 DOM 行為斷言
+- 簡化 `listening.test.js` 句子排除測試（引號變體已由 `getWordType` 測試覆蓋）
+- 測試數量：748 → 723（減少 25 個重複/冗餘測試）
 
 ### v1.13.8 (2026-02-21) — 句子判定支援引號結尾
 

@@ -390,18 +390,27 @@ describe('Filter modal open/apply flows', function() {
   // clearAllFilters
   // ===========================================
   describe('clearAllFilters', function() {
-    test('resets all filter states', function() {
+    beforeEach(function() {
       app.difficultyFilter = 5;
       app.reviewFilter = '1month';
       app.mustSpellFilter = true;
       app.typeFilter = ['word'];
       app.tagFilter = ['animals'];
+    });
+
+    test('resets all filter states', function() {
       app.clearAllFilters();
       expect(app.difficultyFilter).toBe(0);
       expect(app.reviewFilter).toBe('all');
       expect(app.mustSpellFilter).toBe(false);
       expect(app.typeFilter).toEqual(['word', 'phrase', 'sentence']);
       expect(app.tagFilter).toEqual([]);
+    });
+
+    test('restores all words after clearing', function() {
+      app.currentWords = [];
+      app.clearAllFilters();
+      expect(app.currentWords.length).toBe(app.words.length);
     });
   });
 });

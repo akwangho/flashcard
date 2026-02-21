@@ -194,28 +194,6 @@ describe('getDefaultSheets', function() {
   });
 });
 
-describe('isDefaultSheet', function() {
-  var app;
-
-  beforeEach(function() {
-    var origInit = FlashcardApp.prototype.init;
-    FlashcardApp.prototype.init = function() {};
-    app = new FlashcardApp();
-    FlashcardApp.prototype.init = origInit;
-  });
-
-  test('returns true for a known default sheet ID', function() {
-    var defaults = app.getDefaultSheets();
-    if (defaults.length > 0) {
-      expect(app.isDefaultSheet(defaults[0].id)).toBe(true);
-    }
-  });
-
-  test('returns false for a random sheet ID', function() {
-    expect(app.isDefaultSheet('random-id-12345')).toBe(false);
-  });
-});
-
 describe('shuffleArray', function() {
   var app;
 
