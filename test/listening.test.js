@@ -385,6 +385,148 @@ describe('Listening Quiz Module', function() {
       expect(app.isListeningInProgress()).toBe(false);
     });
   });
+
+  // ===========================================
+  // _generateListeningQuestions
+  // ===========================================
+  describe('_generateListeningQuestions', function() {
+    test('generates questions from available words', function() {
+      app.startListeningQuiz('choose');
+      expect(app.listeningState.questions.length).toBeGreaterThan(0);
+    });
+
+    test('limits to LISTENING_QUICK_COUNT', function() {
+      app.startListeningQuiz('choose');
+      expect(app.listeningState.questions.length).toBeLessThanOrEqual(APP_CONSTANTS.LISTENING_QUICK_COUNT);
+    });
+
+    test('choose mode generates options for each question', function() {
+      app.startListeningQuiz('choose');
+      app.listeningState.questions.forEach(function(q) {
+        expect(q.options.length).toBe(4);
+        expect(q.options).toContain(q.correctAnswer);
+      });
+    });
+
+    test('spell mode generates no options', function() {
+      app.startListeningQuiz('spell');
+      app.listeningState.questions.forEach(function(q) {
+        expect(q.options.length).toBe(0);
+      });
+    });
+  });
+
+  // ===========================================
+  // _renderListeningChooseOptions
+  // ===========================================
+  describe('_renderListeningChooseOptions', function() {
+    test('renders option buttons in DOM', function() {
+      app.startListeningQuiz('choose');
+      app.beginListeningQuiz();
+      var q = app.listeningState.questions[0];
+      app._renderListeningChooseOptions(q);
+      var container = document.getElementById('listening-options');
+      expect(container.children.length).toBe(4);
+    });
+
+    test('option buttons have data-answer attribute', function() {
+      app.startListeningQuiz('choose');
+      app.beginListeningQuiz();
+      var q = app.listeningState.questions[0];
+      app._renderListeningChooseOptions(q);
+      var container = document.getElementById('listening-options');
+      var btn = container.children[0];
+      expect(btn.getAttribute('data-answer')).toBeDefined();
+    });
+  });
+
+  // ===========================================
+  // _renderListeningSpellInput
+  // ===========================================
+  describe('_renderListeningSpellInput', function() {
+    test('shows spell area and hides options', function() {
+      app.startListeningQuiz('spell');
+      app.beginListeningQuiz();
+      var q = app.listeningState.questions[0];
+      app._renderListeningSpellInput(q);
+      var spellArea = document.getElementById('listening-spell-area');
+      var optContainer = document.getElementById('listening-options');
+      expect(spellArea.style.display).toBe('');
+      expect(optContainer.style.display).toBe('none');
+    });
+
+    test('shows letter hint with underscores', function() {
+      app.startListeningQuiz('spell');
+      app.beginListeningQuiz();
+      var q = app.listeningState.questions[0];
+      app._renderListeningSpellInput(q);
+      var hint = document.getElementById('listening-letter-hint');
+      expect(hint.textContent).toContain('_');
+      expect(hint.textContent.replace(/ /g, '').length).toBeGreaterThan(0);
+    });
+
+    test('clears and enables input', function() {
+      app.startListeningQuiz('spell');
+      app.beginListeningQuiz();
+      var q = app.listeningState.questions[0];
+      app._renderListeningSpellInput(q);
+      var input = document.getElementById('listening-spell-input');
+      expect(input.value).toBe('');
+      expect(input.disabled).toBe(false);
+    });
+  });
+
+  // ===========================================
+  // _showListeningWrongReview
+  // ===========================================
+  describe('_showListeningWrongReview', function() {
+    test('hides wrong review when all correct', function() {
+      app.startListeningQuiz('choose');
+      app.beginListeningQuiz();
+      // Answer all correctly
+      for (var i = 0; i < app.listeningState.questions.length; i++) {
+        app.listeningState.currentQuestionIndex = i;
+        app.listeningState.selectedAnswer = null;
+        app._selectListeningAnswer(app.listeningState.questions[i].correctAnswer);
+      }
+      app._showListeningWrongReview();
+      var review = document.getElementById('listening-wrong-review');
+      expect(review.style.display).toBe('none');
+    });
+
+    test('shows wrong review with wrong items', function() {
+      app.startListeningQuiz('choose');
+      app.beginListeningQuiz();
+      var q = app.listeningState.questions[0];
+      var wrong = q.options.find(function(o) { return o !== q.correctAnswer; });
+      app._selectListeningAnswer(wrong);
+      app._showListeningWrongReview();
+      var review = document.getElementById('listening-wrong-review');
+      var list = document.getElementById('listening-wrong-list');
+      expect(review.style.display).toBe('block');
+      expect(list.children.length).toBe(1);
+    });
+  });
+
+  // ===========================================
+  // Edge cases
+  // ===========================================
+  describe('edge cases', function() {
+    test('works with exactly LISTENING_MIN_WORDS words', function() {
+      app.currentWords = app.words.slice(0, APP_CONSTANTS.LISTENING_MIN_WORDS);
+      app.startListeningQuiz('choose');
+      expect(app.listeningState.isActive).toBe(true);
+      expect(app.listeningState.questions.length).toBeGreaterThan(0);
+    });
+
+    test('alerts when fewer than LISTENING_MIN_WORDS words', function() {
+      app.currentWords = app.words.slice(0, APP_CONSTANTS.LISTENING_MIN_WORDS - 1);
+      var alertSpy = jest.spyOn(window, 'alert').mockImplementation(function() {});
+      app.startListeningQuiz('choose');
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('太少'));
+      alertSpy.mockRestore();
+    });
+  });
 });
 
 describe('Flashcard Listening Mode', function() {

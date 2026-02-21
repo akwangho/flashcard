@@ -240,4 +240,230 @@ describe('Quiz UI flow', function() {
       expect(result).toEqual([]);
     });
   });
+
+  // ===========================================
+  // createQuestion
+  // ===========================================
+  describe('createQuestion', function() {
+    test('returns a question with correct structure', function() {
+      var q = app.createQuestion(app.words[0], app.words);
+      expect(q.word).toBe(app.words[0]);
+      expect(q.correctAnswer).toBeDefined();
+      expect(q.options.length).toBe(4);
+    });
+
+    test('correct answer is always in options', function() {
+      for (var i = 0; i < 10; i++) {
+        var q = app.createQuestion(app.words[0], app.words);
+        expect(q.options).toContain(q.correctAnswer);
+      }
+    });
+
+    test('options contain no duplicates', function() {
+      var q = app.createQuestion(app.words[0], app.words);
+      var unique = q.options.filter(function(v, i, arr) { return arr.indexOf(v) === i; });
+      expect(unique.length).toBe(q.options.length);
+    });
+
+    test('type is en-zh or zh-en', function() {
+      var q = app.createQuestion(app.words[0], app.words);
+      expect(['en-zh', 'zh-en']).toContain(q.type);
+    });
+  });
+
+  // ===========================================
+  // generateQuestions
+  // ===========================================
+  describe('generateQuestions', function() {
+    beforeEach(function() {
+      app.startQuiz('quick');
+    });
+
+    test('quick quiz limits question count', function() {
+      expect(app.quizState.questions.length).toBeLessThanOrEqual(APP_CONSTANTS.QUIZ_QUICK_COUNT);
+    });
+
+    test('full quiz uses all available words', function() {
+      app.startQuiz('full');
+      expect(app.quizState.questions.length).toBe(app.words.length);
+    });
+  });
+
+  // ===========================================
+  // selectAnswer
+  // ===========================================
+  describe('selectAnswer', function() {
+    beforeEach(function() {
+      app.startQuiz('full');
+      app.beginQuiz();
+    });
+
+    test('records the selected answer', function() {
+      var q = app.quizState.questions[0];
+      app.selectAnswer(q.correctAnswer);
+      expect(app.quizState.selectedAnswer).toBe(q.correctAnswer);
+    });
+
+    test('correct answer adds to score', function() {
+      var q = app.quizState.questions[0];
+      app.selectAnswer(q.correctAnswer);
+      expect(app.quizState.score).toBe(APP_CONSTANTS.QUIZ_POINTS_PER_QUESTION);
+    });
+
+    test('wrong answer does not add to score', function() {
+      var q = app.quizState.questions[0];
+      var wrong = q.options.find(function(o) { return o !== q.correctAnswer; });
+      app.selectAnswer(wrong);
+      expect(app.quizState.score).toBe(0);
+    });
+
+    test('records answer in answers array', function() {
+      var q = app.quizState.questions[0];
+      app.selectAnswer(q.correctAnswer);
+      expect(app.quizState.answers.length).toBe(1);
+      expect(app.quizState.answers[0].isCorrect).toBe(true);
+    });
+
+    test('ignores second selection', function() {
+      var q = app.quizState.questions[0];
+      app.selectAnswer(q.correctAnswer);
+      var wrong = q.options.find(function(o) { return o !== q.correctAnswer; });
+      app.selectAnswer(wrong);
+      expect(app.quizState.answers.length).toBe(1);
+    });
+
+    test('shows feedback after answering', function() {
+      var q = app.quizState.questions[0];
+      app.selectAnswer(q.correctAnswer);
+      var feedback = document.getElementById('quiz-feedback');
+      expect(feedback.style.display).toBe('block');
+    });
+
+    test('shows next button after answering', function() {
+      var q = app.quizState.questions[0];
+      app.selectAnswer(q.correctAnswer);
+      var nextBtn = document.getElementById('quiz-next');
+      expect(nextBtn.style.display).toBe('inline-block');
+    });
+  });
+
+  // ===========================================
+  // showAnswerFeedback
+  // ===========================================
+  describe('showAnswerFeedback', function() {
+    beforeEach(function() {
+      app.startQuiz('full');
+      app.beginQuiz();
+      app.voiceSettings = { enabled: false };
+    });
+
+    test('displays correct feedback class', function() {
+      var q = app.quizState.questions[0];
+      app.showAnswerFeedback(true, q);
+      var feedback = document.getElementById('quiz-feedback');
+      expect(feedback.className).toContain('correct');
+    });
+
+    test('displays wrong feedback class', function() {
+      var q = app.quizState.questions[0];
+      app.showAnswerFeedback(false, q);
+      var feedback = document.getElementById('quiz-feedback');
+      expect(feedback.className).toContain('wrong');
+    });
+
+    test('shows explanation text', function() {
+      var q = app.quizState.questions[0];
+      app.showAnswerFeedback(true, q);
+      var explanation = document.getElementById('quiz-feedback-explanation');
+      expect(explanation.textContent).toContain(q.word.english);
+    });
+  });
+
+  // ===========================================
+  // showQuizResult
+  // ===========================================
+  describe('showQuizResult', function() {
+    beforeEach(function() {
+      app.startQuiz('full');
+      app.beginQuiz();
+      // Answer all questions
+      for (var i = 0; i < app.quizState.questions.length; i++) {
+        app.quizState.currentQuestionIndex = i;
+        var q = app.quizState.questions[i];
+        app.quizState.selectedAnswer = null;
+        app.selectAnswer(q.correctAnswer);
+      }
+    });
+
+    test('displays result screen', function() {
+      app.showQuizResult();
+      var resultScreen = document.getElementById('quiz-result-screen');
+      expect(resultScreen.style.display).toBe('block');
+    });
+
+    test('shows correct count', function() {
+      app.showQuizResult();
+      var correctEl = document.getElementById('quiz-correct-count');
+      expect(parseInt(correctEl.textContent)).toBe(app.quizState.questions.length);
+    });
+
+    test('shows final score', function() {
+      app.showQuizResult();
+      var scoreEl = document.getElementById('quiz-final-score');
+      expect(parseInt(scoreEl.textContent)).toBe(100);
+    });
+  });
+
+  // ===========================================
+  // getResultMessage
+  // ===========================================
+  describe('getResultMessage', function() {
+    test('returns trophy message for 90+', function() {
+      expect(app.getResultMessage(95)).toContain('太棒了');
+    });
+
+    test('returns good message for 80-89', function() {
+      expect(app.getResultMessage(85)).toContain('很好');
+    });
+
+    test('returns ok message for 70-79', function() {
+      expect(app.getResultMessage(75)).toContain('不錯');
+    });
+
+    test('returns encouraging message for 60-69', function() {
+      expect(app.getResultMessage(65)).toContain('還可以');
+    });
+
+    test('returns keep-going message for below 60', function() {
+      expect(app.getResultMessage(50)).toContain('加油');
+    });
+  });
+
+  // ===========================================
+  // _generateWrongOptions (shared utility)
+  // ===========================================
+  describe('_generateWrongOptions', function() {
+    test('returns correct number of wrong options', function() {
+      var result = app._generateWrongOptions('蘋果', app.words, 'chinese', 3);
+      expect(result.length).toBe(3);
+    });
+
+    test('does not include the correct answer', function() {
+      var result = app._generateWrongOptions('蘋果', app.words, 'chinese', 3);
+      expect(result).not.toContain('蘋果');
+    });
+
+    test('uses generic fallback when not enough options', function() {
+      var tinyWords = [{ chinese: '蘋果' }, { chinese: '香蕉' }];
+      var fallback = ['選項A', '選項B', '選項C'];
+      var result = app._generateWrongOptions('蘋果', tinyWords, 'chinese', 3, fallback);
+      expect(result.length).toBe(3);
+    });
+
+    test('returns no duplicates', function() {
+      var result = app._generateWrongOptions('蘋果', app.words, 'chinese', 3);
+      var unique = result.filter(function(v, i, arr) { return arr.indexOf(v) === i; });
+      expect(unique.length).toBe(result.length);
+    });
+  });
 });

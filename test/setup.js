@@ -155,8 +155,8 @@ function createDOMElements() {
     // Smart timer setting
     'smart-timer-setting',
     // Custom confirm modal
-    'custom-confirm-modal', 'custom-confirm-message',
-    'custom-confirm-yes', 'custom-confirm-no',
+    'custom-confirm-modal', 'custom-confirm-title', 'custom-confirm-message',
+    'custom-confirm-warning', 'custom-confirm-ok', 'custom-confirm-cancel',
     // Image fit mode
     'image-fit-setting',
     // Select all sheets
@@ -300,6 +300,28 @@ function createDOMElements() {
       label.appendChild(radio);
       revOpts.appendChild(label);
     });
+  }
+
+  var typeModal = document.getElementById('type-filter-modal');
+  var typeOpts = document.getElementById('type-filter-options');
+  if (typeModal && typeOpts) {
+    typeModal.appendChild(typeOpts);
+    ['word', 'phrase', 'sentence'].forEach(function(val) {
+      var label = document.createElement('label');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.name = 'type-filter';
+      cb.value = val;
+      cb.checked = true;
+      label.appendChild(cb);
+      typeOpts.appendChild(label);
+    });
+  }
+
+  var tagModal = document.getElementById('tag-filter-modal');
+  var tagOpts = document.getElementById('tag-filter-options');
+  if (tagModal && tagOpts) {
+    tagModal.appendChild(tagOpts);
   }
 }
 
@@ -456,13 +478,28 @@ function bootstrapApp() {
     'if (typeof FlashcardApp !== "undefined") { global.FlashcardApp = FlashcardApp; }\n' +
     'if (typeof APP_CONSTANTS !== "undefined") { global.APP_CONSTANTS = APP_CONSTANTS; }\n' +
     'if (typeof formatDateYYYYMMDD !== "undefined") { global.formatDateYYYYMMDD = formatDateYYYYMMDD; }\n' +
-    'if (typeof isModalBackgroundClick !== "undefined") { global.isModalBackgroundClick = isModalBackgroundClick; }\n';
+    'if (typeof isModalBackgroundClick !== "undefined") { global.isModalBackgroundClick = isModalBackgroundClick; }\n' +
+    'if (typeof getWordType !== "undefined") { global.getWordType = getWordType; }\n';
   var script = new Function(exportCode);
   script.call(global);
 }
 
+/**
+ * Create a FlashcardApp instance with init() stubbed out.
+ * Useful in tests that only need to exercise individual methods
+ * without the full initialization side effects.
+ */
+function createApp() {
+  var origInit = FlashcardApp.prototype.init;
+  FlashcardApp.prototype.init = function() {};
+  var app = new FlashcardApp();
+  FlashcardApp.prototype.init = origInit;
+  return app;
+}
+
 module.exports = {
   bootstrapApp: bootstrapApp,
+  createApp: createApp,
   loadAllScripts: loadAllScripts,
   createDOMElements: createDOMElements,
   setupMocks: setupMocks

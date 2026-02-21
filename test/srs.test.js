@@ -285,3 +285,235 @@ describe('loadSrsData and saveSrsData', function() {
   });
 });
 
+// ============================================================
+// getRecommendedWords
+// ============================================================
+describe('getRecommendedWords', function() {
+
+  test('returns all words when no SRS data exists', function() {
+    app.words = [
+      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 3 },
+      { id: 1, english: 'banana', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 1 }
+    ];
+    app.srsData = {};
+    var result = app.getRecommendedWords();
+    expect(result.length).toBe(2);
+  });
+
+  test('due/overdue words come before never-reviewed', function() {
+    app.words = [
+      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 0 },
+      { id: 1, english: 'banana', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 5 }
+    ];
+    app.srsData = {
+      'S1:1': { box: 1, nextReview: '2020-01-01' }
+    };
+    var result = app.getRecommendedWords();
+    expect(result[0].english).toBe('apple');
+  });
+
+  test('never-reviewed words come before future-due words', function() {
+    app.words = [
+      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 3 },
+      { id: 1, english: 'banana', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 0 }
+    ];
+    app.srsData = {
+      'S1:2': { box: 3, nextReview: '2099-12-31' }
+    };
+    var result = app.getRecommendedWords();
+    expect(result[0].english).toBe('apple');
+    expect(result[1].english).toBe('banana');
+  });
+
+  test('among never-reviewed, higher difficulty comes first', function() {
+    app.words = [
+      { id: 0, english: 'easy', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 1 },
+      { id: 1, english: 'hard', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 8 },
+      { id: 2, english: 'medium', sheetName: 'S1', originalRowIndex: 3, difficultyLevel: 4 }
+    ];
+    app.srsData = {};
+    var result = app.getRecommendedWords();
+    expect(result[0].english).toBe('hard');
+    expect(result[1].english).toBe('medium');
+    expect(result[2].english).toBe('easy');
+  });
+
+  test('among due words with same date, lower box comes first', function() {
+    app.words = [
+      { id: 0, english: 'highbox', sheetName: 'S1', originalRowIndex: 1 },
+      { id: 1, english: 'lowbox', sheetName: 'S1', originalRowIndex: 2 }
+    ];
+    app.srsData = {
+      'S1:1': { box: 4, nextReview: '2020-01-01' },
+      'S1:2': { box: 1, nextReview: '2020-01-01' }
+    };
+    var result = app.getRecommendedWords();
+    // sortKey = -(box), so -4 < -1 → box 4 sorts first (more negative = earlier)
+    expect(result[0].english).toBe('highbox');
+    expect(result[1].english).toBe('lowbox');
+  });
+
+  test('accepts sourceWords parameter', function() {
+    app.words = [
+      { id: 0, english: 'from-words', sheetName: 'S1', originalRowIndex: 1 }
+    ];
+    var custom = [
+      { id: 1, english: 'from-source', sheetName: 'S1', originalRowIndex: 2 }
+    ];
+    app.srsData = {};
+    var result = app.getRecommendedWords(custom);
+    expect(result.length).toBe(1);
+    expect(result[0].english).toBe('from-source');
+  });
+
+  test('negative difficulty words sort last among never-reviewed', function() {
+    app.words = [
+      { id: 0, english: 'familiar', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: -1 },
+      { id: 1, english: 'hard', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 5 }
+    ];
+    app.srsData = {};
+    var result = app.getRecommendedWords();
+    expect(result[0].english).toBe('hard');
+    expect(result[1].english).toBe('familiar');
+  });
+});
+
+// ============================================================
+// calculateSrsStats
+// ============================================================
+describe('calculateSrsStats', function() {
+
+  test('returns null for empty word list', function() {
+    var result = app.calculateSrsStats([]);
+    expect(result).toBeNull();
+  });
+
+  test('returns null when no words', function() {
+    var result = app.calculateSrsStats(null);
+    expect(result).toBeNull();
+  });
+
+  test('counts total words correctly', function() {
+    var words = [
+      { id: 0, english: 'a', difficultyLevel: 0 },
+      { id: 1, english: 'b', difficultyLevel: 3 },
+      { id: 2, english: 'c', difficultyLevel: 7 }
+    ];
+    var stats = app.calculateSrsStats(words);
+    expect(stats.total).toBe(3);
+  });
+
+  test('counts never-reviewed words', function() {
+    var words = [
+      { id: 0, english: 'a', difficultyLevel: 0 },
+      { id: 1, english: 'b', difficultyLevel: 0, lastReviewDate: '2026-02-20' }
+    ];
+    var stats = app.calculateSrsStats(words);
+    expect(stats.neverReviewed).toBe(1);
+  });
+
+  test('computes difficulty distribution', function() {
+    var words = [
+      { id: 0, english: 'a', difficultyLevel: -999 },
+      { id: 1, english: 'b', difficultyLevel: 0 },
+      { id: 2, english: 'c', difficultyLevel: 5 },
+      { id: 3, english: 'd', difficultyLevel: 10 }
+    ];
+    var stats = app.calculateSrsStats(words);
+    var mastered = stats.diffBuckets.find(function(b) { return b.label === '非常熟'; });
+    var star0 = stats.diffBuckets.find(function(b) { return b.label === '★0'; });
+    var star56 = stats.diffBuckets.find(function(b) { return b.label === '★5-6'; });
+    var star910 = stats.diffBuckets.find(function(b) { return b.label === '★9-10'; });
+    expect(mastered.count).toBe(1);
+    expect(star0.count).toBe(1);
+    expect(star56.count).toBe(1);
+    expect(star910.count).toBe(1);
+  });
+
+  test('defaults to this.words when no sourceWords given', function() {
+    app.words = [
+      { id: 0, english: 'a', difficultyLevel: 0 }
+    ];
+    var stats = app.calculateSrsStats();
+    expect(stats.total).toBe(1);
+  });
+
+  test('reviewStats has 4 cutoff periods', function() {
+    var words = [
+      { id: 0, english: 'a', difficultyLevel: 0 }
+    ];
+    var stats = app.calculateSrsStats(words);
+    expect(stats.reviewStats.length).toBe(4);
+    expect(stats.reviewStats[0].label).toBe('三天內已複習');
+    expect(stats.reviewStats[3].label).toBe('一個月內已複習');
+  });
+});
+
+// ============================================================
+// startSrsReview
+// ============================================================
+describe('startSrsReview', function() {
+
+  beforeEach(function() {
+    app.words = [
+      { id: 0, english: 'apple', chinese: '蘋果', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 5 },
+      { id: 1, english: 'banana', chinese: '香蕉', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 3 },
+      { id: 2, english: 'cat', chinese: '貓', sheetName: 'S1', originalRowIndex: 3, difficultyLevel: 1 }
+    ];
+    app.srsData = {};
+    app.difficultyFilter = 0;
+    app.reviewFilter = 'all';
+    app.mustSpellFilter = false;
+    app.typeFilter = ['word', 'phrase', 'sentence'];
+    app.tagFilter = [];
+    app.displayCurrentWord = jest.fn();
+    app.updateProgress = jest.fn();
+    app.updateActiveFilterDisplay = jest.fn();
+    app.closeSrsReviewModal = jest.fn();
+    app.showNotification = jest.fn();
+    app.shuffleArray = FlashcardApp.prototype.shuffleArray;
+    app.applyAllFilters = FlashcardApp.prototype.applyAllFilters;
+    app.getRecommendedWords = FlashcardApp.prototype.getRecommendedWords;
+    app.getSrsForWord = FlashcardApp.prototype.getSrsForWord;
+    app.getTodayDateString = FlashcardApp.prototype.getTodayDateString;
+    app.saveFilterSettings = jest.fn();
+  });
+
+  test('sets currentWords to the requested count', function() {
+    app.startSrsReview(2);
+    expect(app.currentWords.length).toBe(2);
+  });
+
+  test('sets srsReviewActive to true', function() {
+    app.startSrsReview(3);
+    expect(app.srsReviewActive).toBe(true);
+  });
+
+  test('resets currentIndex and removedWords', function() {
+    app.currentIndex = 5;
+    app.removedWords = [{ id: 99 }];
+    app.startSrsReview(2);
+    expect(app.currentIndex).toBe(0);
+    expect(app.removedWords).toEqual([]);
+  });
+
+  test('calls displayCurrentWord', function() {
+    app.startSrsReview(2);
+    expect(app.displayCurrentWord).toHaveBeenCalled();
+  });
+
+  test('caps at available word count', function() {
+    app.startSrsReview(100);
+    expect(app.currentWords.length).toBe(3);
+  });
+
+  test('shows notification when no words match filters', function() {
+    app.words = [];
+    app.startSrsReview(10);
+    expect(app.showNotification).toHaveBeenCalledWith(
+      expect.stringContaining('沒有符合'),
+      'info'
+    );
+  });
+});
+

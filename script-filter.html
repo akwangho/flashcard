@@ -106,29 +106,21 @@
   };
 
   // 套用所有篩選條件（不熟單字 + 複習時間）
-  // 判斷單字類型：sentence（句號/問號/驚嘆號結尾）、phrase（含空格）、word（其他）
-  function getWordType(english) {
-    var trimmed = (english || '').trim();
-    var last = trimmed.charAt(trimmed.length - 1);
-    if (last === '.' || last === '?' || last === '!') return 'sentence';
-    if (trimmed.indexOf(' ') !== -1) return 'phrase';
-    return 'word';
-  }
-
   FlashcardApp.prototype.applyAllFilters = function(words) {
     var filtered = words.slice();
     var self = this;
     
+    var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
+
     // 篩選 1：不熟程度篩選
     if (this.difficultyFilter < 0) {
-      // 特殊篩選：只顯示非常熟（-999）的單字
       filtered = filtered.filter(function(w) {
-        return w.difficultyLevel <= -999;
+        return w.difficultyLevel <= VF;
       });
     } else {
-      // 預設排除 -999（非常熟）的單字，-1~-998 仍正常出現
+      // 預設排除「非常熟」的單字，-1~-998 仍正常出現
       filtered = filtered.filter(function(w) {
-        return w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null;
+        return w.difficultyLevel > VF || w.difficultyLevel === undefined || w.difficultyLevel === null;
       });
       // 再套用 >= 篩選
       if (this.difficultyFilter > 0) {
@@ -193,6 +185,30 @@
     return filtered;
   };
 
+  /**
+   * 共用：套用篩選後重新整理單字清單並更新 UI。
+   * 若篩選結果為空，執行 resetFn 重設篩選值，再重新套用。
+   * @param {Function} resetFn - 篩選結果為空時的重設回呼
+   */
+  FlashcardApp.prototype._applyFilterAndRefresh = function(resetFn) {
+    this.shuffleArray(this.words);
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+
+    if (this.currentWords.length === 0) {
+      alert('沒有符合篩選條件的單字！篩選已重設為「全部」。');
+      resetFn.call(this);
+      this.saveFilterSettings();
+      this.currentWords = this.applyAllFilters(this.words);
+    }
+
+    this.displayCurrentWord();
+    this.updateButtonStates();
+    this.renderDifficultyLevel();
+    this.updateActiveFilterDisplay();
+  };
+
   // 取得篩選截止日期
   FlashcardApp.prototype.getFilterCutoffDate = function(filterType) {
     var now = new Date();
@@ -201,23 +217,23 @@
     var days = APP_CONSTANTS.FILTER_DAYS[filterType];
     if (!days) return '9999-12-31'; // 不篩選
     
-    cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    cutoff = new Date(now.getTime() - days * APP_CONSTANTS.MS_PER_DAY);
     return formatDateYYYYMMDD(cutoff);
   };
 
   // 計算各複習時間篩選條件符合的單字數量
   FlashcardApp.prototype.countWordsForFilter = function(filterType) {
     var words = this.words;
+    var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
     
     // 如果同時啟用了不熟程度篩選，先套用
     if (this.difficultyFilter < 0) {
       words = words.filter(function(w) {
-        return w.difficultyLevel <= -999;
+        return w.difficultyLevel <= VF;
       });
     } else {
-      // 預設排除 -999（非常熟）的單字
       words = words.filter(function(w) {
-        return w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null;
+        return w.difficultyLevel > VF || w.difficultyLevel === undefined || w.difficultyLevel === null;
       });
       if (this.difficultyFilter > 0) {
         var minLevel = this.difficultyFilter;
@@ -337,25 +353,11 @@
     this.saveFilterSettings();
     
     this.closeReviewFilterModal();
-    
-    // 重新打亂並套用篩選，開始新回合
-    this.shuffleArray(this.words);
-    this.currentWords = this.applyAllFilters(this.words);
-    this.currentIndex = 0;
-    this.removedWords = [];
-    
-    if (this.currentWords.length === 0) {
-      alert('沒有符合篩選條件的單字！篩選已重設為「全部」。');
+
+    this._applyFilterAndRefresh(function() {
       this.reviewFilter = 'all';
       this.updateReviewFilterButtonText();
-      this.saveFilterSettings();
-      this.currentWords = this.applyAllFilters(this.words);
-    }
-    
-    this.displayCurrentWord();
-    this.updateButtonStates();
-    this.renderDifficultyLevel();
-    this.updateActiveFilterDisplay();
+    });
   };
 
   // 更新選單中篩選按鈕的文字
@@ -469,25 +471,11 @@
     this.updateDifficultyFilterButtonText();
     this.saveFilterSettings();
     this.closeDifficultyFilterModal();
-    
-    // 重新打亂並套用篩選
-    this.shuffleArray(this.words);
-    this.currentWords = this.applyAllFilters(this.words);
-    this.currentIndex = 0;
-    this.removedWords = [];
-    
-    if (this.currentWords.length === 0) {
-      alert('沒有符合篩選條件的單字！篩選已重設為「全部」。');
+
+    this._applyFilterAndRefresh(function() {
       this.difficultyFilter = 0;
       this.updateDifficultyFilterButtonText();
-      this.saveFilterSettings();
-      this.currentWords = this.applyAllFilters(this.words);
-    }
-    
-    this.displayCurrentWord();
-    this.updateButtonStates();
-    this.renderDifficultyLevel();
-    this.updateActiveFilterDisplay();
+    });
   };
 
   // 計算不熟程度篩選的單字數量
@@ -514,23 +502,22 @@
       });
     }
     
-    // 特殊：非常熟篩選只計算 difficultyLevel <= -999 的單字
+    var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
+
     if (minLevel < 0) {
       return words.filter(function(w) {
-        return w.difficultyLevel <= -999;
+        return w.difficultyLevel <= VF;
       }).length;
     }
     
-    // 0 = 全部（但排除 -999）
     if (minLevel === 0) {
       return words.filter(function(w) {
-        return w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null;
+        return w.difficultyLevel > VF || w.difficultyLevel === undefined || w.difficultyLevel === null;
       }).length;
     }
     
-    // >= minLevel（排除 -999）
     return words.filter(function(w) {
-      return (w.difficultyLevel > -999 || w.difficultyLevel === undefined || w.difficultyLevel === null) && (w.difficultyLevel || 0) >= minLevel;
+      return (w.difficultyLevel > VF || w.difficultyLevel === undefined || w.difficultyLevel === null) && (w.difficultyLevel || 0) >= minLevel;
     }).length;
   };
 
@@ -681,23 +668,10 @@
     this.saveFilterSettings();
     this.closeTypeFilterModal();
 
-    this.shuffleArray(this.words);
-    this.currentWords = this.applyAllFilters(this.words);
-    this.currentIndex = 0;
-    this.removedWords = [];
-
-    if (this.currentWords.length === 0) {
-      alert('沒有符合篩選條件的單字！篩選已重設為「全部」。');
+    this._applyFilterAndRefresh(function() {
       this.typeFilter = ['word', 'phrase', 'sentence'];
       this.updateTypeFilterButtonText();
-      this.saveFilterSettings();
-      this.currentWords = this.applyAllFilters(this.words);
-    }
-
-    this.displayCurrentWord();
-    this.updateButtonStates();
-    this.renderDifficultyLevel();
-    this.updateActiveFilterDisplay();
+    });
   };
 
   // 更新類型篩選按鈕文字
@@ -850,23 +824,10 @@
     this.saveFilterSettings();
     this.closeTagFilterModal();
 
-    this.shuffleArray(this.words);
-    this.currentWords = this.applyAllFilters(this.words);
-    this.currentIndex = 0;
-    this.removedWords = [];
-
-    if (this.currentWords.length === 0) {
-      alert('沒有符合篩選條件的單字！篩選已重設。');
+    this._applyFilterAndRefresh(function() {
       this.tagFilter = [];
       this.updateTagFilterButtonText();
-      this.saveFilterSettings();
-      this.currentWords = this.applyAllFilters(this.words);
-    }
-
-    this.displayCurrentWord();
-    this.updateButtonStates();
-    this.renderDifficultyLevel();
-    this.updateActiveFilterDisplay();
+    });
   };
 
   // 更新標籤篩選按鈕文字

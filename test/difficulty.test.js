@@ -65,10 +65,10 @@ describe('increaseDifficulty', function() {
     expect(function() { app.increaseDifficulty(); }).not.toThrow();
   });
 
-  test('calls renderDifficultyLevel', function() {
-    var spy = jest.spyOn(app, 'renderDifficultyLevel');
+  test('updates difficulty display in DOM', function() {
     app.increaseDifficulty();
-    expect(spy).toHaveBeenCalled();
+    var levelEl = document.getElementById('difficulty-level');
+    expect(levelEl.textContent).not.toBe('');
   });
 
   test('marks -999 in pendingRemoval state (S key behavior)', function() {
@@ -96,16 +96,16 @@ describe('increaseDifficulty', function() {
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('非常熟'));
   });
 
-  test('calls renderDifficultyLevelPreview(-999) in pendingRemoval state', function() {
+  test('previews very-familiar difficulty in pendingRemoval state', function() {
     app.currentIndex = 0;
     app.pendingRemoval = {
       word: app.currentWords[0],
       index: 0,
       isVeryFamiliar: false
     };
-    var spy = jest.spyOn(app, 'renderDifficultyLevelPreview');
     app.increaseDifficulty();
-    expect(spy).toHaveBeenCalledWith(-999);
+    var levelEl = document.getElementById('difficulty-level');
+    expect(levelEl.textContent).toBe('✓');
   });
 
   test('does not change difficulty directly in pendingRemoval state', function() {

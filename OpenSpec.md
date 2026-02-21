@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.13.0
-> **最後更新**: 2026-02-20
+> **版本**: 1.13.1
+> **最後更新**: 2026-02-21
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -89,21 +89,29 @@ flashcard/
 ├── .gitignore             # Git 忽略規則
 │
 │   # 測試
-├── test/setup.js          # 測試環境初始化（DOM 模擬、Mock）
-├── test/polyfills.test.js # Polyfills 單元測試
-├── test/core.test.js      # 核心功能單元測試
-├── test/voice.test.js     # 語音功能單元測試（含語音等待機制）
-├── test/navigation.test.js# 導覽功能單元測試（上/下一個、進度）
-├── test/difficulty.test.js# 不熟程度系統單元測試
-├── test/pause.test.js     # 暫停/繼續功能單元測試
-├── test/srs.test.js       # 間隔重複系統(SRS)單元測試
-├── test/history.test.js   # 單字檔歷史記錄單元測試
-├── test/sheets.test.js    # Sheet 載入/驗證/選擇/渲染單元測試
-├── test/filter.test.js    # 篩選邏輯單元測試
-├── test/quiz.test.js      # 測驗系統單元測試（含題目生成、答題流程、generic options）
-├── test/export.test.js    # 匯出功能單元測試（含批次匯出、進度更新、覆寫處理）
-├── test/display.test.js   # 顯示邏輯單元測試（含 onWordClick、設定 modal 操作）
-├── test/duplicates.test.js# 重複處理單元測試（含 modal 開關、自動處理）
+├── test/setup.js              # 測試環境初始化（DOM 模擬、Mock、createApp 工具）
+├── test/polyfills.test.js     # Polyfills 單元測試
+├── test/core.test.js          # 核心功能單元測試
+├── test/voice.test.js         # 語音功能單元測試（含語音等待機制）
+├── test/navigation.test.js    # 導覽功能單元測試（上/下一個、進度）
+├── test/difficulty.test.js    # 不熟程度系統單元測試
+├── test/pause.test.js         # 暫停/繼續功能單元測試
+├── test/srs.test.js           # SRS 單元測試（含 getRecommendedWords、calculateSrsStats、startSrsReview）
+├── test/history.test.js       # 單字檔歷史記錄單元測試
+├── test/sheets.test.js        # Sheet 載入/驗證/選擇/渲染單元測試
+├── test/filter.test.js        # 篩選邏輯單元測試
+├── test/filter-modal.test.js  # 篩選模態框測試（review/difficulty/type/tag + 持久化 round-trip）
+├── test/quiz.test.js          # 測驗系統單元測試（含題目生成、generic options）
+├── test/quiz-flow.test.js     # 測驗流程測試（含 selectAnswer、showQuizResult、createQuestion）
+├── test/listening.test.js     # 聽力練習測試（含 choose/spell 模式、wrong review、edge cases）
+├── test/export.test.js        # 匯出功能單元測試（含批次匯出、進度更新、覆寫處理）
+├── test/export-batch.test.js  # 批次匯出流程測試
+├── test/display.test.js       # 顯示邏輯單元測試（含 onWordClick、設定 modal 操作）
+├── test/round-display.test.js # 輪播顯示與回合測試（displayCurrentWord、startNewRound）
+├── test/settings.test.js      # 設定儲存/套用單元測試
+├── test/screen-awake.test.js  # 螢幕常亮功能測試
+├── test/custom-confirm.test.js# 自訂確認對話框測試
+├── test/duplicates.test.js    # 重複處理單元測試（含 modal 開關、自動處理）
 │
 └── OpenSpec.md            # 專案規格說明文件
 ```
@@ -1286,6 +1294,25 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.13.1 (2026-02-21) — 代碼重構與測試強化
+
+**重構**
+- 提取 `_applyFilterAndRefresh()` 共用方法，消除 `script-filter.html` 中 4 個篩選 apply 函式的重複代碼
+- 提取 `_generateWrongOptions()` 共用方法到 `script-core.html`，消除測驗與聽力練習的選項生成重複
+- 將 `getWordType()` 從 `script-filter.html` 搬移至 `script-core.html`，減少跨模組隱式依賴
+- 以 `APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR`（-999）、`MS_PER_DAY`、`LISTENING_AUDIO_DELAY_MS`、`LISTENING_FEEDBACK_DELAY_MS` 取代散落各處的 magic numbers
+
+**測試強化（638 → 724 tests）**
+- 修正 `test/setup.js`：custom-confirm DOM ID 對齊實際 HTML、匯出 `getWordType` 至 global、新增 `createApp()` 工具函式
+- 新增 `test/setup.js` 中 type/tag filter modal 的 DOM 結構（checkbox 嵌套在 modal 內）
+- `test/srs.test.js`：新增 `getRecommendedWords`（優先度排序）、`calculateSrsStats`（統計）、`startSrsReview`（整合流程）共 22 個測試
+- `test/filter-modal.test.js`：新增 type/tag filter modal 開關與套用、`saveFilterSettings`/`loadFilterSettings` round-trip 共 12 個測試
+- `test/quiz-flow.test.js`：新增 `selectAnswer`、`showAnswerFeedback`、`showQuizResult`、`getResultMessage`、`createQuestion`、`generateQuestions`、`_generateWrongOptions` 共 30 個測試
+- `test/listening.test.js`：新增 `_generateListeningQuestions`、`_renderListeningChooseOptions`、`_renderListeningSpellInput`、`_showListeningWrongReview`、edge cases 共 15 個測試
+- 新增 `test/custom-confirm.test.js`：10 個測試覆蓋 customConfirm 全流程（顯示/確認/取消/背景點擊）
+- 將 implementation-detail 斷言（calls renderDifficultyLevel 等）改為 behavioral 斷言（驗證 DOM 狀態）
+- 將 `test/events.test.js` 更名為 `test/round-display.test.js` 以反映實際測試內容
 
 ### v1.13.0 (2026-02-20) — 聽力練習模組
 

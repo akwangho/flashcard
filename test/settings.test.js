@@ -173,11 +173,12 @@ describe('saveSettingsAndClose', function() {
     expect(app.settings.fontSize).toBe(64);
   });
 
-  test('calls saveSettings', function() {
-    var spy = jest.spyOn(app, 'saveSettings');
+  test('persists settings to localStorage', function() {
     app.saveSettingsAndClose();
-    expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
+    var stored = localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS);
+    expect(stored).not.toBeNull();
+    var parsed = JSON.parse(stored);
+    expect(parsed.fontSize).toBeDefined();
   });
 
   test('redisplays word when displayMode changes', function() {

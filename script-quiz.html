@@ -197,37 +197,14 @@
       options: []
     };
     
-    // 生成錯誤選項
-    var wrongOptions = [];
-    var attempts = 0;
-    var maxAttempts = APP_CONSTANTS.QUIZ_MAX_WRONG_OPTION_ATTEMPTS;
-    
-    while (wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT && attempts < maxAttempts) {
-      attempts++;
-      var randomWord = allWords[Math.floor(Math.random() * allWords.length)];
-      var wrongAnswer = isEnglishToChinese ? randomWord.chinese : randomWord.english;
-      
-      // 確保錯誤選項不重複且不等於正確答案
-      if (wrongAnswer !== question.correctAnswer && 
-          wrongOptions.indexOf(wrongAnswer) === -1) {
-        wrongOptions.push(wrongAnswer);
-      }
-    }
-    
-    // 如果沒有足夠的錯誤選項，補充一些通用選項
-    while (wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT) {
-      var genericOptions = isEnglishToChinese ? 
-        APP_CONSTANTS.QUIZ_GENERIC_OPTIONS_ZH :
-        APP_CONSTANTS.QUIZ_GENERIC_OPTIONS_EN;
-      
-      for (var i = 0; i < genericOptions.length && wrongOptions.length < APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT; i++) {
-        var option = genericOptions[i];
-        if (option !== question.correctAnswer && wrongOptions.indexOf(option) === -1) {
-          wrongOptions.push(option);
-        }
-      }
-      break; // 避免無限循環
-    }
+    var field = isEnglishToChinese ? 'chinese' : 'english';
+    var genericOptions = isEnglishToChinese ?
+      APP_CONSTANTS.QUIZ_GENERIC_OPTIONS_ZH :
+      APP_CONSTANTS.QUIZ_GENERIC_OPTIONS_EN;
+    var wrongOptions = this._generateWrongOptions(
+      question.correctAnswer, allWords, field,
+      APP_CONSTANTS.QUIZ_WRONG_OPTIONS_COUNT, genericOptions
+    );
     
     // 組合所有選項並洗牌
     question.options = [question.correctAnswer].concat(wrongOptions);

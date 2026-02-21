@@ -83,7 +83,7 @@
     // 計算下次複習日期
     var today = new Date();
     var interval = this.getBoxInterval(entry.box);
-    var nextDate = new Date(today.getTime() + interval * 24 * 60 * 60 * 1000);
+    var nextDate = new Date(today.getTime() + interval * APP_CONSTANTS.MS_PER_DAY);
     entry.nextReview = formatDateYYYYMMDD(nextDate);
 
     this.srsData[key] = entry;
@@ -325,7 +325,7 @@
 
     var today = new Date();
     var todayMs = today.getTime();
-    var DAY_MS = 24 * 60 * 60 * 1000;
+    var DAY_MS = APP_CONSTANTS.MS_PER_DAY;
     var cutoffs = [
       { days: 3, label: '三天內已複習' },
       { days: 7, label: '七天內已複習' },
@@ -338,8 +338,8 @@
 
     // difficulty buckets: mastered(-999), 0(-1~0), 1-2, 3-4, 5-6, 7-8, 9-10
     var diffBuckets = [
-      { label: '非常熟', min: -Infinity, max: -999, count: 0, color: '#00CC00' },
-      { label: '★0', min: -998, max: 0, count: 0, color: '#666' },
+      { label: '非常熟', min: -Infinity, max: APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, count: 0, color: '#00CC00' },
+      { label: '★0', min: APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR + 1, max: 0, count: 0, color: '#666' },
       { label: '★1-2', min: 1, max: 2, count: 0, color: '#FFD700' },
       { label: '★3-4', min: 3, max: 4, count: 0, color: '#FFA500' },
       { label: '★5-6', min: 5, max: 6, count: 0, color: '#FF8C00' },

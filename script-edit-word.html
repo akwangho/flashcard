@@ -52,7 +52,7 @@
     }
     if (difficultyValue) {
       var level = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-      difficultyValue.textContent = level <= -999 ? '✓ 已掌握' : (level < 0 ? '★0' : '★' + level);
+      difficultyValue.textContent = level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? '✓ 已掌握' : (level < 0 ? '★0' : '★' + level);
       this.updateEditWordDifficultyColor(level);
     }
     if (imageInput) imageInput.value = currentWord.image || '';
@@ -71,9 +71,7 @@
     this._editingWordId = currentWord.id;
 
     var modal = document.getElementById('edit-word-modal');
-    if (modal) {
-      modal.style.display = 'flex';
-    }
+    if (modal) modal.style.display = 'flex';
   };
 
   // 關閉編輯單字模態框
@@ -129,7 +127,7 @@
     var updateDiffDisplay = function(val) {
       var valueEl = document.getElementById('edit-word-difficulty-value');
       if (valueEl) {
-        valueEl.textContent = val <= -999 ? '✓ 已掌握' : (val < 0 ? '★0' : '★' + val);
+        valueEl.textContent = val <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? '✓ 已掌握' : (val < 0 ? '★0' : '★' + val);
         self.updateEditWordDifficultyColor(val);
       }
     };
@@ -149,7 +147,7 @@
       var onNumberChange = function() {
         var val = parseInt(difficultyNumberInput.value);
         if (isNaN(val)) val = 0;
-        val = Math.max(-999, Math.min(10, val));
+        val = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, Math.min(10, val));
         difficultyNumberInput.value = val;
         if (difficultyInput) difficultyInput.value = Math.max(-1, Math.min(10, val));
         updateDiffDisplay(val);
@@ -227,7 +225,7 @@
     var newChinese = chineseInput ? chineseInput.value.trim() : '';
     var newDifficulty = difficultyNumberInput ? parseInt(difficultyNumberInput.value) : (difficultyInput ? parseInt(difficultyInput.value) : 0);
     if (isNaN(newDifficulty)) newDifficulty = 0;
-    newDifficulty = Math.max(-999, Math.min(10, newDifficulty));
+    newDifficulty = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, Math.min(10, newDifficulty));
     var newImage = imageInput ? imageInput.value.trim() : '';
     var newMustSpell = mustSpellToggle ? mustSpellToggle.checked : false;
 

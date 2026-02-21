@@ -268,10 +268,9 @@
     var currentWord = this.currentWords[this.currentIndex];
     if (!currentWord) return;
     
-    // 在暫時刪除狀態下按 S，直接標記為非常熟 (-999)
     if (this.pendingRemoval) {
       this.pendingRemoval.isVeryFamiliar = true;
-      this.renderDifficultyLevelPreview(-999);
+      this.renderDifficultyLevelPreview(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR);
       this.showVeryFamiliarToast('✓ 已設為非常熟');
       return;
     }
@@ -294,11 +293,10 @@
     console.log('增加不熟程度:', currentWord.english, '→ ★' + newLevel);
   };
 
-  // 減少不熟程度（-1，最低-999）
   FlashcardApp.prototype.decreaseDifficulty = function(word) {
     if (!word) return;
     
-    var newLevel = Math.max(-999, (word.difficultyLevel || 0) - 1);
+    var newLevel = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, (word.difficultyLevel || 0) - 1);
     word.difficultyLevel = newLevel;
     
     // 同步到 words 主陣列
@@ -338,7 +336,7 @@
    * @param {number} level - 不熟程度值
    */
   FlashcardApp.prototype._renderDifficultyUI = function(display, levelEl, level) {
-    if (level <= -999) {
+    if (level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) {
       levelEl.textContent = '✓';
     } else if (level < 0) {
       levelEl.textContent = 0;
@@ -352,7 +350,7 @@
     }
     display.className = display.className.replace(/\s+/g, ' ').trim();
     display.classList.add('difficulty-display');
-    var cls = level <= -999 ? 'difficulty-level-n1' : 'difficulty-level-' + Math.max(0, level);
+    var cls = level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? 'difficulty-level-n1' : 'difficulty-level-' + Math.max(0, level);
     display.classList.add(cls);
   };
 
@@ -580,8 +578,7 @@
     
     // 記錄原始不熟程度，以便取消時恢復
     var originalDifficultyLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-    // 預覽減少後的不熟程度（最低 -999）
-    var previewLevel = Math.max(-999, originalDifficultyLevel - 1);
+    var previewLevel = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, originalDifficultyLevel - 1);
 
     this.pendingRemoval = {
       word: currentWord,
@@ -611,7 +608,7 @@
   
   /**
    * 確認移除當前 pendingRemoval 的單字。
-   * 若 isVeryFamiliar 為 true，設定 difficultyLevel = -999 並同步後端；
+   * 若 isVeryFamiliar 為 true，設定 difficultyLevel = DIFFICULTY_VERY_FAMILIAR 並同步後端；
    * 否則從 currentWords 中移除該字。移除後自動顯示下一張卡片。
    */
   FlashcardApp.prototype.confirmRemoval = function() {
@@ -622,12 +619,11 @@
     var isVeryFamiliar = this.pendingRemoval.isVeryFamiliar;
     
     if (isVeryFamiliar) {
-      // 標記為非常熟（-999）
-      word.difficultyLevel = -999;
+      word.difficultyLevel = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
       
       // 同步到 words 主陣列
       var mainWord = this.words.find(function(w) { return w.id === word.id; });
-      if (mainWord) mainWord.difficultyLevel = -999;
+      if (mainWord) mainWord.difficultyLevel = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
       
       // 後端同步
       this.syncDifficultyToBackend(word);
@@ -852,18 +848,16 @@
   };
   
   // ===========================================
-  // D 鍵：標記為非常熟（-999）功能
+  // D 鍵：標記為非常熟功能
   // ===========================================
 
-  // 處理 D 鍵按下（雙按確認標記為非常熟）
   FlashcardApp.prototype.handleMarkVeryFamiliar = function() {
     if (this.currentWords.length === 0) return;
     
     var currentWord = this.currentWords[this.currentIndex];
     if (!currentWord) return;
     
-    // 如果已經是 -999，顯示提示
-    if (currentWord.difficultyLevel <= -999) {
+    if (currentWord.difficultyLevel <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) {
       this.showVeryFamiliarToast('此字已經是非常熟');
       return;
     }
@@ -908,7 +902,7 @@
   };
 
   /**
-   * 確認標記為非常熟（difficultyLevel = -999）。
+   * 確認標記為非常熟（difficultyLevel = DIFFICULTY_VERY_FAMILIAR）。
    * 進入 pendingRemoval 暫時刪除狀態，以灰色字顯示答案供確認。
    * 若目前已在 difficultyFilter < 0 模式下，則直接設定而不進入 pending 狀態。
    */
@@ -929,9 +923,9 @@
     
     // 如果在負數篩選模式下，直接設定並更新顯示（不需要移除）
     if (this.difficultyFilter < 0) {
-      currentWord.difficultyLevel = -999;
+      currentWord.difficultyLevel = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
       var mainWord = this.words.find(function(w) { return w.id === wordId; });
-      if (mainWord) mainWord.difficultyLevel = -999;
+      if (mainWord) mainWord.difficultyLevel = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
       this.syncDifficultyToBackend(currentWord);
       this.updateSrsData(currentWord);
       this.showVeryFamiliarToast('✓ 已設為非常熟');
@@ -944,10 +938,8 @@
     // 如果已經有 pendingRemoval（例如已經點擊過單字卡），升級為非常熟
     if (this.pendingRemoval && this.pendingRemoval.word && this.pendingRemoval.word.id === wordId) {
       this.pendingRemoval.isVeryFamiliar = true;
-      // 更新不熟程度預覽為 -999
-      this.renderDifficultyLevelPreview(-999);
+      this.renderDifficultyLevelPreview(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR);
       this.showVeryFamiliarToast('✓ 已設為非常熟');
-      // 恢復被第一次 D 暫停的計時器（pendingRemoval 自身的計時器）
       this._resumeTimerAfterVeryFamiliarCancel();
       return;
     }
@@ -988,8 +980,7 @@
       isVeryFamiliar: true
     };
     
-    // 預覽不熟程度為 -999
-    this.renderDifficultyLevelPreview(-999);
+    this.renderDifficultyLevelPreview(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR);
     
     this.showRestoreButton();
     this.updateButtonStates();

@@ -82,18 +82,18 @@ describe('displayCurrentWord and startNewRound', function() {
       expect(progressText.textContent).toBe('2/3');
     });
 
-    test('calls renderDifficultyLevel', function() {
-      var spy = jest.spyOn(app, 'renderDifficultyLevel');
+    test('updates difficulty display', function() {
+      app.currentWords[app.currentIndex].difficultyLevel = 5;
       app.displayCurrentWord();
-      expect(spy).toHaveBeenCalled();
-      spy.mockRestore();
+      var display = document.getElementById('difficulty-display');
+      expect(display.classList.contains('difficulty-display')).toBe(true);
     });
 
-    test('calls renderMustSpellIndicator', function() {
-      var spy = jest.spyOn(app, 'renderMustSpellIndicator');
+    test('updates must-spell indicator', function() {
+      app.currentWords[app.currentIndex].mustSpell = true;
       app.displayCurrentWord();
-      expect(spy).toHaveBeenCalled();
-      spy.mockRestore();
+      var indicator = document.getElementById('must-spell-indicator');
+      expect(indicator.style.display).not.toBe('none');
     });
 
     test('starts new round when currentWords is empty', function() {

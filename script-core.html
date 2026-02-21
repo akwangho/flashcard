@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.13.0',
+    APP_VERSION: '1.13.1',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -99,6 +99,14 @@
     TOAST_CONFIRM_DURATION_MS: 1500,   // Toast 確認訊息顯示時間
     SPELL_LETTER_GAP_MS: 100,          // 拼讀字母與單字之間的間隔
     UI_ANIMATION_DELAY_MS: 100,        // 一般 UI 動畫延遲
+    LISTENING_AUDIO_DELAY_MS: 300,     // 聽力練習播放音訊前延遲
+    LISTENING_FEEDBACK_DELAY_MS: 1200, // 聽力練習回饋顯示時間
+
+    // === 不熟程度 ===
+    DIFFICULTY_VERY_FAMILIAR: -999,    // 「非常熟」門檻值
+
+    // === 時間單位 ===
+    MS_PER_DAY: 86400000,             // 一天的毫秒數 (24*60*60*1000)
 
     // === localStorage 鍵名 ===
     STORAGE_KEYS: {
@@ -165,6 +173,19 @@
   }
 
   /**
+   * 判斷單字類型：sentence（句號/問號/驚嘆號結尾）、phrase（含空格）、word（其他）
+   * @param {string} english - 英文字串
+   * @returns {string} 'sentence' | 'phrase' | 'word'
+   */
+  function getWordType(english) {
+    var trimmed = (english || '').trim();
+    var last = trimmed.charAt(trimmed.length - 1);
+    if (last === '.' || last === '?' || last === '!') return 'sentence';
+    if (trimmed.indexOf(' ') !== -1) return 'phrase';
+    return 'word';
+  }
+
+  /**
    * 套用不熟程度 CSS class 到元素（清除舊 class 後加入新 class）
    * @param {HTMLElement} element - 目標元素
    * @param {number} level - 不熟程度等級 (-999 到 10)
@@ -222,6 +243,40 @@
     // 啟動初始化
     this.init();
   }
+
+  /**
+   * 從候選單字中產生指定數量的錯誤選項（測驗 / 聽力練習共用）。
+   * @param {string} correctAnswer - 正確答案（要排除）
+   * @param {Array} allWords - 所有可用單字
+   * @param {string} field - 要取的欄位名稱（'chinese' 或 'english'）
+   * @param {number} count - 需要的錯誤選項數量
+   * @param {Array} [genericFallback] - 隨機選項不足時的通用備選
+   * @returns {Array<string>} 錯誤選項陣列
+   */
+  FlashcardApp.prototype._generateWrongOptions = function(correctAnswer, allWords, field, count, genericFallback) {
+    var wrongOptions = [];
+    var attempts = 0;
+    var maxAttempts = APP_CONSTANTS.QUIZ_MAX_WRONG_OPTION_ATTEMPTS;
+
+    while (wrongOptions.length < count && attempts < maxAttempts) {
+      attempts++;
+      var randomWord = allWords[Math.floor(Math.random() * allWords.length)];
+      var candidate = randomWord[field];
+      if (candidate !== correctAnswer && wrongOptions.indexOf(candidate) === -1) {
+        wrongOptions.push(candidate);
+      }
+    }
+
+    if (genericFallback) {
+      for (var i = 0; i < genericFallback.length && wrongOptions.length < count; i++) {
+        if (genericFallback[i] !== correctAnswer && wrongOptions.indexOf(genericFallback[i]) === -1) {
+          wrongOptions.push(genericFallback[i]);
+        }
+      }
+    }
+
+    return wrongOptions;
+  };
 
   // --- 建構函式分組初始化 ---
 

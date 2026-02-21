@@ -164,6 +164,187 @@ describe('Filter modal open/apply flows', function() {
   });
 
   // ===========================================
+  // Type Filter
+  // ===========================================
+  describe('openTypeFilterModal', function() {
+    test('opens the modal', function() {
+      app.openTypeFilterModal();
+      var modal = document.getElementById('type-filter-modal');
+      expect(modal.style.display).toBe('flex');
+    });
+
+    test('pre-selects current type filter', function() {
+      app.typeFilter = ['word'];
+      app.openTypeFilterModal();
+      var modal = document.getElementById('type-filter-modal');
+      var cbs = modal.querySelectorAll('input[name="type-filter"]');
+      var checked = [];
+      for (var i = 0; i < cbs.length; i++) {
+        if (cbs[i].checked) checked.push(cbs[i].value);
+      }
+      expect(checked).toEqual(['word']);
+    });
+  });
+
+  describe('applyTypeFilterFromModal', function() {
+    test('reads checked values and sets typeFilter', function() {
+      app.openTypeFilterModal();
+      var modal = document.getElementById('type-filter-modal');
+      var cbs = modal.querySelectorAll('input[name="type-filter"]');
+      for (var i = 0; i < cbs.length; i++) {
+        cbs[i].checked = (cbs[i].value === 'word' || cbs[i].value === 'phrase');
+      }
+      app.applyTypeFilterFromModal();
+      expect(app.typeFilter).toEqual(['word', 'phrase']);
+    });
+
+    test('filters currentWords by type', function() {
+      app.openTypeFilterModal();
+      var modal = document.getElementById('type-filter-modal');
+      var cbs = modal.querySelectorAll('input[name="type-filter"]');
+      for (var i = 0; i < cbs.length; i++) {
+        cbs[i].checked = (cbs[i].value === 'word');
+      }
+      app.applyTypeFilterFromModal();
+      // only single-word items pass
+      app.currentWords.forEach(function(w) {
+        expect(w.english.indexOf(' ')).toBe(-1);
+      });
+    });
+
+    test('alerts if no type selected', function() {
+      var alertSpy = jest.spyOn(window, 'alert').mockImplementation(function() {});
+      app.openTypeFilterModal();
+      var modal = document.getElementById('type-filter-modal');
+      var cbs = modal.querySelectorAll('input[name="type-filter"]');
+      for (var i = 0; i < cbs.length; i++) cbs[i].checked = false;
+      app.applyTypeFilterFromModal();
+      expect(alertSpy).toHaveBeenCalled();
+      alertSpy.mockRestore();
+    });
+
+    test('closes the modal after applying', function() {
+      app.openTypeFilterModal();
+      app.applyTypeFilterFromModal();
+      var modal = document.getElementById('type-filter-modal');
+      expect(modal.style.display).toBe('none');
+    });
+  });
+
+  // ===========================================
+  // Tag Filter
+  // ===========================================
+  describe('openTagFilterModal', function() {
+    test('opens the modal', function() {
+      app.openTagFilterModal();
+      var modal = document.getElementById('tag-filter-modal');
+      expect(modal.style.display).toBe('flex');
+    });
+
+    test('generates checkboxes from word tags', function() {
+      app.words[0].tags = ['animals'];
+      app.words[1].tags = ['food', 'animals'];
+      app.openTagFilterModal();
+      var opts = document.getElementById('tag-filter-options');
+      var cbs = opts.querySelectorAll('input[name="tag-filter"]');
+      expect(cbs.length).toBe(2); // animals, food
+    });
+  });
+
+  describe('applyTagFilterFromModal', function() {
+    beforeEach(function() {
+      app.words[0].tags = ['animals'];
+      app.words[1].tags = ['food'];
+      app.words[2].tags = ['animals'];
+    });
+
+    test('reads checked tag values', function() {
+      app.openTagFilterModal();
+      var opts = document.getElementById('tag-filter-options');
+      var cbs = opts.querySelectorAll('input[name="tag-filter"]');
+      for (var i = 0; i < cbs.length; i++) {
+        cbs[i].checked = (cbs[i].value === 'animals');
+      }
+      app.applyTagFilterFromModal();
+      expect(app.tagFilter).toEqual(['animals']);
+    });
+
+    test('filters currentWords by tag', function() {
+      app.openTagFilterModal();
+      var opts = document.getElementById('tag-filter-options');
+      var cbs = opts.querySelectorAll('input[name="tag-filter"]');
+      for (var i = 0; i < cbs.length; i++) {
+        cbs[i].checked = (cbs[i].value === 'food');
+      }
+      app.applyTagFilterFromModal();
+      expect(app.currentWords.length).toBe(1);
+      expect(app.currentWords[0].english).toBe('banana split');
+    });
+
+    test('empty tag selection clears tagFilter', function() {
+      app.openTagFilterModal();
+      var opts = document.getElementById('tag-filter-options');
+      var cbs = opts.querySelectorAll('input[name="tag-filter"]');
+      for (var i = 0; i < cbs.length; i++) cbs[i].checked = false;
+      app.applyTagFilterFromModal();
+      expect(app.tagFilter).toEqual([]);
+    });
+
+    test('closes the modal after applying', function() {
+      app.openTagFilterModal();
+      app.applyTagFilterFromModal();
+      var modal = document.getElementById('tag-filter-modal');
+      expect(modal.style.display).toBe('none');
+    });
+  });
+
+  // ===========================================
+  // saveFilterSettings / loadFilterSettings
+  // ===========================================
+  describe('saveFilterSettings and loadFilterSettings', function() {
+    beforeEach(function() {
+      localStorage.clear();
+    });
+
+    test('round-trips all filter values', function() {
+      app.difficultyFilter = 3;
+      app.reviewFilter = '1month';
+      app.mustSpellFilter = true;
+      app.typeFilter = ['word', 'phrase'];
+      app.tagFilter = ['animals'];
+      app._srsSelectedCount = 30;
+      app.srsReviewActive = true;
+      app.saveFilterSettings();
+
+      // Reset values
+      app.difficultyFilter = 0;
+      app.reviewFilter = 'all';
+      app.mustSpellFilter = false;
+      app.typeFilter = ['word', 'phrase', 'sentence'];
+      app.tagFilter = [];
+
+      app.loadFilterSettings();
+      expect(app.difficultyFilter).toBe(3);
+      expect(app.reviewFilter).toBe('1month');
+      expect(app.mustSpellFilter).toBe(true);
+      expect(app.typeFilter).toEqual(['word', 'phrase']);
+      expect(app.tagFilter).toEqual(['animals']);
+    });
+
+    test('handles missing localStorage data', function() {
+      app.difficultyFilter = 5;
+      app.loadFilterSettings();
+      // Should keep defaults or not crash
+      expect(app.difficultyFilter).toBeDefined();
+    });
+
+    test('handles corrupted localStorage data', function() {
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.FILTER_SETTINGS, 'not-json');
+      expect(function() { app.loadFilterSettings(); }).not.toThrow();
+    });
+  });
+
+  // ===========================================
   // clearAllFilters
   // ===========================================
   describe('clearAllFilters', function() {
@@ -171,10 +352,14 @@ describe('Filter modal open/apply flows', function() {
       app.difficultyFilter = 5;
       app.reviewFilter = '1month';
       app.mustSpellFilter = true;
+      app.typeFilter = ['word'];
+      app.tagFilter = ['animals'];
       app.clearAllFilters();
       expect(app.difficultyFilter).toBe(0);
       expect(app.reviewFilter).toBe('all');
       expect(app.mustSpellFilter).toBe(false);
+      expect(app.typeFilter).toEqual(['word', 'phrase', 'sentence']);
+      expect(app.tagFilter).toEqual([]);
     });
   });
 });
