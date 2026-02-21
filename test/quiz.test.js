@@ -292,32 +292,34 @@ describe('selectAnswer', function() {
 // ============================================================
 describe('getCurrentAvailableWords', function() {
 
-  test('returns copy of currentWords', function() {
-    app.currentWords = [
-      { id: 0, english: 'apple', chinese: '蘋果' },
-      { id: 1, english: 'banana', chinese: '香蕉' }
+  test('returns freshly filtered words from this.words', function() {
+    app.words = [
+      { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 0 },
+      { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 3 }
     ];
     var result = app.getCurrentAvailableWords();
     expect(result.length).toBe(2);
-    expect(result).not.toBe(app.currentWords); // should be a copy
+    expect(result).not.toBe(app.words);
   });
 
-  test('returns empty array when currentWords is empty', function() {
-    app.currentWords = [];
+  test('returns empty array when words is empty', function() {
+    app.words = [];
     var result = app.getCurrentAvailableWords();
     expect(result).toEqual([]);
   });
 
-  test('returns empty array when currentWords is null', function() {
-    app.currentWords = null;
+  test('returns empty array when words is null', function() {
+    app.words = null;
     var result = app.getCurrentAvailableWords();
     expect(result).toEqual([]);
   });
 
-  test('reflects filtered state', function() {
-    app.currentWords = [
-      { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 5 }
+  test('reflects difficulty filter', function() {
+    app.words = [
+      { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 5 },
+      { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 1 }
     ];
+    app.difficultyFilter = 5;
     var result = app.getCurrentAvailableWords();
     expect(result.length).toBe(1);
     expect(result[0].english).toBe('apple');

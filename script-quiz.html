@@ -129,12 +129,10 @@
     this.showQuizModal(type);
   };
   
-  // 獲取當前可用的單字（考慮篩選和刪除狀態）
+  // 獲取當前可用的單字（啟動時重新套用篩選，確保與篩選條件一致）
   FlashcardApp.prototype.getCurrentAvailableWords = function() {
-    // 使用 currentWords，它已經考慮了：
-    // 1. "只顯示不熟單字" 的篩選
-    // 2. 暫時刪除的單字
-    return this.currentWords ? this.currentWords.slice() : [];
+    if (!this.words || this.words.length === 0) return [];
+    return this.applyAllFilters(this.words);
   };
   
   // 獲取沒有可用單字時的提示信息
@@ -170,12 +168,12 @@
       availableWords = availableWords.slice(0, APP_CONSTANTS.QUIZ_QUICK_COUNT);
     }
     
-    // 生成題目
+    // 生成題目（選項池使用篩選後的完整單字集，確保錯誤選項也在篩選範圍內）
+    var optionsPool = this.quizState.availableWords;
     this.quizState.questions = [];
     for (var i = 0; i < availableWords.length; i++) {
       var word = availableWords[i];
-      // 使用所有原始單字作為選項池（確保有足夠的錯誤選項）
-      var question = this.createQuestion(word, this.words);
+      var question = this.createQuestion(word, optionsPool);
       if (question) {
         this.quizState.questions.push(question);
       }
@@ -251,9 +249,14 @@
     this.showQuizScreen('start');
   };
   
-  // 獲取測驗範圍文字
+  // 獲取測驗範圍文字（顯示所有生效中的篩選條件）
   FlashcardApp.prototype.getQuizScopeText = function() {
-    var questionCount = this.quizState.questions.length;
+    var questionCount = this.quizState ? this.quizState.questions.length : 0;
+    return this._buildScopeText(questionCount);
+  };
+
+  // 共用：組裝篩選範圍文字
+  FlashcardApp.prototype._buildScopeText = function(questionCount) {
     var filterLabels = {
       'never': '從未複習',
       '2weeks': '超過2週未複習',
@@ -261,24 +264,41 @@
       '3months': '超過3個月未複習',
       '6months': '超過6個月未複習'
     };
-    
+
     var parts = [];
     if (this.difficultyFilter < 0) {
-      parts.push('非常熟（已掌握）');
+      parts.push('⭐ 非常熟（已掌握）');
     } else if (this.difficultyFilter > 0) {
-      parts.push('★' + this.difficultyFilter + ' 以上');
+      parts.push('⭐ ★' + this.difficultyFilter + ' 以上');
     }
     if (this.reviewFilter !== 'all') {
-      parts.push(filterLabels[this.reviewFilter] || '');
+      parts.push('📅 ' + (filterLabels[this.reviewFilter] || ''));
     }
-    
+    if (this.mustSpellFilter) {
+      parts.push('✍️ 要會拼');
+    }
+    if (this.typeFilter && this.typeFilter.length < 3) {
+      var typeLabels = { word: '單字', phrase: '片語', sentence: '句子' };
+      var names = [];
+      for (var i = 0; i < this.typeFilter.length; i++) {
+        names.push(typeLabels[this.typeFilter[i]] || this.typeFilter[i]);
+      }
+      parts.push('📝 ' + names.join('、'));
+    }
+    if (this.tagFilter && this.tagFilter.length > 0) {
+      parts.push('🏷️ ' + this.tagFilter.join('、'));
+    }
+    if (this.srsReviewActive) {
+      parts.push('🔄 快速複習');
+    }
+
     if (parts.length > 0) {
-      return '📚 測驗範圍：' + parts.join(' + ') + ' (' + questionCount + ' 題)';
-    } else if (this.currentWords.length < this.words.length) {
+      return '📚 測驗範圍：' + parts.join(' · ') + '（' + questionCount + ' 題）';
+    } else if (this.currentWords && this.words && this.currentWords.length < this.words.length) {
       var removedCount = this.words.length - this.currentWords.length;
-      return '📖 測驗範圍：剩餘單字 (' + questionCount + ' 題，已排除 ' + removedCount + ' 個)';
+      return '📖 測驗範圍：剩餘單字（' + questionCount + ' 題，已排除 ' + removedCount + ' 個）';
     } else {
-      return '📗 測驗範圍：所有單字 (' + questionCount + ' 題)';
+      return '📗 測驗範圍：所有單字（' + questionCount + ' 題）';
     }
   };
   

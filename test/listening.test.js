@@ -43,8 +43,8 @@ describe('Listening Quiz Module', function() {
       expect(englishWords.indexOf('hot dog')).not.toBe(-1);
     });
 
-    test('returns empty when currentWords is empty', function() {
-      app.currentWords = [];
+    test('returns empty when words is empty', function() {
+      app.words = [];
       var filtered = app._filterListeningWords();
       expect(filtered.length).toBe(0);
     });
@@ -52,7 +52,7 @@ describe('Listening Quiz Module', function() {
 
   describe('startListeningQuiz', function() {
     test('alerts when no words available', function() {
-      app.currentWords = [
+      app.words = [
         { id: 0, english: 'I like cats.', chinese: '我喜歡貓。', difficultyLevel: 0 }
       ];
       var alertSpy = jest.spyOn(window, 'alert').mockImplementation(function() {});
@@ -414,6 +414,27 @@ describe('Listening Quiz Module', function() {
         expect(q.options.length).toBe(0);
       });
     });
+
+    test('wrong options come from filtered words, not all words', function() {
+      app.words = [
+        { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 5 },
+        { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 5 },
+        { id: 2, english: 'cat', chinese: '貓', difficultyLevel: 5 },
+        { id: 3, english: 'dog', chinese: '狗', difficultyLevel: 5 },
+        { id: 4, english: 'eagle', chinese: '老鷹', difficultyLevel: 5 },
+        { id: 5, english: 'quantum', chinese: '量子力學', difficultyLevel: 0 },
+        { id: 6, english: 'relativity', chinese: '相對論', difficultyLevel: 0 }
+      ];
+      app.difficultyFilter = 5;
+      app.startListeningQuiz('choose');
+
+      var excludedChinese = ['量子力學', '相對論'];
+      app.listeningState.questions.forEach(function(q) {
+        q.options.forEach(function(opt) {
+          expect(excludedChinese).not.toContain(opt);
+        });
+      });
+    });
   });
 
   // ===========================================
@@ -513,14 +534,14 @@ describe('Listening Quiz Module', function() {
   // ===========================================
   describe('edge cases', function() {
     test('works with exactly LISTENING_MIN_WORDS words', function() {
-      app.currentWords = app.words.slice(0, APP_CONSTANTS.LISTENING_MIN_WORDS);
+      app.words = app.words.slice(0, APP_CONSTANTS.LISTENING_MIN_WORDS);
       app.startListeningQuiz('choose');
       expect(app.listeningState.isActive).toBe(true);
       expect(app.listeningState.questions.length).toBeGreaterThan(0);
     });
 
     test('alerts when fewer than LISTENING_MIN_WORDS words', function() {
-      app.currentWords = app.words.slice(0, APP_CONSTANTS.LISTENING_MIN_WORDS - 1);
+      app.words = app.words.slice(0, APP_CONSTANTS.LISTENING_MIN_WORDS - 1);
       var alertSpy = jest.spyOn(window, 'alert').mockImplementation(function() {});
       app.startListeningQuiz('choose');
       expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('太少'));

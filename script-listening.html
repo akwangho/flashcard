@@ -54,8 +54,9 @@
   };
 
   FlashcardApp.prototype._filterListeningWords = function() {
-    var words = this.currentWords ? this.currentWords.slice() : [];
-    return words.filter(function(w) {
+    if (!this.words || this.words.length === 0) return [];
+    var filtered = this.applyAllFilters(this.words);
+    return filtered.filter(function(w) {
       return getWordType(w.english) !== 'sentence';
     });
   };
@@ -67,9 +68,10 @@
     var count = Math.min(APP_CONSTANTS.LISTENING_QUICK_COUNT, available.length);
     available = available.slice(0, count);
 
+    var optionsPool = this.listeningState.availableWords;
     this.listeningState.questions = [];
     for (var i = 0; i < available.length; i++) {
-      var q = this._createListeningQuestion(available[i], this.words);
+      var q = this._createListeningQuestion(available[i], optionsPool);
       if (q) {
         this.listeningState.questions.push(q);
       }
@@ -125,7 +127,10 @@
     }
 
     if (questionCount) questionCount.textContent = this.listeningState.questions.length;
-    if (scopeInfo) scopeInfo.textContent = '共 ' + this.listeningState.questions.length + ' 題（不含句子）';
+    if (scopeInfo) {
+      var scopeText = this._buildScopeText(this.listeningState.questions.length);
+      scopeInfo.textContent = scopeText + '（不含句子）';
+    }
 
     this._showListeningScreen('start');
     this.setupListeningListeners();

@@ -178,6 +178,34 @@ describe('Quiz UI flow', function() {
       var text = app.getQuizScopeText();
       expect(text).toContain('1個月');
     });
+
+    test('includes mustSpell filter info', function() {
+      app.mustSpellFilter = true;
+      var text = app.getQuizScopeText();
+      expect(text).toContain('要會拼');
+    });
+
+    test('includes type filter info', function() {
+      app.typeFilter = ['word', 'phrase'];
+      var text = app.getQuizScopeText();
+      expect(text).toContain('單字');
+      expect(text).toContain('片語');
+    });
+
+    test('includes tag filter info', function() {
+      app.tagFilter = ['animals'];
+      var text = app.getQuizScopeText();
+      expect(text).toContain('animals');
+    });
+
+    test('shows multiple filters joined', function() {
+      app.difficultyFilter = 3;
+      app.mustSpellFilter = true;
+      var text = app.getQuizScopeText();
+      expect(text).toContain('★3');
+      expect(text).toContain('要會拼');
+      expect(text).toContain('·');
+    });
   });
 
   describe('showQuizScreen', function() {
@@ -227,17 +255,25 @@ describe('Quiz UI flow', function() {
   });
 
   describe('getCurrentAvailableWords', function() {
-    test('returns copy of currentWords', function() {
+    test('returns freshly filtered words from this.words', function() {
       var result = app.getCurrentAvailableWords();
-      expect(result.length).toBe(app.currentWords.length);
+      expect(result.length).toBe(app.words.length);
       result.push({ id: 999 });
-      expect(app.currentWords.length).toBe(5);
+      expect(app.words.length).toBe(5);
     });
 
-    test('returns empty array when currentWords is null', function() {
-      app.currentWords = null;
+    test('returns empty array when words is empty', function() {
+      app.words = [];
       var result = app.getCurrentAvailableWords();
       expect(result).toEqual([]);
+    });
+
+    test('respects difficulty filter', function() {
+      app.difficultyFilter = 5;
+      var result = app.getCurrentAvailableWords();
+      result.forEach(function(w) {
+        expect(w.difficultyLevel).toBeGreaterThanOrEqual(5);
+      });
     });
   });
 
@@ -286,6 +322,30 @@ describe('Quiz UI flow', function() {
     test('full quiz uses all available words', function() {
       app.startQuiz('full');
       expect(app.quizState.questions.length).toBe(app.words.length);
+    });
+
+    test('wrong options come from filtered words, not all words', function() {
+      app.words = [
+        { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 5 },
+        { id: 1, english: 'banana', chinese: '香蕉', difficultyLevel: 5 },
+        { id: 2, english: 'cat', chinese: '貓', difficultyLevel: 5 },
+        { id: 3, english: 'dog', chinese: '狗', difficultyLevel: 5 },
+        { id: 4, english: 'eagle', chinese: '老鷹', difficultyLevel: 5 },
+        { id: 5, english: 'quantum', chinese: '量子力學', difficultyLevel: 0 },
+        { id: 6, english: 'relativity', chinese: '相對論', difficultyLevel: 0 },
+        { id: 7, english: 'calculus', chinese: '微積分', difficultyLevel: 0 }
+      ];
+      app.difficultyFilter = 5;
+      app.startQuiz('full');
+
+      var excludedChinese = ['量子力學', '相對論', '微積分'];
+      var excludedEnglish = ['quantum', 'relativity', 'calculus'];
+      app.quizState.questions.forEach(function(q) {
+        q.options.forEach(function(opt) {
+          expect(excludedChinese).not.toContain(opt);
+          expect(excludedEnglish).not.toContain(opt);
+        });
+      });
     });
   });
 

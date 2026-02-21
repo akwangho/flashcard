@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.13.4
+> **版本**: 1.13.7
 > **最後更新**: 2026-02-21
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -1294,6 +1294,27 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.13.7 (2026-02-21) — 修正測驗錯誤選項超出篩選範圍
+
+- 測驗的錯誤選項（wrong options）改為從篩選後的單字集 `quizState.availableWords` 產生，不再從 `this.words`（所有工作表原始單字）取樣
+- 聽力練習的錯誤選項同步修正，改從 `listeningState.availableWords` 產生
+- 修正前：題目本身來自篩選後的單字，但錯誤選項可能出現其他工作表 / 未通過篩選條件的單字，導致使用者感覺測驗內容超出篩選範圍
+- 當篩選後的單字集不足以產生足夠的錯誤選項時，仍會 fallback 至通用備選選項
+
+### v1.13.6 (2026-02-21) — 修正測驗未套用篩選條件
+
+- `getCurrentAvailableWords()` 改為啟動時重新呼叫 `applyAllFilters(this.words)` 取得單字，不再依賴可能過時的 `this.currentWords`
+- `_filterListeningWords()` 同步修正，從 `this.words` 重新篩選後再排除句子
+- 確保快速測驗、完整測驗、聽音辨字、聽音拼字都使用與目前篩選條件一致的單字
+- 更新測試：驗證 `getCurrentAvailableWords` 會依據 `difficultyFilter` 篩選
+
+### v1.13.5 (2026-02-21) — 測驗範圍文字顯示所有篩選條件
+
+- 提取共用 `_buildScopeText()` 方法，測驗與聽力練習共用篩選範圍顯示邏輯
+- 範圍文字新增顯示：✍️ 要會拼、📝 類型篩選、🏷️ 標籤篩選、🔄 快速複習
+- 聽力練習模態框的 scope-info 改用 `_buildScopeText()` 顯示完整篩選條件
+- 篩選條件以 `·` 分隔，清楚標示目前生效中的所有篩選
 
 ### v1.13.4 (2026-02-21) — 聽音拼字 Enter 流程修正 + ESC 關閉所有 Modal
 
