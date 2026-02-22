@@ -169,6 +169,25 @@
       imageInput.addEventListener('change', handleImageChange);
     }
 
+    // Enter 鍵觸發儲存（在文字/數字輸入框按下時直接儲存，免用滑鼠點確定）
+    var inputIds = [
+      'edit-word-english', 'edit-word-chinese',
+      'edit-word-image', 'edit-word-tags',
+      'edit-word-difficulty-number'
+    ];
+    for (var k = 0; k < inputIds.length; k++) {
+      var inputEl = document.getElementById(inputIds[k]);
+      if (inputEl) {
+        inputEl.addEventListener('keydown', function(e) {
+          if (e.keyCode === 13 || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            self.saveEditWord();
+          }
+        });
+      }
+    }
+
     if (modal) {
       modal.addEventListener('click', function(e) {
         if (e.target === modal) {
