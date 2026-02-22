@@ -1,12 +1,6 @@
 /**
  * Tests for ES5 polyfills (forEach, filter, map, find, includes)
  */
-var setup = require('./setup');
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
-
 describe('ES5 Polyfills', function() {
 
   describe('Array.prototype.forEach', function() {

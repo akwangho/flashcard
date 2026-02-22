@@ -3,14 +3,8 @@
  * handleMarkVeryFamiliar, confirmMarkVeryFamiliar, cancelMarkVeryFamiliar
  * OpenSpec 4.2.2, 4.2.3, 4.2.4
  */
-var setup = require('./setup');
-
 var app;
 var sampleWords;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

@@ -1,13 +1,7 @@
 /**
  * Tests for duplicate word processing: processDuplicatesInMemory
  */
-var setup = require('./setup');
-
 var app;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

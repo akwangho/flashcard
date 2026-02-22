@@ -2,8 +2,6 @@
  * Tests for navigation: nextWord, previousWord, saveNavigationState, updateProgress
  * OpenSpec 4.1.5, 4.1.6
  */
-var setup = require('./setup');
-
 var app;
 var sampleWords = [
   { id: 0, english: 'apple', chinese: '蘋果', difficultyLevel: 0, sheetName: 'Sheet1', originalRowIndex: 2 },
@@ -11,10 +9,6 @@ var sampleWords = [
   { id: 2, english: 'cat', chinese: '貓', difficultyLevel: 2, sheetName: 'Sheet1', originalRowIndex: 4 },
   { id: 3, english: 'dog', chinese: '狗', difficultyLevel: 0, sheetName: 'Sheet1', originalRowIndex: 5 }
 ];
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

@@ -4,13 +4,7 @@
  * isDefaultSheet
  * OpenSpec 4.3.2, 4.3.3
  */
-var setup = require('./setup');
-
 var app;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

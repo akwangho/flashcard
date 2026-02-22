@@ -1,12 +1,6 @@
 /**
  * Tests for FlashcardApp core: constructor, settings, shuffleArray, defaults
  */
-var setup = require('./setup');
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
-
 describe('FlashcardApp Constructor', function() {
 
   test('FlashcardApp is defined as a function', function() {

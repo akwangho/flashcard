@@ -3,10 +3,6 @@ var setup = require('./setup');
 describe('customConfirm', function() {
   var app;
 
-  beforeAll(function() {
-    setup.bootstrapApp();
-  });
-
   beforeEach(function() {
     app = setup.createApp();
   });

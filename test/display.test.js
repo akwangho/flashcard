@@ -4,13 +4,7 @@
  * confirmRemoval, cancelRemoval, startProgressBar, pauseProgressBar,
  * resumeProgressBar, resetProgressBar, preloadImage
  */
-var setup = require('./setup');
-
 var app;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

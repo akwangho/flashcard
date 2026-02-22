@@ -1,13 +1,7 @@
 /**
  * Tests for filtering: getFilterCutoffDate, applyAllFilters, countWordsForFilter, countWordsForDifficultyFilter
  */
-var setup = require('./setup');
-
 var app;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

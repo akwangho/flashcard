@@ -455,7 +455,7 @@ function loadAllScripts() {
 
 /**
  * Initialize the test environment and load FlashcardApp.
- * Call this in beforeAll() or at the top of each test file.
+ * Called automatically via setupFilesAfterFramework for each test file.
  */
 function bootstrapApp() {
   // Reset DOM
@@ -463,8 +463,10 @@ function bootstrapApp() {
   createDOMElements();
   setupMocks();
 
-  // Load and execute the scripts
-  var code = loadAllScripts();
+  // Use cached code from custom environment if available, otherwise load from disk
+  var code = (typeof global.__FLASHCARD_SCRIPT_CODE__ !== 'undefined')
+    ? global.__FLASHCARD_SCRIPT_CODE__
+    : loadAllScripts();
 
   // We need to suppress the auto-initialization:
   // The script ends with `window.addEventListener('load', ...)` which creates `new FlashcardApp()`.

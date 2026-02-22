@@ -3,10 +3,6 @@ var setup = require('./setup');
 describe('applySettings', function() {
   var app;
 
-  beforeAll(function() {
-    setup.bootstrapApp();
-  });
-
   beforeEach(function() {
     app = new FlashcardApp();
     app.settings = {

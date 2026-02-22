@@ -3,10 +3,6 @@ var setup = require('./setup');
 describe('export processBatch', function() {
   var app;
 
-  beforeAll(function() {
-    setup.bootstrapApp();
-  });
-
   beforeEach(function() {
     app = new FlashcardApp();
     jest.useFakeTimers();

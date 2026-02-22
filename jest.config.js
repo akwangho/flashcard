@@ -1,5 +1,8 @@
 module.exports = {
-  testEnvironment: 'jsdom',
+  testEnvironment: './test/environment.js',
+  setupFilesAfterEnv: ['./test/setup-env.js'],
   testMatch: ['**/test/**/*.test.js'],
-  verbose: true
+  verbose: true,
+  bail: 1,
+  maxWorkers: '50%'
 };

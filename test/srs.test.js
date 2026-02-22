@@ -4,13 +4,7 @@
  * loadSrsData, saveSrsData, getSrsForWord
  * OpenSpec 4.15
  */
-var setup = require('./setup');
-
 var app;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

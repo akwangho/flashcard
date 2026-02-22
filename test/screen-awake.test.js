@@ -1,11 +1,5 @@
-var setup = require('./setup');
-
 describe('script-screen-awake', function() {
   var app;
-
-  beforeAll(function() {
-    setup.bootstrapApp();
-  });
 
   beforeEach(function() {
     app = new FlashcardApp();

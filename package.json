@@ -13,6 +13,8 @@
     "status": "clasp status",
     "logs": "clasp logs",
     "test": "jest --verbose",
+    "test:watch": "jest --watch",
+    "test:file": "jest --bail=1",
     "deploy": "clasp push && echo '✅ 推送完成！' && clasp open --webapp"
   },
   "devDependencies": {

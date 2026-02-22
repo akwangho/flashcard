@@ -3,10 +3,6 @@ var setup = require('./setup');
 describe('Listening Quiz Module', function() {
   var app;
 
-  beforeAll(function() {
-    setup.bootstrapApp();
-  });
-
   beforeEach(function() {
     app = new FlashcardApp();
     app.words = [

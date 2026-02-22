@@ -2,13 +2,7 @@
  * Tests for pause/resume: pauseTimer, resumeTimer, togglePause, updatePauseButtonState
  * OpenSpec 4.5.1
  */
-var setup = require('./setup');
-
 var app;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   jest.useFakeTimers();

@@ -2,13 +2,7 @@
  * Tests for Google Sheet methods: extractSheetId, validateAndGetSheetInput,
  * toggleSheetSelection, renderSheetsList, loadSheetsList
  */
-var setup = require('./setup');
-
 var app;
-
-beforeAll(function() {
-  setup.bootstrapApp();
-});
 
 beforeEach(function() {
   var origInit = FlashcardApp.prototype.init;

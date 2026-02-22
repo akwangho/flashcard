@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.14.2
+> **版本**: 1.14.3
 > **最後更新**: 2026-02-22
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -89,6 +89,8 @@ flashcard/
 ├── .gitignore             # Git 忽略規則
 │
 │   # 測試
+├── test/environment.js        # 自訂 Jest 測試環境（快取腳本內容，減少重複 I/O）
+├── test/setup-env.js          # Jest setupFilesAfterEnv（自動執行 bootstrapApp）
 ├── test/setup.js              # 測試環境初始化（DOM 模擬、Mock、createApp 工具）
 ├── test/polyfills.test.js     # Polyfills 單元測試
 ├── test/core.test.js          # 核心功能單元測試
@@ -155,7 +157,7 @@ bash deploy.sh setup
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 469 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 723 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -1293,6 +1295,14 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.14.3 (2026-02-22) — 測試執行效能優化
+
+- 新增 `test/environment.js` 自訂 Jest 測試環境，在 class level 快取 15 個腳本檔案的串接內容（~400KB），每個 worker 只讀取一次檔案，21 個測試套件共享快取
+- 新增 `test/setup-env.js` 搭配 `setupFilesAfterEnv` 設定，自動為每個測試檔案執行 `bootstrapApp()`，移除 21 個測試檔案中手動呼叫 `setup.bootstrapApp()` 的 `beforeAll` 區塊
+- `jest.config.js` 新增 `bail: 1`（首次失敗即停止）、`maxWorkers: '50%'`（減少 worker 數量降低記憶體壓力）
+- `package.json` 新增 `test:watch`（只重跑變更相關測試）、`test:file`（指定檔案測試）npm 腳本
+- `setup.js` 的 `bootstrapApp()` 優先使用自訂環境注入的快取腳本，無快取時回退至檔案讀取
 
 ### v1.14.2 (2026-02-22) — 聽力練習支援片語與句子
 

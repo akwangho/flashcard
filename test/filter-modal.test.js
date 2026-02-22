@@ -1,11 +1,5 @@
-var setup = require('./setup');
-
 describe('Filter modal open/apply flows', function() {
   var app;
-
-  beforeAll(function() {
-    setup.bootstrapApp();
-  });
 
   beforeEach(function() {
     app = new FlashcardApp();

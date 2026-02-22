@@ -1,11 +1,5 @@
-var setup = require('./setup');
-
 describe('displayCurrentWord and startNewRound', function() {
   var app;
-
-  beforeAll(function() {
-    setup.bootstrapApp();
-  });
 
   beforeEach(function() {
     app = new FlashcardApp();
