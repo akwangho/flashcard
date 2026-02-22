@@ -3,7 +3,7 @@
   /**
    * @module script-listening
    * @description 聽力練習模組：聽音辨字（listen-and-choose）與聽音拼字（listen-and-spell）。
-   *   播放英文語音，學生選擇正確中文或拼出英文單字。
+   *   播放英文語音，學生選擇正確中文或拼出英文單字/片語/句子。
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, getWordType),
    *   script-voice.html (speakWord), script-quiz.html (shuffleArray)
@@ -27,12 +27,12 @@
     var availableWords = this._filterListeningWords();
 
     if (availableWords.length === 0) {
-      alert('沒有可用的單字進行聽力練習！');
+      alert('沒有可用的單字進行聽力練習！請確認已載入單字並檢查篩選條件。');
       return;
     }
 
     if (availableWords.length < APP_CONSTANTS.LISTENING_MIN_WORDS) {
-      alert('可用單字太少（少於' + APP_CONSTANTS.LISTENING_MIN_WORDS + '個），無法進行聽力練習。');
+      alert('可用項目太少（少於' + APP_CONSTANTS.LISTENING_MIN_WORDS + '個），無法進行聽力練習。');
       return;
     }
 
@@ -55,10 +55,7 @@
 
   FlashcardApp.prototype._filterListeningWords = function() {
     if (!this.words || this.words.length === 0) return [];
-    var filtered = this.applyAllFilters(this.words);
-    return filtered.filter(function(w) {
-      return getWordType(w.english) !== 'sentence';
-    });
+    return this.applyAllFilters(this.words);
   };
 
   FlashcardApp.prototype._generateListeningQuestions = function() {
@@ -118,7 +115,7 @@
       if (title) title.textContent = '✍️ 聽音拼字';
       if (icon) icon.textContent = '✍️';
       if (introTitle) introTitle.textContent = '準備開始聽音拼字！';
-      if (introDesc) introDesc.textContent = '聆聽英文發音，拼出你聽到的單字';
+      if (introDesc) introDesc.textContent = '聆聽英文發音，拼出你聽到的內容';
     } else {
       if (title) title.textContent = '👂 聽音辨字';
       if (icon) icon.textContent = '👂';
@@ -129,7 +126,7 @@
     if (questionCount) questionCount.textContent = this.listeningState.questions.length;
     if (scopeInfo) {
       var scopeText = this._buildScopeText(this.listeningState.questions.length);
-      scopeInfo.textContent = scopeText + '（不含句子）';
+      scopeInfo.textContent = scopeText;
     }
 
     this._showListeningScreen('start');

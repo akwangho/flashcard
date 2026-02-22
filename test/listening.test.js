@@ -29,13 +29,13 @@ describe('Listening Quiz Module', function() {
   });
 
   describe('_filterListeningWords', function() {
-    test('excludes sentences and includes words and phrases', function() {
+    test('includes words, phrases, and sentences', function() {
       var filtered = app._filterListeningWords();
-      expect(filtered.length).toBe(4);
+      expect(filtered.length).toBe(5);
       var englishWords = filtered.map(function(w) { return w.english; });
-      expect(englishWords.indexOf('I like cats.')).toBe(-1);
       expect(englishWords.indexOf('apple')).not.toBe(-1);
       expect(englishWords.indexOf('hot dog')).not.toBe(-1);
+      expect(englishWords.indexOf('I like cats.')).not.toBe(-1);
     });
 
     test('returns empty when words is empty', function() {
@@ -47,9 +47,7 @@ describe('Listening Quiz Module', function() {
 
   describe('startListeningQuiz', function() {
     test('alerts when no words available', function() {
-      app.words = [
-        { id: 0, english: 'I like cats.', chinese: '我喜歡貓。', difficultyLevel: 0 }
-      ];
+      app.words = [];
       var alertSpy = jest.spyOn(window, 'alert').mockImplementation(function() {});
       app.startListeningQuiz('choose');
       expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('沒有可用'));
