@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.14.0
+> **版本**: 1.14.1
 > **最後更新**: 2026-02-21
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -1293,6 +1293,12 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.14.1 (2026-02-21) — 複習日期同步加強：少量單字與暫停觸發
+
+- 新增 `APP_CONSTANTS.REVIEW_SYNC_LOW_WORDS_TRIGGER`（預設 3）：暫時刪除後若剩餘單字 <= 3 個，立即觸發 `syncReviewDates()` 同步已複習的單字
+- 使用者手動暫停（`togglePause`）時也觸發 `syncReviewDates()`
+- 修正原本僅在達到 20 個閾值、開啟選單、或頁面卸載時才同步的限制，避免使用者在少量單字循環後暫停離開，導致暫時刪除的單字未更新最後複習時間
 
 ### v1.14.0 (2026-02-21) — 編輯單字 Enter 鍵快速儲存
 

@@ -682,6 +682,11 @@
     this.pendingRemoval = null;
     this.hideRestoreButton();
     
+    // 剩餘單字很少時提前同步複習日期，避免使用者暫停後未觸發閾值而遺漏
+    if (this.currentWords.length <= APP_CONSTANTS.REVIEW_SYNC_LOW_WORDS_TRIGGER) {
+      this.syncReviewDates();
+    }
+
     if (this.currentWords.length === 0) {
       this.startNewRound();
     } else {

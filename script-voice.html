@@ -743,13 +743,12 @@
   // 切換暫停/恢復
   FlashcardApp.prototype.togglePause = function() {
     if (this.userPaused) {
-      // 用戶手動恢復
       this.userPaused = false;
       this.resumeTimer();
     } else {
-      // 用戶手動暫停
       this.userPaused = true;
       this.pauseTimer();
+      this.syncReviewDates();
     }
     this.updatePauseButtonState();
   };
