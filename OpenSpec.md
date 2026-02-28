@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.14.3
-> **最後更新**: 2026-02-22
+> **版本**: 1.14.4
+> **最後更新**: 2026-02-28
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -1295,6 +1295,11 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.14.4 (2026-02-28) — 非常熟 toast 位置調整
+
+- 將「非常熟」標記提示 toast 從畫面底部 (`bottom: 55px`) 改為畫面垂直置中 (`fixed + translate`)，避免被下方「恢復單字」按鈕擋住
+- 補充 `-webkit-transform` 和 `-webkit-transition` 前綴以相容 iPad 4
 
 ### v1.14.3 (2026-02-22) — 測試執行效能優化
 

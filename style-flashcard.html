@@ -542,12 +542,13 @@
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
   }
 
-  /* 非常熟標記提示 (D鍵雙按確認 toast) */
+  /* 非常熟標記提示 (D鍵雙按確認 toast) — 置中顯示避免被恢復按鈕擋住 */
   .very-familiar-toast {
-    position: absolute;
-    bottom: 55px;
+    position: fixed;
+    top: 50%;
     left: 50%;
-    margin-left: -140px;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
     width: 280px;
     background: rgba(0, 160, 0, 0.85);
     color: #fff;
@@ -561,6 +562,7 @@
     backdrop-filter: blur(2px);
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
     opacity: 0;
+    -webkit-transition: opacity 0.3s ease;
     transition: opacity 0.3s ease;
   }
 
