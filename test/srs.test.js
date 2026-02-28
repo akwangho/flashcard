@@ -294,21 +294,48 @@ describe('getRecommendedWords', function() {
     expect(result.length).toBe(2);
   });
 
-  test('due/overdue words come before never-reviewed', function() {
+  test('new words (empty lastReviewDate) come before overdue SRS words', function() {
     app.words = [
-      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 0 },
-      { id: 1, english: 'banana', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 5 }
+      { id: 0, english: 'overdue', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 5 },
+      { id: 1, english: 'brand-new', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 10, lastReviewDate: '' }
     ];
     app.srsData = {
       'S1:1': { box: 1, nextReview: '2020-01-01' }
     };
     var result = app.getRecommendedWords();
-    expect(result[0].english).toBe('apple');
+    expect(result[0].english).toBe('brand-new');
+    expect(result[1].english).toBe('overdue');
   });
 
-  test('never-reviewed words come before future-due words', function() {
+  test('reviewed words with difficulty > 0 get highest priority over overdue SRS', function() {
     app.words = [
-      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 3 },
+      { id: 0, english: 'overdue-srs', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 0 },
+      { id: 1, english: 'unfamiliar-reviewed', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 8, lastReviewDate: '2025-01-01' }
+    ];
+    app.srsData = {
+      'S1:1': { box: 1, nextReview: '2020-01-01' }
+    };
+    var result = app.getRecommendedWords();
+    expect(result[0].english).toBe('unfamiliar-reviewed');
+    expect(result[1].english).toBe('overdue-srs');
+  });
+
+  test('overdue SRS words come before familiar reviewed words (difficulty <= 0)', function() {
+    app.words = [
+      { id: 0, english: 'familiar-reviewed', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 0, lastReviewDate: '2025-01-01' },
+      { id: 1, english: 'overdue-srs', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 0 }
+    ];
+    app.srsData = {
+      'S1:2': { box: 1, nextReview: '2020-01-01' }
+    };
+    var result = app.getRecommendedWords();
+    expect(result[0].english).toBe('overdue-srs');
+    expect(result[1].english).toBe('familiar-reviewed');
+  });
+
+  test('new words come before future-due words', function() {
+    app.words = [
+      { id: 0, english: 'apple', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 3, lastReviewDate: '' },
       { id: 1, english: 'banana', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 0 }
     ];
     app.srsData = {
@@ -319,11 +346,11 @@ describe('getRecommendedWords', function() {
     expect(result[1].english).toBe('banana');
   });
 
-  test('among never-reviewed, higher difficulty comes first', function() {
+  test('among new words, higher difficulty comes first', function() {
     app.words = [
-      { id: 0, english: 'easy', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 1 },
-      { id: 1, english: 'hard', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 8 },
-      { id: 2, english: 'medium', sheetName: 'S1', originalRowIndex: 3, difficultyLevel: 4 }
+      { id: 0, english: 'easy', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 1, lastReviewDate: '' },
+      { id: 1, english: 'hard', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 8, lastReviewDate: '' },
+      { id: 2, english: 'medium', sheetName: 'S1', originalRowIndex: 3, difficultyLevel: 4, lastReviewDate: '' }
     ];
     app.srsData = {};
     var result = app.getRecommendedWords();
@@ -360,10 +387,10 @@ describe('getRecommendedWords', function() {
     expect(result[0].english).toBe('from-source');
   });
 
-  test('negative difficulty words sort last among never-reviewed', function() {
+  test('negative difficulty words sort last among new words', function() {
     app.words = [
-      { id: 0, english: 'familiar', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: -1 },
-      { id: 1, english: 'hard', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 5 }
+      { id: 0, english: 'familiar', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: -1, lastReviewDate: '' },
+      { id: 1, english: 'hard', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 5, lastReviewDate: '' }
     ];
     app.srsData = {};
     var result = app.getRecommendedWords();
