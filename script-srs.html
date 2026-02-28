@@ -9,9 +9,11 @@
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD, closeModalById)
    * @provides FlashcardApp.prototype: getBoxInterval, getInitialBox,
    *   loadSrsData, saveSrsData, getSrsForWord, updateSrsData,
-   *   getDueWords, getDueWordCount, getRecommendedWords, startSrsReview,
-   *   openSrsReviewModal, renderSrsCountOptions, closeSrsReviewModal,
-   *   calculateSrsStats, renderSrsStats
+   *   getDueWords, getDueWordCount, _buildPriorityList,
+   *   getRecommendedWords, getRecommendedWordsWithPriority,
+   *   startSrsReview, openSrsReviewModal, renderSrsCountOptions,
+   *   closeSrsReviewModal, calculateSrsStats, renderSrsStats,
+   *   renderWordPriorityList
    */
 
   // ==========================================================================
@@ -116,13 +118,12 @@
     return this.getDueWords().length;
   };
 
-  // ★ 快速複習：取得依優先度排序的建議複習單字
+  // ★ 內部方法：建立依優先度排序的單字清單（含完整 metadata）
   // 優先度：(0) 不熟或全新單字 (1) SRS 已到期/逾期 (2) 已熟悉且有複習記錄 (3) SRS 尚未到期
-  // @param {Array} [sourceWords] - 來源單字陣列，省略時使用 this.words
-  FlashcardApp.prototype.getRecommendedWords = function(sourceWords) {
+  // 回傳 [{ word, priority, sortKey, nextReview }]
+  FlashcardApp.prototype._buildPriorityList = function(sourceWords) {
     var words = sourceWords || this.words;
     var today = this.getTodayDateString();
-    var self = this;
     var wordsWithPriority = [];
 
     for (var i = 0; i < words.length; i++) {
@@ -136,20 +137,16 @@
         var isNewWord = !word.lastReviewDate || word.lastReviewDate === '';
         sortKey = (diff < 0) ? -1 : diff;
         if (diff > 0 || isNewWord) {
-          // 不熟程度 > 0（仍需學習）或全新單字（從未複習）：最高優先（類別 0）
           priority = 0;
         } else {
-          // 已熟悉（difficulty <= 0）且有複習記錄：中低優先（類別 2）
           priority = 2;
         }
         wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: '' });
       } else if (srs.nextReview <= today) {
-        // SRS 已到期/逾期：高優先（類別 1）
         priority = 1;
         sortKey = -(srs.box || 1);
         wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: srs.nextReview });
       } else {
-        // SRS 尚未到期：最低優先（類別 3）
         priority = 3;
         sortKey = 0;
         wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: srs.nextReview });
@@ -169,11 +166,22 @@
       return 0;
     });
 
+    return wordsWithPriority;
+  };
+
+  // 取得依優先度排序的建議複習單字（僅回傳 word 陣列）
+  FlashcardApp.prototype.getRecommendedWords = function(sourceWords) {
+    var list = this._buildPriorityList(sourceWords);
     var result = [];
-    for (var j = 0; j < wordsWithPriority.length; j++) {
-      result.push(wordsWithPriority[j].word);
+    for (var j = 0; j < list.length; j++) {
+      result.push(list[j].word);
     }
     return result;
+  };
+
+  // 取得依優先度排序的建議複習單字（含優先度 metadata）
+  FlashcardApp.prototype.getRecommendedWordsWithPriority = function(sourceWords) {
+    return this._buildPriorityList(sourceWords);
   };
 
   // 開始快速複習模式（依優先度排序，取前 N 個）
@@ -211,6 +219,7 @@
     var filteredCount = filteredWords.length;
     var modal = document.getElementById('srs-review-modal');
     var statsEl = document.getElementById('srs-stats');
+    var priorityListEl = document.getElementById('srs-word-priority-list');
     var optionsEl = document.getElementById('srs-count-options');
     var noDueEl = document.getElementById('srs-no-due');
     var startBtn = document.getElementById('srs-start-btn');
@@ -221,6 +230,7 @@
 
     if (filteredCount === 0) {
       if (statsEl) statsEl.style.display = 'none';
+      if (priorityListEl) priorityListEl.style.display = 'none';
       if (optionsEl) optionsEl.style.display = 'none';
       if (startBtn) startBtn.style.display = 'none';
       if (noDueEl) {
@@ -234,6 +244,9 @@
 
       var stats = this.calculateSrsStats(filteredWords);
       this.renderSrsStats(stats);
+
+      var priorityList = this.getRecommendedWordsWithPriority(filteredWords);
+      this.renderWordPriorityList(priorityList);
 
       if (optionsEl) optionsEl.style.display = 'block';
       if (startBtn) startBtn.style.display = 'block';
@@ -437,6 +450,67 @@
     html += '</div>';
 
     container.innerHTML = html;
+  };
+
+  // 優先類別標籤對照
+  var PRIORITY_LABELS = ['不熟/全新', 'SRS到期', '已熟悉', '未到期'];
+
+  // 渲染單字優先順序清單（可收合）
+  FlashcardApp.prototype.renderWordPriorityList = function(priorityList) {
+    var container = document.getElementById('srs-word-priority-list');
+    if (!container) return;
+    if (!priorityList || priorityList.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+
+    var html = '';
+    html += '<div class="srs-priority-toggle" id="srs-priority-toggle">';
+    html += '▶ 顯示單字優先順序（共 ' + priorityList.length + ' 個）';
+    html += '</div>';
+
+    html += '<div class="srs-priority-table-wrap" id="srs-priority-table-wrap" style="display:none;">';
+    html += '<table class="srs-priority-table">';
+    html += '<thead><tr>';
+    html += '<th class="srs-pt-rank">#</th>';
+    html += '<th class="srs-pt-word">單字</th>';
+    html += '<th class="srs-pt-cat">類別</th>';
+    html += '<th class="srs-pt-diff">不熟</th>';
+    html += '<th class="srs-pt-date">最後複習</th>';
+    html += '</tr></thead>';
+    html += '<tbody>';
+
+    for (var i = 0; i < priorityList.length; i++) {
+      var item = priorityList[i];
+      var w = item.word;
+      var diff = (w.difficultyLevel !== undefined && w.difficultyLevel !== null) ? w.difficultyLevel : 0;
+      var diffText = (diff <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) ? '非常熟' : ('★' + diff);
+      var dateText = (w.lastReviewDate && w.lastReviewDate !== '') ? w.lastReviewDate.slice(5) : '從未';
+      var catLabel = PRIORITY_LABELS[item.priority] || '';
+      var rowClass = (i % 2 === 0) ? 'srs-pt-row-even' : 'srs-pt-row-odd';
+
+      html += '<tr class="' + rowClass + '">';
+      html += '<td class="srs-pt-rank">' + (i + 1) + '</td>';
+      html += '<td class="srs-pt-word">' + w.english + '</td>';
+      html += '<td class="srs-pt-cat srs-pt-cat-' + item.priority + '">' + catLabel + '</td>';
+      html += '<td class="srs-pt-diff">' + diffText + '</td>';
+      html += '<td class="srs-pt-date">' + dateText + '</td>';
+      html += '</tr>';
+    }
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+
+    var toggle = document.getElementById('srs-priority-toggle');
+    var wrap = document.getElementById('srs-priority-table-wrap');
+    if (toggle && wrap) {
+      toggle.onclick = function() {
+        var isHidden = wrap.style.display === 'none';
+        wrap.style.display = isHidden ? 'block' : 'none';
+        toggle.textContent = (isHidden ? '▼ ' : '▶ ') + '顯示單字優先順序（共 ' + priorityList.length + ' 個）';
+      };
+    }
   };
 
 

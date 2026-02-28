@@ -660,6 +660,75 @@
     font-size: 12px;
   }
 
+  /* SRS Priority Word List (collapsible) */
+  .srs-priority-toggle {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: #ccc;
+    font-size: 13px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .srs-priority-table-wrap {
+    margin-top: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #333;
+    border-radius: 6px;
+  }
+
+  .srs-priority-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .srs-priority-table thead {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .srs-priority-table th {
+    background: #222;
+    color: #aaa;
+    font-weight: bold;
+    padding: 6px 4px;
+    border-bottom: 1px solid #444;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .srs-priority-table td {
+    padding: 5px 4px;
+    border-bottom: 1px solid #2a2a2a;
+    text-align: center;
+    color: #ccc;
+  }
+
+  .srs-pt-row-even { background: rgba(255, 255, 255, 0.02); }
+  .srs-pt-row-odd  { background: rgba(255, 255, 255, 0.06); }
+
+  .srs-pt-rank { width: 28px; color: #777; }
+  .srs-pt-word { text-align: left; padding-left: 6px; word-break: break-all; }
+  td.srs-pt-word { color: #fff; }
+  .srs-pt-cat  { width: 56px; font-size: 11px; }
+  .srs-pt-diff { width: 40px; }
+  .srs-pt-date { width: 52px; font-size: 11px; color: #888; }
+
+  .srs-pt-cat-0 { color: #FF6B6B; }
+  .srs-pt-cat-1 { color: #FFA500; }
+  .srs-pt-cat-2 { color: #4CAF50; }
+  .srs-pt-cat-3 { color: #666; }
+
   .btn-primary {
     background-color: #FFFF00;
     background-color: var(--primary-color);

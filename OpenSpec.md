@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.14.4
+> **版本**: 1.14.6
 > **最後更新**: 2026-02-28
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -969,6 +969,11 @@ bash deploy.sh setup
     - ★7-8：橙紅色進度條
     - ★9-10：紅色進度條
   - 數量選擇：10、20、30、50、100 或「全部 (N)」的按鈕選項
+- **單字優先順序清單**（可收合，預設收合）：
+  - 點擊「▶ 顯示單字優先順序（共 N 個）」展開/收合
+  - 表格欄位：排名(#)、單字、優先類別（不熟/全新、SRS到期、已熟悉、未到期）、不熟程度（★N 或 非常熟）、最後複習日（MM-DD 或 從未）
+  - 表格區域限高 300px，內部可捲動，表頭固定（sticky）
+  - 交替行背景色提升可讀性
 - **優先度排序**: 系統依以下優先度排列複習單字：
   1. 不熟或全新單字（無 SRS 資料，且不熟程度 > 0 或 `lastReviewDate` 為空；不熟程度越高越優先）
   2. SRS 已到期/逾期的單字（越逾期越優先，SRS Box 等級越低越優先）
@@ -1296,6 +1301,13 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.14.6 (2026-02-28) — 快速複習新增單字優先順序清單
+
+- 快速複習模態框新增可收合的「單字優先順序」清單，顯示每個單字的排名、優先類別、不熟程度、最後複習日
+- 重構 `getRecommendedWords` 為 `_buildPriorityList` 內部方法 + `getRecommendedWords`（回傳 word 陣列）+ `getRecommendedWordsWithPriority`（回傳含 metadata 陣列）
+- `openSrsReviewModal` 呼叫 `renderWordPriorityList` 渲染清單
+- 新增 SRS 優先順序表格 CSS（收合按鈕、sticky 表頭、交替行色、捲動區域）
 
 ### v1.14.5 (2026-02-28) — 快速複習優先度調整 + toast 位置修正
 
