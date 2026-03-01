@@ -26,24 +26,32 @@ describe('getBoxInterval', function() {
     expect(app.getBoxInterval(1)).toBe(1);
   });
 
-  test('box 2 returns 3 days', function() {
-    expect(app.getBoxInterval(2)).toBe(3);
+  test('box 2 returns 2 days', function() {
+    expect(app.getBoxInterval(2)).toBe(2);
   });
 
-  test('box 3 returns 7 days', function() {
-    expect(app.getBoxInterval(3)).toBe(7);
+  test('box 3 returns 4 days', function() {
+    expect(app.getBoxInterval(3)).toBe(4);
   });
 
-  test('box 4 returns 14 days', function() {
-    expect(app.getBoxInterval(4)).toBe(14);
+  test('box 4 returns 7 days', function() {
+    expect(app.getBoxInterval(4)).toBe(7);
   });
 
-  test('box 5 returns 30 days', function() {
-    expect(app.getBoxInterval(5)).toBe(30);
+  test('box 5 returns 14 days', function() {
+    expect(app.getBoxInterval(5)).toBe(14);
   });
 
-  test('box 6 returns 60 days', function() {
-    expect(app.getBoxInterval(6)).toBe(60);
+  test('box 6 returns 30 days', function() {
+    expect(app.getBoxInterval(6)).toBe(30);
+  });
+
+  test('box 7 returns 60 days', function() {
+    expect(app.getBoxInterval(7)).toBe(60);
+  });
+
+  test('box 8 returns 120 days', function() {
+    expect(app.getBoxInterval(8)).toBe(120);
   });
 
   test('unknown box defaults to 1 day', function() {
@@ -57,12 +65,12 @@ describe('getBoxInterval', function() {
 // ============================================================
 describe('getInitialBox', function() {
 
-  test('difficulty -1 (very familiar) returns box 5', function() {
-    expect(app.getInitialBox(-1)).toBe(5);
+  test('difficulty -1 (very familiar) returns box 7', function() {
+    expect(app.getInitialBox(-1)).toBe(7);
   });
 
-  test('difficulty 0 (no mark) returns box 3', function() {
-    expect(app.getInitialBox(0)).toBe(3);
+  test('difficulty 0 (no mark) returns box 4', function() {
+    expect(app.getInitialBox(0)).toBe(4);
   });
 
   test('difficulty 1-3 (slightly unfamiliar) returns box 2', function() {
@@ -115,7 +123,7 @@ describe('updateSrsData', function() {
     app.updateSrsData(word);
     var srs = app.srsData['Sheet1:2'];
     expect(srs).toBeDefined();
-    expect(srs.box).toBe(3); // difficulty 0 → initial box 3
+    expect(srs.box).toBe(4); // difficulty 0 → initial box 4
     expect(srs.nextReview).toBeDefined();
   });
 
@@ -124,13 +132,20 @@ describe('updateSrsData', function() {
     var word2 = { id: 1, difficultyLevel: 5, sheetName: 'S1', originalRowIndex: 2 };
     app.updateSrsData(word1);
     app.updateSrsData(word2);
-    expect(app.srsData['S1:1'].box).toBe(5); // -1 → box 5
+    expect(app.srsData['S1:1'].box).toBe(7); // -1 → box 7
     expect(app.srsData['S1:2'].box).toBe(1); // 5 → box 1
   });
 
-  test('upgrades box for easy words (difficulty <= 2)', function() {
+  test('upgrades box for easy words (difficulty <= 5)', function() {
     app.srsData['Sheet1:2'] = { box: 2, nextReview: '2026-01-01' };
     var word = { id: 0, difficultyLevel: 1, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.updateSrsData(word);
+    expect(app.srsData['Sheet1:2'].box).toBe(3); // 2 → 3
+  });
+
+  test('upgrades box for difficulty 5 (boundary)', function() {
+    app.srsData['Sheet1:2'] = { box: 2, nextReview: '2026-01-01' };
+    var word = { id: 0, difficultyLevel: 5, sheetName: 'Sheet1', originalRowIndex: 2 };
     app.updateSrsData(word);
     expect(app.srsData['Sheet1:2'].box).toBe(3); // 2 → 3
   });
@@ -142,23 +157,37 @@ describe('updateSrsData', function() {
     expect(app.srsData['Sheet1:2'].box).toBe(5); // 4 → 5
   });
 
-  test('caps box at 6', function() {
-    app.srsData['Sheet1:2'] = { box: 6, nextReview: '2026-01-01' };
+  test('caps box at 8', function() {
+    app.srsData['Sheet1:2'] = { box: 8, nextReview: '2026-01-01' };
     var word = { id: 0, difficultyLevel: 0, sheetName: 'Sheet1', originalRowIndex: 2 };
     app.updateSrsData(word);
-    expect(app.srsData['Sheet1:2'].box).toBe(6);
+    expect(app.srsData['Sheet1:2'].box).toBe(8);
   });
 
-  test('resets box to 1 for hard words (difficulty >= 6)', function() {
+  test('resets box to 1 for very hard words (difficulty >= 8)', function() {
     app.srsData['Sheet1:2'] = { box: 4, nextReview: '2026-01-01' };
-    var word = { id: 0, difficultyLevel: 7, sheetName: 'Sheet1', originalRowIndex: 2 };
+    var word = { id: 0, difficultyLevel: 8, sheetName: 'Sheet1', originalRowIndex: 2 };
     app.updateSrsData(word);
     expect(app.srsData['Sheet1:2'].box).toBe(1);
   });
 
-  test('keeps box unchanged for medium difficulty (3-5)', function() {
+  test('resets box to 1 for difficulty 10', function() {
     app.srsData['Sheet1:2'] = { box: 3, nextReview: '2026-01-01' };
-    var word = { id: 0, difficultyLevel: 4, sheetName: 'Sheet1', originalRowIndex: 2 };
+    var word = { id: 0, difficultyLevel: 10, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.updateSrsData(word);
+    expect(app.srsData['Sheet1:2'].box).toBe(1);
+  });
+
+  test('keeps box unchanged for medium-hard difficulty (6-7)', function() {
+    app.srsData['Sheet1:2'] = { box: 3, nextReview: '2026-01-01' };
+    var word = { id: 0, difficultyLevel: 6, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.updateSrsData(word);
+    expect(app.srsData['Sheet1:2'].box).toBe(3);
+  });
+
+  test('keeps box unchanged for difficulty 7 (boundary)', function() {
+    app.srsData['Sheet1:2'] = { box: 3, nextReview: '2026-01-01' };
+    var word = { id: 0, difficultyLevel: 7, sheetName: 'Sheet1', originalRowIndex: 2 };
     app.updateSrsData(word);
     expect(app.srsData['Sheet1:2'].box).toBe(3);
   });
@@ -167,7 +196,7 @@ describe('updateSrsData', function() {
     var word = { id: 0, difficultyLevel: 0, sheetName: 'Sheet1', originalRowIndex: 2 };
     app.updateSrsData(word);
     var srs = app.srsData['Sheet1:2'];
-    // box 3 → 7 day interval
+    // box 4 → 7 day interval
     var today = new Date();
     var expected = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     var expectedStr = expected.getFullYear() + '-' +

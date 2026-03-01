@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.14.6
+> **版本**: 1.14.8
 > **最後更新**: 2026-02-28
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -280,7 +280,7 @@ bash deploy.sh setup
 ```javascript
 {
   "sheetName:rowIndex": {
-    box: Number,             // Leitner Box 等級 (1-6)
+    box: Number,             // Leitner Box 等級 (1-8)
     nextReview: String       // 下次複習日期 "YYYY-MM-DD"
   }
 }
@@ -917,24 +917,26 @@ bash deploy.sh setup
 
 #### 4.15.1 演算法：簡化版 Leitner Box
 - **描述**: 採用 Leitner Box 分箱系統，根據學習者的掌握程度自動安排複習間隔
-- **Box 等級 (1-6)** 對應複習間隔：
-  - Box 1: 1 天
-  - Box 2: 3 天
-  - Box 3: 7 天
-  - Box 4: 14 天
-  - Box 5: 30 天
-  - Box 6: 60 天
+- **Box 等級 (1-8)** 對應複習間隔：
+  - Box 1: 1 天（全新/很不熟）
+  - Box 2: 2 天（快速強化）
+  - Box 3: 4 天（約每週兩次）
+  - Box 4: 7 天（每週）
+  - Box 5: 14 天（每兩週）
+  - Box 6: 30 天（每月）
+  - Box 7: 60 天（每兩月）
+  - Box 8: 120 天（每季，已畢業）
 
 #### 4.15.2 Box 轉換規則
 - **複習時觸發**（基於單字的 `difficultyLevel`）：
-  - difficulty ≤ 2 或負數（熟悉）：Box 上升一級（最高 6）
-  - difficulty 3-5（普通）：Box 不變
-  - difficulty ≥ 6（不熟）：Box 降回 1
+  - difficulty ≤ 5（熟悉或中等）：Box 上升一級（最高 8）
+  - difficulty 6-7（仍在學習中）：Box 不變
+  - difficulty ≥ 8（非常不熟）：Box 降回 1
 - **初始 Box**（首次進入 SRS 的單字）：
-  - difficulty -1（非常熟）：Box 5
-  - difficulty 0（無標記）：Box 3
-  - difficulty 1-3（略不熟）：Box 2
-  - difficulty ≥ 4（很不熟）：Box 1
+  - difficulty < 0（非常熟）：Box 7（60 天後複習）
+  - difficulty 0（無標記）：Box 4（7 天後複習）
+  - difficulty 1-3（略不熟）：Box 2（2 天後複習）
+  - difficulty ≥ 4（很不熟）：Box 1（1 天後複習）
 - **下次複習日期** = 當天日期 + Box 對應間隔天數
 - **到期判定**: 今天 ≥ nextReview 或無 SRS 資料的單字視為需要複習
 
@@ -944,10 +946,10 @@ bash deploy.sh setup
 - **特性**: 裝置本地儲存，不佔用 Google Sheets 欄位
 
 #### 4.15.4 SRS 更新觸發時機
-- 單字被標記為已複習時（`markWordAsReviewed`）
+- 減少不熟程度時（`decreaseDifficulty` → 內部呼叫 `updateSrsData`）
+- 標記為非常熟時（`confirmMarkVeryFamiliar` → 內部呼叫 `updateSrsData`）
 - 增加不熟程度時（`increaseDifficulty`）
-- 減少不熟程度時（`decreaseDifficulty`）
-- 標記為非常熟時（`confirmMarkVeryFamiliar`）
+- 注意：`markWordAsReviewed` 僅記錄複習日期，不再呼叫 `updateSrsData`，以避免單次複習觸發兩次 Box 調整
 
 #### 4.15.5 快速複習 UI
 - **選單入口**: 「📖 快速複習」按鈕，位於選單「學習」分類中
@@ -1301,6 +1303,18 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.14.8 (2026-02-28) — SRS 複習流程優化
+
+- 調整 Box 晉升門檻：difficulty ≤ 5 晉升、6-7 不變、≥ 8 重置為 Box 1，解決 difficulty 3-5 的單字長期卡在 Box 1 無法進步的問題
+- 移除 `markWordAsReviewed` 中多餘的 `updateSrsData` 呼叫，避免每次複習觸發兩次 Box 調整導致跳級
+
+### v1.14.7 (2026-02-28) — SRS 間隔調整為 8 級
+
+- SRS Box 從 6 級擴展為 8 級，間隔調整為 1、2、4、7、14、30、60、120 天
+- 初始 Box 對應調整：非常熟 → Box 7（60天）、無標記 → Box 4（7天）、略不熟 → Box 2（2天）、很不熟 → Box 1（1天）
+- 早期複習更密集（Box 2 從 3 天縮短為 2 天），適合每日新增 3 個高難度單字的使用模式
+- 最大間隔從 60 天延長至 120 天，減少已熟悉單字的複習頻率，提高每日 100 個複習額度的利用效率
 
 ### v1.14.6 (2026-02-28) — 快速複習新增單字優先順序清單
 

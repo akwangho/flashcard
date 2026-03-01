@@ -36,8 +36,8 @@
     // 同時更新記憶體中的 word 物件
     word.lastReviewDate = today;
     
-    // 更新 SRS 資料
-    this.updateSrsData(word);
+    // 注意：SRS 資料由 confirmRemoval 中的 decreaseDifficulty / updateSrsData 負責更新，
+    // 此處不再重複呼叫，避免單次複習觸發兩次 Box 調整
     
     // 檢查是否達到同步閾值
     var count = 0;

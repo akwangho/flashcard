@@ -580,4 +580,12 @@ describe('markWordAsReviewed', function() {
     app.markWordAsReviewed(word);
     expect(app.reviewedInSession['Sheet1:2']).toBe(firstDate);
   });
+
+  test('does not call updateSrsData (SRS update is handled by confirmRemoval)', function() {
+    var spy = jest.fn();
+    app.updateSrsData = spy;
+    var word = { sheetName: 'Sheet1', originalRowIndex: 2, id: 0 };
+    app.markWordAsReviewed(word);
+    expect(spy).not.toHaveBeenCalled();
+  });
 });
