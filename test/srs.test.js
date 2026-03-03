@@ -205,6 +205,54 @@ describe('updateSrsData', function() {
     expect(srs.nextReview).toBe(expectedStr);
   });
 
+  test('difficulty > 0 always produces 1-day interval', function() {
+    var word = { id: 0, difficultyLevel: 5, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.updateSrsData(word);
+    var srs = app.srsData['Sheet1:2'];
+    var today = new Date();
+    var expected = new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000);
+    var expectedStr = expected.getFullYear() + '-' +
+      (expected.getMonth() + 1 < 10 ? '0' : '') + (expected.getMonth() + 1) + '-' +
+      (expected.getDate() < 10 ? '0' : '') + expected.getDate();
+    expect(srs.nextReview).toBe(expectedStr);
+  });
+
+  test('difficulty -1 produces 12-day interval', function() {
+    var word = { id: 0, difficultyLevel: -1, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.updateSrsData(word);
+    var srs = app.srsData['Sheet1:2'];
+    var today = new Date();
+    var expected = new Date(today.getTime() + 12 * 24 * 60 * 60 * 1000);
+    var expectedStr = expected.getFullYear() + '-' +
+      (expected.getMonth() + 1 < 10 ? '0' : '') + (expected.getMonth() + 1) + '-' +
+      (expected.getDate() < 10 ? '0' : '') + expected.getDate();
+    expect(srs.nextReview).toBe(expectedStr);
+  });
+
+  test('difficulty -100 produces 120-day interval', function() {
+    var word = { id: 0, difficultyLevel: -100, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.updateSrsData(word);
+    var srs = app.srsData['Sheet1:2'];
+    var today = new Date();
+    var expected = new Date(today.getTime() + 120 * 24 * 60 * 60 * 1000);
+    var expectedStr = expected.getFullYear() + '-' +
+      (expected.getMonth() + 1 < 10 ? '0' : '') + (expected.getMonth() + 1) + '-' +
+      (expected.getDate() < 10 ? '0' : '') + expected.getDate();
+    expect(srs.nextReview).toBe(expectedStr);
+  });
+
+  test('difficulty -999 produces 365-day interval (capped)', function() {
+    var word = { id: 0, difficultyLevel: -999, sheetName: 'Sheet1', originalRowIndex: 2 };
+    app.updateSrsData(word);
+    var srs = app.srsData['Sheet1:2'];
+    var today = new Date();
+    var expected = new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000);
+    var expectedStr = expected.getFullYear() + '-' +
+      (expected.getMonth() + 1 < 10 ? '0' : '') + (expected.getMonth() + 1) + '-' +
+      (expected.getDate() < 10 ? '0' : '') + expected.getDate();
+    expect(srs.nextReview).toBe(expectedStr);
+  });
+
   test('skips Demo sheet', function() {
     var word = { id: 0, difficultyLevel: 0, sheetName: 'Demo', originalRowIndex: 2 };
     app.updateSrsData(word);
@@ -334,6 +382,20 @@ describe('getRecommendedWords', function() {
     var result = app.getRecommendedWords();
     expect(result[0].english).toBe('brand-new');
     expect(result[1].english).toBe('overdue');
+  });
+
+  test('never-reviewed word with diff > 0 gets priority 0 even if SRS data exists', function() {
+    app.words = [
+      { id: 0, english: 'overdue-srs', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 0, lastReviewDate: '2025-01-01' },
+      { id: 1, english: 'new-with-srs', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 10, lastReviewDate: '' }
+    ];
+    app.srsData = {
+      'S1:1': { box: 1, nextReview: '2020-01-01' },
+      'S1:2': { box: 1, nextReview: '2020-01-01' }
+    };
+    var result = app.getRecommendedWords();
+    expect(result[0].english).toBe('new-with-srs');
+    expect(result[1].english).toBe('overdue-srs');
   });
 
   test('reviewed words with difficulty > 0 get highest priority over overdue SRS', function() {

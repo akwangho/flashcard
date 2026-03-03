@@ -82,9 +82,16 @@
       // difficulty 6-7：仍在學習中，Box 不變
     }
 
-    // 計算下次複習日期
+    // 計算下次複習日期（依難度覆寫間隔）
     var today = new Date();
-    var interval = this.getBoxInterval(entry.box);
+    var interval;
+    if (difficulty > 0) {
+      interval = 1;
+    } else if (difficulty < 0) {
+      interval = Math.min(365, Math.ceil(12 * Math.sqrt(Math.abs(difficulty))));
+    } else {
+      interval = this.getBoxInterval(entry.box);
+    }
     var nextDate = new Date(today.getTime() + interval * APP_CONSTANTS.MS_PER_DAY);
     entry.nextReview = formatDateYYYYMMDD(nextDate);
 
@@ -119,7 +126,8 @@
   };
 
   // ★ 內部方法：建立依優先度排序的單字清單（含完整 metadata）
-  // 優先度：(0) 不熟或全新單字 (1) SRS 已到期/逾期 (2) 已熟悉且有複習記錄 (3) SRS 尚未到期
+  // 優先度：(0) 從未複習且不熟(diff>0)或全新單字 (1) SRS 已到期/逾期 (2) 已熟悉且有複習記錄 (3) SRS 尚未到期
+  // 從未複習 + diff > 0 的單字無條件列為最高優先，不受 SRS 資料影響
   // 回傳 [{ word, priority, sortKey, nextReview }]
   FlashcardApp.prototype._buildPriorityList = function(sourceWords) {
     var words = sourceWords || this.words;
@@ -128,15 +136,19 @@
 
     for (var i = 0; i < words.length; i++) {
       var word = words[i];
+      var diff = (word.difficultyLevel !== undefined && word.difficultyLevel !== null) ? word.difficultyLevel : 0;
+      var isNeverReviewed = !word.lastReviewDate || word.lastReviewDate === '';
       var srs = this.getSrsForWord(word);
       var priority;
       var sortKey;
 
-      if (!srs) {
-        var diff = (word.difficultyLevel !== undefined && word.difficultyLevel !== null) ? word.difficultyLevel : 0;
-        var isNewWord = !word.lastReviewDate || word.lastReviewDate === '';
+      if (isNeverReviewed && diff > 0) {
+        priority = 0;
+        sortKey = diff;
+        wordsWithPriority.push({ word: word, priority: priority, sortKey: sortKey, nextReview: '' });
+      } else if (!srs) {
         sortKey = (diff < 0) ? -1 : diff;
-        if (diff > 0 || isNewWord) {
+        if (diff > 0 || isNeverReviewed) {
           priority = 0;
         } else {
           priority = 2;
