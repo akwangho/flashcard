@@ -216,11 +216,20 @@
     this.srsReviewActive = true;
     this.saveFilterSettings();
 
+    // 重置暫停狀態，確保新複習開始時計時器與暫停指示同步
+    this.userPaused = false;
+    this.isPaused = false;
+    this._pauseRemainingMs = 0;
+
+    // 直接關閉 modal（不經 closeModalById → resumeTimer 以免雙重計時器）
+    var modal = document.getElementById('srs-review-modal');
+    if (modal) modal.style.display = 'none';
+
     this.updateActiveFilterDisplay();
     this.displayCurrentWord();
     this.updateProgress();
+    this.updatePauseButtonState();
 
-    this.closeSrsReviewModal();
     this.showNotification('開始複習 ' + reviewCount + ' 個單字', 'success');
     console.log('快速複習模式啟動，共', reviewCount, '個單字（已套用篩選條件）');
   };
@@ -292,6 +301,8 @@
           for (var j = 0; j < allBtns.length; j++) {
             allBtns[j].classList.remove('selected');
           }
+          var ci = document.getElementById('srs-custom-count-input');
+          if (ci) ci.value = '';
           btn.classList.add('selected');
           self._srsSelectedCount = c;
           self.saveFilterSettings();
@@ -316,6 +327,7 @@
         for (var j = 0; j < allBtns.length; j++) {
           allBtns[j].classList.remove('selected');
         }
+        customInput.value = '';
         allBtn.classList.add('selected');
         self._srsSelectedCount = totalAvailable;
         self.saveFilterSettings();
@@ -323,8 +335,55 @@
       container.appendChild(allBtn);
     }
 
-    // 若上次儲存的數量不在可選選項中，預設選第一個
-    if (!matchedSaved) {
+    // 自訂數量輸入欄
+    var customWrapper = document.createElement('div');
+    customWrapper.style.cssText = 'display:flex;align-items:center;gap:6px;';
+    var customInput = document.createElement('input');
+    customInput.type = 'number';
+    customInput.min = '1';
+    customInput.max = String(totalAvailable);
+    customInput.placeholder = '自訂';
+    customInput.id = 'srs-custom-count-input';
+    customInput.style.cssText = 'width:72px;padding:8px 6px;border:2px solid #555;border-radius:8px;background:#333;color:#fff;font-size:16px;text-align:center;';
+
+    // 若上次儲存的數量不在預設選項中，填入自訂欄位
+    if (savedCount && !matchedSaved) {
+      var isPreset = false;
+      for (var k = 0; k < counts.length; k++) {
+        if (counts[k] === savedCount) { isPreset = true; break; }
+      }
+      if (!isPreset && savedCount !== totalAvailable) {
+        customInput.value = savedCount;
+      }
+    }
+
+    customInput.onfocus = function() {
+      var allBtns = container.querySelectorAll('.srs-count-btn');
+      for (var j = 0; j < allBtns.length; j++) {
+        allBtns[j].classList.remove('selected');
+      }
+    };
+    customInput.oninput = function() {
+      var val = parseInt(customInput.value, 10);
+      if (val > 0) {
+        var capped = Math.min(val, totalAvailable);
+        self._srsSelectedCount = capped;
+        self.saveFilterSettings();
+        var allBtns = container.querySelectorAll('.srs-count-btn');
+        for (var j = 0; j < allBtns.length; j++) {
+          allBtns[j].classList.remove('selected');
+        }
+      }
+    };
+    customWrapper.appendChild(customInput);
+    var customLabel = document.createElement('span');
+    customLabel.textContent = '個';
+    customLabel.style.cssText = 'color:#aaa;font-size:14px;';
+    customWrapper.appendChild(customLabel);
+    container.appendChild(customWrapper);
+
+    // 若上次儲存的數量不在可選選項中且不在自訂欄位中，預設選第一個
+    if (!matchedSaved && !customInput.value) {
       var firstBtn = container.querySelector('.srs-count-btn');
       if (firstBtn) {
         firstBtn.classList.add('selected');

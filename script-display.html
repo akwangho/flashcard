@@ -83,7 +83,9 @@
       mustSpellChineseFirst: true,
       showTimerProgressBar: true,
       timerProgressBarOffset: 0,
-      smartTimerEnabled: false
+      smartTimerEnabled: false,
+      listeningMode: false,
+      carouselMemoryMode: false
     };
     this.voiceSettings = {
       enabled: true,
@@ -147,6 +149,7 @@
       this.settings.delaySpeechInNormalMode = true;
       this.voiceSettings.spellOutLetters = false;
       this.voiceSettings.chineseEnabled = false;
+      this.settings.delayTime = 9;
       this.settings.smartTimerEnabled = true;
       this.settings.listeningMode = false;
       details = [
@@ -154,31 +157,65 @@
         '🔄 顯示模式：隨機混合',
         '🔤 字母拼讀：關',
         '🗣️ 中文發音：關',
+        '⏱️ 延遲秒數：9 秒',
         '⏱️ 智慧計時：開',
         '⏳ 延遲發音：開'
       ];
     } else if (mode === 4) {
       this.settings.listeningMode = true;
+      this.settings.displayMode = 'english-first';
+      this.settings.carouselMemoryMode = false;
       this.voiceSettings.spellOutLetters = false;
       this.voiceSettings.chineseEnabled = false;
+      this.settings.delayTime = 5;
       this.settings.smartTimerEnabled = true;
       details = [
         '🎧 聽力訓練',
         '🎧 聽力模式：開',
+        '🔄 顯示模式：先英文',
         '🔤 字母拼讀：關',
         '🗣️ 中文發音：關',
+        '⏱️ 延遲秒數：5 秒',
         '⏱️ 智慧計時：開'
       ];
+    } else if (mode === 5) {
+      this.settings.carouselMemoryMode = true;
+      this.settings.listeningMode = false;
+      this.settings.displayMode = 'english-first';
+      this.voiceSettings.spellOutLetters = false;
+      this.voiceSettings.chineseEnabled = false;
+      this.settings.delayTime = 5;
+      this.settings.smartTimerEnabled = false;
+      this.settings.showTimerProgressBar = false;
+      this.settings.delaySpeechInNormalMode = false;
+      details = [
+        '🔄 輪播記憶模式',
+        '📖 中英文同時顯示',
+        '⏱️ 延遲秒數：5 秒',
+        '⏱️ 智慧計時：關',
+        '⏱️ 計時進度條：關'
+      ];
+    }
+
+    // 非輪播模式時自動關閉輪播旗標
+    if (mode !== 5 && this.settings.carouselMemoryMode) {
+      this.settings.carouselMemoryMode = false;
     }
 
     if (wasListeningMode && !this.settings.listeningMode) {
       details.push('🔇 聽力模式已自動關閉');
     }
 
+    // 解除暫停狀態，確保快速設定套用後能正常運行
+    this.userPaused = false;
+    this.isPaused = false;
+    this._pauseRemainingMs = 0;
+
     this.saveSettings();
     this.closeMenu();
     this.showNotification(details.join('\n'), 'success');
     this.redisplayCurrentWord();
+    this.updatePauseButtonState();
   };
 
   // 暫停計時器
@@ -224,8 +261,10 @@
             self.nextWord();
           });
         }, remainingMs);
-        // 恢復進度條（第二階段：使用剩餘時間）
-        this._progressPhase = 2;
+        // 恢復進度條（輪播模式保留原 phase，否則為第二階段）
+        if (this._progressPhase !== 'carousel') {
+          this._progressPhase = 2;
+        }
         this.resumeProgressBar(remainingMs / 1000);
       } else if (!this.isTransitioning && !this.isProcessingClick) {
         var currentWord = this.currentWords[this.currentIndex];
@@ -419,6 +458,8 @@
    *   - 中文：依中文字數計算，上限為 delayTime
    *   - 英文：依英文字母數計算，短字加速，上限為 delayTime
    *   - 英文（要會拼 + 不熟程度≥1）：不加速（至少等待 delayTime）
+   * 注意：智慧計時只會「加速」短內容，永遠不會超過使用者設定的 delayTime。
+   * 若實際停留時間超過 delayTime，原因是 waitForSpeechThenExecute 等待語音播完。
    * @returns {number} 延遲秒數
    */
   FlashcardApp.prototype.getPhase2Delay = function() {
@@ -606,7 +647,9 @@
     
     // 記錄原始不熟程度，以便取消時恢復
     var originalDifficultyLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-    var previewLevel = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, originalDifficultyLevel - 1);
+    // 最後複習時間是今天時不減少不熟程度，避免同一天加強複習造成過度下降
+    var alreadyReviewedToday = currentWord.lastReviewDate === this.getTodayDateString();
+    var previewLevel = alreadyReviewedToday ? originalDifficultyLevel : Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, originalDifficultyLevel - 1);
 
     this.pendingRemoval = {
       word: currentWord,
@@ -661,8 +704,11 @@
       
       console.log('已設為非常熟:', word.english);
     } else {
-      // 暫時移除單字時，減少不熟程度 -1
-      this.decreaseDifficulty(word);
+      // 最後複習時間是今天時不減少不熟程度，避免同一天加強複習造成過度下降
+      var alreadyReviewedToday = word.lastReviewDate === this.getTodayDateString();
+      if (!alreadyReviewedToday) {
+        this.decreaseDifficulty(word);
+      }
     }
     
     // 標記該單字為已複習（暫時刪除才算已複習）
@@ -798,9 +844,11 @@
       flashcardDiv.classList.remove('has-image');
     }
 
-    // 聽力模式下 Phase 1 已發音，Phase 2 不再重複
-    if (!this.settings.listeningMode) {
-      var self = this;
+    var self = this;
+    if (this.settings.listeningMode) {
+      // 聽力模式：Phase 2 出現文字時再次發音，強化聽覺記憶（忽略延遲發音設定）
+      setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+    } else {
       if (isReversed) {
         setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
       } else {
@@ -878,6 +926,22 @@
     
     img.src = imageUrl;
     this.currentPreloadingImage = img;
+  };
+
+  /**
+   * 批次預載即將輪到的單字圖片（預設 10 張），減少快速切換時的等待。
+   */
+  FlashcardApp.prototype.preloadUpcomingImages = function(count) {
+    if (!this.currentWords || this.currentWords.length === 0) return;
+    var total = this.currentWords.length;
+    var n = count || 10;
+    for (var i = 0; i < n && i < total; i++) {
+      var idx = (this.currentIndex + i) % total;
+      var w = this.currentWords[idx];
+      if (w && w.image && w.image !== '') {
+        this.preloadImage(w.image);
+      }
+    }
   };
   
   // ===========================================
@@ -1274,14 +1338,18 @@
   // 開始進度條動畫
   // phase=1: 第一語言顯示中，0% → 50%（到 50% 時顯示翻譯）
   // phase=2: 翻譯已顯示，50% → 100%（到 100% 時切換下一個單字）
-  // customDuration: 可選，Phase 2 智慧計時時使用的自訂時長（秒）
+  // phase='carousel': 輪播記憶模式，0% → 100%（單一完整進度）
+  // customDuration: 可選，自訂時長（秒）
   FlashcardApp.prototype.startProgressBar = function(phase, customDuration) {
     var bar = document.getElementById('timer-progress-bar');
     if (!bar) return;
 
-    var duration = (phase === 2 && customDuration !== undefined) ? customDuration : this.settings.delayTime;
-    var startPercent = phase === 1 ? 0 : 50;
-    var endPercent = phase === 1 ? 50 : 100;
+    var isCarousel = (phase === 'carousel');
+    var duration = (isCarousel && customDuration !== undefined) ? customDuration
+      : (phase === 2 && customDuration !== undefined) ? customDuration
+      : this.settings.delayTime;
+    var startPercent = (phase === 1 || isCarousel) ? 0 : 50;
+    var endPercent = (phase === 1) ? 50 : 100;
 
     this._progressPhase = phase;
     this._progressDuration = duration;

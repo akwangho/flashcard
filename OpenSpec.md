@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.15.0
-> **最後更新**: 2026-02-28
+> **版本**: 1.16.0
+> **最後更新**: 2026-03-06
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -157,7 +157,7 @@ bash deploy.sh setup
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 723 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 789 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -429,7 +429,7 @@ bash deploy.sh setup
 - **同步到後端**: 透過 `google.script.run.updateWordDifficulty()` 即時寫回 Google Sheet D 欄（數字格式）
 
 #### 4.2.3 減少不熟程度（自動）
-- **描述**: 每次單字被暫時移除（點擊單字卡）時，自動減少不熟程度 -1（最低 -999，可從正數遞減到負數）
+- **描述**: 每次單字被暫時移除（點擊單字卡）時，自動減少不熟程度 -1（最低 -999，可從正數遞減到負數）；若該單字最後複習日期為今天則不減少，避免同一天加強複習時不熟程度過度下降
 - **即時預覽**: 點擊單字卡標記為待刪除時，不熟程度數字立即在 UI 上顯示減 1 後的值（尚未寫入後端），提升使用者體驗；若使用者取消刪除（按 R 或點擊恢復按鈕），則恢復為原本的數字。預覽數字同樣遵循 UI 隱藏負數規則：≤-999 顯示 ✓，-1~-998 顯示 0
 - **設計理念**: 使用者覺得已熟悉的單字，移除時自動降低不熟程度。負數的絕對值代表被複習的次數，便於追蹤複習歷程並加強快速複習精準度
 
@@ -551,6 +551,7 @@ bash deploy.sh setup
 - **描述**: 啟用後，在唸英文單字之前，會先逐字母拼讀（例如：h-e-l-l-o）
 - **實作方式**: 將每個字母以 SSML 風格逐一播放，非字母字元（空格、連字號等）跳過
 - **順序**: 字母拼讀 → 完整單字朗讀
+- **縮短首字延遲**: 字母拼讀模式下，初始語音延遲從 500ms 縮短至 50ms，讓拼讀更快開始（字母本身即為閱讀引導，不需額外等待）
 - **等待完成**: 若字母拼讀（或後續的中文語音）尚未播放完畢，計時器到期時會自動等待語音播放完成後才切換到下一個階段或下一個單字，確保長單字或長句子不會被截斷
 
 #### 4.4.5 延遲發音模式
@@ -710,7 +711,7 @@ bash deploy.sh setup
 #### 4.10.3 圖片顯示
 - **描述**: 若單字含有圖片 URL，在顯示中文翻譯時同時顯示圖片
 - **顯示方式**: 設為 `flashcard` 容器的背景圖片，使用 `contain` 模式（不裁切）
-- **預加載**: 當前單字和下一個單字的圖片會提前預加載
+- **預加載**: 批次預載當前及未來即將輪到的 10 個單字圖片（`preloadUpcomingImages`），減少快速切換時的等待
 - **文字處理**: 有圖片時，文字加上半透明黑色背景以確保可讀性
 
 #### 4.10.4 防止螢幕休眠與背景執行
@@ -868,12 +869,14 @@ bash deploy.sh setup
 
 ### 4.13.3 快速設定
 
-- **描述**: 選單內「快速設定」飛出式子選單提供 3 種預設模式，一鍵套用多項設定，免去逐一切換
+- **描述**: 選單內「快速設定」飛出式子選單提供 5 種預設模式，一鍵套用多項設定，免去逐一切換
 - **模式列表**:
   1. **🎧 用聽的背單字**: displayMode='chinese-first', spellOutLetters=true, chineseEnabled=true, delayTime=9, smartTimerEnabled=true
   2. **👂 用聽的認識單字**: displayMode='english-first', spellOutLetters=false, chineseEnabled=true, delayTime=4.5, smartTimerEnabled=true, delaySpeechInNormalMode=false
-  3. **📝 日常複習**: displayMode='mixed', delaySpeechInNormalMode=true, spellOutLetters=false, chineseEnabled=false, smartTimerEnabled=true
-- **行為**: 點擊後立即套用設定、儲存到 localStorage、關閉選單、顯示 toast 通知（多行顯示具體設定內容，3 秒後自動消失）、重新顯示當前單字（歸零計時、重新判斷顯示順序，避免問題與答案語言相同）
+  3. **📝 日常複習**: displayMode='mixed', delaySpeechInNormalMode=true, spellOutLetters=false, chineseEnabled=false, delayTime=10, smartTimerEnabled=true
+  4. **🎧 聽力訓練**: listeningMode=true, spellOutLetters=false, chineseEnabled=false, smartTimerEnabled=true
+  5. **🔄 輪播記憶**: carouselMemoryMode=true, displayMode='english-first', spellOutLetters=false, chineseEnabled=false, delayTime=5, smartTimerEnabled=false, showTimerProgressBar=false, delaySpeechInNormalMode=false；中英文同時顯示、自動輪播
+- **行為**: 點擊後立即套用設定、儲存到 localStorage、關閉選單、顯示 toast 通知（多行顯示具體設定內容，3 秒後自動消失）、重新顯示當前單字（歸零計時、重新判斷顯示順序，避免問題與答案語言相同）；切換至非輪播模式時自動關閉 carouselMemoryMode
 
 ### 4.13.4 通用通知 toast（showNotification）
 
@@ -1266,7 +1269,7 @@ bash deploy.sh setup
 
 ### 9.4 效能考量
 
-- 圖片使用預加載（當前 + 下一張）
+- 圖片批次預載（當前 + 未來 10 張），快速切換時減少等待
 - 批次匯出以避免一次性處理大量資料
 - 語音播放使用佇列管理，避免重疊
 - 計時器統一管理（`_setDisplayTimer` / `_clearDisplayTimer`），同時在主執行緒和 Web Worker 設定，確保背景執行時仍能正常觸發，並避免記憶體洩漏
@@ -1300,6 +1303,7 @@ bash deploy.sh setup
 | 計時進度條顯示 | 啟用 (`showTimerProgressBar: true`) |
 | 計時進度條偏移 | 0px (`timerProgressBarOffset: 0`) |
 | 智慧計時 | 關閉 (`smartTimerEnabled: false`) |
+| 輪播記憶模式 | 關閉 (`carouselMemoryMode: false`) |
 | 要會拼篩選預設 | false（不篩選） |
 | 類型篩選預設 | 全部（單字、片語、句子皆選取，不篩選） |
 | 標籤篩選預設 | 空（不篩選） |
@@ -1307,6 +1311,24 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.16.0 (2026-03-06) — 輪播記憶模式、聽力體驗優化、暫停同步修正
+
+**Bug 修正**
+- 暫停狀態下開始快速複習時，重置 `userPaused`/`isPaused`，確保暫停指示器與計時進度條同步
+- 日常複習（快速模式 3）自動設定延遲秒數為 10 秒
+- 暫時刪除時，若該單字最後複習日期為今天則不減少不熟程度，避免同一天加強複習造成過度下降
+- 字母拼讀模式下，初始語音延遲從 500ms 縮短至 50ms，消除首字發音的額外等待感
+
+**聽力模式優化**
+- Phase 1 立即發音（不延遲 SPEECH_DELAY_MS），因無文字需先閱讀
+- Phase 2 出現文字與翻譯時再次發音，強化聽覺記憶（忽略延遲發音設定）
+
+**新功能**
+- 新增快速模式 5「🔄 輪播記憶」：中英文同時顯示、單一進度條 0%→100%、自動輪播，用於被動式背景記憶
+- 快速複習數量選擇支援自訂數字輸入，不再限於預設按鈕
+- 圖片批次預載由 2 張（當前 + 下一張）擴展至 10 張，減少快速切換時的載入等待
+- 智慧計時加入 JSDoc 註解，釐清永遠不超過 delayTime 的設計意圖
 
 ### v1.15.0 (2026-02-28) — 從未複習單字無條件最高優先
 
@@ -1476,7 +1498,8 @@ bash deploy.sh setup
 - 縮小喇叭圖示上方空白區域
 - 關閉按鈕（X）在練習進行中也可隨時關閉
 - 聽力模式下忽略「延遲發音」設定，一律播放英文語音（不論顯示順序）
-- 聽力模式 Phase 2 不再重複發音（Phase 1 已播放過）
+- 聽力模式 Phase 1 立即發音（不延遲 SPEECH_DELAY_MS），因無文字需先閱讀
+- 聽力模式 Phase 2 出現文字時再次發音，強化聽覺記憶（忽略延遲發音設定）
 - 快速模式 1-3 自動關閉聽力模式，並在通知中提示
 - 新增快速模式 4「聽力訓練」：開啟聽力模式、字母拼讀關、中文發音關、智慧計時開
 - 聽力模式設定從一般設定移至語音設定最下方
@@ -1505,7 +1528,7 @@ bash deploy.sh setup
 **快速複習與篩選整合**
 - 快速複習數量（`_srsSelectedCount`）與啟用狀態（`srsReviewActive`）持久化至 localStorage
 - 重新載入時自動恢復快速複習模式（使用一次性 `_srsRestorePending` 旗標，避免一般回合結束時誤觸恢復）
-- 快速複習模態框打開時預選上次儲存的數量
+- 快速複習模態框打開時預選上次儲存的數量；除預設按鈕（10/20/30/50/100/全部）外，另提供自訂數量輸入欄位
 - 快速複習與其他篩選條件為 AND 關係：先套用所有篩選條件，再從結果中依 SRS 優先度排序
 - `getRecommendedWords(sourceWords)`、`getDueWords(sourceWords)`、`calculateSrsStats(sourceWords)` 新增可選 `sourceWords` 參數
 - `openSrsReviewModal()` 統計與數量選項基於篩選後的單字集

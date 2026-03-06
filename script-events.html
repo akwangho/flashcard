@@ -193,6 +193,7 @@
           'quick-mode-2-btn':     function() { self.applyQuickMode(2); },
           'quick-mode-3-btn':     function() { self.applyQuickMode(3); },
           'quick-mode-4-btn':     function() { self.applyQuickMode(4); },
+          'quick-mode-5-btn':     function() { self.applyQuickMode(5); },
           'export-btn':           function() { self.openExportModal(); },
           'difficulty-filter-btn': function() { self.openDifficultyFilterModal(); },
           'review-filter-btn':    function() { self.openReviewFilterModal(); },
@@ -464,11 +465,38 @@
     var self = this;
     setTimeout(function() {
       var firstElement = document.getElementById('english-word');
+      var secondElement = document.getElementById('chinese-word');
       
-      if (self.settings.listeningMode) {
-        // 聽力模式：Phase 1 不顯示文字，一律播放英文語音（不管顯示順序）
-        firstElement.textContent = '';
+      if (self.settings.carouselMemoryMode) {
+        // 輪播記憶模式：同時顯示中英文，單一進度條 0% → 100%
+        firstElement.textContent = currentWord.english;
+        secondElement.textContent = currentWord.chinese;
+        firstElement.classList.add('show');
+        secondElement.classList.add('show');
+        self.showingChinese = true;
+
+        // 顯示背景圖片
+        var flashcardDiv = document.getElementById('flashcard');
+        var hasImage = currentWord.image && currentWord.image !== '';
+        if (hasImage && flashcardDiv) {
+          flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+          flashcardDiv.classList.add('has-image');
+        }
+
         setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+
+        var carouselDelay = self.settings.smartTimerEnabled ? self.getPhase2Delay() : self.settings.delayTime;
+        var totalDelay = self.settings.delayTime + carouselDelay;
+        self._setDisplayTimer(function() {
+          self.waitForSpeechThenExecute(function() {
+            self.nextWord();
+          });
+        }, totalDelay * 1000);
+        self.startProgressBar('carousel', totalDelay);
+      } else if (self.settings.listeningMode) {
+        // 聽力模式：Phase 1 不顯示文字，立即發音（無須等待閱讀）
+        firstElement.textContent = '';
+        self.speakWord(currentWord.english);
       } else if (self.isReversedForCurrentWord()) {
         firstElement.textContent = currentWord.chinese;
         setTimeout(function() {
@@ -477,33 +505,28 @@
       } else {
         firstElement.textContent = currentWord.english;
         if (!self.settings.delaySpeechInNormalMode) {
+          // 字母拼讀模式縮短初始延遲，讓拼讀更快開始
+          var speechDelay = self.voiceSettings.spellOutLetters ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
           setTimeout(function() {
             self.speakWord(currentWord.english);
-          }, APP_CONSTANTS.SPEECH_DELAY_MS);
+          }, speechDelay);
         }
       }
       firstElement.classList.add('show');
       
-      // 預加載當前單字的圖片（如果有的話）
-      if (currentWord.image && currentWord.image !== '') {
-        self.preloadImage(currentWord.image);
-      }
-      
-      // 預加載下一個單字的圖片（提前準備）
-      var nextIndex = (self.currentIndex + 1) % self.currentWords.length;
-      var nextWord = self.currentWords[nextIndex];
-      if (nextWord && nextWord.image && nextWord.image !== '') {
-        self.preloadImage(nextWord.image);
-      }
+      // 批次預載當前及未來即將輪到的單字圖片（含當前共 10 張）
+      self.preloadUpcomingImages(10);
   
-      self._setDisplayTimer(function() {
-        self.waitForSpeechThenExecute(function() {
-          self.showSecondPartAndScheduleNext();
-        });
-      }, self.settings.delayTime * 1000);
-      
-      // 進度條第一階段：0% → 50%（到 50% 時顯示翻譯）
-      self.startProgressBar(1);
+      if (!self.settings.carouselMemoryMode) {
+        self._setDisplayTimer(function() {
+          self.waitForSpeechThenExecute(function() {
+            self.showSecondPartAndScheduleNext();
+          });
+        }, self.settings.delayTime * 1000);
+        
+        // 進度條第一階段：0% → 50%（到 50% 時顯示翻譯）
+        self.startProgressBar(1);
+      }
       
     }, APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
     
