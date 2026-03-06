@@ -547,9 +547,9 @@ describe('Carousel memory mode', function() {
       expect(app.settings.listeningMode).toBe(false);
     });
 
-    test('sets delayTime to 5', function() {
+    test('sets delayTime to 4.5', function() {
       app.applyQuickMode(5);
-      expect(app.settings.delayTime).toBe(5);
+      expect(app.settings.delayTime).toBe(4.5);
     });
 
     test('disables smartTimerEnabled', function() {
