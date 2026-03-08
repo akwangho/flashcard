@@ -172,6 +172,30 @@ describe('applyQuickMode resets pause state', function() {
     app.applyQuickMode(1);
     expect(indicator.style.display).toBe('none');
   });
+
+  test('mode 1 sets showTimerProgressBar to true', function() {
+    app.settings.showTimerProgressBar = false;
+    app.applyQuickMode(1);
+    expect(app.settings.showTimerProgressBar).toBe(true);
+  });
+
+  test('mode 2 sets showTimerProgressBar to true', function() {
+    app.settings.showTimerProgressBar = false;
+    app.applyQuickMode(2);
+    expect(app.settings.showTimerProgressBar).toBe(true);
+  });
+
+  test('mode 3 sets showTimerProgressBar to true', function() {
+    app.settings.showTimerProgressBar = false;
+    app.applyQuickMode(3);
+    expect(app.settings.showTimerProgressBar).toBe(true);
+  });
+
+  test('mode 4 sets showTimerProgressBar to true', function() {
+    app.settings.showTimerProgressBar = false;
+    app.applyQuickMode(4);
+    expect(app.settings.showTimerProgressBar).toBe(true);
+  });
 });
 
 // ============================================================
@@ -683,5 +707,117 @@ describe('Carousel memory mode', function() {
       app.resetSettings();
       expect(app.settings.listeningMode).toBe(false);
     });
+  });
+});
+
+// ============================================================
+// updateLoadingSheetList
+// ============================================================
+describe('updateLoadingSheetList', function() {
+
+  test('renders loading state for all sheets', function() {
+    var sheets = ['Sheet1', 'Sheet2'];
+    var status = { Sheet1: 'loading', Sheet2: 'loading' };
+    app.updateLoadingSheetList(sheets, status, {});
+    var container = document.getElementById('loading-sheet-list');
+    var items = container.querySelectorAll('.loading-sheet-item');
+    expect(items.length).toBe(2);
+    expect(items[0].classList.contains('loading')).toBe(true);
+    expect(items[0].textContent).toContain('Sheet1');
+  });
+
+  test('renders done state with word count', function() {
+    var sheets = ['SheetA'];
+    var status = { SheetA: 'done' };
+    var counts = { SheetA: 42 };
+    app.updateLoadingSheetList(sheets, status, counts);
+    var container = document.getElementById('loading-sheet-list');
+    var item = container.querySelector('.loading-sheet-item');
+    expect(item.classList.contains('done')).toBe(true);
+    expect(item.textContent).toContain('42');
+  });
+
+  test('renders error state', function() {
+    var sheets = ['BadSheet'];
+    var status = { BadSheet: 'error' };
+    app.updateLoadingSheetList(sheets, status, {});
+    var container = document.getElementById('loading-sheet-list');
+    var item = container.querySelector('.loading-sheet-item');
+    expect(item.classList.contains('error')).toBe(true);
+    expect(item.textContent).toContain('BadSheet');
+  });
+
+  test('renders mixed statuses in order', function() {
+    var sheets = ['A', 'B', 'C'];
+    var status = { A: 'done', B: 'loading', C: 'error' };
+    var counts = { A: 10 };
+    app.updateLoadingSheetList(sheets, status, counts);
+    var container = document.getElementById('loading-sheet-list');
+    var items = container.querySelectorAll('.loading-sheet-item');
+    expect(items[0].classList.contains('done')).toBe(true);
+    expect(items[1].classList.contains('loading')).toBe(true);
+    expect(items[2].classList.contains('error')).toBe(true);
+  });
+});
+
+// ============================================================
+// Image URL quoting in CSS background-image
+// ============================================================
+describe('Image URL quoting in background-image', function() {
+
+  test('_revealSecondPart quotes URL in background-image (simple URL)', function() {
+    var word = {
+      id: 0,
+      english: 'apple',
+      chinese: '蘋果',
+      image: 'https://example.com/apple.jpg'
+    };
+    app.currentWords = [word];
+    app.currentIndex = 0;
+    app.settings.displayMode = 'english-first';
+    app.settings.listeningMode = false;
+
+    app._revealSecondPart(word);
+
+    var flashcard = document.getElementById('flashcard');
+    expect(flashcard.style.backgroundImage).toContain('example.com/apple.jpg');
+    expect(flashcard.classList.contains('has-image')).toBe(true);
+  });
+
+  test('_revealSecondPart escapes double quotes in image URL', function() {
+    var url = 'https://example.com/img.jpg';
+    var escaped = url.replace(/"/g, '%22');
+    expect(escaped).toBe(url);
+
+    var urlWithQuote = 'https://example.com/img"name.jpg';
+    var escapedQuote = urlWithQuote.replace(/"/g, '%22');
+    expect(escapedQuote).toBe('https://example.com/img%22name.jpg');
+    expect(escapedQuote).not.toContain('"');
+  });
+
+  test('CSS url() string is built with quotes for parentheses safety', function() {
+    var imageUrl = 'https://example.com/filters:no_upscale():max_bytes(150000)/img.jpg';
+    var cssValue = 'url("' + imageUrl.replace(/"/g, '%22') + '")';
+    expect(cssValue).toBe('url("https://example.com/filters:no_upscale():max_bytes(150000)/img.jpg")');
+    expect(cssValue.indexOf('url("')).toBe(0);
+    expect(cssValue.charAt(cssValue.length - 1)).toBe(')');
+    expect(cssValue.charAt(cssValue.length - 2)).toBe('"');
+  });
+
+  test('_revealSecondPart does not set background for empty image', function() {
+    var word = {
+      id: 0,
+      english: 'cat',
+      chinese: '貓',
+      image: ''
+    };
+    app.currentWords = [word];
+    app.currentIndex = 0;
+    app.settings.displayMode = 'english-first';
+
+    app._revealSecondPart(word);
+
+    var flashcard = document.getElementById('flashcard');
+    expect(flashcard.classList.contains('has-image')).toBe(false);
   });
 });

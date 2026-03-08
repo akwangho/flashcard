@@ -1048,6 +1048,29 @@
       textEl.textContent = statusText;
     }
   };
+
+  /**
+   * 渲染載入畫面中的工作表名稱清單，顯示各表載入狀態。
+   * @param {string[]} sheets - 所有預計載入的工作表名稱
+   * @param {Object} status - { sheetName: 'loading'|'done'|'error' }
+   * @param {Object} [wordCounts] - { sheetName: number } 各表已載入單字數
+   */
+  FlashcardApp.prototype.updateLoadingSheetList = function(sheets, status, wordCounts) {
+    var container = document.getElementById('loading-sheet-list');
+    if (!container) return;
+    var html = '';
+    for (var i = 0; i < sheets.length; i++) {
+      var name = sheets[i];
+      var s = status[name] || 'loading';
+      var icon = s === 'done' ? '✓' : s === 'error' ? '✗' : '⏳';
+      var suffix = '';
+      if (s === 'done' && wordCounts && wordCounts[name] !== undefined) {
+        suffix = ' (' + wordCounts[name] + ' 個單字)';
+      }
+      html += '<div class="loading-sheet-item ' + s + '">' + icon + ' ' + name + suffix + '</div>';
+    }
+    container.innerHTML = html;
+  };
   
   // 客戶端 ES5 相容的重複單字偵測與自動處理
   FlashcardApp.prototype.detectAndHandleDuplicatesInMemory = function(allWords) {
@@ -1162,9 +1185,17 @@
     var allWords = [];
     var completed = 0;
     var total = selectedSheets.length;
+
+    // 追蹤每張工作表的載入狀態與單字數
+    var sheetStatus = {};
+    var sheetWordCounts = {};
+    for (var s = 0; s < selectedSheets.length; s++) {
+      sheetStatus[selectedSheets[s]] = 'loading';
+    }
     
     // 顯示初始進度
     this.updateLoadingProgress(0, total, '正在連接 Google Sheet...');
+    this.updateLoadingSheetList(selectedSheets, sheetStatus, sheetWordCounts);
     
     // 整體超時
     var loadTimeout = setTimeout(function() {
@@ -1181,18 +1212,23 @@
       (function(sheetName, index) {
         google.script.run
           .withSuccessHandler(function(result) {
+            var count = 0;
             if (result && result.success && result.words) {
-              for (var j = 0; j < result.words.length; j++) {
+              count = result.words.length;
+              for (var j = 0; j < count; j++) {
                 allWords.push(result.words[j]);
               }
-              console.log('工作表', sheetName, '載入成功，', result.words.length, '個單字');
+              console.log('工作表', sheetName, '載入成功，', count, '個單字');
             } else {
               console.warn('工作表', sheetName, '載入結果異常:', result);
             }
             
             completed++;
+            sheetStatus[sheetName] = 'done';
+            sheetWordCounts[sheetName] = count;
             self.updateLoadingProgress(completed, total,
               '載入工作表 ' + completed + '/' + total + '...');
+            self.updateLoadingSheetList(selectedSheets, sheetStatus, sheetWordCounts);
             
             if (completed >= total) {
               clearTimeout(loadTimeout);
@@ -1202,9 +1238,11 @@
           .withFailureHandler(function(error) {
             console.error('載入工作表失敗:', sheetName, error);
             completed++;
+            sheetStatus[sheetName] = 'error';
             
             self.updateLoadingProgress(completed, total,
               '載入工作表 ' + completed + '/' + total + '...');
+            self.updateLoadingSheetList(selectedSheets, sheetStatus, sheetWordCounts);
             
             if (completed >= total) {
               clearTimeout(loadTimeout);

@@ -146,8 +146,9 @@ function createDOMElements() {
     'srs-stats', 'srs-no-due',
     'srs-count-options', 'srs-count-buttons',
     'srs-start-btn',
-    // Loading screen word display
+    // Loading screen word display and sheet list
     'loading-word-english', 'loading-word-chinese',
+    'loading-sheet-list',
     // Timer progress bar
     'timer-progress-bar',
     // Very familiar toast

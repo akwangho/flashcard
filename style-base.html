@@ -169,6 +169,22 @@
     color: #888;
     color: var(--gray-color);
   }
+
+  .loading-sheet-list {
+    margin-top: 10px;
+    text-align: left;
+    font-size: 13px;
+    color: #999;
+    line-height: 1.6;
+  }
+  .loading-sheet-item {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .loading-sheet-item.done { color: #8BC34A; }
+  .loading-sheet-item.error { color: #ff6b6b; }
+  .loading-sheet-item.loading { color: #ccc; }
   
   @media (max-width: 768px) {
     .loading-word-english {

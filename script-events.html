@@ -479,7 +479,7 @@
         var flashcardDiv = document.getElementById('flashcard');
         var hasImage = currentWord.image && currentWord.image !== '';
         if (hasImage && flashcardDiv) {
-          flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+          flashcardDiv.style.backgroundImage = 'url("' + currentWord.image.replace(/"/g, '%22') + '")';
           flashcardDiv.classList.add('has-image');
         }
 

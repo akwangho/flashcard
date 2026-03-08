@@ -118,6 +118,7 @@
       this.voiceSettings.chineseEnabled = true;
       this.settings.delayTime = 9;
       this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
       this.settings.listeningMode = false;
       details = [
         '🎧 用聽的背單字',
@@ -125,7 +126,8 @@
         '🔤 字母拼讀：開',
         '🗣️ 中文發音：開',
         '⏱️ 延遲秒數：9 秒',
-        '⏱️ 智慧計時：開'
+        '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開'
       ];
     } else if (mode === 2) {
       this.settings.displayMode = 'english-first';
@@ -133,6 +135,7 @@
       this.voiceSettings.chineseEnabled = true;
       this.settings.delayTime = 4.5;
       this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
       this.settings.delaySpeechInNormalMode = false;
       this.settings.listeningMode = false;
       details = [
@@ -142,6 +145,7 @@
         '🗣️ 中文發音：開',
         '⏱️ 延遲秒數：4.5 秒',
         '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開',
         '⏳ 延遲發音：關'
       ];
     } else if (mode === 3) {
@@ -151,6 +155,7 @@
       this.voiceSettings.chineseEnabled = false;
       this.settings.delayTime = 9;
       this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
       this.settings.listeningMode = false;
       details = [
         '📝 日常複習',
@@ -159,6 +164,7 @@
         '🗣️ 中文發音：關',
         '⏱️ 延遲秒數：9 秒',
         '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開',
         '⏳ 延遲發音：開'
       ];
     } else if (mode === 4) {
@@ -169,6 +175,7 @@
       this.voiceSettings.chineseEnabled = false;
       this.settings.delayTime = 4.5;
       this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
       details = [
         '🎧 聽力訓練',
         '🎧 聽力模式：開',
@@ -176,7 +183,8 @@
         '🔤 字母拼讀：關',
         '🗣️ 中文發音：關',
         '⏱️ 延遲秒數：4.5 秒',
-        '⏱️ 智慧計時：開'
+        '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開'
       ];
     } else if (mode === 5) {
       this.settings.carouselMemoryMode = true;
@@ -212,6 +220,7 @@
     this._pauseRemainingMs = 0;
 
     this.saveSettings();
+    this.applySettings();
     this.closeMenu();
     this.showNotification(details.join('\n'), 'success');
     this.redisplayCurrentWord();
@@ -837,7 +846,7 @@
 
     var hasImage = currentWord.image && currentWord.image !== '';
     if (hasImage) {
-      flashcardDiv.style.backgroundImage = 'url(' + currentWord.image + ')';
+      flashcardDiv.style.backgroundImage = 'url("' + currentWord.image.replace(/"/g, '%22') + '")';
       flashcardDiv.classList.add('has-image');
     } else {
       flashcardDiv.style.backgroundImage = '';
