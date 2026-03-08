@@ -645,14 +645,15 @@
       if (loadingDiv) loadingDiv.style.display = 'flex';
       if (flashcardDiv) flashcardDiv.style.display = 'none';
       
-      // 重設載入進度條
-      this.updateLoadingProgress(0, 1, '正在載入單字...');
-      
-      // 重新載入單字
+      // 使用逐表載入（與初始載入相同），顯示每張工作表的即時進度
       var self = this;
-      this.loadWords(false, function(hasDuplicates) {
+      this.loadWords(true, function(hasDuplicates) {
         self.setupEventListeners();
         self.applySettings();
+        
+        // 載入完成：清除工作表名稱清單
+        var listEl = document.getElementById('loading-sheet-list');
+        if (listEl) listEl.innerHTML = '';
         
         if (!hasDuplicates) {
           self.startNewRound();
