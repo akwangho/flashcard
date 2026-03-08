@@ -372,3 +372,61 @@ describe('formatDateYYYYMMDD', function() {
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
+
+// ============================================================
+// isModalBackgroundClick (utility)
+// ============================================================
+describe('isModalBackgroundClick', function() {
+
+  test('returns true when click target is the modal element', function() {
+    var modal = document.createElement('div');
+    var e = { target: modal };
+    expect(typeof isModalBackgroundClick).toBe('function');
+    expect(isModalBackgroundClick(e, modal)).toBe(true);
+  });
+
+  test('returns false when click target is a child of the modal', function() {
+    var modal = document.createElement('div');
+    var child = document.createElement('span');
+    modal.appendChild(child);
+    var e = { target: child };
+    expect(isModalBackgroundClick(e, modal)).toBe(false);
+  });
+});
+
+// ============================================================
+// updateLoadingProgress
+// ============================================================
+describe('updateLoadingProgress', function() {
+  var app;
+
+  beforeEach(function() {
+    var origInit = FlashcardApp.prototype.init;
+    FlashcardApp.prototype.init = function() {};
+    app = new FlashcardApp();
+    FlashcardApp.prototype.init = origInit;
+  });
+
+  test('sets progress bar to percentage and status text when completed and total are positive', function() {
+    app.updateLoadingProgress(3, 10, 'Loading 3/10...');
+    var fillEl = document.getElementById('loading-progress-fill');
+    var barEl = document.getElementById('loading-progress-bar');
+    var textEl = document.getElementById('loading-status-text');
+    expect(barEl.className).toBe('loading-progress-bar');
+    expect(barEl.className.indexOf('indeterminate')).toBe(-1);
+    expect(fillEl.style.width).toBe('30%');
+    expect(textEl.textContent).toBe('Loading 3/10...');
+  });
+
+  test('sets progress bar to indeterminate when completed <= 0 and total > 0', function() {
+    app.updateLoadingProgress(0, 5, 'Connecting...');
+    var barEl = document.getElementById('loading-progress-bar');
+    expect(barEl.className.indexOf('indeterminate')).not.toBe(-1);
+  });
+
+  test('handles total 0 without crashing and sets width to 0%', function() {
+    app.updateLoadingProgress(0, 0, 'Idle');
+    var fillEl = document.getElementById('loading-progress-fill');
+    expect(fillEl.style.width).toBe('0%');
+  });
+});

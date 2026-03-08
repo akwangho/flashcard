@@ -185,3 +185,40 @@ describe('saveSettingsAndClose', function() {
     expect(app.redisplayCurrentWord).toHaveBeenCalled();
   });
 });
+
+describe('resetSettings', function() {
+  var app;
+
+  beforeAll(function() {
+    setup.bootstrapApp();
+  });
+
+  beforeEach(function() {
+    app = new FlashcardApp();
+    app.applySettings = jest.fn();
+    app.saveSettings = jest.fn();
+    app.closeSettings = jest.fn();
+  });
+
+  test('restores default settings and voiceSettings', function() {
+    app.settings.delayTime = 99;
+    app.settings.displayMode = 'chinese-first';
+    app.settings.listeningMode = true;
+    app.settings.carouselMemoryMode = true;
+    app.settings.showTimerProgressBar = false;
+    app.voiceSettings.chineseEnabled = true;
+    app.voiceSettings.spellOutLetters = true;
+
+    app.resetSettings();
+
+    expect(app.settings.delayTime).toBe(3);
+    expect(app.settings.displayMode).toBe('english-first');
+    expect(app.settings.listeningMode).toBe(false);
+    expect(app.settings.carouselMemoryMode).toBe(false);
+    expect(app.settings.showTimerProgressBar).toBe(true);
+    expect(app.settings.fontSize).toBe(96);
+    expect(app.settings.smartTimerEnabled).toBe(false);
+    expect(app.voiceSettings.chineseEnabled).toBe(false);
+    expect(app.voiceSettings.spellOutLetters).toBe(false);
+  });
+});

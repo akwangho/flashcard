@@ -161,7 +161,7 @@ bash deploy.sh setup
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 807 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 798 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄、載入進度、modal 背景點擊、重置設定等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -1339,6 +1339,13 @@ bash deploy.sh setup
 
 **Modal 標準化**
 - 所有 modal 背景點擊改用共用 `isModalBackgroundClick(e, modal)` 取代 inline `e.target === modal`
+
+### v1.17.1 (2026-03-06) — 測試案例整併與補足
+
+- **合併 v1160.test.js**：Bug 1 startSrsReview 暫停重置 6→2、applyQuickMode 暫停/計時條 10→3、輪播模式其他快速模式重置 4→1、resetSettings 清除輪播 2→1，共減少 15 個測試
+- **補足 core.test.js**：新增 `isModalBackgroundClick`（點擊目標為 modal vs 子元素）、`updateLoadingProgress`（百分比/indeterminate/總數 0）共 5 個測試
+- **補足 settings.test.js**：新增 `resetSettings` 還原預設設定與 voiceSettings 共 1 個測試
+- 測試總數：807 → 798（略減且覆蓋更合理）
 
 ### v1.16.0 (2026-03-06) — 輪播記憶模式、聽力體驗優化、暫停同步修正
 

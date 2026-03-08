@@ -83,38 +83,18 @@ describe('Bug 1: startSrsReview resets pause state', function() {
     app.getTodayDateString = FlashcardApp.prototype.getTodayDateString;
   });
 
-  test('resets userPaused to false', function() {
+  test('resets userPaused, isPaused, _pauseRemainingMs and calls updatePauseButtonState and hides paused indicator', function() {
     app.userPaused = true;
     app.isPaused = true;
-    app.startSrsReview(3);
-    expect(app.userPaused).toBe(false);
-  });
-
-  test('resets isPaused to false', function() {
-    app.userPaused = true;
-    app.isPaused = true;
-    app.startSrsReview(3);
-    expect(app.isPaused).toBe(false);
-  });
-
-  test('resets _pauseRemainingMs to 0', function() {
     app._pauseRemainingMs = 5000;
-    app.startSrsReview(3);
-    expect(app._pauseRemainingMs).toBe(0);
-  });
-
-  test('calls updatePauseButtonState after start', function() {
-    var spy = jest.spyOn(app, 'updatePauseButtonState');
-    app.startSrsReview(3);
-    expect(spy).toHaveBeenCalled();
-  });
-
-  test('hides paused indicator after start', function() {
     var indicator = document.getElementById('paused-indicator');
     indicator.style.display = 'flex';
-    app.userPaused = true;
-    app.isPaused = true;
+    var updateSpy = jest.spyOn(app, 'updatePauseButtonState');
     app.startSrsReview(3);
+    expect(app.userPaused).toBe(false);
+    expect(app.isPaused).toBe(false);
+    expect(app._pauseRemainingMs).toBe(0);
+    expect(updateSpy).toHaveBeenCalled();
     expect(indicator.style.display).toBe('none');
   });
 
@@ -137,64 +117,27 @@ describe('applyQuickMode resets pause state', function() {
     app.saveSettings = jest.fn();
   });
 
-  test('resets userPaused to false', function() {
+  test('resets userPaused, isPaused, _pauseRemainingMs, calls updatePauseButtonState and hides paused indicator', function() {
     app.userPaused = true;
     app.isPaused = true;
-    app.applyQuickMode(1);
-    expect(app.userPaused).toBe(false);
-  });
-
-  test('resets isPaused to false', function() {
-    app.userPaused = true;
-    app.isPaused = true;
-    app.applyQuickMode(2);
-    expect(app.isPaused).toBe(false);
-  });
-
-  test('resets _pauseRemainingMs to 0', function() {
     app._pauseRemainingMs = 3000;
-    app.applyQuickMode(3);
-    expect(app._pauseRemainingMs).toBe(0);
-  });
-
-  test('calls updatePauseButtonState', function() {
-    var spy = jest.spyOn(app, 'updatePauseButtonState');
-    app.userPaused = true;
-    app.applyQuickMode(4);
-    expect(spy).toHaveBeenCalled();
-  });
-
-  test('hides paused indicator after applying mode', function() {
     var indicator = document.getElementById('paused-indicator');
     indicator.style.display = 'flex';
-    app.userPaused = true;
-    app.isPaused = true;
+    var updateSpy = jest.spyOn(app, 'updatePauseButtonState');
     app.applyQuickMode(1);
+    expect(app.userPaused).toBe(false);
+    expect(app.isPaused).toBe(false);
+    expect(app._pauseRemainingMs).toBe(0);
+    expect(updateSpy).toHaveBeenCalled();
     expect(indicator.style.display).toBe('none');
   });
 
-  test('mode 1 sets showTimerProgressBar to true', function() {
-    app.settings.showTimerProgressBar = false;
-    app.applyQuickMode(1);
-    expect(app.settings.showTimerProgressBar).toBe(true);
-  });
-
-  test('mode 2 sets showTimerProgressBar to true', function() {
-    app.settings.showTimerProgressBar = false;
-    app.applyQuickMode(2);
-    expect(app.settings.showTimerProgressBar).toBe(true);
-  });
-
-  test('mode 3 sets showTimerProgressBar to true', function() {
-    app.settings.showTimerProgressBar = false;
-    app.applyQuickMode(3);
-    expect(app.settings.showTimerProgressBar).toBe(true);
-  });
-
-  test('mode 4 sets showTimerProgressBar to true', function() {
-    app.settings.showTimerProgressBar = false;
-    app.applyQuickMode(4);
-    expect(app.settings.showTimerProgressBar).toBe(true);
+  test('modes 1 through 4 all set showTimerProgressBar to true', function() {
+    for (var mode = 1; mode <= 4; mode++) {
+      app.settings.showTimerProgressBar = false;
+      app.applyQuickMode(mode);
+      expect(app.settings.showTimerProgressBar).toBe(true);
+    }
   });
 });
 
@@ -601,24 +544,12 @@ describe('Carousel memory mode', function() {
       app.settings.carouselMemoryMode = true;
     });
 
-    test('mode 1 resets carouselMemoryMode', function() {
-      app.applyQuickMode(1);
-      expect(app.settings.carouselMemoryMode).toBe(false);
-    });
-
-    test('mode 2 resets carouselMemoryMode', function() {
-      app.applyQuickMode(2);
-      expect(app.settings.carouselMemoryMode).toBe(false);
-    });
-
-    test('mode 3 resets carouselMemoryMode', function() {
-      app.applyQuickMode(3);
-      expect(app.settings.carouselMemoryMode).toBe(false);
-    });
-
-    test('mode 4 resets carouselMemoryMode', function() {
-      app.applyQuickMode(4);
-      expect(app.settings.carouselMemoryMode).toBe(false);
+    test('modes 1 through 4 all reset carouselMemoryMode to false', function() {
+      for (var mode = 1; mode <= 4; mode++) {
+        app.settings.carouselMemoryMode = true;
+        app.applyQuickMode(mode);
+        expect(app.settings.carouselMemoryMode).toBe(false);
+      }
     });
   });
 
@@ -696,15 +627,11 @@ describe('Carousel memory mode', function() {
 
   describe('resetSettings clears carousel mode', function() {
 
-    test('resets carouselMemoryMode to false', function() {
+    test('resets carouselMemoryMode and listeningMode to false', function() {
       app.settings.carouselMemoryMode = true;
-      app.resetSettings();
-      expect(app.settings.carouselMemoryMode).toBe(false);
-    });
-
-    test('resets listeningMode to false', function() {
       app.settings.listeningMode = true;
       app.resetSettings();
+      expect(app.settings.carouselMemoryMode).toBe(false);
       expect(app.settings.listeningMode).toBe(false);
     });
   });
