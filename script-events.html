@@ -404,6 +404,9 @@
   };
   
   // 顯示當前單字
+  /**
+   * 顯示當前單字：共用前置作業 → 依模式委派至子函式。
+   */
   FlashcardApp.prototype.displayCurrentWord = function() {
     if (this.currentWords.length === 0) {
       this.startNewRound();
@@ -413,33 +416,27 @@
     var currentWord = this.currentWords[this.currentIndex];
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
+
+    // 共用前置：重置狀態
     this.showingChinese = false;
     this.isTransitioning = false;
     this.isProcessingClick = false;
-      this.pendingRemoval = null;
-      this.hideRestoreButton();
-      
-      this._clearDisplayTimer();
-      
-    // 重置進度條（準備開始新的週期）
+    this.pendingRemoval = null;
+    this.hideRestoreButton();
+    this._clearDisplayTimer();
     this.resetProgressBar();
-      
+
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
     englishElement.classList.remove('word-pending-removal');
     chineseElement.classList.remove('word-pending-removal');
-    
-    // 清除舊文字，避免模式切換時殘留上一輪的文字內容
     englishElement.textContent = '';
     chineseElement.textContent = '';
-    
     englishElement.style.color = '';
     chineseElement.style.color = '';
     
     // 混合模式：每張卡片隨機決定顯示順序
-    // 若開關啟用，要會拼的單字強制先顯示中文；其他單字隨機
     if (this.settings.displayMode === 'mixed') {
-      var currentWord = this.currentWords[this.currentIndex];
       if (currentWord && currentWord.mustSpell && this.settings.mustSpellChineseFirst) {
         this.currentWordReversed = true;
       } else {
@@ -447,14 +444,8 @@
       }
     }
     
-    // 先清除背景圖片（圖片將在中文翻譯出現時才顯示）
-    var flashcardDiv = document.getElementById('flashcard');
-    if (flashcardDiv) {
-      flashcardDiv.style.backgroundImage = '';
-      flashcardDiv.classList.remove('has-image');
-    }
+    this.clearFlashcardImage();
     
-    // 儲存當前單字到 localStorage（載入畫面用）
     try {
       localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.LAST_WORD, JSON.stringify({
         english: currentWord.english,
@@ -462,78 +453,98 @@
       }));
     } catch (e) {}
     
+    // 依模式委派
     var self = this;
     setTimeout(function() {
-      var firstElement = document.getElementById('english-word');
-      var secondElement = document.getElementById('chinese-word');
-      
       if (self.settings.carouselMemoryMode) {
-        // 輪播記憶模式：同時顯示中英文，單一進度條 0% → 100%
-        firstElement.textContent = currentWord.english;
-        secondElement.textContent = currentWord.chinese;
-        firstElement.classList.add('show');
-        secondElement.classList.add('show');
-        self.showingChinese = true;
-
-        // 顯示背景圖片
-        var flashcardDiv = document.getElementById('flashcard');
-        var hasImage = currentWord.image && currentWord.image !== '';
-        if (hasImage && flashcardDiv) {
-          flashcardDiv.style.backgroundImage = 'url("' + currentWord.image.replace(/"/g, '%22') + '")';
-          flashcardDiv.classList.add('has-image');
-        }
-
-        setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
-
-        var carouselDelay = self.settings.smartTimerEnabled ? self.getPhase2Delay() : self.settings.delayTime;
-        var totalDelay = self.settings.delayTime + carouselDelay;
-        self._setDisplayTimer(function() {
-          self.waitForSpeechThenExecute(function() {
-            self.nextWord();
-          });
-        }, totalDelay * 1000);
-        self.startProgressBar('carousel', totalDelay);
+        self._displayCarouselWord(currentWord);
       } else if (self.settings.listeningMode) {
-        // 聽力模式：Phase 1 不顯示文字，立即發音（無須等待閱讀）
-        firstElement.textContent = '';
-        self.speakWord(currentWord.english);
-      } else if (self.isReversedForCurrentWord()) {
-        firstElement.textContent = currentWord.chinese;
-        setTimeout(function() {
-          self.speakChineseWord(currentWord.chinese);
-        }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        self._displayListeningWord(currentWord);
       } else {
-        firstElement.textContent = currentWord.english;
-        if (!self.settings.delaySpeechInNormalMode) {
-          // 字母拼讀模式縮短初始延遲，讓拼讀更快開始
-          var speechDelay = self.voiceSettings.spellOutLetters ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
-          setTimeout(function() {
-            self.speakWord(currentWord.english);
-          }, speechDelay);
-        }
+        self._displayNormalWord(currentWord);
       }
-      firstElement.classList.add('show');
-      
-      // 批次預載當前及未來即將輪到的單字圖片（含當前共 10 張）
+
       self.preloadUpcomingImages(10);
-  
-      if (!self.settings.carouselMemoryMode) {
-        self._setDisplayTimer(function() {
-          self.waitForSpeechThenExecute(function() {
-            self.showSecondPartAndScheduleNext();
-          });
-        }, self.settings.delayTime * 1000);
-        
-        // 進度條第一階段：0% → 50%（到 50% 時顯示翻譯）
-        self.startProgressBar(1);
-      }
-      
     }, APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
     
     this.renderDifficultyLevel();
     this.renderMustSpellIndicator();
     this.updateProgress();
     this.updateButtonStates();
+  };
+
+  /** 輪播記憶模式：同時顯示中英文，單一進度條 0%→100% */
+  FlashcardApp.prototype._displayCarouselWord = function(currentWord) {
+    var firstElement = document.getElementById('english-word');
+    var secondElement = document.getElementById('chinese-word');
+    var self = this;
+
+    firstElement.textContent = currentWord.english;
+    secondElement.textContent = currentWord.chinese;
+    firstElement.classList.add('show');
+    secondElement.classList.add('show');
+    this.showingChinese = true;
+
+    if (currentWord.image && currentWord.image !== '') {
+      this.setFlashcardImage(currentWord.image);
+    }
+
+    setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+
+    var carouselDelay = this.settings.smartTimerEnabled ? this.getPhase2Delay() : this.settings.delayTime;
+    var totalDelay = this.settings.delayTime + carouselDelay;
+    this._setDisplayTimer(function() {
+      self.waitForSpeechThenExecute(function() {
+        self.nextWord();
+      });
+    }, totalDelay * 1000);
+    this.startProgressBar('carousel', totalDelay);
+  };
+
+  /** 聽力模式：Phase 1 不顯示文字，立即發音 */
+  FlashcardApp.prototype._displayListeningWord = function(currentWord) {
+    var firstElement = document.getElementById('english-word');
+    var self = this;
+
+    firstElement.textContent = '';
+    firstElement.classList.add('show');
+    this.speakWord(currentWord.english);
+
+    this._setDisplayTimer(function() {
+      self.waitForSpeechThenExecute(function() {
+        self.showSecondPartAndScheduleNext();
+      });
+    }, this.settings.delayTime * 1000);
+    this.startProgressBar(1);
+  };
+
+  /** 一般模式（先英文/先中文/混合）：Phase 1 顯示第一語言 */
+  FlashcardApp.prototype._displayNormalWord = function(currentWord) {
+    var firstElement = document.getElementById('english-word');
+    var self = this;
+
+    if (this.isReversedForCurrentWord()) {
+      firstElement.textContent = currentWord.chinese;
+      setTimeout(function() {
+        self.speakChineseWord(currentWord.chinese);
+      }, APP_CONSTANTS.SPEECH_DELAY_MS);
+    } else {
+      firstElement.textContent = currentWord.english;
+      if (!this.settings.delaySpeechInNormalMode) {
+        var speechDelay = this.voiceSettings.spellOutLetters ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
+        setTimeout(function() {
+          self.speakWord(currentWord.english);
+        }, speechDelay);
+      }
+    }
+    firstElement.classList.add('show');
+
+    this._setDisplayTimer(function() {
+      self.waitForSpeechThenExecute(function() {
+        self.showSecondPartAndScheduleNext();
+      });
+    }, this.settings.delayTime * 1000);
+    this.startProgressBar(1);
   };
   
   // 更新進度
@@ -896,7 +907,7 @@
     }
     if (srsReviewModal) {
       srsReviewModal.addEventListener('click', function(e) {
-        if (e.target === srsReviewModal) {
+        if (isModalBackgroundClick(e, srsReviewModal)) {
           self.closeSrsReviewModal();
         }
       });
@@ -1318,7 +1329,133 @@
 
   
 
-  
 
+
+  // ===========================================
+  // 全螢幕控制（從 script-voice.html 搬移）
+  // ===========================================
+
+  FlashcardApp.prototype._isIOSDevice = function() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  };
+
+  FlashcardApp.prototype.enterFullscreen = function() {
+    console.log('嘗試進入全螢幕模式');
+    
+    if (this._isIOSDevice()) {
+      if (window.navigator.standalone) {
+        alert('目前已是全螢幕模式（從主畫面開啟）');
+      } else {
+        alert(
+          'iPhone / iPad 的瀏覽器不支援網頁全螢幕。\n\n' +
+          '如需全螢幕體驗，請在 Safari 中：\n' +
+          '1. 點選底部「分享」按鈕\n' +
+          '2. 選擇「加入主畫面」\n' +
+          '3. 從主畫面開啟此 App'
+        );
+      }
+      return;
+    }
+    
+    var docElement = document.documentElement;
+    
+    try {
+      if (docElement.requestFullscreen) {
+        docElement.requestFullscreen();
+      } else if (docElement.webkitRequestFullscreen) {
+        docElement.webkitRequestFullscreen();
+      } else if (docElement.webkitRequestFullScreen) {
+        docElement.webkitRequestFullScreen();
+      } else if (docElement.mozRequestFullScreen) {
+        docElement.mozRequestFullScreen();
+      } else if (docElement.msRequestFullscreen) {
+        docElement.msRequestFullscreen();
+      } else {
+        console.log('此瀏覽器不支援全螢幕 API');
+        alert('此瀏覽器不支援全螢幕功能');
+        return;
+      }
+      
+      console.log('全螢幕請求已發送');
+      
+      var self = this;
+      var fullscreenChangeHandler = function() {
+        var isFullscreen = document.fullscreenElement || 
+                          document.webkitFullscreenElement || 
+                          document.mozFullScreenElement || 
+                          document.msFullscreenElement;
+        
+        if (isFullscreen) {
+          console.log('已進入全螢幕模式');
+        } else {
+          console.log('已退出全螢幕模式');
+        }
+        
+        self.updateFullscreenButtonText();
+      };
+      
+      document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('mozfullscreenchange', fullscreenChangeHandler);
+      document.removeEventListener('MSFullscreenChange', fullscreenChangeHandler);
+      
+      document.addEventListener('fullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('mozfullscreenchange', fullscreenChangeHandler);
+      document.addEventListener('MSFullscreenChange', fullscreenChangeHandler);
+      
+    } catch (error) {
+      console.error('進入全螢幕時發生錯誤:', error);
+      alert('無法進入全螢幕模式，請檢查瀏覽器設定');
+    }
+  };
+
+  FlashcardApp.prototype.exitFullscreen = function() {
+    console.log('嘗試退出全螢幕模式');
+    try {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.webkitCancelFullScreen) {
+        document.webkitCancelFullScreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      } else {
+        console.log('此瀏覽器不支援退出全螢幕 API');
+      }
+      console.log('退出全螢幕請求已發送');
+    } catch (error) {
+      console.error('退出全螢幕時發生錯誤:', error);
+    }
+  };
+
+  FlashcardApp.prototype.isFullscreen = function() {
+    return !!(document.fullscreenElement || 
+             document.webkitFullscreenElement || 
+             document.mozFullScreenElement || 
+             document.msFullscreenElement);
+  };
+
+  FlashcardApp.prototype.toggleFullscreen = function() {
+    if (this.isFullscreen()) {
+      this.exitFullscreen();
+    } else {
+      this.enterFullscreen();
+    }
+  };
+
+  FlashcardApp.prototype.updateFullscreenButtonText = function() {
+    var fullscreenBtn = document.getElementById('fullscreen-btn');
+    if (fullscreenBtn) {
+      if (this.isFullscreen()) {
+        fullscreenBtn.textContent = '退出全螢幕';
+      } else {
+        fullscreenBtn.textContent = '全螢幕';
+      }
+    }
+  };
   
 </script>

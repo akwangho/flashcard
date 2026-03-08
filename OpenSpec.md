@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.16.0
-> **最後更新**: 2026-03-06
+> **版本**: 1.17.0
+> **最後更新**: 2026-03-08
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -64,20 +64,24 @@ flashcard/
 ├── style-quiz.html        # 測驗元件、複習篩選模態框
 │
 │   # 前端 JavaScript 模組（原 script.html 拆分為 14 個模組）
-├── script-polyfills.html  # ES5 Polyfills（forEach, filter, map, find, includes）
-├── script-core.html       # 全域常數(APP_CONSTANTS)、共用工具函式、建構函式、初始化、設定管理、單字載入
-├── script-events.html     # 事件監聯器設定、語音啟用、基本 UI 顯示
-├── script-display.html    # 設定模態框、計時器/暫停、不熟程度、閃卡互動、滑桿
-├── script-voice.html      # 語音朗讀（英/日/中）、導覽、全螢幕、語音設定
-├── script-export.html     # 匯出功能（批次匯出、覆寫處理）
-├── script-sheets.html     # Google Sheet 載入、驗證、工作表選擇
-├── script-duplicates.html # 重複單字偵測與處理
-├── script-filter.html     # 複習時間篩選、不熟程度篩選、要會拼篩選
-├── script-edit-word.html  # 編輯單字模態框（開啟、關閉、儲存、圖片預覽）
-├── script-srs.html        # SRS 間隔重複系統（Leitner Box、到期判定、快速複習 UI）
-├── script-screen-awake.html # 防螢幕關閉（Wake Lock、NoSleep Video、持續音頻、Keep-Alive）
-├── script-quiz.html       # 測驗系統（題目生成、答題流程、計分）
-├── script-bootstrap.html  # 全域初始化（window.onload、FlashcardApp 實例建立、cleanup）
+├── script-polyfills.html      # ES5 Polyfills（forEach, filter, map, find, includes）
+├── script-core.html           # 全域常數(APP_CONSTANTS)、共用工具函式、共用清理輔助方法、建構函式、初始化、設定管理、單字載入
+├── script-events.html         # 事件監聽器設定、語音啟用、displayCurrentWord（含 3 個子函式）、選單、全螢幕
+├── script-settings-modal.html # 設定模態框開啟/關閉/儲存/重置、快速模式切換、Sheet 設定 UI、滑桿增強
+├── script-difficulty.html     # 不熟程度增減與同步、UI 渲染、智慧計時延遲、顯示順序判斷
+├── script-display.html        # 暫停/恢復計時器、單字點擊/刪除、翻譯顯示排程、導覽（next/previous）、通知、圖片預載
+├── script-progress-bar.html   # 計時器進度條動畫（開始/暫停/恢復/重置）
+├── script-voice.html          # 語音朗讀（英/日/中）、字母拼讀、語音等待機制、語音設定 UI
+├── script-export.html         # 匯出功能（批次匯出、覆寫處理）
+├── script-sheets.html         # Google Sheet 載入、驗證、工作表選擇
+├── script-duplicates.html     # 重複單字偵測與處理
+├── script-filter.html         # 複習時間篩選、不熟程度篩選、要會拼篩選
+├── script-edit-word.html      # 編輯單字模態框（開啟、關閉、儲存、圖片預覽）
+├── script-srs.html            # SRS 間隔重複系統（Leitner Box、到期判定、快速複習 UI）
+├── script-screen-awake.html   # 防螢幕關閉（Wake Lock、NoSleep Video、持續音頻、Keep-Alive）
+├── script-quiz.html           # 測驗系統（題目生成、答題流程、計分）
+├── script-listening.html      # 聽力練習（聽音辨字/聽音拼字）
+├── script-bootstrap.html      # 全域初始化（window.onload、FlashcardApp 實例建立、cleanup）
 │
 │   # 部署與工具設定
 ├── appsscript.json        # Google Apps Script 專案清單（clasp 用）
@@ -157,7 +161,7 @@ bash deploy.sh setup
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 789 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 807 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -1311,6 +1315,30 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.17.0 (2026-03-08) — 程式碼重構：模組拆分與共用輔助方法
+
+**共用輔助方法（script-core.html）**
+- 新增 `cancelAllSpeech()`：統一 4 步語音清理（clearSpeechWait + chineseWaitInterval + _speechSequenceActive + speechSynthesis.cancel），替換 8+ 處重複程式碼
+- 新增 `clearAllTimersAndSpeech()`：_clearDisplayTimer + cancelAllSpeech，替換 10+ 處重複程式碼
+- 新增 `clearFlashcardImage()` / `setFlashcardImage(url)`：統一閃卡背景圖片操作，替換 5+ 處重複程式碼
+
+**模組拆分（script-display.html 1430 行 → 4 個檔案）**
+- 新增 `script-settings-modal.html`：設定模態框、快速模式切換、Sheet 設定、滑桿增強
+- 新增 `script-difficulty.html`：不熟程度增減/同步/UI/智慧計時/顯示順序
+- 新增 `script-progress-bar.html`：進度條動畫（開始/暫停/恢復/重置）
+- `script-display.html` 精簡為：暫停/恢復、單字點擊/刪除、翻譯排程、導覽、通知、圖片預載
+
+**方法搬移（script-voice.html 1242 行 → 600 行）**
+- nextWord/previousWord/saveNavigationState/confirmRestart/restart → script-display.html
+- togglePause/updatePauseButtonState/redisplayCurrentWord → script-display.html
+- 全螢幕相關（enterFullscreen/exitFullscreen/toggleFullscreen 等）→ script-events.html
+
+**長函式拆分**
+- displayCurrentWord（~130 行）拆為 dispatcher + `_displayCarouselWord` / `_displayListeningWord` / `_displayNormalWord` 三個子函式
+
+**Modal 標準化**
+- 所有 modal 背景點擊改用共用 `isModalBackgroundClick(e, modal)` 取代 inline `e.target === modal`
 
 ### v1.16.0 (2026-03-06) — 輪播記憶模式、聽力體驗優化、暫停同步修正
 

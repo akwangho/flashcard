@@ -1,0 +1,82 @@
+<!-- script-progress-bar.html -->
+<script>
+  /**
+   * @module script-progress-bar
+   * @description 計時器進度條模組：開始/暫停/恢復/重置進度條動畫。
+   *   Phase 1 (0%→50%): 第一語言顯示中；Phase 2 (50%→100%): 翻譯已顯示；
+   *   Carousel ('carousel', 0%→100%): 輪播記憶模式單一進度。
+   *
+   * @dependencies script-core.html (FlashcardApp)
+   * @provides FlashcardApp.prototype: startProgressBar, pauseProgressBar,
+   *   resumeProgressBar, resetProgressBar
+   */
+
+  // phase=1: 0%→50%  |  phase=2: 50%→100%  |  phase='carousel': 0%→100%
+  FlashcardApp.prototype.startProgressBar = function(phase, customDuration) {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar) return;
+
+    var isCarousel = (phase === 'carousel');
+    var duration = (isCarousel && customDuration !== undefined) ? customDuration
+      : (phase === 2 && customDuration !== undefined) ? customDuration
+      : this.settings.delayTime;
+    var startPercent = (phase === 1 || isCarousel) ? 0 : 50;
+    var endPercent = (phase === 1) ? 50 : 100;
+
+    this._progressPhase = phase;
+    this._progressDuration = duration;
+
+    bar.style.WebkitTransition = 'none';
+    bar.style.transition = 'none';
+    bar.style.width = startPercent + '%';
+
+    bar.offsetWidth;
+
+    bar.style.WebkitTransition = 'width ' + duration + 's linear';
+    bar.style.transition = 'width ' + duration + 's linear';
+    bar.style.width = endPercent + '%';
+  };
+
+  FlashcardApp.prototype.pauseProgressBar = function() {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar) return;
+
+    var computedWidth = 0;
+    try {
+      computedWidth = parseFloat(window.getComputedStyle(bar).width) || 0;
+    } catch (e) {
+      computedWidth = bar.offsetWidth || 0;
+    }
+    var parentWidth = bar.parentElement ? bar.parentElement.offsetWidth : window.innerWidth;
+    var currentPercent = parentWidth > 0 ? (computedWidth / parentWidth) * 100 : 0;
+
+    bar.style.WebkitTransition = 'none';
+    bar.style.transition = 'none';
+    bar.style.width = currentPercent + '%';
+  };
+
+  FlashcardApp.prototype.resumeProgressBar = function(remainingDuration) {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar || !this._progressPhase) return;
+
+    var duration = remainingDuration || this._progressDuration || this.settings.delayTime;
+    var endPercent = this._progressPhase === 1 ? 50 : 100;
+
+    bar.offsetWidth;
+
+    bar.style.WebkitTransition = 'width ' + duration + 's linear';
+    bar.style.transition = 'width ' + duration + 's linear';
+    bar.style.width = endPercent + '%';
+  };
+
+  FlashcardApp.prototype.resetProgressBar = function() {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar) return;
+
+    bar.style.WebkitTransition = 'none';
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    this._progressPhase = null;
+  };
+
+</script>

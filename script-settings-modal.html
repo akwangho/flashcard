@@ -1,0 +1,347 @@
+<!-- script-settings-modal.html -->
+<script>
+  /**
+   * @module script-settings-modal
+   * @description 設定模態框模組：一般設定開啟/關閉/儲存/重置、快速模式切換、
+   *   Sheet 設定 UI 開啟/關閉、滑桿交互增強。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, openModalById, closeModalById)
+   * @provides FlashcardApp.prototype: openSettings, closeSettings,
+   *   saveSettingsAndClose, resetSettings, applyQuickMode,
+   *   openSheetSettings, closeSheetSettings, enhanceSliderInteraction
+   */
+
+  // 開啟設定
+  FlashcardApp.prototype.openSettings = function() {
+    var modal = openModalById(this, 'settings-modal');
+    if (modal) {
+      this.applySettings();
+    }
+  };
+  
+  // 關閉設定
+  FlashcardApp.prototype.closeSettings = function(shouldRedisplay) {
+    closeModalById(this, 'settings-modal');
+    if (shouldRedisplay) {
+      this.redisplayCurrentWord();
+    }
+  };
+  
+  // 儲存設定並關閉
+  FlashcardApp.prototype.saveSettingsAndClose = function() {
+    var delaySlider = document.getElementById('delay-setting');
+    var fontSizeSlider = document.getElementById('font-size-setting');
+    var fontFamilySelect = document.getElementById('font-family-setting');
+    
+    var oldDisplayMode = this.settings.displayMode;
+    var oldFontFamily = this.settings.fontFamily;
+    
+    if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
+    if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
+    if (fontFamilySelect) this.settings.fontFamily = fontFamilySelect.value;
+    
+    // 讀取顯示模式 radio buttons
+    var selectedMode = document.querySelector('input[name="display-mode"]:checked');
+    if (selectedMode) this.settings.displayMode = selectedMode.value;
+    
+    // 讀取要會拼強制先中文開關
+    var mustSpellChineseFirstToggle = document.getElementById('must-spell-chinese-first-setting');
+    if (mustSpellChineseFirstToggle) this.settings.mustSpellChineseFirst = mustSpellChineseFirstToggle.checked;
+    
+    // 讀取智慧計時開關
+    var smartTimerToggle = document.getElementById('smart-timer-setting');
+    if (smartTimerToggle) this.settings.smartTimerEnabled = smartTimerToggle.checked;
+    
+    // 讀取計時進度條開關
+    var showTimerToggle = document.getElementById('show-timer-progress-setting');
+    if (showTimerToggle) this.settings.showTimerProgressBar = showTimerToggle.checked;
+    
+    // 讀取計時進度條偏移量
+    var timerOffsetInput = document.getElementById('timer-offset-setting');
+    if (timerOffsetInput) this.settings.timerProgressBarOffset = parseInt(timerOffsetInput.value, 10) || 0;
+    
+    this.saveSettings();
+    this.applySettings();
+    this.closeSettings();
+    
+    // 如果顯示模式或字型改變，重新顯示當前單字
+    if (oldDisplayMode !== this.settings.displayMode || oldFontFamily !== this.settings.fontFamily) {
+      this.redisplayCurrentWord();
+    }
+  };
+  
+  // 重置設定
+  FlashcardApp.prototype.resetSettings = function() {
+    this.settings = {
+      delayTime: 3,
+      fontSize: 96,
+      displayMode: 'english-first',
+      fontFamily: 'system-default',
+      delaySpeechInNormalMode: false,
+      mustSpellChineseFirst: true,
+      showTimerProgressBar: true,
+      timerProgressBarOffset: 0,
+      smartTimerEnabled: false,
+      listeningMode: false,
+      carouselMemoryMode: false
+    };
+    this.voiceSettings = {
+      enabled: true,
+      rate: 0.8,
+      pitch: 1,
+      volume: 1,
+      lang: 'en-US',
+      voiceURI: '',
+      japaneseLang: 'ja-JP',
+      japaneseVoiceURI: '',
+      spellOutLetters: false,
+      chineseEnabled: false,
+      chineseLang: 'zh-TW',
+      chineseVoiceURI: ''
+    };
+    this.applySettings();
+      this.saveSettings();
+    this.closeSettings();
+  };
+  
+  // 快速模式切換
+  FlashcardApp.prototype.applyQuickMode = function(mode) {
+    var details = [];
+
+    var wasListeningMode = this.settings.listeningMode;
+
+    if (mode === 1) {
+      this.settings.displayMode = 'chinese-first';
+      this.voiceSettings.spellOutLetters = true;
+      this.voiceSettings.chineseEnabled = true;
+      this.settings.delayTime = 9;
+      this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
+      this.settings.listeningMode = false;
+      details = [
+        '🎧 用聽的背單字',
+        '🔄 顯示模式：先中文',
+        '🔤 字母拼讀：開',
+        '🗣️ 中文發音：開',
+        '⏱️ 延遲秒數：9 秒',
+        '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開'
+      ];
+    } else if (mode === 2) {
+      this.settings.displayMode = 'english-first';
+      this.voiceSettings.spellOutLetters = false;
+      this.voiceSettings.chineseEnabled = true;
+      this.settings.delayTime = 4.5;
+      this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
+      this.settings.delaySpeechInNormalMode = false;
+      this.settings.listeningMode = false;
+      details = [
+        '👂 用聽的認識單字',
+        '🔄 顯示模式：先英文',
+        '🔤 字母拼讀：關',
+        '🗣️ 中文發音：開',
+        '⏱️ 延遲秒數：4.5 秒',
+        '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開',
+        '⏳ 延遲發音：關'
+      ];
+    } else if (mode === 3) {
+      this.settings.displayMode = 'mixed';
+      this.settings.delaySpeechInNormalMode = true;
+      this.voiceSettings.spellOutLetters = false;
+      this.voiceSettings.chineseEnabled = false;
+      this.settings.delayTime = 9;
+      this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
+      this.settings.listeningMode = false;
+      details = [
+        '📝 日常複習',
+        '🔄 顯示模式：隨機混合',
+        '🔤 字母拼讀：關',
+        '🗣️ 中文發音：關',
+        '⏱️ 延遲秒數：9 秒',
+        '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開',
+        '⏳ 延遲發音：開'
+      ];
+    } else if (mode === 4) {
+      this.settings.listeningMode = true;
+      this.settings.displayMode = 'english-first';
+      this.settings.carouselMemoryMode = false;
+      this.voiceSettings.spellOutLetters = false;
+      this.voiceSettings.chineseEnabled = false;
+      this.settings.delayTime = 4.5;
+      this.settings.smartTimerEnabled = true;
+      this.settings.showTimerProgressBar = true;
+      details = [
+        '🎧 聽力訓練',
+        '🎧 聽力模式：開',
+        '🔄 顯示模式：先英文',
+        '🔤 字母拼讀：關',
+        '🗣️ 中文發音：關',
+        '⏱️ 延遲秒數：4.5 秒',
+        '⏱️ 智慧計時：開',
+        '⏱️ 計時進度條：開'
+      ];
+    } else if (mode === 5) {
+      this.settings.carouselMemoryMode = true;
+      this.settings.listeningMode = false;
+      this.settings.displayMode = 'english-first';
+      this.voiceSettings.spellOutLetters = false;
+      this.voiceSettings.chineseEnabled = false;
+      this.settings.delayTime = 4.5;
+      this.settings.smartTimerEnabled = false;
+      this.settings.showTimerProgressBar = false;
+      this.settings.delaySpeechInNormalMode = false;
+      details = [
+        '🔄 輪播記憶模式',
+        '📖 中英文同時顯示',
+        '⏱️ 延遲秒數：4.5 秒',
+        '⏱️ 智慧計時：關',
+        '⏱️ 計時進度條：關'
+      ];
+    }
+
+    // 非輪播模式時自動關閉輪播旗標
+    if (mode !== 5 && this.settings.carouselMemoryMode) {
+      this.settings.carouselMemoryMode = false;
+    }
+
+    if (wasListeningMode && !this.settings.listeningMode) {
+      details.push('🔇 聽力模式已自動關閉');
+    }
+
+    // 解除暫停狀態，確保快速設定套用後能正常運行
+    this.userPaused = false;
+    this.isPaused = false;
+    this._pauseRemainingMs = 0;
+
+    this.saveSettings();
+    this.applySettings();
+    this.closeMenu();
+    this.showNotification(details.join('\n'), 'success');
+    this.redisplayCurrentWord();
+    this.updatePauseButtonState();
+  };
+
+  // 開啟Google Sheet設定
+  FlashcardApp.prototype.openSheetSettings = function() {
+    console.log('開啟 Google Sheet 設定畫面');
+    var modal = openModalById(this, 'sheet-settings-modal');
+    if (modal) {
+      
+      // 還原所有區塊的可見性（上次選擇預設檔後可能被隱藏）
+      var showIds = ['default-sheets-group', 'recent-sheets-group', 'sheet-id-group', 'load-sheets-group'];
+      for (var i = 0; i < showIds.length; i++) {
+        var el = document.getElementById(showIds[i]);
+        if (el) el.style.display = '';
+      }
+      
+      var sheetIdInput = document.getElementById('sheet-id-input');
+      if (sheetIdInput) {
+        sheetIdInput.value = this.sheetSettings.sheetId || '';
+      }
+      
+      var sheetsGroup = document.getElementById('sheets-selection-group');
+      if (sheetsGroup) {
+        sheetsGroup.style.display = 'none';
+      }
+      
+      var saveBtn = document.getElementById('save-sheet-settings');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+      }
+      
+      // 顯示歷史記錄
+      this.displaySheetHistory();
+    }
+  };
+  
+  // 關閉Google Sheet設定
+  FlashcardApp.prototype.closeSheetSettings = function() {
+    closeModalById(this, 'sheet-settings-modal');
+  };
+
+  // 增強滑桿交互體驗（點擊/觸摸任意位置即可跳到對應值）
+  FlashcardApp.prototype.enhanceSliderInteraction = function(slider, valueElementId, unit) {
+    if (!slider) return;
+    
+    var self = this;
+    unit = unit || '';
+    
+    function calculateValueFromClick(event, sliderElement) {
+      var rect = sliderElement.getBoundingClientRect();
+      var clickX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : 0);
+      var sliderX = clickX - rect.left;
+      var sliderWidth = rect.width;
+      
+      if (sliderX < 0) sliderX = 0;
+      if (sliderX > sliderWidth) sliderX = sliderWidth;
+      
+      var percentage = sliderX / sliderWidth;
+      
+      var min = parseFloat(sliderElement.min);
+      var max = parseFloat(sliderElement.max);
+      var step = parseFloat(sliderElement.step) || 1;
+      
+      var rawValue = min + (max - min) * percentage;
+      var steppedValue = Math.round(rawValue / step) * step;
+      
+      if (steppedValue < min) steppedValue = min;
+      if (steppedValue > max) steppedValue = max;
+      
+      var decimalPlaces = 0;
+      if (step.toString().indexOf('.') !== -1) {
+        decimalPlaces = step.toString().split('.')[1].length;
+      }
+      steppedValue = parseFloat(steppedValue.toFixed(decimalPlaces));
+      
+      return steppedValue;
+    }
+    
+    function updateSliderValue(newValue) {
+      slider.value = newValue;
+      
+      var inputEvent;
+      try {
+        inputEvent = new Event('input', { bubbles: true });
+      } catch (e) {
+        inputEvent = document.createEvent('HTMLEvents');
+        inputEvent.initEvent('input', true, true);
+      }
+      slider.dispatchEvent(inputEvent);
+      
+      var valueElement = document.getElementById(valueElementId);
+      if (valueElement) {
+        var step = parseFloat(slider.step) || 1;
+        var decimalPlaces = 0;
+        if (step.toString().indexOf('.') !== -1) {
+          decimalPlaces = step.toString().split('.')[1].length;
+        }
+        var formattedValue = parseFloat(newValue.toFixed(decimalPlaces));
+        valueElement.textContent = formattedValue + unit;
+      }
+    }
+    
+    function handleClick(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      var newValue = calculateValueFromClick(event, slider);
+      updateSliderValue(newValue);
+    }
+    
+    function handleTouchStart(event) {
+      event.preventDefault();
+      var newValue = calculateValueFromClick(event, slider);
+      updateSliderValue(newValue);
+    }
+    
+    slider.addEventListener('click', handleClick);
+    slider.addEventListener('touchstart', handleTouchStart);
+    
+    console.log('已增強滑塊交互體驗:', slider.id);
+  };
+
+</script>

@@ -324,7 +324,7 @@
     }
     if (modal) {
       modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
+        if (isModalBackgroundClick(e, modal)) {
           self.closeReviewFilterModal();
         }
       });
@@ -444,7 +444,7 @@
     }
     if (modal) {
       modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
+        if (isModalBackgroundClick(e, modal)) {
           self.closeDifficultyFilterModal();
         }
       });
@@ -636,7 +636,7 @@
     }
     if (modal) {
       modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
+        if (isModalBackgroundClick(e, modal)) {
           self.closeTypeFilterModal();
         }
       });
@@ -797,7 +797,7 @@
     }
     if (modal) {
       modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
+        if (isModalBackgroundClick(e, modal)) {
           self.closeTagFilterModal();
         }
       });

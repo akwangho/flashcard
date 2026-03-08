@@ -63,19 +63,7 @@
   FlashcardApp.prototype.showDuplicateModal = function() {
     console.log('顯示重複處理模態框');
     
-    // 清理中文語音等待定時器
-    if (this.chineseWaitInterval) {
-      clearInterval(this.chineseWaitInterval);
-      this.chineseWaitInterval = null;
-    }
-    
-    // 停止任何正在播放的語音
-    if (this.speechSynthesis) {
-      this.speechSynthesis.cancel();
-    }
-    
-    // 清除任何現有的計時器
-    this._clearDisplayTimer();
+    this.clearAllTimersAndSpeech();
     
     var modal = document.getElementById('duplicate-words-modal');
     if (modal) {

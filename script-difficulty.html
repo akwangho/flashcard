@@ -1,0 +1,190 @@
+<!-- script-difficulty.html -->
+<script>
+  /**
+   * @module script-difficulty
+   * @description 不熟程度模組：增減不熟程度、後端同步、UI 渲染（星號/數字/顏色）、
+   *   智慧計時延遲計算、要會拼指示器、顯示順序判斷。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, applyDifficultyClass)
+   * @provides FlashcardApp.prototype: increaseDifficulty, decreaseDifficulty,
+   *   syncDifficultyToBackend, toggleDifficultCurrentWord, _renderDifficultyUI,
+   *   renderDifficultyLevel, renderDifficultyLevelPreview, renderMustSpellIndicator,
+   *   isReversedForCurrentWord, getPhase2Delay, reapplyFilters
+   */
+
+  // 增加不熟程度（+1，最高10；負數直接跳到3）
+  FlashcardApp.prototype.increaseDifficulty = function() {
+    if (this.currentWords.length === 0) return;
+    
+    var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord) return;
+    
+    if (this.pendingRemoval) {
+      this.pendingRemoval.isVeryFamiliar = true;
+      this.renderDifficultyLevelPreview(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR);
+      this.showVeryFamiliarToast('✓ 已設為非常熟');
+      return;
+    }
+    
+    var currentLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    var newLevel = currentLevel < 0 ? 3 : Math.min(10, currentLevel + 1);
+    currentWord.difficultyLevel = newLevel;
+    
+    var mainWord = this.words.find(function(w) { return w.id === currentWord.id; });
+    if (mainWord) mainWord.difficultyLevel = newLevel;
+    
+    this.syncDifficultyToBackend(currentWord);
+    this.updateSrsData(currentWord);
+    
+    this.renderDifficultyLevel();
+    console.log('增加不熟程度:', currentWord.english, '→ ★' + newLevel);
+  };
+
+  FlashcardApp.prototype.decreaseDifficulty = function(word) {
+    if (!word) return;
+    
+    var newLevel = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, (word.difficultyLevel || 0) - 1);
+    word.difficultyLevel = newLevel;
+    
+    var mainWord = this.words.find(function(w) { return w.id === word.id; });
+    if (mainWord) mainWord.difficultyLevel = newLevel;
+    
+    this.syncDifficultyToBackend(word);
+    this.updateSrsData(word);
+    
+    console.log('減少不熟程度:', word.english, '→ ★' + newLevel);
+  };
+
+  FlashcardApp.prototype.syncDifficultyToBackend = function(word) {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      var rowIndex = word.originalRowIndex;
+      if (rowIndex !== undefined && rowIndex !== -1) {
+        var sheetId = this.sheetSettings.sheetId;
+        var sheetName = word.sheetName || 'Sheet1';
+        google.script.run.updateWordDifficulty(sheetId, sheetName, rowIndex, word.difficultyLevel);
+      }
+    }
+  };
+
+  FlashcardApp.prototype.toggleDifficultCurrentWord = function() {
+    this.increaseDifficulty();
+  };
+  
+  /**
+   * 共用：更新不熟程度 UI（文字 + CSS class）
+   */
+  FlashcardApp.prototype._renderDifficultyUI = function(display, levelEl, level) {
+    if (level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) {
+      levelEl.textContent = '✓';
+    } else if (level < 0) {
+      levelEl.textContent = 0;
+    } else {
+      levelEl.textContent = level;
+    }
+
+    display.className = display.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
+    for (var i = 0; i <= 10; i++) {
+      display.className = display.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
+    }
+    display.className = display.className.replace(/\s+/g, ' ').trim();
+    display.classList.add('difficulty-display');
+    var cls = level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? 'difficulty-level-n1' : 'difficulty-level-' + Math.max(0, level);
+    display.classList.add(cls);
+  };
+
+  FlashcardApp.prototype.renderDifficultyLevel = function() {
+    var currentWord = this.currentWords[this.currentIndex];
+    var display = document.getElementById('difficulty-display');
+    var levelEl = document.getElementById('difficulty-level');
+    if (!display || !levelEl) return;
+
+    var level = (currentWord && currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    this._renderDifficultyUI(display, levelEl, level);
+  };
+
+  FlashcardApp.prototype.renderMustSpellIndicator = function() {
+    var indicator = document.getElementById('must-spell-indicator');
+    if (!indicator) return;
+    
+    var currentWord = this.currentWords[this.currentIndex];
+    if (currentWord && currentWord.mustSpell) {
+      indicator.style.display = 'inline-block';
+    } else {
+      indicator.style.display = 'none';
+    }
+  };
+
+  FlashcardApp.prototype.isReversedForCurrentWord = function() {
+    if (this.settings.displayMode === 'chinese-first') return true;
+    if (this.settings.displayMode === 'mixed') return this.currentWordReversed;
+    return false;
+  };
+
+  /**
+   * 計算 Phase 2（翻譯顯示後）的智慧延遲秒數。
+   * 注意：智慧計時只會「加速」短內容，永遠不會超過使用者設定的 delayTime。
+   * 若實際停留時間超過 delayTime，原因是 waitForSpeechThenExecute 等待語音播完。
+   */
+  FlashcardApp.prototype.getPhase2Delay = function() {
+    if (!this.settings.smartTimerEnabled) {
+      return this.settings.delayTime;
+    }
+
+    var currentWord = this.currentWords[this.currentIndex];
+    if (!currentWord) {
+      return this.settings.delayTime;
+    }
+
+    var isReversed = this.isReversedForCurrentWord();
+    var smartDelay;
+
+    if (isReversed) {
+      var english = currentWord.english || '';
+      var letterCount = english.replace(/[^a-zA-Z]/g, '').length;
+      if (letterCount === 0) return this.settings.delayTime;
+
+      var baseTime = APP_CONSTANTS.SMART_TIMER_EN_BASE_TIME;
+      var perLetterTime = APP_CONSTANTS.SMART_TIMER_EN_PER_LETTER_TIME;
+      var minTime = APP_CONSTANTS.SMART_TIMER_EN_MIN_TIME;
+
+      smartDelay = Math.max(minTime, baseTime + letterCount * perLetterTime);
+      smartDelay = Math.min(smartDelay, this.settings.delayTime);
+
+      var difficulty = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+      if (currentWord.mustSpell && difficulty >= 1) {
+        smartDelay = this.settings.delayTime;
+      }
+    } else {
+      var chinese = currentWord.chinese || '';
+      var charCount = chinese.length;
+      if (charCount === 0) return this.settings.delayTime;
+
+      var baseTime = APP_CONSTANTS.SMART_TIMER_BASE_TIME;
+      var perCharTime = APP_CONSTANTS.SMART_TIMER_PER_CHAR_TIME;
+      var minTime = APP_CONSTANTS.SMART_TIMER_MIN_TIME;
+
+      smartDelay = Math.max(minTime, baseTime + charCount * perCharTime);
+      smartDelay = Math.min(smartDelay, this.settings.delayTime);
+    }
+
+    return smartDelay;
+  };
+
+  FlashcardApp.prototype.renderDifficultyLevelPreview = function(level) {
+    var display = document.getElementById('difficulty-display');
+    var levelEl = document.getElementById('difficulty-level');
+    if (!display || !levelEl) return;
+
+    this._renderDifficultyUI(display, levelEl, level);
+  };
+
+  FlashcardApp.prototype.reapplyFilters = function() {
+    this.shuffleArray(this.words);
+    this.currentWords = this.applyAllFilters(this.words);
+    this.currentIndex = 0;
+    this.removedWords = [];
+    this.displayCurrentWord();
+    this.updateActiveFilterDisplay();
+  };
+
+</script>

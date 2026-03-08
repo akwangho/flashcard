@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.16.0',
+    APP_VERSION: '1.17.0',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -473,6 +473,46 @@
     this.enableKeepScreenAwake();
   };
   
+  // =============================================
+  // 共用清理輔助方法（減少重複程式碼）
+  // =============================================
+
+  /** 取消所有語音：清除等待計時器、中文等待、序列旗標、停止語音合成 */
+  FlashcardApp.prototype.cancelAllSpeech = function() {
+    this.clearSpeechWait();
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    this._speechSequenceActive = false;
+    this.speechSynthesis.cancel();
+  };
+
+  /** 清除所有計時器與語音（常用於切換單字、取消操作等場景） */
+  FlashcardApp.prototype.clearAllTimersAndSpeech = function() {
+    this._clearDisplayTimer();
+    this.cancelAllSpeech();
+  };
+
+  /** 清除閃卡背景圖片 */
+  FlashcardApp.prototype.clearFlashcardImage = function() {
+    var flashcardDiv = document.getElementById('flashcard');
+    if (flashcardDiv) {
+      flashcardDiv.style.backgroundImage = '';
+      flashcardDiv.classList.remove('has-image');
+    }
+  };
+
+  /** 設定閃卡背景圖片（自動處理 URL 中的特殊字元） */
+  FlashcardApp.prototype.setFlashcardImage = function(url) {
+    if (!url || url === '') return;
+    var flashcardDiv = document.getElementById('flashcard');
+    if (flashcardDiv) {
+      flashcardDiv.style.backgroundImage = 'url("' + url.replace(/"/g, '%22') + '")';
+      flashcardDiv.classList.add('has-image');
+    }
+  };
+
   // 檢測舊版瀏覽器
   FlashcardApp.prototype.detectLegacyBrowser = function() {
     var userAgent = navigator.userAgent;
