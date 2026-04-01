@@ -107,6 +107,30 @@
         </div>
       </div>
       
+      <!-- 主畫面快速計時（左緣 hover 或觸控 ⏱ 展開） -->
+      <div id="quick-timer-dock" class="quick-timer-dock">
+        <div class="quick-timer-dock-inner">
+          <div class="quick-timer-hover-zone" aria-hidden="true"></div>
+          <button type="button" id="quick-timer-touch-toggle" class="quick-timer-touch-toggle" title="計時快速設定" aria-label="計時快速設定">⏱</button>
+          <div class="quick-timer-panel">
+            <div class="quick-timer-panel-title">延遲 (秒)</div>
+            <div class="quick-timer-slider-row">
+              <div class="quick-timer-slider-wrap">
+                <input type="range" id="quick-delay-setting" min="1" max="10" value="4.5" step="0.5">
+              </div>
+              <span id="quick-delay-value" class="quick-timer-delay-value">4.5</span>
+            </div>
+            <div class="quick-timer-smart-row">
+              <span class="quick-timer-smart-label" id="quick-timer-smart-label">智慧計時</span>
+              <label class="switch quick-timer-smart-switch">
+                <input type="checkbox" id="quick-smart-timer-setting">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <!-- 計時器進度條（畫面最上方水平線，由左到右成長，左端有光暈圓點） -->
       <div id="timer-progress-bar"></div>
       

@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.18.2
+> **版本**: 1.18.3
 > **最後更新**: 2026-04-01
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -430,6 +430,13 @@ bash deploy.sh setup
   - 取消移除：根據當前狀態重新開始對應階段
   - 手動切換（上一個/下一個）：進度條歸零，由新單字的第一階段重新開始
 - **技術**: 使用 CSS `transition: width linear`，搭配 `-webkit-transition` 前綴確保 iPad 4 相容；使用 `position: fixed; top: 0` 固定在畫面最頂部；使用 CSS `:after` 偽元素產生右端圓點光暈
+
+#### 4.1.8 主畫面快速計時控制
+- **描述**: 在閃卡主畫面左側提供可收合面板，無需開啟「一般設定」即可調整 **延遲時間**（`delayTime`，與設定內相同 1–10 秒、步進 0.5）與 **智慧計時**（`smartTimerEnabled`）；變更後寫入 `flashcard-settings`，並與一般設定模態框雙向同步
+- **桌面（可 hover）**: 滑鼠移入左緣約 26px 寬熱區時展開面板；移出熱區與面板後約 320ms 延遲收起，避免移向滑桿時誤收合
+- **觸控／粗指標**（`(hover: none)`、`(pointer: coarse)` 或具 `ontouchstart`）: 左緣顯示小型 **「⏱」** 按鈕，點擊切換展開／收合；展開時點擊面板外區域會收合
+- **UI**: 垂直 `range`（橫向 input 經 CSS 旋轉為垂直）、數值顯示、智慧計時開關（沿用 `.switch` 樣式）；`z-index` 高於計時進度條，避免被遮擋
+- **互動排除**: 點擊此區不觸發單字卡暫刪（`handleFlashcardClick` 排除 `#quick-timer-dock`）
 
 ### 4.2 不熟程度（多層級困難標記）功能
 
@@ -1335,6 +1342,10 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.18.3 (2026-04-01) — 主畫面快速計時與智慧計時
+
+- **主畫面左緣**: 新增 `quick-timer-dock`（桌面 hover 展開；觸控以 ⏱ 切換），可調整延遲時間與智慧計時，與一般設定同步並寫入 LocalStorage
 
 ### v1.18.2 (2026-04-01) — 確認暫刪後可用「上一個」還原
 

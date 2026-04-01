@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.18.2',
+    APP_VERSION: '1.18.3',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -936,6 +936,18 @@
     // 設定智慧計時開關
     var smartTimerToggle = document.getElementById('smart-timer-setting');
     if (smartTimerToggle) smartTimerToggle.checked = this.settings.smartTimerEnabled;
+
+    // 主畫面快速計時區（與 delay-setting / smart-timer-setting 同步）
+    var quickDelaySlider = document.getElementById('quick-delay-setting');
+    var quickDelayValue = document.getElementById('quick-delay-value');
+    var quickSmartToggle = document.getElementById('quick-smart-timer-setting');
+    if (quickDelaySlider && quickDelayValue) {
+      quickDelaySlider.value = this.settings.delayTime;
+      var qStep = parseFloat(quickDelaySlider.step) || 0.5;
+      var qDec = qStep.toString().indexOf('.') !== -1 ? qStep.toString().split('.')[1].length : 0;
+      quickDelayValue.textContent = parseFloat(this.settings.delayTime.toFixed(qDec));
+    }
+    if (quickSmartToggle) quickSmartToggle.checked = this.settings.smartTimerEnabled;
     
     // 設定計時進度條開關
     var showTimerToggle = document.getElementById('show-timer-progress-setting');

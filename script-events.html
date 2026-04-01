@@ -7,7 +7,7 @@
    *   顯示單字、更新進度、開始新回合、自訂確認對話框。
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
-   * @provides FlashcardApp.prototype: setupEventListeners, handleKeyDown,
+   * @provides FlashcardApp.prototype: setupEventListeners, setupQuickTimerDock, handleKeyDown,
    *   setupModalListeners, displayCurrentWord, startNewRound, shuffleArray,
    *   toggleMenu, closeMenu, hideLoading, showError, customConfirm ...
    */
@@ -104,7 +104,155 @@
       });
     }
     
+    this.setupQuickTimerDock();
 
+  };
+
+  /**
+   * 主畫面左緣：快速調整延遲時間與智慧計時（桌面 hover 展開；觸控以 ⏱ 切換）
+   */
+  FlashcardApp.prototype.setupQuickTimerDock = function() {
+    var self = this;
+    var dock = document.getElementById('quick-timer-dock');
+    var inner = dock ? dock.querySelector('.quick-timer-dock-inner') : null;
+    var touchBtn = document.getElementById('quick-timer-touch-toggle');
+    var delaySlider = document.getElementById('quick-delay-setting');
+    var smartCb = document.getElementById('quick-smart-timer-setting');
+    if (!dock || !inner) {
+      return;
+    }
+
+    var leaveTimer = null;
+    var HOVER_LEAVE_MS = 320;
+
+    function isTouchUi() {
+      try {
+        if (window.matchMedia) {
+          if (window.matchMedia('(hover: none)').matches) {
+            return true;
+          }
+          if (window.matchMedia('(pointer: coarse)').matches) {
+            return true;
+          }
+        }
+      } catch (e) {}
+      return 'ontouchstart' in window;
+    }
+
+    if (isTouchUi()) {
+      if (dock.className.indexOf('quick-timer-dock--touch') === -1) {
+        dock.className = (dock.className + ' quick-timer-dock--touch').replace(/^\s+/, '');
+      }
+    }
+
+    function setExpanded(on) {
+      if (on) {
+        if (dock.className.indexOf('quick-timer-dock--expanded') === -1) {
+          dock.className = (dock.className + ' quick-timer-dock--expanded').replace(/^\s+/, '');
+        }
+      } else {
+        dock.className = dock.className.replace(/\bquick-timer-dock--expanded\b/g, '').replace(/\s{2,}/g, ' ').replace(/^\s+|\s+$/g, '');
+      }
+    }
+
+    function isExpanded() {
+      return dock.className.indexOf('quick-timer-dock--expanded') !== -1;
+    }
+
+    if (dock.className.indexOf('quick-timer-dock--touch') === -1) {
+      inner.addEventListener('mouseenter', function() {
+        if (leaveTimer) {
+          clearTimeout(leaveTimer);
+          leaveTimer = null;
+        }
+        setExpanded(true);
+      });
+      inner.addEventListener('mouseleave', function() {
+        leaveTimer = setTimeout(function() {
+          leaveTimer = null;
+          setExpanded(false);
+        }, HOVER_LEAVE_MS);
+      });
+    }
+
+    if (touchBtn) {
+      touchBtn.addEventListener('click', function(e) {
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        } else {
+          e.cancelBubble = true;
+        }
+        setExpanded(!isExpanded());
+      });
+    }
+
+    inner.addEventListener('click', function(e) {
+      if (e.stopPropagation) {
+        e.stopPropagation();
+      } else {
+        e.cancelBubble = true;
+      }
+    });
+
+    function formatDelayDisplay(val) {
+      var step = delaySlider ? parseFloat(delaySlider.step) || 0.5 : 0.5;
+      var decimalPlaces = step.toString().indexOf('.') !== -1 ? step.toString().split('.')[1].length : 0;
+      return parseFloat(val.toFixed(decimalPlaces));
+    }
+
+    function applyQuickDelayFromSlider() {
+      if (!delaySlider) {
+        return;
+      }
+      self.settings.delayTime = parseFloat(delaySlider.value);
+      self.saveSettings();
+      self.applySettings();
+    }
+
+    function applyQuickSmartFromCb() {
+      if (!smartCb) {
+        return;
+      }
+      self.settings.smartTimerEnabled = smartCb.checked;
+      self.saveSettings();
+      self.applySettings();
+    }
+
+    if (delaySlider) {
+      delaySlider.addEventListener('input', function() {
+        var value = parseFloat(delaySlider.value);
+        self.settings.delayTime = value;
+        var delayValueEl = document.getElementById('quick-delay-value');
+        if (delayValueEl) {
+          delayValueEl.textContent = formatDelayDisplay(value);
+        }
+      });
+      delaySlider.addEventListener('change', function() {
+        applyQuickDelayFromSlider();
+      });
+    }
+
+    if (smartCb) {
+      smartCb.addEventListener('change', function() {
+        applyQuickSmartFromCb();
+      });
+    }
+
+    if (dock.className.indexOf('quick-timer-dock--touch') !== -1) {
+      document.addEventListener('click', function quickDockDocClick(e) {
+        if (!isExpanded()) {
+          return;
+        }
+        var t = e.target;
+        if (!t) {
+          return;
+        }
+        if (dock.contains(t)) {
+          return;
+        }
+        setExpanded(false);
+      });
+    }
   };
   
   // 選單監聽器
