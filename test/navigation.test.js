@@ -25,6 +25,7 @@ beforeEach(function() {
   app.isPaused = false;
   app.pendingRemoval = null;
   app.navigationHistory = [];
+  app.removalUndoStack = [];
   app.removedWords = [];
 
   // Mock timers and speech
@@ -154,11 +155,21 @@ describe('previousWord', function() {
     expect(app.currentIndex).toBe(2);
   });
 
-  test('does nothing when no history', function() {
+  test('does nothing when no history and no removal undo', function() {
     app.navigationHistory = [];
+    app.removalUndoStack = [];
     app.currentIndex = 1;
     app.previousWord();
     expect(app.currentIndex).toBe(1);
+  });
+
+  test('calls undoLastConfirmedRemoval when removal undo stack has entries', function() {
+    app.navigationHistory = [];
+    app.removalUndoStack = [{ orderedWordIds: [0], removalIndex: 0, wordId: 0 }];
+    var spy = jest.spyOn(app, 'undoLastConfirmedRemoval').mockImplementation(function() {});
+    app.previousWord();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   test('cancels removal if pending', function() {

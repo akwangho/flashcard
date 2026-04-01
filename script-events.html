@@ -331,6 +331,7 @@
     this.srsReviewActive = false;
 
     this.navigationHistory = [];
+    this.removalUndoStack = [];
     this.pendingRemoval = null;
     this.userPaused = false;
     this.isPaused = false;
@@ -561,9 +562,8 @@
   FlashcardApp.prototype.updateButtonStates = function() {
     var prevBtn = document.getElementById('prev-btn');
     if (prevBtn) {
-      var isFirstWord = this.currentIndex === 0;
-      var hasPendingRemoval = this.pendingRemoval !== null;
-      prevBtn.disabled = (isFirstWord && !hasPendingRemoval) || this.navigationHistory.length === 0;
+      var hasRemovalUndo = this.removalUndoStack && this.removalUndoStack.length > 0;
+      prevBtn.disabled = this.navigationHistory.length === 0 && !hasRemovalUndo && !this.pendingRemoval;
     }
   };
   

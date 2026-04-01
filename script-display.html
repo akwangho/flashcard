@@ -11,7 +11,7 @@
    * @dependencies script-core.html, script-settings-modal.html,
    *   script-difficulty.html, script-progress-bar.html
    * @provides FlashcardApp.prototype: pauseTimer, resumeTimer,
-   *   onWordClick, confirmRemoval, cancelRemoval, _revealSecondPart,
+   *   onWordClick, confirmRemoval, cancelRemoval, undoLastConfirmedRemoval, _revealSecondPart,
    *   showSecondPartAndScheduleNext, handleMarkVeryFamiliar, showNotification,
    *   preloadImage, preloadUpcomingImages ...
    */
@@ -244,6 +244,33 @@
     var word = this.pendingRemoval.word;
     var index = this.pendingRemoval.index;
     var isVeryFamiliar = this.pendingRemoval.isVeryFamiliar;
+    var origLevel = (this.pendingRemoval.originalDifficultyLevel !== undefined && this.pendingRemoval.originalDifficultyLevel !== null)
+      ? this.pendingRemoval.originalDifficultyLevel : 0;
+
+    var reviewKey = word.sheetName + ':' + word.originalRowIndex;
+    var prevHadReviewKey = Object.prototype.hasOwnProperty.call(this.reviewedInSession, reviewKey);
+    var prevReviewedValue = this.reviewedInSession[reviewKey];
+    var prevLastReviewDate = word.lastReviewDate;
+
+    var srsKey = word.sheetName + ':' + word.originalRowIndex;
+    var rawSrs = this.srsData[srsKey];
+    var prevSrsEntry = rawSrs ? JSON.parse(JSON.stringify(rawSrs)) : null;
+
+    var orderedWordIds = this.currentWords.map(function(w) { return w.id; });
+
+    this.removalUndoStack.push({
+      orderedWordIds: orderedWordIds,
+      removalIndex: index,
+      wordId: word.id,
+      isVeryFamiliar: !!isVeryFamiliar,
+      originalDifficultyLevel: origLevel,
+      prevLastReviewDate: prevLastReviewDate,
+      reviewKey: reviewKey,
+      prevHadReviewKey: prevHadReviewKey,
+      prevReviewedValue: prevReviewedValue,
+      srsKey: srsKey,
+      prevSrsEntry: prevSrsEntry
+    });
     
     if (isVeryFamiliar) {
       word.difficultyLevel = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
@@ -791,6 +818,76 @@
   // 導覽與暫停控制（從 script-voice.html 搬移）
   // ===========================================
 
+  /**
+   * 還原上一筆已確認的暫時刪除（與「上一個」鍵／按鈕連動，LIFO）。
+   */
+  FlashcardApp.prototype.undoLastConfirmedRemoval = function() {
+    if (!this.removalUndoStack || this.removalUndoStack.length === 0) return;
+
+    var entry = this.removalUndoStack.pop();
+    var word = this.words.find(function(w) { return w.id === entry.wordId; });
+    if (!word) {
+      this.removalUndoStack.push(entry);
+      return;
+    }
+
+    this.resetProgressBar();
+    this.clearAllTimersAndSpeech();
+
+    this.isTransitioning = true;
+
+    var englishElement = document.getElementById('english-word');
+    var chineseElement = document.getElementById('chinese-word');
+
+    englishElement.classList.remove('show');
+    chineseElement.classList.remove('show');
+    englishElement.classList.remove('word-pending-removal');
+    chineseElement.classList.remove('word-pending-removal');
+
+    chineseElement.textContent = '';
+    this.clearFlashcardImage();
+
+    var self = this;
+    setTimeout(function() {
+      var origLevel = entry.originalDifficultyLevel;
+      word.difficultyLevel = origLevel;
+      var mainWord = self.words.find(function(w) { return w.id === entry.wordId; });
+      if (mainWord) mainWord.difficultyLevel = origLevel;
+      self.syncDifficultyToBackend(word);
+
+      word.lastReviewDate = entry.prevLastReviewDate;
+      if (!entry.prevHadReviewKey) {
+        delete self.reviewedInSession[entry.reviewKey];
+      } else {
+        self.reviewedInSession[entry.reviewKey] = entry.prevReviewedValue;
+      }
+
+      if (entry.prevSrsEntry === null) {
+        delete self.srsData[entry.srsKey];
+      } else {
+        self.srsData[entry.srsKey] = JSON.parse(JSON.stringify(entry.prevSrsEntry));
+      }
+      self.saveSrsData();
+
+      if (self.removedWords.length > 0 && self.removedWords[self.removedWords.length - 1].id === entry.wordId) {
+        self.removedWords.pop();
+      }
+
+      var restored = [];
+      for (var i = 0; i < entry.orderedWordIds.length; i++) {
+        var wid = entry.orderedWordIds[i];
+        var w = self.words.find(function(ww) { return ww.id === wid; });
+        if (w) restored.push(w);
+      }
+      self.currentWords = restored;
+      self.currentIndex = entry.removalIndex;
+
+      self.displayCurrentWord();
+      self.isTransitioning = false;
+    }, APP_CONSTANTS.TRANSITION_DELAY_MS);
+    this.renderDifficultyLevel();
+  };
+
   FlashcardApp.prototype.nextWord = function() {
     if (this.isTransitioning || this.isPaused) return;
     
@@ -843,6 +940,11 @@
     
     if (this.pendingRemoval) {
       this.cancelRemoval();
+      return;
+    }
+
+    if (this.removalUndoStack && this.removalUndoStack.length > 0) {
+      this.undoLastConfirmedRemoval();
       return;
     }
     
