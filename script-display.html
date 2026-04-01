@@ -1044,11 +1044,13 @@
         self.hideLoading();
         self.applySettings();
         if (!hasDuplicates) {
+          self._flagSrsRestoreBeforeNewRound();
           self.startNewRound();
         }
       });
     } else {
       console.log('沒有 Google Sheet 設定，直接重新開始');
+      this._flagSrsRestoreBeforeNewRound();
       this.startNewRound();
     }
   };

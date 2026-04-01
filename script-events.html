@@ -471,9 +471,16 @@
     if (errorDiv) errorDiv.style.display = 'block';
   };
   
+  // 重新載入單字（未經整頁初始化）時，若目前為快速複習模式，須與 F5 相同在下一回合還原
+  FlashcardApp.prototype._flagSrsRestoreBeforeNewRound = function() {
+    if (this.srsReviewActive && this._srsSelectedCount > 0) {
+      this._srsRestorePending = true;
+    }
+  };
+
   // 開始新回合
   FlashcardApp.prototype.startNewRound = function() {
-    // _srsRestorePending 是由 loadFilterSettings() 設置的一次性旗標
+    // _srsRestorePending：loadFilterSettings() 或 _flagSrsRestoreBeforeNewRound() 設置的一次性旗標
     var restoreSrs = this._srsRestorePending && this._srsSelectedCount > 0;
     this._srsRestorePending = false;
     this.srsReviewActive = false;

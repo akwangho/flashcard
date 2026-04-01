@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.18.3
+> **版本**: 1.18.4
 > **最後更新**: 2026-04-01
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -1342,6 +1342,11 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.18.4 (2026-04-01) — 選單重新載入保留快速複習
+
+- **重新載入單字**: 選單「🔄 重新載入單字」在 `startNewRound` 前呼叫 `_flagSrsRestoreBeforeNewRound()`，與 F5 相同依 `_srsRestorePending` 還原快速複習（`applyAllFilters` → `getRecommendedWords` → 套用 `_srsSelectedCount`），篩選列「📖 快速複習 (N個)」與整頁重新整理一致
+- **其他非整頁載入**: 試算表設定儲存後逐表載入、重複單字自動處理完成、`reloadWordsAfterDuplicateProcessing` 於 `startNewRound` 前同樣呼叫，避免快速複習狀態遺失
 
 ### v1.18.3 (2026-04-01) — 主畫面快速計時與智慧計時
 

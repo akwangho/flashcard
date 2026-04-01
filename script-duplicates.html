@@ -231,6 +231,7 @@
           self.closeDuplicateModal();
           self.setupEventListeners();
           self.applySettings();
+          self._flagSrsRestoreBeforeNewRound();
           self.startNewRound();
           });
         } else {
@@ -840,6 +841,7 @@
       self.applySettings();
       
       if (!hasDuplicates) {
+        self._flagSrsRestoreBeforeNewRound();
         self.startNewRound();
       }
       

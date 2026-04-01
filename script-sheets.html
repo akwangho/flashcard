@@ -656,6 +656,7 @@
         if (listEl) listEl.innerHTML = '';
         
         if (!hasDuplicates) {
+          self._flagSrsRestoreBeforeNewRound();
           self.startNewRound();
         }
         
