@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.17.0',
+    APP_VERSION: '1.18.0',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -117,7 +117,8 @@
       SHEET_HISTORY: 'flashcard-sheet-history',
       LAST_WORD: 'flashcard-last-word',
       SRS: 'flashcard-srs',
-      FILTER_SETTINGS: 'flashcard-filter-settings'
+      FILTER_SETTINGS: 'flashcard-filter-settings',
+      NO_AUTO_MERGE: 'flashcard-no-auto-merge'
     }
   };
 
@@ -1117,10 +1118,10 @@
     var duplicatesMap = {};
     var i, j, key, word;
     
-    // 建立小寫英文 → 單字陣列的對應表
+    // 建立英文（區分大小寫）→ 單字陣列的對應表
     for (i = 0; i < allWords.length; i++) {
       word = allWords[i];
-      key = word.english.toLowerCase().trim();
+      key = word.english.trim();
       if (!duplicatesMap[key]) {
         duplicatesMap[key] = [];
       }
@@ -1312,8 +1313,22 @@
     
     this.updateLoadingProgress(1, 1, '處理資料中...');
     
-    // 客戶端偵測並自動處理重複單字
-    var result = this.detectAndHandleDuplicatesInMemory(allWords);
+    // 客戶端偵測並自動處理重複單字（使用者可選「下次不自動合併」略過）
+    var result;
+    var skipAutoMerge = false;
+    try {
+      if (typeof localStorage !== 'undefined' &&
+          localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.NO_AUTO_MERGE) === 'true') {
+        skipAutoMerge = true;
+      }
+    } catch (e) {
+      skipAutoMerge = false;
+    }
+    if (skipAutoMerge) {
+      result = { words: allWords, autoHandled: false, autoResults: null };
+    } else {
+      result = this.detectAndHandleDuplicatesInMemory(allWords);
+    }
     this.words = result.words;
     
     if (result.autoHandled && result.autoResults && result.autoResults.successCount > 0) {

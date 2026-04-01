@@ -1,7 +1,7 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.17.0
-> **最後更新**: 2026-03-08
+> **版本**: 1.18.0
+> **最後更新**: 2026-04-01
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
 
@@ -90,6 +90,9 @@ flashcard/
 ├── package.json           # npm 腳本（部署指令 + Jest 測試）
 ├── jest.config.js         # Jest 單元測試設定
 ├── deploy.sh              # 部署腳本（首次設定 / 推送 / 拉取）
+├── clasp-node-ca.sh       # 供 source：依 deploy.local.sh 設定 NODE_EXTRA_CA_CERTS（clasp／npm 用）
+├── deploy.local.sh.example# 複製為 deploy.local.sh 以指定本機 CA bundle（不提交）
+├── scripts/run-clasp.sh   # 載入 CA 後執行 clasp（供 package.json 的 npm 腳本使用）
 ├── .gitignore             # Git 忽略規則
 │
 │   # 測試
@@ -151,6 +154,22 @@ bash deploy.sh setup
 | `npm run open` | 開啟編輯器 |
 | `npm run open:web` | 開啟 Web App |
 | `npm run deploy` | 推送並開啟 Web App |
+
+#### 2.4.4 公司網路／代理環境下的 SSL（npm 與 clasp）
+
+`clasp` 與全域 `npm install` 皆透過 **Node** 連線 HTTPS。若出現 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`、安裝 `@google/clasp` 失敗，或 `clasp login` 在交換 OAuth token 時出現 **`self-signed certificate in certificate chain`**，代表需讓 Node 信任公司的根／中介 CA（與 gcloud 使用的 PEM bundle 可為同一份）。
+
+**建議作法**
+
+1. 複製 `deploy.local.sh.example` 為 `deploy.local.sh`（此檔名已列於 `.gitignore`，不會提交）。
+2. 在 `deploy.local.sh` 內設定，擇一即可：
+   - `export NODE_EXTRA_CA_CERTS=/絕對路徑/公司_CA_鏈.pem`（與 gcloud 所用 PEM 可相同）
+   - 或 `export FLASHCARD_CA_BUNDLE=/絕對路徑/公司_CA_鏈.pem`（`clasp-node-ca.sh` 會在未設定 `NODE_EXTRA_CA_CERTS` 時對應到 Node）
+3. 亦可改為在專案根目錄放置 PEM 檔並命名為 `.node-extra-ca.pem`（同樣不提交）。
+
+`deploy.sh` 會 source `clasp-node-ca.sh`；`npm run push`／`pull`／`open` 等腳本改經 `scripts/run-clasp.sh` 呼叫 clasp，亦會載入相同 CA。若直接在終端機執行 `clasp`，請先 `source deploy.local.sh`（或手動 `export NODE_EXTRA_CA_CERTS=…`）。
+
+**npm 僅在「安裝全域 clasp」仍失敗時**：`FLASHCARD_NPM_STRICT_SSL=0 bash deploy.sh setup`（有安全風險，僅本機暫用）。
 
 ### 2.5 前端架構
 
@@ -357,7 +376,9 @@ bash deploy.sh setup
 - **智慧計時**: 可選功能（預設關閉），啟用後 Phase 2（第二語言顯示後）等待時間會根據文字長度自動調整：
   - **中文為第二語言**：`smartDelay = max(1.2, 1.0 + charCount * 0.15)` 秒，上限為 `delayTime`（母語閱讀快，只加速不減速）。常數：`SMART_TIMER_BASE_TIME`（1.0）、`SMART_TIMER_PER_CHAR_TIME`（0.15）、`SMART_TIMER_MIN_TIME`（1.2）
   - **英文為第二語言**：`smartDelay = min(delayTime, max(1.2, 0.5 + letterCount * 0.3))` 秒，短字加速，上限為 `delayTime`。常數：`SMART_TIMER_EN_BASE_TIME`（0.5）、`SMART_TIMER_EN_PER_LETTER_TIME`（0.3）、`SMART_TIMER_EN_MIN_TIME`（1.2）。字母數僅計算 a-zA-Z（排除空格、連字號等）
-  - **英文為第二語言（要會拼 + 不熟程度≥1）**：不加速，固定使用 `delayTime`，確保有足夠時間記憶拼寫
+  - **智慧計時不加速（任一成立即固定使用 `delayTime`）**：
+    - **要會拼且不熟程度 > 0**（兩者同時成立）
+    - **不熟程度 ≥ 3**（不論是否要會拼）
 
 #### 4.1.2 顯示模式（三種）
 - **描述**: 使用者可選擇閃卡的顯示順序，支援三種模式
@@ -428,7 +449,7 @@ bash deploy.sh setup
 #### 4.2.2 增加不熟程度
 - **描述**: 使用者可以點擊進度區域或按 F5/S 鍵來增加當前單字的不熟程度 +1（最高 10）
 - **特殊情況**: 若單字為負數（非常熟），標記不熟時直接跳到 3（不逐步 +1）
-- **暫時刪除狀態下按 S**: 若單字正處於暫時刪除狀態（pendingRemoval），按 S 鍵會直接標記為非常熟（-999），方便遙控器操作
+- **暫時刪除狀態下按 S**: 若單字正處於暫時刪除狀態（`pendingRemoval`），按 S 鍵**不會**增加不熟程度（避免誤觸）；請先恢復單字或使用 D 鍵流程標記非常熟
 - **視覺回饋**: 進度區域顯示 `★N`（N 為不熟程度數字），顏色根據等級變化。UI 上負數不顯示數字：非常熟（≤-999）顯示 `★✓`（綠色），其餘負數（-1~-998）顯示 `★0`（灰色）。後端 Google Sheet 仍儲存實際負數值
 - **同步到後端**: 透過 `google.script.run.updateWordDifficulty()` 即時寫回 Google Sheet D 欄（數字格式）
 
@@ -452,8 +473,6 @@ bash deploy.sh setup
   5. 3 秒超時（僅限第一次按 D 後尚未進入暫時刪除狀態時）：自動取消操作，恢復計時器和進度條
 - **已在暫時刪除狀態中按 D**:
   - 若單字已因點擊進入暫時刪除狀態（`pendingRemoval`），按兩次 D 可將其「升級」為非常熟標記，保持暫時刪除狀態不變，延遲時間到期後以 -999 處理
-- **已在暫時刪除狀態中按 S**:
-  - 若單字正處於任何暫時刪除狀態（`pendingRemoval`），按 S 鍵直接標記為非常熟（-999），方便遙控器以少數按鈕操控
 - **負數篩選模式**: 直接設定為 -999 並更新顯示（不進入暫時刪除狀態）
 - **同步到後端**: 延遲時間到期確認後即時寫回 Google Sheet
 
@@ -649,7 +668,7 @@ bash deploy.sh setup
 ### 4.8 重複單字處理
 
 #### 4.8.1 自動偵測重複單字
-- **描述**: 載入多個工作表時，自動偵測英文相同（不分大小寫）的重複單字
+- **描述**: 載入多個工作表時，自動偵測英文相同（**區分大小寫**，例如 `May` 與 `may` 視為不同單字）的重複單字
 - **偵測時機**: 每次載入單字時自動執行
 
 #### 4.8.2 自動處理（記憶體模式）
@@ -657,7 +676,7 @@ bash deploy.sh setup
 - **處理規則**:
   - **中文翻譯相同**: 保留第一個工作表的單字，移除其他重複項
   - **中文翻譯不同**: 將所有翻譯合併到第一個工作表的單字中（格式：`1. 翻譯A\n2. 翻譯B`），移除其他重複項
-- **通知**: 處理完成後顯示通知，包含處理前後的單字數量
+- **通知**: 處理完成後在右上角顯示通知，包含處理前後的單字數量；滑鼠移入通知時暫停自動關閉，移出後繼續計時。通知內可點「下次不自動合併」，將設定寫入 `localStorage` 鍵 `flashcard-no-auto-merge`（對應 `APP_CONSTANTS.STORAGE_KEYS.NO_AUTO_MERGE`），之後初始載入將跳過客戶端自動合併
 
 #### 4.8.3 手動處理
 - **描述**: 若使用者選擇手動處理，顯示重複單字處理模態框
@@ -674,7 +693,7 @@ bash deploy.sh setup
 - **字型選擇**: 下拉選單，9 種字型，含即時預覽區域
 - **顯示模式**: 三選一 radio buttons（先顯示英文 / 先顯示中文 / 隨機混合）
 - **要會拼單字混合模式下強制先顯示中文**: 開關（預設啟用）。僅在選擇「隨機混合」模式時才顯示此選項。啟用時，標記為要會拼的單字在混合模式下強制先顯示中文；關閉時，要會拼單字也隨機顯示
-- **智慧計時**: 開關（預設關閉）。啟用後，第二語言顯示後會根據文字長度自動調整等待時間：中文短文快速切換、英文短字加速、要會拼且不熟程度≥1的單字不加速。進度條動畫也會同步使用調整後的時長
+- **智慧計時**: 開關（預設關閉）。啟用後，第二語言顯示後會根據文字長度自動調整等待時間：中文短文快速切換、英文短字加速；**要會拼且不熟程度>0** 或 **不熟程度≥3** 時不加速。進度條動畫也會同步使用調整後的時長
 - **顯示計時進度條**: 開關（預設啟用）。控制畫面最上方的計時進度條是否顯示
 - **進度條頂部偏移**: 數字輸入框，0-100px，預設 0。投影到電視時若上方被截掉，可向下偏移進度條位置。僅在計時進度條開啟時顯示
 
@@ -772,7 +791,7 @@ bash deploy.sh setup
 | 左方向鍵 | 上一個單字 |
 | `M` 鍵 | 切換靜音/取消靜音 |
 | `F` 鍵 | 切換全螢幕 |
-| `S` 鍵 / F5 | 增加不熟程度 +1（負數直接跳到 3, 0 → 1, ..., 9 → 10）；暫時刪除狀態下按 S 直接標記為 -999 |
+| `S` 鍵 / F5 | 增加不熟程度 +1（負數直接跳到 3, 0 → 1, ..., 9 → 10）；暫時刪除狀態下按 S 無作用 |
 | `D` 鍵 | 標記為非常熟（-999），需按兩次確認（3 秒內） |
 | `R` 鍵 | 恢復單字（取消移除） |
 | `E` 鍵 | 開啟編輯當前單字模態框（**暫停時也可使用**） |
@@ -1043,7 +1062,7 @@ bash deploy.sh setup
 
 | 函式 | 參數 | 回傳 | 說明 |
 |------|------|------|------|
-| `detectDuplicateWords(allWords)` | 全部單字陣列 | `Array<DuplicateGroup>` | 偵測重複單字（英文不分大小寫） |
+| `detectDuplicateWords(allWords)` | 全部單字陣列 | `Array<DuplicateGroup>` | 偵測重複單字（英文區分大小寫） |
 | `handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords)` | Sheet ID, 保留單字, 刪除單字陣列 | `Object` | 保留一個，刪除其他（修改 Sheet） |
 | `handleDuplicateWordMerge(sheetId, targetWord, mergeWords)` | Sheet ID, 目標單字, 合併來源陣列 | `Object` | 合併定義（修改 Sheet） |
 | `autoHandleSkippedDuplicatesInMemory(allWords, duplicates)` | 全部單字, 重複組 | `Object` | 在記憶體中自動處理重複（不修改 Sheet） |
@@ -1315,6 +1334,13 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.18.0 (2026-04-01) — 重複單字大小寫、自動合併通知、智慧計時、暫刪 S 鍵
+
+- **重複單字**：英文比對改為區分大小寫（`May` 與 `may` 不視為重複）；客戶端 `detectAndHandleDuplicatesInMemory` 與後端 `detectDuplicateWords` 一致
+- **自動合併通知**：右上角通知滑鼠移入時暫停自動消失；新增「下次不自動合併」按鈕，寫入 `localStorage`（`STORAGE_KEYS.NO_AUTO_MERGE`），初始載入時略過自動合併
+- **智慧計時**：不加速條件改為（要會拼且不熟程度>0）或（不熟程度≥3）；中文為第二語言時亦適用
+- **暫時刪除**：暫刪狀態下按 S 不再將單字標為非常熟（移除誤觸捷徑）
 
 ### v1.17.0 (2026-03-08) — 程式碼重構：模組拆分與共用輔助方法
 
@@ -1601,7 +1627,7 @@ bash deploy.sh setup
 - [ ] **閃卡輪播引擎**: 自動計時、雙階段顯示（第一語言→第二語言）
 - [ ] **點擊互動與暫時移除**: 點擊標灰→延遲移除→恢復機制
 - [ ] **導覽系統**: 上一個/下一個，含導覽歷史堆疊
-- [ ] **多層級不熟程度系統**: -999~10 級不熟程度（負數=非常熟，-999=D鍵標記）、★ 星號/數字顯示、篩選模態框（含非常熟類別）、S 鍵增加（暫時刪除狀態下直接設 -999）/移除減少（可減至負數）/D 鍵標記非常熟（雙按確認設 -999）、數字格式同步到後端、快速模式（3種預設）
+- [ ] **多層級不熟程度系統**: -999~10 級不熟程度（負數=非常熟，-999=D鍵標記）、★ 星號/數字顯示、篩選模態框（含非常熟類別）、S 鍵增加/移除減少（可減至負數；暫時刪除狀態下 S 無作用）/D 鍵標記非常熟（雙按確認設 -999）、數字格式同步到後端、快速模式（3種預設）
 - [ ] **語音系統**: 英文/日文/中文朗讀、字母拼讀、延遲發音
 - [ ] **設定系統**: 一般設定、語音設定、試算表設定，LocalStorage 持久化
 - [ ] **測驗系統**: 題目生成、四選一、計分、錯題回顧

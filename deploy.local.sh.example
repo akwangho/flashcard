@@ -1,0 +1,6 @@
+# 複製為 deploy.local.sh 並改成你的 CA bundle 路徑（deploy.local.sh 已列入 .gitignore）
+# clasp、npm 安裝套件、OAuth token 請求皆使用 Node，與 gcloud 使用相同 PEM 即可。
+export NODE_EXTRA_CA_CERTS=/absolute/path/to/your-ca-bundle.pem
+
+# 若希望用單一變數名，也可只設定下列其一（deploy.sh 會在未設定 NODE_EXTRA_CA_CERTS 時套用）：
+# export FLASHCARD_CA_BUNDLE=/absolute/path/to/your-ca-bundle.pem

@@ -478,9 +478,25 @@ describe('getPhase2Delay', function() {
     expect(shortDelay).toBeLessThanOrEqual(longerDelay);
   });
 
-  test('mustSpell with difficulty >= 1 uses delayTime in reversed mode', function() {
+  test('mustSpell with difficulty > 0 uses delayTime in reversed mode', function() {
     app.currentIndex = 2; // 'internationalization', mustSpell=true, difficulty=3
     app.settings.displayMode = 'chinese-first';
+    expect(app.getPhase2Delay()).toBe(5);
+  });
+
+  test('difficulty >= 3 uses delayTime in reversed mode without mustSpell', function() {
+    app.currentIndex = 0;
+    app.currentWords[0].mustSpell = false;
+    app.currentWords[0].difficultyLevel = 3;
+    app.settings.displayMode = 'chinese-first';
+    expect(app.getPhase2Delay()).toBe(5);
+  });
+
+  test('difficulty >= 3 uses delayTime in normal mode without mustSpell', function() {
+    app.currentIndex = 0;
+    app.currentWords[0].mustSpell = false;
+    app.currentWords[0].difficultyLevel = 3;
+    app.settings.displayMode = 'english-first';
     expect(app.getPhase2Delay()).toBe(5);
   });
 

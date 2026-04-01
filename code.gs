@@ -716,17 +716,17 @@ function countValidWords(sheet) {
       // 建立英文單字的對應表
       for (let i = 0; i < allWords.length; i++) {
         const word = allWords[i];
-        const englishLower = word.english.toLowerCase().trim();
+        const englishKey = word.english.trim();
         
-        if (!duplicatesMap.has(englishLower)) {
-          duplicatesMap.set(englishLower, []);
+        if (!duplicatesMap.has(englishKey)) {
+          duplicatesMap.set(englishKey, []);
         }
-        duplicatesMap.get(englishLower).push(word);
+        duplicatesMap.get(englishKey).push(word);
       }
       
       // 找出有重複的單字
       const duplicates = [];
-      for (const [englishLower, wordsList] of duplicatesMap) {
+      for (const [englishKey, wordsList] of duplicatesMap) {
         if (wordsList.length > 1) {
           // 檢查是否定義相同
           const firstDefinition = wordsList[0].chinese.toLowerCase().trim();

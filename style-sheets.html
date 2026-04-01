@@ -842,6 +842,26 @@
   .memory-notice {
     color: var(--warning-color);
   }
+
+  .auto-merge-opt-out-btn {
+    display: block;
+    width: 100%;
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--success-color);
+    background-color: transparent;
+    color: var(--success-color);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .auto-merge-opt-out-btn:disabled,
+  .auto-merge-opt-out-btn.auto-merge-opt-out-done {
+    opacity: 0.9;
+    cursor: default;
+  }
   
   .sheet-modify-notice {
     color: var(--error-color);

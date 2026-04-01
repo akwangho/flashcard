@@ -65,44 +65,22 @@ describe('increaseDifficulty', function() {
     expect(levelEl.textContent).not.toBe('');
   });
 
-  test('marks -999 in pendingRemoval state (S key behavior)', function() {
-    app.currentIndex = 0; // apple, difficulty 0
+  test('does nothing when pendingRemoval (temporary delete; S key no longer sets 非常熟)', function() {
+    app.currentIndex = 0;
     app.pendingRemoval = {
       word: app.currentWords[0],
       index: 0,
       isVeryFamiliar: false
     };
+    var spyToast = jest.spyOn(app, 'showVeryFamiliarToast');
     app.increaseDifficulty();
-    expect(app.pendingRemoval.isVeryFamiliar).toBe(true);
-    // Word data should NOT be changed yet (changes on confirmRemoval)
+    expect(spyToast).not.toHaveBeenCalled();
+    expect(app.pendingRemoval.isVeryFamiliar).not.toBe(true);
     expect(app.currentWords[0].difficultyLevel).toBe(0);
+    spyToast.mockRestore();
   });
 
-  test('shows toast in pendingRemoval state', function() {
-    app.currentIndex = 0;
-    app.pendingRemoval = {
-      word: app.currentWords[0],
-      index: 0,
-      isVeryFamiliar: false
-    };
-    var spy = jest.spyOn(app, 'showVeryFamiliarToast');
-    app.increaseDifficulty();
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('非常熟'));
-  });
-
-  test('previews very-familiar difficulty in pendingRemoval state', function() {
-    app.currentIndex = 0;
-    app.pendingRemoval = {
-      word: app.currentWords[0],
-      index: 0,
-      isVeryFamiliar: false
-    };
-    app.increaseDifficulty();
-    var levelEl = document.getElementById('difficulty-level');
-    expect(levelEl.textContent).toBe('✓');
-  });
-
-  test('does not change difficulty directly in pendingRemoval state', function() {
+  test('does not change difficulty when pendingRemoval with higher level word', function() {
     app.currentIndex = 1; // banana, difficulty 5
     app.pendingRemoval = {
       word: app.currentWords[1],

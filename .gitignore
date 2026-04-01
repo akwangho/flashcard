@@ -1,6 +1,10 @@
 # Node.js
 node_modules/
 
+# 本機部署設定（含 CA 路徑等，不要提交）
+deploy.local.sh
+.node-extra-ca.pem
+
 # clasp 認證（含敏感資訊，不要提交）
 .clasprc.json
 

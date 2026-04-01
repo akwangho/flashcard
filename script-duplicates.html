@@ -24,27 +24,60 @@
         '<h3>✅ 重複單字已自動處理</h3>' +
         '<p>在記憶體中處理了 ' + results.successCount + '/' + results.totalCount + ' 個重複單字</p>' +
         '<p class="memory-notice">📝 原始Google Sheet未被修改，僅在本次使用中去重</p>' +
+        '<button type="button" id="auto-merge-opt-out" class="auto-merge-opt-out-btn">下次不自動合併</button>' +
         '<button id="close-notification" class="notification-close">×</button>' +
       '</div>';
     
     document.body.appendChild(notification);
     
-    var self = this;
+    var autoHideTimer = null;
     
-    // 自動關閉通知
-    setTimeout(function() {
-      notification.classList.add('fade-out');
-      setTimeout(function() {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, APP_CONSTANTS.NOTIFICATION_FADE_MS);
-    }, APP_CONSTANTS.NOTIFICATION_DURATION_MS);
+    function scheduleHide() {
+      if (autoHideTimer) {
+        clearTimeout(autoHideTimer);
+        autoHideTimer = null;
+      }
+      autoHideTimer = setTimeout(function() {
+        notification.classList.add('fade-out');
+        setTimeout(function() {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, APP_CONSTANTS.NOTIFICATION_FADE_MS);
+      }, APP_CONSTANTS.NOTIFICATION_DURATION_MS);
+    }
+    
+    function cancelAutoHide() {
+      if (autoHideTimer) {
+        clearTimeout(autoHideTimer);
+        autoHideTimer = null;
+      }
+    }
+    
+    scheduleHide();
+    
+    notification.addEventListener('mouseenter', cancelAutoHide);
+    notification.addEventListener('mouseleave', scheduleHide);
+    
+    var optOutBtn = document.getElementById('auto-merge-opt-out');
+    if (optOutBtn) {
+      optOutBtn.addEventListener('click', function() {
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.NO_AUTO_MERGE, 'true');
+          }
+        } catch (e) {}
+        optOutBtn.textContent = '已設定：下次不自動合併';
+        optOutBtn.disabled = true;
+        optOutBtn.className = 'auto-merge-opt-out-btn auto-merge-opt-out-done';
+      });
+    }
     
     // 手動關閉通知
     var closeBtn = document.getElementById('close-notification');
     if (closeBtn) {
       closeBtn.addEventListener('click', function() {
+        cancelAutoHide();
         notification.classList.add('fade-out');
         setTimeout(function() {
           if (notification.parentNode) {

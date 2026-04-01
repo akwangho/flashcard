@@ -2,6 +2,12 @@
 # ============================================
 # 英文單字閃卡 - Google Apps Script 部署腳本
 # ============================================
+# SSL：npm 與 clasp（OAuth）皆使用 Node，需信任公司 CA：
+#   • 建議：複製 deploy.local.sh.example 為 deploy.local.sh，設定 NODE_EXTRA_CA_CERTS
+#   • 或： export FLASHCARD_CA_BUNDLE=/path/to/bundle.pem
+#   • 或：專案根目錄放置 .node-extra-ca.pem（憑證鏈 PEM）
+# npm 僅限安裝失敗時： FLASHCARD_NPM_STRICT_SSL=0 ./deploy.sh setup
+# ============================================
 # 用法:
 #   bash deploy.sh setup    # 首次設定（安裝 clasp、登入、連結專案）
 #   bash deploy.sh push     # 推送程式碼到 Google Apps Script
@@ -30,6 +36,8 @@ error()   { echo -e "${RED}❌ $1${NC}"; }
 
 # 切換到腳本所在目錄
 cd "$(dirname "$0")"
+# shellcheck disable=SC1091
+. "$(pwd)/clasp-node-ca.sh"
 
 # ============================================
 # 首次設定
@@ -51,7 +59,23 @@ cmd_setup() {
     # 2. 檢查/安裝 clasp
     if ! command -v clasp &> /dev/null; then
         info "正在安裝 @google/clasp..."
-        npm install -g @google/clasp
+        NPM_GLOBAL_FLAGS=()
+        if [ "${FLASHCARD_NPM_STRICT_SSL:-1}" = "0" ]; then
+            warn "已設定 FLASHCARD_NPM_STRICT_SSL=0（關閉 npm SSL 驗證），僅建議在無法設定正確 CA 時暫時使用"
+            NPM_GLOBAL_FLAGS+=(--strict-ssl false)
+        fi
+        if ! npm install -g @google/clasp "${NPM_GLOBAL_FLAGS[@]}"; then
+            error "無法透過 npm 安裝 clasp"
+            echo ""
+            echo "若錯誤為 UNABLE_TO_GET_ISSUER_CERT_LOCALLY（無法驗證 registry.npmjs.org 憑證）："
+            echo "  • 公司／代理環境：向 IT 取得根憑證 PEM，然後："
+            echo "      export NODE_EXTRA_CA_CERTS=/絕對路徑/公司根憑證.pem"
+            echo "      ./deploy.sh setup"
+            echo "  • 或暫時略過 SSL 驗證（有風險，僅本機暫用）："
+            echo "      FLASHCARD_NPM_STRICT_SSL=0 ./deploy.sh setup"
+            echo ""
+            exit 1
+        fi
         success "clasp 安裝完成"
     else
         success "clasp 已安裝"

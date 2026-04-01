@@ -5,17 +5,17 @@
   "private": true,
   "scripts": {
     "setup": "bash deploy.sh setup",
-    "push": "clasp push",
-    "push:watch": "clasp push --watch",
-    "pull": "clasp pull",
-    "open": "clasp open",
-    "open:web": "clasp open --webapp",
-    "status": "clasp status",
-    "logs": "clasp logs",
+    "push": "bash scripts/run-clasp.sh push",
+    "push:watch": "bash scripts/run-clasp.sh push --watch",
+    "pull": "bash scripts/run-clasp.sh pull",
+    "open": "bash scripts/run-clasp.sh open",
+    "open:web": "bash scripts/run-clasp.sh open --webapp",
+    "status": "bash scripts/run-clasp.sh status",
+    "logs": "bash scripts/run-clasp.sh logs",
     "test": "jest --verbose",
     "test:watch": "jest --watch",
     "test:file": "jest --bail=1",
-    "deploy": "clasp push && echo '✅ 推送完成！' && clasp open --webapp"
+    "deploy": "bash scripts/run-clasp.sh push && echo '✅ 推送完成！' && bash scripts/run-clasp.sh open --webapp"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",

@@ -20,9 +20,6 @@
     if (!currentWord) return;
     
     if (this.pendingRemoval) {
-      this.pendingRemoval.isVeryFamiliar = true;
-      this.renderDifficultyLevelPreview(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR);
-      this.showVeryFamiliarToast('✓ 已設為非常熟');
       return;
     }
     
@@ -137,6 +134,8 @@
 
     var isReversed = this.isReversedForCurrentWord();
     var smartDelay;
+    var difficulty = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    var disableSmartTimer = (currentWord.mustSpell && difficulty > 0) || (difficulty >= 3);
 
     if (isReversed) {
       var english = currentWord.english || '';
@@ -150,8 +149,7 @@
       smartDelay = Math.max(minTime, baseTime + letterCount * perLetterTime);
       smartDelay = Math.min(smartDelay, this.settings.delayTime);
 
-      var difficulty = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-      if (currentWord.mustSpell && difficulty >= 1) {
+      if (disableSmartTimer) {
         smartDelay = this.settings.delayTime;
       }
     } else {
@@ -159,12 +157,16 @@
       var charCount = chinese.length;
       if (charCount === 0) return this.settings.delayTime;
 
-      var baseTime = APP_CONSTANTS.SMART_TIMER_BASE_TIME;
+      var cnBaseTime = APP_CONSTANTS.SMART_TIMER_BASE_TIME;
       var perCharTime = APP_CONSTANTS.SMART_TIMER_PER_CHAR_TIME;
-      var minTime = APP_CONSTANTS.SMART_TIMER_MIN_TIME;
+      var cnMinTime = APP_CONSTANTS.SMART_TIMER_MIN_TIME;
 
-      smartDelay = Math.max(minTime, baseTime + charCount * perCharTime);
+      smartDelay = Math.max(cnMinTime, cnBaseTime + charCount * perCharTime);
       smartDelay = Math.min(smartDelay, this.settings.delayTime);
+
+      if (disableSmartTimer) {
+        smartDelay = this.settings.delayTime;
+      }
     }
 
     return smartDelay;
