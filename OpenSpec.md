@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.18.0
+> **版本**: 1.18.1
 > **最後更新**: 2026-04-01
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -180,7 +180,7 @@ bash deploy.sh setup
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 798 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄、載入進度、modal 背景點擊、重置設定等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 801 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄、載入進度、modal 背景點擊、重置設定等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -676,7 +676,7 @@ bash deploy.sh setup
 - **處理規則**:
   - **中文翻譯相同**: 保留第一個工作表的單字，移除其他重複項
   - **中文翻譯不同**: 將所有翻譯合併到第一個工作表的單字中（格式：`1. 翻譯A\n2. 翻譯B`），移除其他重複項
-- **通知**: 處理完成後在右上角顯示通知，包含處理前後的單字數量；滑鼠移入通知時暫停自動關閉，移出後繼續計時。通知內可點「下次不自動合併」，將設定寫入 `localStorage` 鍵 `flashcard-no-auto-merge`（對應 `APP_CONSTANTS.STORAGE_KEYS.NO_AUTO_MERGE`），之後初始載入將跳過客戶端自動合併
+- **通知**: 處理完成後在右上角顯示通知，包含處理前後的單字數量；滑鼠移入通知時暫停自動關閉，移出後繼續計時。通知內可點「下次不自動合併」，將設定寫入 `localStorage` 鍵 `flashcard-no-auto-merge`（對應 `APP_CONSTANTS.STORAGE_KEYS.NO_AUTO_MERGE`）。**下次重新載入**時若仍有重複單字，將**不再自動合併**，改為跳出與手動處理相同的「重複單字」合併視窗（`findDuplicateGroupsInMemory` + `showDuplicateModal`）；若已無重複則正常載入
 
 #### 4.8.3 手動處理
 - **描述**: 若使用者選擇手動處理，顯示重複單字處理模態框
@@ -1334,6 +1334,11 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.18.1 (2026-04-01) — 「下次不自動合併」後載入改為詢問合併
+
+- **重複單字**: 使用者在自動合併通知中點選「下次不自動合併」後，下次重新載入時若有重複，改為開啟重複單字處理模態框，不再僅略過合併而無提示
+- **實作**: 抽出 `findDuplicateGroupsInMemory`；`finishProgressiveLoading` 在 `NO_AUTO_MERGE` 且偵測到重複時設定 `duplicateWords` 並呼叫 `showDuplicateModal`
 
 ### v1.18.0 (2026-04-01) — 重複單字大小寫、自動合併通知、智慧計時、暫刪 S 鍵
 

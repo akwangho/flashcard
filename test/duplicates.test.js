@@ -163,6 +163,37 @@ describe('processDuplicatesInMemory', function() {
   });
 });
 
+describe('findDuplicateGroupsInMemory', function() {
+  test('returns empty when no duplicates', function() {
+    var words = [
+      { id: 0, english: 'a', chinese: '甲', sheetName: 'S1' },
+      { id: 1, english: 'b', chinese: '乙', sheetName: 'S1' }
+    ];
+    expect(app.findDuplicateGroupsInMemory(words).length).toBe(0);
+  });
+
+  test('returns one group when same english appears twice with same chinese', function() {
+    var words = [
+      { id: 0, english: 'apple', chinese: '蘋果', sheetName: 'S1' },
+      { id: 1, english: 'apple', chinese: '蘋果', sheetName: 'S2' }
+    ];
+    var g = app.findDuplicateGroupsInMemory(words);
+    expect(g.length).toBe(1);
+    expect(g[0].isSameDefinition).toBe(true);
+    expect(g[0].words.length).toBe(2);
+  });
+
+  test('marks different chinese as isSameDefinition false', function() {
+    var words = [
+      { id: 0, english: 'bank', chinese: '銀行', sheetName: 'S1' },
+      { id: 1, english: 'bank', chinese: '河岸', sheetName: 'S2' }
+    ];
+    var g = app.findDuplicateGroupsInMemory(words);
+    expect(g.length).toBe(1);
+    expect(g[0].isSameDefinition).toBe(false);
+  });
+});
+
 // ============================================================
 // Duplicate modal open/close
 // ============================================================

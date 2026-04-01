@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.18.0',
+    APP_VERSION: '1.18.1',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -1113,12 +1113,14 @@
     container.innerHTML = html;
   };
   
-  // 客戶端 ES5 相容的重複單字偵測與自動處理
-  FlashcardApp.prototype.detectAndHandleDuplicatesInMemory = function(allWords) {
+  /**
+   * 客戶端偵測重複單字群組（與自動合併邏輯相同規則：英文 trim 後相同即為重複，中文比對不分大小寫）。
+   * @param {Array} allWords - 已帶 id 的單字陣列
+   * @returns {Array<{english:string,words:Array,isSameDefinition:boolean}>}
+   */
+  FlashcardApp.prototype.findDuplicateGroupsInMemory = function(allWords) {
     var duplicatesMap = {};
     var i, j, key, word;
-    
-    // 建立英文（區分大小寫）→ 單字陣列的對應表
     for (i = 0; i < allWords.length; i++) {
       word = allWords[i];
       key = word.english.trim();
@@ -1127,8 +1129,6 @@
       }
       duplicatesMap[key].push(word);
     }
-    
-    // 找出重複的單字
     var duplicates = [];
     for (key in duplicatesMap) {
       if (duplicatesMap.hasOwnProperty(key) && duplicatesMap[key].length > 1) {
@@ -1148,6 +1148,13 @@
         });
       }
     }
+    return duplicates;
+  };
+
+  // 客戶端 ES5 相容的重複單字偵測與自動處理
+  FlashcardApp.prototype.detectAndHandleDuplicatesInMemory = function(allWords) {
+    var duplicates = this.findDuplicateGroupsInMemory(allWords);
+    var i, j, word;
     
     if (duplicates.length === 0) {
       return { words: allWords, autoHandled: false, autoResults: null };
@@ -1313,7 +1320,7 @@
     
     this.updateLoadingProgress(1, 1, '處理資料中...');
     
-    // 客戶端偵測並自動處理重複單字（使用者可選「下次不自動合併」略過）
+    // 客戶端偵測並自動處理重複單字（使用者可選「下次不自動合併」：下次載入改為跳出合併視窗）
     var result;
     var skipAutoMerge = false;
     try {
@@ -1325,6 +1332,24 @@
       skipAutoMerge = false;
     }
     if (skipAutoMerge) {
+      var dupGroups = this.findDuplicateGroupsInMemory(allWords);
+      if (dupGroups.length > 0) {
+        this.words = allWords;
+        this.duplicateWords = dupGroups;
+        this.currentDuplicateIndex = 0;
+        this.duplicateProcessingResults = [];
+        this.updateLoadingProgress(1, 1, '載入完成！');
+        callback(true);
+        if (document.readyState === 'complete') {
+          this.showDuplicateModal();
+        } else {
+          var selfModal = this;
+          window.addEventListener('load', function() {
+            selfModal.showDuplicateModal();
+          });
+        }
+        return;
+      }
       result = { words: allWords, autoHandled: false, autoResults: null };
     } else {
       result = this.detectAndHandleDuplicatesInMemory(allWords);
