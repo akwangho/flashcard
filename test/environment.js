@@ -1,6 +1,6 @@
 /**
  * Custom Jest test environment that caches script file content at the class level.
- * This avoids reading and concatenating 15 HTML files (~400KB) for each of the
+ * This avoids reading and concatenating the split script HTML files (~400KB) for each of the
  * 21 test suites. The file I/O happens once per worker process.
  */
 

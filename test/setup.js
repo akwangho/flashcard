@@ -42,7 +42,7 @@ function createDOMElements() {
     // Menu items
     'difficulty-filter-btn', 'review-filter-btn', 'must-spell-filter-btn',
     'quick-quiz-btn', 'full-quiz-btn',
-    'edit-word-btn', 'export-btn', 'restart-btn',
+    'edit-word-btn', 'search-word-btn', 'export-btn', 'restart-btn',
     'sheet-settings-btn', 'voice-settings-btn', 'settings-btn', 'fullscreen-btn',
     // Sheet settings modal
     'sheet-settings-modal', 'close-sheet-settings',
@@ -91,6 +91,10 @@ function createDOMElements() {
     'edit-word-image', 'edit-word-image-preview',
     'edit-word-image-preview-img', 'edit-word-image-preview-error',
     'cancel-edit-word', 'save-edit-word',
+    // Search word modal
+    'search-word-modal', 'close-search-word', 'search-word-input', 'search-word-run',
+    'search-word-summary', 'search-word-results', 'close-search-word-footer',
+    'search-word-exact-match',
     // Difficulty filter modal
     'difficulty-filter-modal', 'close-difficulty-filter',
     'difficulty-filter-options',
@@ -184,7 +188,12 @@ function createDOMElements() {
       el = document.createElement('select');
       el.id = id;
     }
-    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'listening-spell-input') {
+    if (id === 'search-word-exact-match') {
+      el = document.createElement('input');
+      el.id = id;
+      el.type = 'checkbox';
+    }
+    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'listening-spell-input' || id === 'search-word-input') {
       el = document.createElement('input');
       el.id = id;
       el.type = 'text';
@@ -430,6 +439,7 @@ function loadAllScripts() {
     'script-duplicates.html',
     'script-filter.html',
     'script-edit-word.html',
+    'script-search-word.html',
     'script-srs.html',
     'script-screen-awake.html',
     'script-quiz.html',

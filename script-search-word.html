@@ -1,0 +1,216 @@
+<!-- script-search-word.html -->
+<script>
+  /**
+   * @module script-search-word
+   * @description 字庫搜尋：在已載入的 this.words 中依英文／中文子字串搜尋（可選 B 欄完全符合），
+   *   顯示工作表名稱與試算表列號，並可開啟編輯單字模態框。
+   *
+   * @dependencies script-core.html (FlashcardApp), script-edit-word.html (openEditWordModal)
+   * @provides FlashcardApp.prototype: searchWordsByQuery, sheetRowNumberForDisplay,
+   *   openSearchWordModal, closeSearchWordModal, runSearchWords, renderSearchWordResults,
+   *   setupSearchWordListeners
+   */
+
+  /**
+   * 試算表列號顯示（1-based）：originalRowIndex 為 getValues 之 0-based 列索引
+   */
+  FlashcardApp.prototype.sheetRowNumberForDisplay = function(originalRowIndex) {
+    if (originalRowIndex === undefined || originalRowIndex === null || isNaN(originalRowIndex)) {
+      return '—';
+    }
+    return String(originalRowIndex + 1);
+  };
+
+  /**
+   * 在單字陣列中搜尋
+   * @param {Array} words - this.words
+   * @param {string} query - 使用者輸入
+   * @param {boolean} [exactEnglishOnly] - 為 true 時僅比對 B 欄英文，且需與關鍵字完全一致（不分大小寫）
+   * @returns {Array} 符合的單字物件（新陣列，已排序：工作表名稱、列索引）
+   */
+  FlashcardApp.prototype.searchWordsByQuery = function(words, query, exactEnglishOnly) {
+    var results = [];
+    if (!words || !query) return results;
+    var q = query.toString().trim();
+    if (!q) return results;
+    var qLower = q.toLowerCase();
+    var i;
+    for (i = 0; i < words.length; i++) {
+      var w = words[i];
+      var en = w.english ? w.english.toString().trim() : '';
+      if (exactEnglishOnly) {
+        if (en.toLowerCase() === qLower) {
+          results.push(w);
+        }
+        continue;
+      }
+      var zh = w.chinese ? w.chinese.toString() : '';
+      var matchEn = en.toLowerCase().indexOf(qLower) !== -1;
+      var matchZh = zh.indexOf(q) !== -1;
+      if (matchEn || matchZh) {
+        results.push(w);
+      }
+    }
+    results.sort(function(a, b) {
+      var sa = a.sheetName ? a.sheetName.toString() : '';
+      var sb = b.sheetName ? b.sheetName.toString() : '';
+      if (sa < sb) return -1;
+      if (sa > sb) return 1;
+      var ra = a.originalRowIndex !== undefined && a.originalRowIndex !== null ? a.originalRowIndex : 0;
+      var rb = b.originalRowIndex !== undefined && b.originalRowIndex !== null ? b.originalRowIndex : 0;
+      return ra - rb;
+    });
+    return results;
+  };
+
+  FlashcardApp.prototype.openSearchWordModal = function() {
+    var modal = document.getElementById('search-word-modal');
+    var input = document.getElementById('search-word-input');
+    var summary = document.getElementById('search-word-summary');
+    var resultsEl = document.getElementById('search-word-results');
+    if (input) {
+      input.value = '';
+      try {
+        input.focus();
+      } catch (e) {}
+    }
+    if (summary) summary.textContent = '';
+    if (resultsEl) resultsEl.innerHTML = '';
+    var exactCb = document.getElementById('search-word-exact-match');
+    if (exactCb) exactCb.checked = false;
+    if (!this.words || this.words.length === 0) {
+      if (summary) summary.textContent = '尚未載入單字，請先完成單字檔設定並載入。';
+    } else {
+      if (summary) summary.textContent = '共 ' + this.words.length + ' 筆單字可搜尋。輸入關鍵字後按「搜尋」。';
+    }
+    if (modal) modal.style.display = 'flex';
+  };
+
+  FlashcardApp.prototype.closeSearchWordModal = function() {
+    var modal = document.getElementById('search-word-modal');
+    if (modal) modal.style.display = 'none';
+  };
+
+  FlashcardApp.prototype.runSearchWords = function() {
+    var self = this;
+    var input = document.getElementById('search-word-input');
+    var summary = document.getElementById('search-word-summary');
+    var query = input ? input.value : '';
+    if (!self.words || self.words.length === 0) {
+      if (summary) summary.textContent = '尚未載入單字。';
+      self.renderSearchWordResults([]);
+      return;
+    }
+    var q = query ? query.toString().trim() : '';
+    if (!q) {
+      if (summary) summary.textContent = '請輸入關鍵字。';
+      self.renderSearchWordResults([]);
+      return;
+    }
+    var exactEl = document.getElementById('search-word-exact-match');
+    var exactMode = exactEl ? !!exactEl.checked : false;
+    var matches = self.searchWordsByQuery(self.words, q, exactMode);
+    if (summary) {
+      var modeHint = exactMode ? '（B 欄完全符合）' : '';
+      summary.textContent = '關鍵字「' + q + '」' + modeHint + '：找到 ' + matches.length + ' 筆。';
+    }
+    self.renderSearchWordResults(matches);
+  };
+
+  FlashcardApp.prototype.renderSearchWordResults = function(matches) {
+    var container = document.getElementById('search-word-results');
+    if (!container) return;
+    var html = '';
+    var i;
+    for (i = 0; i < matches.length; i++) {
+      var w = matches[i];
+      var sid = w.id !== undefined && w.id !== null ? w.id : i;
+      var sheet = w.sheetName ? w.sheetName.toString() : '（未知）';
+      var rowDisp = this.sheetRowNumberForDisplay(w.originalRowIndex);
+      var en = w.english ? w.english.toString() : '';
+      var zh = w.chinese ? w.chinese.toString() : '';
+      html +=
+        '<div class="search-word-row" data-word-id="' + sid + '">' +
+          '<div class="search-word-row-main">' +
+            '<div class="search-word-row-meta">工作表「' + escapeSearchHtml(sheet) + '」　第 ' + rowDisp + ' 列</div>' +
+            '<div class="search-word-row-text">' + escapeSearchHtml(en) + ' — ' + escapeSearchHtml(zh) + '</div>' +
+          '</div>' +
+          '<button type="button" class="secondary-btn search-word-edit-btn">編輯</button>' +
+        '</div>';
+    }
+    container.innerHTML = html;
+  };
+
+  function escapeSearchHtml(s) {
+    if (!s) return '';
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  FlashcardApp.prototype.setupSearchWordListeners = function() {
+    if (this._searchWordListenersSetup) return;
+    this._searchWordListenersSetup = true;
+
+    var self = this;
+    var modal = document.getElementById('search-word-modal');
+    var closeBtn = document.getElementById('close-search-word');
+    var closeFooter = document.getElementById('close-search-word-footer');
+    var runBtn = document.getElementById('search-word-run');
+    var input = document.getElementById('search-word-input');
+    var resultsEl = document.getElementById('search-word-results');
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self.closeSearchWordModal(); });
+    }
+    if (closeFooter) {
+      closeFooter.addEventListener('click', function() { self.closeSearchWordModal(); });
+    }
+    if (runBtn) {
+      runBtn.addEventListener('click', function() { self.runSearchWords(); });
+    }
+    if (input) {
+      input.addEventListener('keydown', function(e) {
+        if (e.keyCode === 13 || e.key === 'Enter') {
+          e.preventDefault();
+          self.runSearchWords();
+        }
+      });
+    }
+    if (resultsEl) {
+      resultsEl.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.search-word-edit-btn') : null;
+        if (!btn) return;
+        var row = btn.closest('.search-word-row');
+        if (!row) return;
+        var raw = row.getAttribute('data-word-id');
+        var wid = parseInt(raw, 10);
+        if (isNaN(wid)) return;
+        var word = null;
+        var j;
+        for (j = 0; j < self.words.length; j++) {
+          if (self.words[j].id === wid) {
+            word = self.words[j];
+            break;
+          }
+        }
+        if (!word) {
+          alert('找不到該單字');
+          return;
+        }
+        self.closeSearchWordModal();
+        self.openEditWordModal(word);
+      });
+    }
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (typeof isModalBackgroundClick === 'function' && isModalBackgroundClick(e, modal)) {
+          self.closeSearchWordModal();
+        }
+      });
+    }
+  };
+
+</script>

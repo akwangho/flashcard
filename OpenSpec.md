@@ -1,6 +1,6 @@
 # OpenSpec: 英文單字閃卡應用程式
 
-> **版本**: 1.18.4
+> **版本**: 1.18.6
 > **最後更新**: 2026-04-01
 > **原始平台**: Google Apps Script (HTML Service)
 > **目標相容性**: iPad 4 (ES5 JavaScript)
@@ -63,7 +63,7 @@ flashcard/
 ├── style-sheets.html      # 匯出進度、Google Sheet 元件、歷史清單、重複單字、通知、輔助說明、錯誤
 ├── style-quiz.html        # 測驗元件、複習篩選模態框
 │
-│   # 前端 JavaScript 模組（原 script.html 拆分為 14 個模組）
+│   # 前端 JavaScript 模組（原 script.html 拆分為多個模組）
 ├── script-polyfills.html      # ES5 Polyfills（forEach, filter, map, find, includes）
 ├── script-core.html           # 全域常數(APP_CONSTANTS)、共用工具函式、共用清理輔助方法、建構函式、初始化、設定管理、單字載入
 ├── script-events.html         # 事件監聽器設定、語音啟用、displayCurrentWord（含 3 個子函式）、選單、全螢幕
@@ -77,6 +77,7 @@ flashcard/
 ├── script-duplicates.html     # 重複單字偵測與處理
 ├── script-filter.html         # 複習時間篩選、不熟程度篩選、要會拼篩選
 ├── script-edit-word.html      # 編輯單字模態框（開啟、關閉、儲存、圖片預覽）
+├── script-search-word.html    # 字庫搜尋單字（子字串／B 欄完全符合、工作表／列號、開啟編輯）
 ├── script-srs.html            # SRS 間隔重複系統（Leitner Box、到期判定、快速複習 UI）
 ├── script-screen-awake.html   # 防螢幕關閉（Wake Lock、NoSleep Video、持續音頻、Keep-Alive）
 ├── script-quiz.html           # 測驗系統（題目生成、答題流程、計分）
@@ -180,7 +181,7 @@ bash deploy.sh setup
 - **建構函式分組初始化**: `FlashcardApp` 建構函式將 100+ 屬性初始化拆分為 6 個子函式：`_initCoreState`、`_initVoiceState`、`_initSettingsState`、`_initFilterState`、`_initScreenAwakeState`、`_initQuizState`
 - **生命週期**: 建構函式初始化 → `init()` → 載入設定 → 載入單字 → 啟動閃卡輪播
 - **狀態管理**: 所有狀態存放在 `FlashcardApp` 實例的屬性中
-- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 801 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄、載入進度、modal 背景點擊、重置設定等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
+- **單元測試**: 使用 Jest + jsdom，執行 `npx jest` 可運行 813 個測試案例（涵蓋語音等待機制、導覽、不熟程度、暫停/繼續、SRS 間隔重複、單字檔歷史、Sheet 載入/驗證/選擇、匯出批次/進度/覆寫、測驗答題流程、重複單字 modal 操作、智慧計時器、確認/取消移除、進度條動畫、編輯單字儲存驗證、圖片預載、複習日期記錄、載入進度、modal 背景點擊、重置設定等核心功能）。測試使用自訂環境（`test/environment.js`）快取 ~400KB 腳本內容，減少重複檔案 I/O
 
 ### 2.6 ES5 相容性需求（重要限制）
 
@@ -873,6 +874,7 @@ bash deploy.sh setup
     6. 🎯 快速測驗 (10 題)
     7. 📝 完整測驗
   - ✏️ 編輯當前單字
+  - 🔍 搜尋單字
   - 📤 匯出單字
   - 🔄 重新載入單字
   - **◂ 快速設定**（飛出式子選單）
@@ -916,11 +918,21 @@ bash deploy.sh setup
 - **類型**: `success`（綠色邊框）、`info`（藍色邊框）
 - **行為**: 顯示 3 秒後自動淡出消失，新通知會替換舊通知
 
+### 4.13.5 字庫搜尋單字
+
+- **描述**: 在目前已載入的 `words`（單字檔設定中已勾選並完成載入的工作表）內搜尋，確認某字串是否已出現在英文或中文欄
+- **觸發**: 選單「🔍 搜尋單字」
+- **比對**: 預設為英文欄不分大小寫之子字串、中文欄之子字串（片語或句子中含關鍵字即列出）。可勾選「完全符合」：僅比對 B 欄英文，且與關鍵字需完全一致（不分大小寫），不比對中文欄
+- **選單暫停**: 從選單開啟搜尋單字時，`closeMenu` 傳入略過恢復計時，維持選單開啟時造成的暫停，避免對話框出現後計時意外恢復
+- **結果列**: 顯示工作表名稱、試算表列號（`originalRowIndex + 1`，與 Google 試算表 1-based 列號一致）、英文與中文摘要、「編輯」按鈕
+- **編輯**: 點「編輯」會關閉搜尋模態框並以 `openEditWordModal(該單字)` 開啟既有編輯單字模態框，儲存行為與選單「編輯當前單字」相同（含 `updateWordProperties` 寫回）
+- **實作**: `script-search-word.html`（`searchWordsByQuery`、`sheetRowNumberForDisplay`、`setupSearchWordListeners`）；初始化時由 `_setupSearchWordModalListeners` 註冊監聽
+
 ### 4.14 即時編輯單字
 
 #### 4.14.1 功能描述
-- **描述**: 在閃卡執行中直接編輯當前顯示的單字，無需切換到 Google Sheets
-- **觸發方式**: 選單「✏️ 編輯當前單字」或鍵盤快捷鍵 `E`
+- **描述**: 在閃卡執行中直接編輯當前顯示的單字，無需切換到 Google Sheets；亦可由「🔍 搜尋單字」結果開啟並編輯指定單字
+- **觸發方式**: 選單「✏️ 編輯當前單字」或鍵盤快捷鍵 `E`；或由字庫搜尋結果點「編輯」（內部呼叫 `openEditWordModal(optWord)`）
 - **自動暫停**: 開啟時自動暫停閃卡輪播並顯示「已暫停」指示器，關閉後自動恢復（若編輯前已暫停則維持暫停）
 
 #### 4.14.2 可編輯欄位
@@ -1342,6 +1354,17 @@ bash deploy.sh setup
 ---
 
 ## 11. 變更紀錄
+
+### v1.18.6 (2026-04-01) — 搜尋單字：選單暫停維持、B 欄完全符合
+
+- **選單暫停**: 點選「🔍 搜尋單字」時 `closeMenu(true)`，關閉選單後不恢復計時，保留選單開啟時的暫停狀態
+- **完全符合**: 搜尋模態框新增核取方塊；勾選後僅列出 B 欄英文與關鍵字完全一致（不分大小寫）的單字
+
+### v1.18.5 (2026-04-01) — 字庫搜尋單字
+
+- **搜尋**: 選單新增「🔍 搜尋單字」，於已載入的 `words` 內對英文／中文欄做子字串搜尋，結果顯示工作表名稱與試算表列號，可開啟編輯單字
+- **編輯 API**: `openEditWordModal(optWord)` 可選傳入單字物件（搜尋結果編輯）；未傳入時仍編輯當前卡片
+- **檔案**: 新增 `script-search-word.html`；樣式於 `style-modal.html`；`script-events.html` 註冊選單與 `_setupSearchWordModalListeners`
 
 ### v1.18.4 (2026-04-01) — 選單重新載入保留快速複習
 

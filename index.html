@@ -190,6 +190,7 @@
               </div>
               <div class="menu-divider"></div>
               <button id="edit-word-btn" class="menu-item">✏️ 編輯當前單字</button>
+              <button id="search-word-btn" class="menu-item">🔍 搜尋單字</button>
               <button id="export-btn" class="menu-item">📤 匯出單字</button>
               <button id="restart-btn" class="menu-item">🔄 重新載入單字</button>
               <div class="menu-divider"></div>
@@ -668,6 +669,36 @@
     </div>
   </div>
 
+  <!-- 字庫搜尋單字 -->
+  <div id="search-word-modal" class="modal" style="display: none;">
+    <div class="modal-content search-word-modal-content">
+      <div class="modal-header">
+        <h2>🔍 搜尋單字</h2>
+        <button id="close-search-word" class="close-btn" type="button">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group search-word-input-row">
+          <label for="search-word-input">關鍵字</label>
+          <div class="setting-control search-word-control-row">
+            <input type="text" id="search-word-input" placeholder="英文或中文（部分符合）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <button type="button" id="search-word-run" class="primary-btn">搜尋</button>
+          </div>
+        </div>
+        <div class="setting-group search-word-exact-row">
+          <label class="search-word-exact-label">
+            <input type="checkbox" id="search-word-exact-match">
+            <span>完全符合（僅比對 B 欄英文，與輸入字串需完全一致）</span>
+          </label>
+        </div>
+        <p id="search-word-summary" class="search-word-summary"></p>
+        <div id="search-word-results" class="search-word-results"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="close-search-word-footer" type="button" class="secondary-btn">關閉</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 不熟程度篩選模態框 -->
   <div id="difficulty-filter-modal" class="modal" style="display: none;">
     <div class="modal-content">
@@ -1073,6 +1104,7 @@
   <?!= include('script-duplicates'); ?>
   <?!= include('script-filter'); ?>
   <?!= include('script-edit-word'); ?>
+  <?!= include('script-search-word'); ?>
   <?!= include('script-srs'); ?>
   <?!= include('script-screen-awake'); ?>
   <?!= include('script-quiz'); ?>

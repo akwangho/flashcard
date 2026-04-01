@@ -349,6 +349,7 @@
           'type-filter-btn':      function() { self.openTypeFilterModal(); },
           'tag-filter-btn':       function() { self.openTagFilterModal(); },
           'edit-word-btn':        function() { self.openEditWordModal(); },
+          'search-word-btn':      function() { self.openSearchWordModal(); },
           'srs-review-btn':       function() { self.openSrsReviewModal(); },
           'quick-quiz-btn':       function() { self.startQuiz('quick'); },
           'full-quiz-btn':        function() { self.startQuiz('full'); },
@@ -366,7 +367,8 @@
         if (action) {
           // quick-mode 按鈕不需要先 closeMenu（applyQuickMode 內部會呼叫）
           if (targetId.indexOf('quick-mode') !== 0) {
-            self.closeMenu();
+            // 從選單開啟搜尋單字時勿恢復計時：選單開啟時會暫停，closeMenu 預設會解除暫停
+            self.closeMenu(targetId === 'search-word-btn');
           }
           action();
         }
@@ -779,7 +781,8 @@
   };
 
   // 關閉選單
-  FlashcardApp.prototype.closeMenu = function() {
+  // @param {boolean} [skipTimerResume] 為 true 時不恢復計時（例如從選單開啟搜尋單字模態框，應維持選單造成的暫停）
+  FlashcardApp.prototype.closeMenu = function(skipTimerResume) {
     console.log('closeMenu 被調用');
     var menuBtn = document.getElementById('menu-btn');
     var menuDropdown = document.getElementById('menu-dropdown');
@@ -791,8 +794,8 @@
       menuDropdown.classList.remove('show');
       this.closeAllFlyouts();
 
-      // 只有選單確實是開啟狀態才恢復暫停
-      if (wasOpen && !this._wasPausedBeforeMenu) {
+      // 只有選單確實是開啟狀態才恢復暫停（skipTimerResume 時維持暫停，供搜尋單字等情境）
+      if (wasOpen && !this._wasPausedBeforeMenu && !skipTimerResume) {
         this.userPaused = false;
         this.updatePauseButtonState();
         this.resumeTimer();
@@ -818,8 +821,15 @@
     this._setupVoiceSettingsModalListeners();
     this._setupExportModalListeners();
     this._setupOverwriteModalListeners();
+    this._setupSearchWordModalListeners();
     this._setupSrsModalListeners();
     this.setupQuizListeners();
+  };
+
+  FlashcardApp.prototype._setupSearchWordModalListeners = function() {
+    if (typeof this.setupSearchWordListeners === 'function') {
+      this.setupSearchWordListeners();
+    }
   };
 
   // --- 主設定模態框 ---

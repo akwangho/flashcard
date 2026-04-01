@@ -778,4 +778,116 @@
     text-align: center;
     line-height: 1.5;
   }
+
+  /* ==========================================================================
+     SEARCH WORD MODAL
+     ========================================================================== */
+
+  .search-word-modal-content {
+    max-width: 560px;
+  }
+
+  .search-word-exact-row {
+    margin-top: 4px;
+  }
+
+  .search-word-exact-label {
+    display: flex;
+    display: -webkit-flex;
+    -webkit-align-items: flex-start;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    color: #ccc;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .search-word-exact-label input[type="checkbox"] {
+    margin-top: 3px;
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+  }
+
+  .search-word-input-row .search-word-control-row {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-wrap: wrap;
+    flex-wrap: wrap;
+    -webkit-align-items: center;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-word-control-row #search-word-input {
+    -webkit-flex: 1 1 160px;
+    flex: 1 1 160px;
+    min-width: 120px;
+    padding: 8px 10px;
+    font-size: 16px;
+    background: #333;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 6px;
+  }
+
+  .search-word-control-row #search-word-run {
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+  }
+
+  .search-word-summary {
+    font-size: 14px;
+    color: #ccc;
+    margin: 8px 0 12px;
+    line-height: 1.4;
+  }
+
+  .search-word-results {
+    max-height: 45vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .search-word-row {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: flex-start;
+    align-items: flex-start;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 0, 0.2);
+    border-radius: 8px;
+  }
+
+  .search-word-row-main {
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .search-word-row-meta {
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 4px;
+    word-break: break-word;
+  }
+
+  .search-word-row-text {
+    font-size: 15px;
+    color: #FFFF00;
+    color: var(--primary-color);
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .search-word-row .search-word-edit-btn {
+    -webkit-flex-shrink: 0;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
 </style>

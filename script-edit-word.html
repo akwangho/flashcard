@@ -6,7 +6,7 @@
    *   圖片預覽、不熟程度顯示、儲存編輯結果並同步到後端。
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, closeModalById)
-   * @provides FlashcardApp.prototype: openEditWordModal, closeEditWordModal,
+   * @provides FlashcardApp.prototype: openEditWordModal(optWord), closeEditWordModal,
    *   updateEditWordDifficultyColor, setupEditWordListeners,
    *   updateEditWordImagePreview, saveEditWord
    */
@@ -15,9 +15,9 @@
   // 編輯單字功能
   // ==========================================================================
 
-  // 開啟編輯單字模態框
-  FlashcardApp.prototype.openEditWordModal = function() {
-    var currentWord = this.currentWords[this.currentIndex];
+  // 開啟編輯單字模態框（可選傳入 optWord：由搜尋等流程指定單字，否則使用當前卡片）
+  FlashcardApp.prototype.openEditWordModal = function(optWord) {
+    var currentWord = optWord || this.currentWords[this.currentIndex];
     if (!currentWord) {
       alert('目前沒有可編輯的單字');
       return;
