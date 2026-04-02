@@ -25,7 +25,7 @@ beforeEach(function() {
   app.isPaused = false;
   app.pendingRemoval = null;
   app.navigationHistory = [];
-  app.removalUndoStack = [];
+  app.removalUndoEntry = null;
   app.removedWords = [];
 
   // Mock timers and speech
@@ -155,21 +155,23 @@ describe('previousWord', function() {
     expect(app.currentIndex).toBe(2);
   });
 
-  test('does nothing when no history and no removal undo', function() {
+  test('does nothing when no history and no eligible removal undo', function() {
     app.navigationHistory = [];
-    app.removalUndoStack = [];
+    app.removalUndoEntry = null;
     app.currentIndex = 1;
     app.previousWord();
     expect(app.currentIndex).toBe(1);
   });
 
-  test('calls undoLastConfirmedRemoval when removal undo stack has entries', function() {
+  test('calls undoLastConfirmedRemoval when removal undo eligible', function() {
     app.navigationHistory = [];
-    app.removalUndoStack = [{ orderedWordIds: [0], removalIndex: 0, wordId: 0 }];
+    app.removalUndoEntry = { orderedWordIds: [0], removalIndex: 0, wordId: 0 };
+    var eligSpy = jest.spyOn(app, 'isRemovalUndoEligible').mockReturnValue(true);
     var spy = jest.spyOn(app, 'undoLastConfirmedRemoval').mockImplementation(function() {});
     app.previousWord();
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
+    eligSpy.mockRestore();
   });
 
   test('cancels removal if pending', function() {

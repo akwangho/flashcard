@@ -185,7 +185,8 @@
     this.currentWords = this.applyAllFilters(this.words);
     this.currentIndex = 0;
     this.removedWords = [];
-    this.removalUndoStack = [];
+    this._clearRemovalUndoHalfExpireTimer();
+    this.removalUndoEntry = null;
     this.displayCurrentWord();
     this.updateActiveFilterDisplay();
   };

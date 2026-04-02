@@ -488,7 +488,8 @@
     this.srsReviewActive = false;
 
     this.navigationHistory = [];
-    this.removalUndoStack = [];
+    this._clearRemovalUndoHalfExpireTimer();
+    this.removalUndoEntry = null;
     this.pendingRemoval = null;
     this.userPaused = false;
     this.isPaused = false;
@@ -582,6 +583,7 @@
     this.pendingRemoval = null;
     this.hideRestoreButton();
     this._clearDisplayTimer();
+    this._clearRemovalUndoHalfExpireTimer();
     this.resetProgressBar();
 
     englishElement.classList.remove('show');
@@ -657,6 +659,18 @@
       });
     }, totalDelay * 1000);
     this.startProgressBar('carousel', totalDelay);
+
+    if (this.removalUndoEntry) {
+      this._clearRemovalUndoHalfExpireTimer();
+      var halfMs = (totalDelay * 1000) / 2;
+      this._removalUndoHalfExpireTimer = setTimeout(function() {
+        self._removalUndoHalfExpireTimer = null;
+        if (self.removalUndoEntry) {
+          self.removalUndoEntry = null;
+          self.updateButtonStates();
+        }
+      }, halfMs);
+    }
   };
 
   /** 聽力模式：Phase 1 不顯示文字，立即發音 */
@@ -719,7 +733,7 @@
   FlashcardApp.prototype.updateButtonStates = function() {
     var prevBtn = document.getElementById('prev-btn');
     if (prevBtn) {
-      var hasRemovalUndo = this.removalUndoStack && this.removalUndoStack.length > 0;
+      var hasRemovalUndo = this.removalUndoEntry && this.isRemovalUndoEligible();
       prevBtn.disabled = this.navigationHistory.length === 0 && !hasRemovalUndo && !this.pendingRemoval;
     }
   };

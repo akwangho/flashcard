@@ -536,7 +536,7 @@ describe('confirmRemoval', function() {
     app.currentWords = sampleWords.map(function(w) { return Object.assign({}, w); });
     app.currentIndex = 0;
     app.removedWords = [];
-    app.removalUndoStack = [];
+    app.removalUndoEntry = null;
     app.srsData = {};
     app.reviewedInSession = {};
     app.pendingRemoval = null;
@@ -565,7 +565,7 @@ describe('confirmRemoval', function() {
     expect(app.removedWords.length).toBe(1);
   });
 
-  test('pushes removal undo snapshot on confirm', function() {
+  test('stores single removal undo snapshot on confirm', function() {
     app.pendingRemoval = {
       word: app.currentWords[0],
       index: 0,
@@ -573,10 +573,10 @@ describe('confirmRemoval', function() {
       originalDifficultyLevel: 3
     };
     app.confirmRemoval();
-    expect(app.removalUndoStack.length).toBe(1);
-    expect(app.removalUndoStack[0].wordId).toBe(0);
-    expect(app.removalUndoStack[0].orderedWordIds.length).toBe(3);
-    expect(app.removalUndoStack[0].removalIndex).toBe(0);
+    expect(app.removalUndoEntry).not.toBeNull();
+    expect(app.removalUndoEntry.wordId).toBe(0);
+    expect(app.removalUndoEntry.orderedWordIds.length).toBe(3);
+    expect(app.removalUndoEntry.removalIndex).toBe(0);
   });
 
   test('decreases difficulty on normal removal', function() {

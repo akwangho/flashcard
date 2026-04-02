@@ -11,7 +11,8 @@
    * @dependencies script-core.html, script-settings-modal.html,
    *   script-difficulty.html, script-progress-bar.html
    * @provides FlashcardApp.prototype: pauseTimer, resumeTimer,
-   *   onWordClick, confirmRemoval, cancelRemoval, undoLastConfirmedRemoval, _revealSecondPart,
+   *   onWordClick, confirmRemoval, cancelRemoval, undoLastConfirmedRemoval,
+   *   isRemovalUndoEligible, _clearRemovalUndoHalfExpireTimer, _revealSecondPart,
    *   showSecondPartAndScheduleNext, handleMarkVeryFamiliar, showNotification,
    *   preloadImage, preloadUpcomingImages ...
    */
@@ -259,7 +260,7 @@
 
     var orderedWordIds = this.currentWords.map(function(w) { return w.id; });
 
-    this.removalUndoStack.push({
+    this.removalUndoEntry = {
       orderedWordIds: orderedWordIds,
       removalIndex: index,
       wordId: word.id,
@@ -271,7 +272,7 @@
       prevReviewedValue: prevReviewedValue,
       srsKey: srsKey,
       prevSrsEntry: prevSrsEntry
-    });
+    };
     
     if (isVeryFamiliar) {
       word.difficultyLevel = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
@@ -439,6 +440,13 @@
           setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
         }
       }
+    }
+
+    // 非輪播：第二語言已顯示＝進度已過一半，單次「暫刪還原」機會失效
+    if (this.removalUndoEntry && !this.settings.carouselMemoryMode) {
+      this.removalUndoEntry = null;
+      this._clearRemovalUndoHalfExpireTimer();
+      this.updateButtonStates();
     }
   };
 
@@ -820,17 +828,48 @@
   // ===========================================
 
   /**
-   * 還原上一筆已確認的暫時刪除（與「上一個」鍵／按鈕連動，LIFO）。
+   * 清除輪播模式下「進度過半」暫刪還原計時器。
+   */
+  FlashcardApp.prototype._clearRemovalUndoHalfExpireTimer = function() {
+    if (this._removalUndoHalfExpireTimer) {
+      clearTimeout(this._removalUndoHalfExpireTimer);
+      this._removalUndoHalfExpireTimer = null;
+    }
+  };
+
+  /**
+   * 是否可觸發單次「確認暫刪後還原」：有快照、進度未過一半（翻譯尚未顯示／輪播條未過 50%）。
+   */
+  FlashcardApp.prototype.isRemovalUndoEligible = function() {
+    if (!this.removalUndoEntry) return false;
+    if (this.settings.carouselMemoryMode) {
+      var bar = document.getElementById('timer-progress-bar');
+      if (!bar || !bar.parentElement) return false;
+      var parentWidth = bar.parentElement.offsetWidth;
+      if (parentWidth <= 0) return true;
+      var w = 0;
+      try {
+        w = parseFloat(window.getComputedStyle(bar).width) || 0;
+      } catch (e) {
+        w = bar.offsetWidth || 0;
+      }
+      return (w / parentWidth) * 100 < 50;
+    }
+    return !this.showingChinese;
+  };
+
+  /**
+   * 還原上一筆已確認的暫時刪除（↑／←／「上一個」；單次、須符合 isRemovalUndoEligible）。
    */
   FlashcardApp.prototype.undoLastConfirmedRemoval = function() {
-    if (!this.removalUndoStack || this.removalUndoStack.length === 0) return;
+    if (!this.removalUndoEntry || !this.isRemovalUndoEligible()) return;
 
-    var entry = this.removalUndoStack.pop();
+    var entry = this.removalUndoEntry;
+    this.removalUndoEntry = null;
+    this._clearRemovalUndoHalfExpireTimer();
+
     var word = this.words.find(function(w) { return w.id === entry.wordId; });
-    if (!word) {
-      this.removalUndoStack.push(entry);
-      return;
-    }
+    if (!word) return;
 
     this.resetProgressBar();
     this.clearAllTimersAndSpeech();
@@ -901,6 +940,9 @@
       this.showSecondPartAndScheduleNext();
         return;
       }
+
+    this._clearRemovalUndoHalfExpireTimer();
+    this.removalUndoEntry = null;
       
     this.saveNavigationState();
     
@@ -944,7 +986,7 @@
       return;
     }
 
-    if (this.removalUndoStack && this.removalUndoStack.length > 0) {
+    if (this.removalUndoEntry && this.isRemovalUndoEligible()) {
       this.undoLastConfirmedRemoval();
       return;
     }

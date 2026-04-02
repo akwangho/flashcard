@@ -213,7 +213,8 @@
     this.shuffleArray(this.currentWords);
     this.currentIndex = 0;
     this.removedWords = [];
-    this.removalUndoStack = [];
+    this._clearRemovalUndoHalfExpireTimer();
+    this.removalUndoEntry = null;
     this.srsReviewActive = true;
     this.saveFilterSettings();
 
