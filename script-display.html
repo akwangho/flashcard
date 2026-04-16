@@ -1078,6 +1078,17 @@
       console.log('重新載入單字，使用已設定的 Google Sheet');
       var loadingDiv = document.getElementById('loading');
       var flashcardDiv = document.getElementById('flashcard');
+
+      try {
+        var lastWord = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.LAST_WORD));
+        if (lastWord && lastWord.english && lastWord.chinese) {
+          var elEn = document.getElementById('loading-word-english');
+          var elZh = document.getElementById('loading-word-chinese');
+          if (elEn) elEn.textContent = lastWord.english;
+          if (elZh) elZh.textContent = lastWord.chinese;
+        }
+      } catch (e) {}
+
       if (loadingDiv) loadingDiv.style.display = 'flex';
       if (flashcardDiv) flashcardDiv.style.display = 'none';
       
