@@ -1,5 +1,6 @@
 /**
  * Tests for ES5 polyfills (forEach, filter, map, find, includes)
+ * Spec: openspec/project.md (ES5 compatibility requirements)
  */
 describe('ES5 Polyfills', function() {
 

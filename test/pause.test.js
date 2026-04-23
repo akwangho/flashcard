@@ -1,6 +1,6 @@
 /**
  * Tests for pause/resume: pauseTimer, resumeTimer, togglePause, updatePauseButtonState
- * OpenSpec 4.5.1
+ * Spec: openspec/specs/pause-control/spec.md
  */
 var app;
 
@@ -29,7 +29,7 @@ afterEach(function() {
 });
 
 // ============================================================
-// pauseTimer (4.5.1)
+// pauseTimer — openspec/specs/pause-control/spec.md
 // ============================================================
 describe('pauseTimer', function() {
 
@@ -54,7 +54,7 @@ describe('pauseTimer', function() {
 });
 
 // ============================================================
-// resumeTimer (4.5.1)
+// resumeTimer — openspec/specs/pause-control/spec.md
 // ============================================================
 describe('resumeTimer', function() {
 
@@ -99,7 +99,7 @@ describe('resumeTimer', function() {
 });
 
 // ============================================================
-// togglePause (4.5.1)
+// togglePause — openspec/specs/pause-control/spec.md
 // ============================================================
 describe('togglePause', function() {
 
@@ -127,7 +127,7 @@ describe('togglePause', function() {
 });
 
 // ============================================================
-// updatePauseButtonState (4.5.1)
+// updatePauseButtonState — openspec/specs/pause-control/spec.md
 // ============================================================
 describe('updatePauseButtonState', function() {
 

@@ -1,5 +1,6 @@
 /**
  * Tests for duplicate word processing: processDuplicatesInMemory
+ * Spec: openspec/specs/duplicate-handling/spec.md
  */
 var app;
 

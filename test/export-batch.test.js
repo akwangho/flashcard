@@ -1,3 +1,7 @@
+/**
+ * Batch export progress and chunking
+ * Spec: openspec/specs/word-export/spec.md
+ */
 var setup = require('./setup');
 
 describe('export processBatch', function() {

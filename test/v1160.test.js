@@ -9,6 +9,8 @@
  * - Enhancement 3: Custom number input for review count
  * - Enhancement 4: Batch image preloading (10 ahead)
  * - New Feature: Carousel memory mode
+ * Spec: openspec/AGENTS.md (capability index); related specs include pause-control, srs, difficulty-marking,
+ *       voice-tts, listening-practice, flashcard-core, ui-shell, settings
  */
 var app;
 

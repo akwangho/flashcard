@@ -1,3 +1,7 @@
+/**
+ * Keep screen awake / background timer behaviour
+ * Spec: openspec/specs/screen-awake/spec.md
+ */
 describe('script-screen-awake', function() {
   var app;
 

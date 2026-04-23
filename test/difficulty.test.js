@@ -1,7 +1,7 @@
 /**
  * Tests for difficulty system: increaseDifficulty, decreaseDifficulty,
  * handleMarkVeryFamiliar, confirmMarkVeryFamiliar, cancelMarkVeryFamiliar
- * OpenSpec 4.2.2, 4.2.3, 4.2.4
+ * Spec: openspec/specs/difficulty-marking/spec.md (Increase / auto-decrease / mark very familiar)
  */
 var app;
 var sampleWords;
@@ -25,7 +25,7 @@ beforeEach(function() {
 });
 
 // ============================================================
-// increaseDifficulty (4.2.2)
+// increaseDifficulty — openspec/specs/difficulty-marking/spec.md
 // ============================================================
 describe('increaseDifficulty', function() {
 
@@ -93,7 +93,7 @@ describe('increaseDifficulty', function() {
 });
 
 // ============================================================
-// decreaseDifficulty (4.2.3)
+// decreaseDifficulty — openspec/specs/difficulty-marking/spec.md
 // ============================================================
 describe('decreaseDifficulty', function() {
 
@@ -141,7 +141,7 @@ describe('decreaseDifficulty', function() {
 });
 
 // ============================================================
-// handleMarkVeryFamiliar (4.2.4 - D key double-press)
+// handleMarkVeryFamiliar (D key double-press) — openspec/specs/difficulty-marking/spec.md
 // ============================================================
 describe('handleMarkVeryFamiliar', function() {
 
@@ -194,7 +194,7 @@ describe('handleMarkVeryFamiliar', function() {
 });
 
 // ============================================================
-// confirmMarkVeryFamiliar (4.2.4)
+// confirmMarkVeryFamiliar — openspec/specs/difficulty-marking/spec.md
 // ============================================================
 describe('confirmMarkVeryFamiliar', function() {
 
@@ -325,7 +325,7 @@ describe('confirmMarkVeryFamiliar edge cases', function() {
 });
 
 // ============================================================
-// cancelMarkVeryFamiliar (4.2.4)
+// cancelMarkVeryFamiliar — openspec/specs/difficulty-marking/spec.md
 // ============================================================
 describe('cancelMarkVeryFamiliar', function() {
 

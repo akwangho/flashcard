@@ -1,5 +1,6 @@
 /**
  * Tests for filtering: getFilterCutoffDate, applyAllFilters, countWordsForFilter, countWordsForDifficultyFilter
+ * Spec: openspec/specs/review-filter/spec.md; openspec/specs/difficulty-marking/spec.md
  */
 var app;
 
@@ -401,7 +402,7 @@ describe('getTodayDateString', function() {
 });
 
 // ============================================================
-// saveEditWord (4.14)
+// saveEditWord — openspec/specs/word-edit/spec.md
 // ============================================================
 describe('saveEditWord', function() {
   var sampleWords;
@@ -537,7 +538,7 @@ describe('saveEditWord', function() {
 });
 
 // ============================================================
-// markWordAsReviewed (4.12)
+// markWordAsReviewed — openspec/specs/review-filter/spec.md
 // ============================================================
 describe('markWordAsReviewed', function() {
   beforeEach(function() {

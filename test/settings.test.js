@@ -1,3 +1,7 @@
+/**
+ * Settings apply / persist behaviour
+ * Spec: openspec/specs/settings/spec.md
+ */
 var setup = require('./setup');
 
 describe('applySettings', function() {

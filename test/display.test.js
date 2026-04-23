@@ -3,6 +3,7 @@
  * renderDifficultyLevel, renderDifficultyLevelPreview, getPhase2Delay,
  * confirmRemoval, cancelRemoval, startProgressBar, pauseProgressBar,
  * resumeProgressBar, resetProgressBar, preloadImage
+ * Spec: openspec/specs/flashcard-core/spec.md; openspec/specs/word-edit/spec.md; openspec/specs/ui-shell/spec.md
  */
 var app;
 
@@ -204,7 +205,7 @@ describe('renderDifficultyLevelPreview', function() {
 });
 
 // ============================================================
-// openEditWordModal difficulty label (4.14)
+// openEditWordModal difficulty label — openspec/specs/word-edit/spec.md
 // ============================================================
 describe('openEditWordModal difficulty display', function() {
   beforeEach(function() {
@@ -262,7 +263,7 @@ describe('openEditWordModal difficulty display', function() {
 });
 
 // ============================================================
-// updateEditWordDifficultyColor (4.14)
+// updateEditWordDifficultyColor — openspec/specs/word-edit/spec.md
 // ============================================================
 describe('updateEditWordDifficultyColor', function() {
   test('applies n1 class for negative levels', function() {
@@ -398,7 +399,7 @@ describe('openSettings / closeSettings', function() {
 });
 
 // ============================================================
-// getPhase2Delay (smart timer) (4.1.3)
+// getPhase2Delay (smart timer) — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('getPhase2Delay', function() {
   var sampleWords;
@@ -521,7 +522,7 @@ describe('getPhase2Delay', function() {
 });
 
 // ============================================================
-// confirmRemoval (4.1.5)
+// confirmRemoval — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('confirmRemoval', function() {
   var sampleWords;
@@ -676,7 +677,7 @@ describe('confirmRemoval', function() {
 });
 
 // ============================================================
-// cancelRemoval (4.1.5)
+// cancelRemoval — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('cancelRemoval', function() {
   var sampleWords;
@@ -765,7 +766,7 @@ describe('cancelRemoval', function() {
 });
 
 // ============================================================
-// Progress bar (4.1.8)
+// Progress bar — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('startProgressBar', function() {
 
@@ -877,7 +878,7 @@ describe('resetProgressBar', function() {
 });
 
 // ============================================================
-// preloadImage (4.10.3)
+// preloadImage — openspec/specs/ui-shell/spec.md
 // ============================================================
 describe('preloadImage', function() {
 

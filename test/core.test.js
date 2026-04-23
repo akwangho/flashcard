@@ -1,5 +1,6 @@
 /**
  * Tests for FlashcardApp core: constructor, settings, shuffleArray, defaults
+ * Spec: openspec/specs/settings/spec.md; openspec/project.md (architecture / defaults)
  */
 describe('FlashcardApp Constructor', function() {
 
@@ -259,7 +260,7 @@ describe('fontFamilyMap', function() {
 });
 
 // ============================================================
-// applyQuickMode (4.16)
+// applyQuickMode (quick settings presets) — openspec/specs/ui-shell/spec.md
 // ============================================================
 describe('applyQuickMode', function() {
   var app;

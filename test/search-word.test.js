@@ -1,5 +1,6 @@
 /**
  * Tests for word bank search (script-search-word.html)
+ * Spec: openspec/specs/ui-shell/spec.md (Word search)
  */
 
 var setup = require('./setup');

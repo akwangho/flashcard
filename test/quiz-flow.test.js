@@ -1,3 +1,7 @@
+/**
+ * Quiz UI flow
+ * Spec: openspec/specs/quiz-mode/spec.md
+ */
 describe('Quiz UI flow', function() {
   var app;
 

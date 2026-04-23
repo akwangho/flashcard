@@ -2,7 +2,7 @@
  * Tests for SRS (Spaced Repetition System):
  * getBoxInterval, getInitialBox, updateSrsData, getDueWords,
  * loadSrsData, saveSrsData, getSrsForWord
- * OpenSpec 4.15
+ * Spec: openspec/specs/srs/spec.md
  */
 var app;
 
@@ -18,7 +18,7 @@ beforeEach(function() {
 });
 
 // ============================================================
-// getBoxInterval (4.15.1)
+// getBoxInterval — openspec/specs/srs/spec.md
 // ============================================================
 describe('getBoxInterval', function() {
 
@@ -61,7 +61,7 @@ describe('getBoxInterval', function() {
 });
 
 // ============================================================
-// getInitialBox (4.15.2)
+// getInitialBox — openspec/specs/srs/spec.md
 // ============================================================
 describe('getInitialBox', function() {
 
@@ -114,7 +114,7 @@ describe('getSrsForWord', function() {
 });
 
 // ============================================================
-// updateSrsData (4.15.2)
+// updateSrsData — openspec/specs/srs/spec.md
 // ============================================================
 describe('updateSrsData', function() {
 
@@ -272,7 +272,7 @@ describe('updateSrsData', function() {
 });
 
 // ============================================================
-// getDueWords (4.15)
+// getDueWords — openspec/specs/srs/spec.md
 // ============================================================
 describe('getDueWords', function() {
 
@@ -330,7 +330,7 @@ describe('getDueWords', function() {
 });
 
 // ============================================================
-// loadSrsData / saveSrsData (4.15.3)
+// loadSrsData / saveSrsData — openspec/specs/srs/spec.md
 // ============================================================
 describe('loadSrsData and saveSrsData', function() {
 

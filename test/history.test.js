@@ -2,7 +2,7 @@
  * Tests for sheet history management:
  * loadSheetHistory, saveSheetHistory, addToSheetHistory, removeFromSheetHistory,
  * isDefaultSheet
- * OpenSpec 4.3.2, 4.3.3
+ * Spec: openspec/specs/sheets-integration/spec.md (Built-in defaults, Recent sheet history)
  */
 var app;
 
@@ -15,7 +15,7 @@ beforeEach(function() {
 });
 
 // ============================================================
-// isDefaultSheet (4.3.2)
+// isDefaultSheet — openspec/specs/sheets-integration/spec.md
 // ============================================================
 describe('isDefaultSheet', function() {
 
@@ -33,7 +33,7 @@ describe('isDefaultSheet', function() {
 });
 
 // ============================================================
-// loadSheetHistory / saveSheetHistory (4.3.3)
+// loadSheetHistory / saveSheetHistory — openspec/specs/sheets-integration/spec.md
 // ============================================================
 describe('loadSheetHistory and saveSheetHistory', function() {
 
@@ -73,7 +73,7 @@ describe('loadSheetHistory and saveSheetHistory', function() {
 });
 
 // ============================================================
-// addToSheetHistory (4.3.3)
+// addToSheetHistory — openspec/specs/sheets-integration/spec.md
 // ============================================================
 describe('addToSheetHistory', function() {
 
@@ -128,7 +128,7 @@ describe('addToSheetHistory', function() {
 });
 
 // ============================================================
-// removeFromSheetHistory (4.3.3)
+// removeFromSheetHistory — openspec/specs/sheets-integration/spec.md
 // ============================================================
 describe('removeFromSheetHistory', function() {
 

@@ -3,6 +3,6 @@ description:
 globs: 
 alwaysApply: true
 ---
-- 寫出能在ipad 4正常執行的ES5兼容的完整版本
-- 每次新增、修改功能或調整程式碼時，都要記得更改OpenSpec.md
-- 版本號集中管理在 script-core.html 的 APP_CONSTANTS.APP_VERSION，載入畫面會自動同步。更新版本時只需改 APP_CONSTANTS.APP_VERSION 和 OpenSpec.md 這兩處。
+- 寫出能在 iPad 4 正常執行的 ES5 相容的完整版本
+- 每次新增、修改功能或調整程式碼時，都要同步更新 `openspec/specs/` 下對應能力的 `spec.md`（能力對照見 `openspec/AGENTS.md`；專案背景與架構見 `openspec/project.md`）
+- 版本號集中管理在 `script-core.html` 的 `APP_CONSTANTS.APP_VERSION`，載入畫面會自動同步。更新版本時至少改 `APP_CONSTANTS.APP_VERSION`；若行為或文件有變，一併更新 `openspec/` 內受影響的規格（例如相關 `openspec/specs/**/spec.md` 或 `openspec/project.md`）

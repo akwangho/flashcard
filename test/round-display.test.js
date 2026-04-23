@@ -1,3 +1,7 @@
+/**
+ * displayCurrentWord, startNewRound
+ * Spec: openspec/specs/flashcard-core/spec.md
+ */
 describe('displayCurrentWord and startNewRound', function() {
   var app;
 

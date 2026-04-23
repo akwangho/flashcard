@@ -1,3 +1,7 @@
+/**
+ * Listening practice (hear-and-identify / hear-and-spell) and listening-mode behaviour
+ * Spec: openspec/specs/listening-practice/spec.md; openspec/specs/voice-tts/spec.md
+ */
 var setup = require('./setup');
 
 describe('Listening Quiz Module', function() {

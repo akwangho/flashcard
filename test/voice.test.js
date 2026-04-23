@@ -2,6 +2,7 @@
  * Tests for voice/speech methods: isJapaneseText, speakEnglishLetters,
  * speakWord, speakChineseWord, toggleVoice, updateVoiceButtonState,
  * updateMutedIndicator, clearSpeechWait, waitForSpeechThenExecute
+ * Spec: openspec/specs/voice-tts/spec.md
  */
 var app;
 
@@ -75,7 +76,7 @@ describe('isJapaneseText', function() {
 });
 
 // ============================================================
-// speakEnglishLetters (4.4.4 字母拼讀功能)
+// speakEnglishLetters (letter spell-out) — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('speakEnglishLetters', function() {
 
@@ -143,7 +144,7 @@ describe('speakEnglishLetters', function() {
 });
 
 // ============================================================
-// speakWord (4.4.1/4.4.2 智能語音路由)
+// speakWord (EN/JA routing) — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('speakWord', function() {
 
@@ -173,7 +174,7 @@ describe('speakWord', function() {
 });
 
 // ============================================================
-// speakEnglishWord (4.4.1 + 4.4.4)
+// speakEnglishWord — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('speakEnglishWord', function() {
 
@@ -201,7 +202,7 @@ describe('speakEnglishWord', function() {
 });
 
 // ============================================================
-// speakChineseWord (4.4.3 中文語音)
+// speakChineseWord — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('speakChineseWord', function() {
 
@@ -272,7 +273,7 @@ describe('speakChineseWordNow', function() {
 });
 
 // ============================================================
-// toggleVoice (4.4.6)
+// toggleVoice — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('toggleVoice', function() {
 
@@ -319,7 +320,7 @@ describe('toggleVoice', function() {
 });
 
 // ============================================================
-// updateVoiceButtonState (4.4.6)
+// updateVoiceButtonState — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('updateVoiceButtonState', function() {
 
@@ -341,7 +342,7 @@ describe('updateVoiceButtonState', function() {
 });
 
 // ============================================================
-// updateMutedIndicator (4.4.6)
+// updateMutedIndicator — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('updateMutedIndicator', function() {
 

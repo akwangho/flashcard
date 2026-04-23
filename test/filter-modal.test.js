@@ -1,3 +1,7 @@
+/**
+ * Filter modal open/apply flows
+ * Spec: openspec/specs/review-filter/spec.md; openspec/specs/difficulty-marking/spec.md
+ */
 describe('Filter modal open/apply flows', function() {
   var app;
 

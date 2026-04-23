@@ -1,6 +1,7 @@
 /**
  * Tests for export methods: generateAlternativeSheetName, getDefaultExportSheetName,
  * startBatchExport, handleSheetExistsError, updateExportProgress
+ * Spec: openspec/specs/word-export/spec.md
  */
 var app;
 

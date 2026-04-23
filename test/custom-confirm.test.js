@@ -1,3 +1,7 @@
+/**
+ * Custom confirm dialog (replaces browser confirm in fullscreen)
+ * Spec: openspec/specs/ui-shell/spec.md
+ */
 var setup = require('./setup');
 
 describe('customConfirm', function() {

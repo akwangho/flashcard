@@ -1,6 +1,7 @@
 /**
  * Tests for Google Sheet methods: extractSheetId, validateAndGetSheetInput,
  * toggleSheetSelection, renderSheetsList, loadSheetsList
+ * Spec: openspec/specs/sheets-integration/spec.md
  */
 var app;
 

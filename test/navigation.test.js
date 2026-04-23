@@ -1,6 +1,6 @@
 /**
  * Tests for navigation: nextWord, previousWord, saveNavigationState, updateProgress
- * OpenSpec 4.1.5, 4.1.6
+ * Spec: openspec/specs/flashcard-core/spec.md (Previous / Next navigation, Progress indicator)
  */
 var app;
 var sampleWords = [
@@ -36,7 +36,7 @@ beforeEach(function() {
 });
 
 // ============================================================
-// saveNavigationState (4.1.5)
+// saveNavigationState — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('saveNavigationState', function() {
 
@@ -70,7 +70,7 @@ describe('saveNavigationState', function() {
 });
 
 // ============================================================
-// nextWord (4.1.5)
+// nextWord — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('nextWord', function() {
 
@@ -137,7 +137,7 @@ describe('nextWord', function() {
 });
 
 // ============================================================
-// previousWord (4.1.5)
+// previousWord — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('previousWord', function() {
 
@@ -196,7 +196,7 @@ describe('previousWord', function() {
 });
 
 // ============================================================
-// updateProgress (4.1.6)
+// updateProgress — openspec/specs/flashcard-core/spec.md
 // ============================================================
 describe('updateProgress', function() {
 
