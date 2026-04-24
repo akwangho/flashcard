@@ -41,10 +41,10 @@ describe('increaseDifficulty', function() {
     expect(app.currentWords[2].difficultyLevel).toBe(10);
   });
 
-  test('jumps negative difficulty directly to 3', function() {
+  test('jumps negative difficulty directly to 1', function() {
     app.currentIndex = 3; // dog, difficulty -999
     app.increaseDifficulty();
-    expect(app.currentWords[3].difficultyLevel).toBe(3);
+    expect(app.currentWords[3].difficultyLevel).toBe(1);
   });
 
   test('syncs to words main array', function() {

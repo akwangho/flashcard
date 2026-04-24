@@ -66,7 +66,7 @@ The system SHALL allow the user to increase the current word's difficulty by +1 
 
 - **GIVEN** `difficultyLevel < 0` (word was previously marked as familiar)
 - **WHEN** the user increases difficulty
-- **THEN** difficulty jumps directly to 3 (not +1)
+- **THEN** difficulty jumps directly to 1 (not +1)
 
 #### Scenario: Increment blocked during pending removal
 

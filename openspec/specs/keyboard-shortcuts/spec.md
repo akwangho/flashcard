@@ -21,7 +21,7 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 | ← (Left arrow) | Previous word | — |
 | `M` | Toggle mute / unmute | — |
 | `F` | Toggle fullscreen | — |
-| `S` / F5 | Increase difficulty +1 (negative → jumps to 3; blocked during pending removal) | — |
+| `S` / F5 | Increase difficulty +1 (negative → jumps to 1; blocked during pending removal) | — |
 | `D` | Mark as very familiar (-999); requires two presses within 3 s | — |
 | `R` | Restore word (cancel pending removal) | — |
 | `E` | Open edit-word modal | Works even while paused |
