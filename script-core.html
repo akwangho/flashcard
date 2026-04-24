@@ -7,7 +7,7 @@
    *   同時定義全域常數 APP_CONSTANTS 和共用工具函式。
    *
    * @dependencies 無外部相依（此檔案最先載入）
-   * @provides FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD,
+   * @provides FlashcardApp, APP_CONSTANTS (APP_VERSION, APP_BUILD_TIME), formatDateYYYYMMDD,
    *   isModalBackgroundClick, selectVoiceByURIOrLang, applyDifficultyClass,
    *   openModalById, closeModalById
    */
@@ -18,6 +18,8 @@
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
     APP_VERSION: '1.18.9',
+    /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
+    APP_BUILD_TIME: '2026-04-24 18:41',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -122,10 +124,15 @@
     }
   };
 
-  // 載入畫面版本號同步（從 APP_CONSTANTS 取得，避免硬編碼不同步）
+  // 載入畫面版本號與建置時間同步（從 APP_CONSTANTS 取得，避免硬編碼不同步）
   (function() {
     var vEl = document.getElementById('loading-version');
-    if (vEl) { vEl.textContent = 'v' + APP_CONSTANTS.APP_VERSION; }
+    if (!vEl) return;
+    var ver = APP_CONSTANTS.APP_VERSION;
+    var bt = APP_CONSTANTS.APP_BUILD_TIME;
+    var lines = ['v' + ver];
+    if (bt) lines.push('建置 ' + bt);
+    vEl.textContent = lines.join('\n');
   })();
 
   // =====================================================================

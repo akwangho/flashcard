@@ -28,6 +28,7 @@ The system SHALL display a loading screen during startup and word reload.
 
 - **WHEN** the loading screen is shown
 - **THEN** the application version number is displayed in small grey text below the progress bar
+- **AND** the build date and time for that version are shown on the line below the version string
 
 ### Requirement: Visual Theme
 
