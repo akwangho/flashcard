@@ -827,39 +827,18 @@
   // 導覽與暫停控制（從 script-voice.html 搬移）
   // ===========================================
 
-  /**
-   * 清除輪播模式下「進度過半」暫刪還原計時器。
-   */
-  FlashcardApp.prototype._clearRemovalUndoHalfExpireTimer = function() {
-    if (this._removalUndoHalfExpireTimer) {
-      clearTimeout(this._removalUndoHalfExpireTimer);
-      this._removalUndoHalfExpireTimer = null;
-    }
-  };
+  /** No-op: 半途清除計時器已廢除，保留此函式避免各處呼叫點出錯。 */
+  FlashcardApp.prototype._clearRemovalUndoHalfExpireTimer = function() {};
 
   /**
-   * 是否可觸發單次「確認暫刪後還原」：有快照、進度未過一半（翻譯尚未顯示／輪播條未過 50%）。
+   * 是否可觸發單次「確認暫刪後還原」：有快照即可，不限進度位置。
    */
   FlashcardApp.prototype.isRemovalUndoEligible = function() {
-    if (!this.removalUndoEntry) return false;
-    if (this.settings.carouselMemoryMode) {
-      var bar = document.getElementById('timer-progress-bar');
-      if (!bar || !bar.parentElement) return false;
-      var parentWidth = bar.parentElement.offsetWidth;
-      if (parentWidth <= 0) return true;
-      var w = 0;
-      try {
-        w = parseFloat(window.getComputedStyle(bar).width) || 0;
-      } catch (e) {
-        w = bar.offsetWidth || 0;
-      }
-      return (w / parentWidth) * 100 < 50;
-    }
-    return !this.showingChinese;
+    return !!this.removalUndoEntry;
   };
 
   /**
-   * 還原上一筆已確認的暫時刪除（↑／←／「上一個」；單次、須符合 isRemovalUndoEligible）。
+   * 還原上一筆已確認的暫時刪除（↑／←／「上一個」；單次，removalUndoEntry 存在即可還原）。
    */
   FlashcardApp.prototype.undoLastConfirmedRemoval = function() {
     if (!this.removalUndoEntry || !this.isRemovalUndoEligible()) return;

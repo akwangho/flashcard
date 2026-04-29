@@ -17,9 +17,9 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.18.9',
+    APP_VERSION: '1.18.10',
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-04-24 18:41',
+    APP_BUILD_TIME: '2026-04-29 17:18',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -101,6 +101,7 @@
     SWIPE_TIME_LIMIT_MS: 500,          // 最大滑動時間（ms）
     TOAST_CONFIRM_DURATION_MS: 1500,   // Toast 確認訊息顯示時間
     SPELL_LETTER_GAP_MS: 100,          // 拼讀字母與單字之間的間隔
+    SLOW_SPEECH_RATE_FACTOR: 0.5,      // P 鍵第二次按下時的慢速倍率（相對 voiceSettings.rate）
     UI_ANIMATION_DELAY_MS: 100,        // 一般 UI 動畫延遲
     LISTENING_AUDIO_DELAY_MS: 300,     // 聽力練習播放音訊前延遲
     LISTENING_FEEDBACK_DELAY_MS: 1200, // 聽力練習回饋顯示時間
@@ -304,7 +305,8 @@
     this.removedWords = [];
     this.navigationHistory = [];
     this.removalUndoEntry = null;
-    this._removalUndoHalfExpireTimer = null;
+    this._pKeyPressCount = 0;
+    this._speechRateOverride = null;
     this.pendingRemoval = null;
     this.isPaused = false;
     this.userPaused = false;

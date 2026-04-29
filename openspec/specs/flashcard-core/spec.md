@@ -190,7 +190,6 @@ The system SHALL allow a one-time undo of the most recently confirmed removal vi
 #### Scenario: Eligible undo
 
 - **GIVEN** the most recent word was removed via confirmed pending-removal (snapshot stored in `removalUndoEntry`)
-- **AND** the current word's progress has not yet passed the midpoint (second language not yet shown in normal/listening mode; progress bar below 50% in carousel mode)
 - **WHEN** the user presses ← / ↑ or the "Previous" button
 - **THEN** the confirmed removal is undone (word restored with original difficulty, review mark, SRS data, and round position)
 - **AND** the `removalUndoEntry` snapshot is cleared (undo is available only once)
@@ -198,8 +197,7 @@ The system SHALL allow a one-time undo of the most recently confirmed removal vi
 #### Scenario: Undo ineligibility
 
 - **WHEN** the user navigates to a further word without removing the current one
-- **OR WHEN** current-word progress has passed the midpoint
-- **THEN** the undo snapshot is cleared or the eligibility check fails
+- **THEN** the undo snapshot is cleared
 - **AND** the previous-word action falls back to normal history navigation
 
 ### Requirement: Previous / Next Navigation

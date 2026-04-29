@@ -167,7 +167,9 @@
       console.log('播放英文語音:', text);
       
       var utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = this.voiceSettings.rate;
+      utterance.rate = (this._speechRateOverride !== null && this._speechRateOverride !== undefined)
+        ? this._speechRateOverride
+        : this.voiceSettings.rate;
       utterance.pitch = this.voiceSettings.pitch;
       utterance.volume = this.voiceSettings.volume;
       utterance.lang = this.voiceSettings.lang;
@@ -236,7 +238,9 @@
       this.speechSynthesis.cancel();
       
       var utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = this.voiceSettings.rate;
+      utterance.rate = (this._speechRateOverride !== null && this._speechRateOverride !== undefined)
+        ? this._speechRateOverride
+        : this.voiceSettings.rate;
       utterance.pitch = this.voiceSettings.pitch;
       utterance.volume = this.voiceSettings.volume;
       utterance.lang = this.voiceSettings.japaneseLang;

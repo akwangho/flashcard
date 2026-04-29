@@ -581,9 +581,10 @@
     this.isTransitioning = false;
     this.isProcessingClick = false;
     this.pendingRemoval = null;
+    this._pKeyPressCount = 0;
+    this._speechRateOverride = null;
     this.hideRestoreButton();
     this._clearDisplayTimer();
-    this._clearRemovalUndoHalfExpireTimer();
     this.resetProgressBar();
 
     englishElement.classList.remove('show');
@@ -660,17 +661,6 @@
     }, totalDelay * 1000);
     this.startProgressBar('carousel', totalDelay);
 
-    if (this.removalUndoEntry) {
-      this._clearRemovalUndoHalfExpireTimer();
-      var halfMs = (totalDelay * 1000) / 2;
-      this._removalUndoHalfExpireTimer = setTimeout(function() {
-        self._removalUndoHalfExpireTimer = null;
-        if (self.removalUndoEntry) {
-          self.removalUndoEntry = null;
-          self.updateButtonStates();
-        }
-      }, halfMs);
-    }
   };
 
   /** 聽力模式：Phase 1 不顯示文字，立即發音 */
@@ -1181,6 +1171,25 @@
         // E → 編輯當前單字（暫停時也可用）
         { keyCodes: [69], codes: ['KeyE'], keys: [],
           action: function() { self.openEditWordModal(); },
+          allowWhenPaused: true },
+        // P → 重新播放當前單字發音（奇數次正常、偶數次慢速；切換單字時重置；暫停時也可用）
+        { keyCodes: [80], codes: ['KeyP'], keys: [],
+          action: function() {
+            var w = self.currentWords && self.currentWords[self.currentIndex];
+            if (!w || !w.english) return;
+            self._pKeyPressCount = (self._pKeyPressCount || 0) + 1;
+            var isSlow = (self._pKeyPressCount % 2 === 0);
+            try { self.speechSynthesis.cancel(); } catch (e) {}
+            self._speechSequenceActive = false;
+            var baseRate = (self.voiceSettings && self.voiceSettings.rate) ? self.voiceSettings.rate : 1;
+            var slowRate = Math.max(0.1, baseRate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
+            self._speechRateOverride = isSlow ? slowRate : null;
+            try {
+              self.speakWord(w.english);
+            } finally {
+              self._speechRateOverride = null;
+            }
+          },
           allowWhenPaused: true }
       ];
 

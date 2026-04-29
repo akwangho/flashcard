@@ -25,6 +25,7 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 | `D` | Mark as very familiar (-999); requires two presses within 3 s | — |
 | `R` | Restore word (cancel pending removal) | — |
 | `E` | Open edit-word modal | Works even while paused |
+| `P` | Replay current word pronunciation (EN / JA auto-detected); odd press uses normal rate, even press uses slow rate (`SLOW_SPEECH_RATE_FACTOR` × `voiceSettings.rate`); counter resets when the displayed word changes | Works even while paused |
 | Escape | Close menu / exit fullscreen / cancel D-key pending state | — |
 
 #### Scenario: Matching strategy
@@ -40,7 +41,7 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 #### Scenario: Paused-state restrictions
 
 - **WHEN** the carousel is paused
-- **THEN** only `B` (pause/resume) and `E` (edit word, marked `allowWhenPaused: true`) are active
+- **THEN** only `B` (pause/resume), `E` (edit word), and `P` (replay pronunciation) are active (all marked `allowWhenPaused: true`)
 - **AND** all other shortcuts have no effect
 
 ### Requirement: Touch Swipe Gestures
