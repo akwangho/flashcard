@@ -442,12 +442,6 @@
       }
     }
 
-    // 非輪播：第二語言已顯示＝進度已過一半，單次「暫刪還原」機會失效
-    if (this.removalUndoEntry && !this.settings.carouselMemoryMode) {
-      this.removalUndoEntry = null;
-      this._clearRemovalUndoHalfExpireTimer();
-      this.updateButtonStates();
-    }
   };
 
   /**
