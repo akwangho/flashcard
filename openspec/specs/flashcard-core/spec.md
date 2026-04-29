@@ -191,7 +191,8 @@ The system SHALL allow a one-time undo of the most recently confirmed removal vi
 
 - **GIVEN** the most recent word was removed via confirmed pending-removal (snapshot stored in `removalUndoEntry`)
 - **WHEN** the user presses ← / ↑ or the "Previous" button
-- **THEN** the confirmed removal is undone (word restored with original difficulty, review mark, SRS data, and round position)
+- **THEN** the confirmed removal is undone (word restored with original difficulty, last review date, review mark, SRS data, and round position)
+- **AND** the previous `lastReviewDate` value is also written back to Google Sheet column G via `batchUpdateReviewDates()` (empty string when the word was never reviewed) so that any in-flight or already-flushed sync from `confirmRemoval` is fully rolled back
 - **AND** the `removalUndoEntry` snapshot is cleared (undo is available only once)
 
 #### Scenario: Undo ineligibility

@@ -12,7 +12,8 @@
    *   script-difficulty.html, script-progress-bar.html
    * @provides FlashcardApp.prototype: pauseTimer, resumeTimer,
    *   onWordClick, confirmRemoval, cancelRemoval, undoLastConfirmedRemoval,
-   *   isRemovalUndoEligible, _clearRemovalUndoHalfExpireTimer, _revealSecondPart,
+   *   _rollbackReviewDateOnSheet, isRemovalUndoEligible,
+   *   _clearRemovalUndoHalfExpireTimer, _revealSecondPart,
    *   showSecondPartAndScheduleNext, handleMarkVeryFamiliar, showNotification,
    *   preloadImage, preloadUpcomingImages ...
    */
@@ -832,6 +833,35 @@
   };
 
   /**
+   * 將指定單字在 Google Sheet 的「最後複習時間」欄回寫成 prevDate（空字串等同於清空）。
+   * 用於 undoLastConfirmedRemoval：若 confirmRemoval 已觸發過 syncReviewDates，
+   * 後端 G 欄會被寫成今天，必須再以前一日期覆蓋以完成完整還原。
+   */
+  FlashcardApp.prototype._rollbackReviewDateOnSheet = function(word, prevDate) {
+    if (!word || !word.sheetName || word.sheetName === 'Demo') return;
+    if (!word.originalRowIndex) return;
+    var sheetId = this.sheetSettings && this.sheetSettings.sheetId;
+    if (!sheetId) return;
+    var dateToWrite = prevDate || '';
+    try {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('還原複習日期同步結果:', result);
+        })
+        .withFailureHandler(function(error) {
+          console.error('還原複習日期同步失敗:', error);
+        })
+        .batchUpdateReviewDates(sheetId, [{
+          sheetName: word.sheetName,
+          rowIndex: word.originalRowIndex,
+          date: dateToWrite
+        }]);
+    } catch (e) {
+      console.error('還原複習日期呼叫失敗:', e);
+    }
+  };
+
+  /**
    * 還原上一筆已確認的暫時刪除（↑／←／「上一個」；單次，removalUndoEntry 存在即可還原）。
    */
   FlashcardApp.prototype.undoLastConfirmedRemoval = function() {
@@ -874,6 +904,7 @@
       } else {
         self.reviewedInSession[entry.reviewKey] = entry.prevReviewedValue;
       }
+      self._rollbackReviewDateOnSheet(word, entry.prevLastReviewDate);
 
       if (entry.prevSrsEntry === null) {
         delete self.srsData[entry.srsKey];
