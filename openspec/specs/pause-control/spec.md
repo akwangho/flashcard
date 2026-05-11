@@ -17,6 +17,7 @@ The system SHALL allow the user to pause and resume the carousel at any time.
 - **AND** the timer is stopped
 - **AND** the progress bar animation is frozen at its current position
 - **AND** a "Paused" indicator is shown
+- **AND** the persistent silent audio (AudioContext + hidden `<audio>` MediaStream) is suspended/paused so iOS releases the audio focus, preventing the Safari tab speaker icon from staying visible and stopping adjacent media tabs (e.g. YouTube) from being auto-paused
 
 #### Scenario: Resume behaviour
 
@@ -24,6 +25,7 @@ The system SHALL allow the user to pause and resume the carousel at any time.
 - **THEN** the timer restarts using the recorded remaining time
 - **AND** the progress bar animation continues from the frozen position, using the exact remaining duration, with no speed change
 - **AND** the "Paused" indicator is hidden
+- **AND** the persistent silent audio is resumed (AudioContext `resume()` + `<audio>` `play()`)
 
 #### Scenario: Modal/menu auto-pause
 

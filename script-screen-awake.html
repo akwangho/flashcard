@@ -368,8 +368,46 @@
     }
   };
   
+  // 暫停持續靜音音頻（用於使用者主動暫停 / 開啟選單時，避免占用 iOS 音訊
+  // 焦點而導致鄰近分頁的 YouTube 等媒體被自動暫停、tab 顯示喇叭符號）
+  // 不關閉 AudioContext，以便使用者恢復播放時可以重新啟動而不需重建整套音訊。
+  FlashcardApp.prototype._pausePersistentAudio = function() {
+    try {
+      if (this._persistentAudioElement && !this._persistentAudioElement.paused) {
+        this._persistentAudioElement.pause();
+      }
+      if (this._persistentAudioContext) {
+        var state = this._persistentAudioContext.state;
+        if (state === 'running') {
+          var p = this._persistentAudioContext.suspend();
+          if (p && typeof p.then === 'function') p.then(function(){}, function(){});
+          console.log('持續靜音 AudioContext 已 suspend（使用者暫停中）');
+        }
+      }
+    } catch (e) {
+      console.log('暫停持續靜音音頻失敗:', e && e.message);
+    }
+    // #region agent log
+    if (window.__dbg) window.__dbg('script-screen-awake:_pausePersistentAudio', 'after suspend', {
+      hypothesisId: 'A,B', runId: 'post-fix',
+      ctxState: (function(self){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(this),
+      audioElPaused: (function(self){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })(this)
+    });
+    // #endregion
+  };
+
   // 恢復持續靜音音頻（iOS 會在各種情況下暫停 AudioContext）
   FlashcardApp.prototype._resumePersistentAudio = function() {
+    // ★ 使用者主動暫停中，不可恢復（任何途徑：visibilitychange、touchstart 手勢、watchdog、
+    //   resumeTimer 之間競爭時）。否則會在使用者切到 YouTube 後又被搶回音訊焦點。
+    if (this.userPaused) {
+      // #region agent log
+      if (window.__dbg) window.__dbg('script-screen-awake:_resumePersistentAudio', 'skip while userPaused', {
+        hypothesisId: 'A,B,C', runId: 'post-fix'
+      });
+      // #endregion
+      return;
+    }
     try {
       if (this._persistentAudioContext) {
         var state = this._persistentAudioContext.state;
@@ -508,6 +546,18 @@
     setInterval(function() {
       if (!self.keepScreenAwake) return;
       if (!self._persistentAudioRunning) return;
+      // ★ 使用者主動暫停時，watchdog 不可恢復音訊，否則會搶回 iOS
+      //   音訊焦點，導致鄰近分頁的 YouTube 被自動暫停。
+      if (self.userPaused) {
+        // #region agent log
+        if (window.__dbg) window.__dbg('script-screen-awake:watchdog', 'skip while userPaused', {
+          hypothesisId: 'C', runId: 'post-fix',
+          ctxState: (function(){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(),
+          audioElPaused: (function(){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })()
+        });
+        // #endregion
+        return;
+      }
       
       try {
         // 檢查 AudioContext 是否被暫停
@@ -538,7 +588,16 @@
     
     setInterval(function() {
       if (!self.keepScreenAwake) return;
-      
+      // ★ 使用者主動暫停時，不再產生 oscillator 脈衝，避免占用 iOS 音訊焦點
+      if (self.userPaused) {
+        // #region agent log
+        if (window.__dbg) window.__dbg('script-screen-awake:keepAlive', 'skip while userPaused', {
+          hypothesisId: 'D', runId: 'post-fix'
+        });
+        // #endregion
+        return;
+      }
+
       // 創建極短的高頻無聲音頻
       try {
         var AudioCtx = window.AudioContext || window.webkitAudioContext;

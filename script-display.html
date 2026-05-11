@@ -38,6 +38,22 @@
     // 暫停進度條
     this.pauseProgressBar();
 
+    // ★ 使用者主動暫停時（含開啟選單/Modal），同步暫停持續靜音音頻，
+    //   讓 iOS 釋放音訊焦點，避免 Safari 分頁顯示喇叭符號 / YouTube 被擠掉。
+    if (this.userPaused && typeof this._pausePersistentAudio === 'function') {
+      this._pausePersistentAudio();
+    }
+
+    // #region agent log
+    if (window.__dbg) window.__dbg('script-display:pauseTimer', 'paused — persistent audio state', {
+      hypothesisId: 'A,B,C,D,E', runId: 'post-fix',
+      userPaused: !!this.userPaused,
+      isPaused: !!this.isPaused,
+      ctxState: (function(self){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(this),
+      audioElPaused: (function(self){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })(this),
+      keepScreenAwake: !!this.keepScreenAwake
+    });
+    // #endregion
   };
   
   // 恢復計時器
@@ -45,6 +61,11 @@
     // 只有在用戶沒有手動暫停的情況下才恢復計時器
     if (!this.userPaused) {
       this.isPaused = false;
+      // ★ 對應 pauseTimer 的 _pausePersistentAudio：恢復時重新啟動靜音音頻
+      //   （keyboard B 鍵恢復時，touchstart/click 監聽器不會觸發 _resumePersistentAudio）
+      if (typeof this._resumePersistentAudio === 'function') {
+        this._resumePersistentAudio();
+      }
     }
     
     var self = this;
@@ -88,6 +109,16 @@
     
     // 更新UI狀態
     this.updatePauseButtonState();
+
+    // #region agent log
+    if (window.__dbg) window.__dbg('script-display:resumeTimer', 'resumed — persistent audio state', {
+      hypothesisId: 'A,B,C', runId: 'pre-fix',
+      userPaused: !!this.userPaused,
+      isPaused: !!this.isPaused,
+      ctxState: (function(self){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(this),
+      audioElPaused: (function(self){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })(this)
+    });
+    // #endregion
   };
 
   // 處理flashcard點擊事件（檢查點擊位置）

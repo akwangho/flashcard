@@ -62,6 +62,12 @@ The system SHALL periodically verify that all wake-prevention mechanisms are sti
 - **WHEN** 10 seconds have elapsed since the last check
 - **THEN** the system checks the AudioContext state and whether the `<audio>` element is still playing
 - **AND** if either has been paused, attempts to resume them automatically
+- **EXCEPT** when the user has actively paused playback (`userPaused === true`), in which case the watchdog SHALL NOT resume the audio (otherwise it would steal iOS audio focus back from other tabs such as YouTube)
+
+#### Scenario: Keep-Alive during user pause
+
+- **WHEN** the user has actively paused playback (`userPaused === true`)
+- **THEN** the Keep-Alive heartbeat SHALL skip the brief oscillator burst (it would otherwise occupy the iOS audio session and re-trigger the Safari tab speaker icon)
 
 ### Requirement: Visibility Change Recovery
 
