@@ -106,6 +106,22 @@
   
   // 快速模式切換
   FlashcardApp.prototype.applyQuickMode = function(mode) {
+    // #region agent log
+    if (window.__dbg) window.__dbg('script-settings-modal:applyQuickMode', 'quick mode clicked', {
+      hypothesisId: 'A',
+      mode: mode,
+      msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
+      ssSpeaking: (function(){ try { return speechSynthesis.speaking; } catch(e){ return 'err'; } })(),
+      ssPending: (function(){ try { return speechSynthesis.pending; } catch(e){ return 'err'; } })(),
+      ssPaused: (function(){ try { return speechSynthesis.paused; } catch(e){ return 'err'; } })(),
+      voicesLen: (function(){ try { return speechSynthesis.getVoices().length; } catch(e){ return -1; } })(),
+      voiceEnabled: this.voiceSettings.enabled,
+      chineseEnabled: this.voiceSettings.chineseEnabled,
+      spellOutLetters: this.voiceSettings.spellOutLetters,
+      delaySpeechInNormalMode: this.settings.delaySpeechInNormalMode,
+      _speechSequenceActive: this._speechSequenceActive
+    });
+    // #endregion
     var details = [];
 
     var wasListeningMode = this.settings.listeningMode;

@@ -15,6 +15,31 @@
   <meta name="msapplication-tap-highlight" content="no">
   <meta name="theme-color" content="#1a1a1a">
   <title>英文單字閃卡</title>
+  <!-- #region agent log -->
+  <script>
+    // Debug instrumentation helper for session e85f09 (auto-removed after fix verified)
+    // Always console.log too, since iPad/GAS HTTPS page cannot fetch the localhost HTTP endpoint
+    window.__dbg = function(loc, msg, data) {
+      try {
+        console.log('[DBG]', loc, msg, data || {});
+        fetch('http://127.0.0.1:7490/ingest/131b7d84-aca0-4308-a6c7-3fd60e1ce560', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'e85f09' },
+          body: JSON.stringify({
+            sessionId: 'e85f09',
+            location: loc,
+            message: msg,
+            data: data || null,
+            timestamp: Date.now()
+          })
+        }).catch(function(){});
+      } catch (e) {}
+    };
+    window.__lastUserGestureTime = 0;
+    document.addEventListener('touchstart', function(){ window.__lastUserGestureTime = Date.now(); }, true);
+    document.addEventListener('click', function(){ window.__lastUserGestureTime = Date.now(); }, true);
+  </script>
+  <!-- #endregion -->
   <?!= include('style-base'); ?>
   <?!= include('style-flashcard'); ?>
   <?!= include('style-modal'); ?>
@@ -22,6 +47,66 @@
   <?!= include('style-quiz'); ?>
 </head>
 <body>
+  <!-- 啟動覆蓋層：僅 iPad 需要（iPadOS Safari 對 speechSynthesis 有嚴格的 user-gesture 限制）。
+       Android / iPhone / PC 上 speech 在第一次 Phase 2 計時就會自然發聲，不需要手動點擊。
+       覆蓋層放在 #app 之外，避免被任何上層 display:none 蓋住。 -->
+  <div id="tap-to-start-overlay" style="
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: none;
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  ">
+    <div style="
+      background: rgba(255,255,255,0.95);
+      padding: 28px 36px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+      max-width: 80%;
+    ">
+      <div style="font-size: 40px; line-height: 1; margin-bottom: 12px;">👆</div>
+      <div style="font-size: 22px; color: #222; font-weight: 600; margin-bottom: 6px;">輕觸畫面以開始</div>
+      <div style="font-size: 14px; color: #666;">瀏覽器要求至少一次互動才能播放語音</div>
+    </div>
+  </div>
+  <script>
+    // iPad 偵測：僅 iPad 需要「輕觸畫面以開始」的 gating。
+    //   - iPadOS 13+ 在 navigator.userAgent 上報為「Macintosh」，需用 maxTouchPoints 區分真正的 Mac。
+    //   - 老版 iPad (iOS 12 以前) userAgent 仍含 "iPad"。
+    //   - iPhone / Android / PC 上 speech 不需要 gating（依使用者實測）。
+    (function() {
+      var ua = navigator.userAgent || '';
+      var isOldIPad = /iPad/.test(ua);
+      var isIPadOSAsMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+      var needsTapToStart = isOldIPad || isIPadOSAsMac;
+
+      // 把結果暴露給 FlashcardApp，這樣 speak() 與 handleLoadingComplete 可以據此分支
+      window.__flashcardNeedsTapToStart = needsTapToStart;
+
+      if (!needsTapToStart) return;
+
+      var ov = document.getElementById('tap-to-start-overlay');
+      if (!ov) return;
+      ov.style.display = 'flex';
+
+      // 防止覆蓋層上的觸碰事件 fall-through 到底下的卡片，
+      // 避免在點擊覆蓋層的同時觸發 in-app 的 click handler（會把第一個單字標記為刪除）。
+      var swallow = function(e) {
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+      };
+      ov.addEventListener('touchstart', swallow, { passive: false });
+      ov.addEventListener('touchend', swallow, { passive: false });
+      ov.addEventListener('click', swallow, true);
+    })();
+  </script>
+
   <div id="app">
     <div id="loading">
       <div class="loading-word-display">
@@ -80,7 +165,7 @@
     </div>
     
     <div id="flashcard" style="display: none;">
-      
+
       <!-- 已暫停指示器 -->
       <div id="paused-indicator" class="paused-indicator" style="display: none;">
         <div class="paused-content">

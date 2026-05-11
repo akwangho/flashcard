@@ -395,17 +395,91 @@
   // 不移除監聽器 —— iOS 可能隨時暫停 AudioContext，需要在下次手勢中恢復
   FlashcardApp.prototype._setupWakeGestureActivation = function() {
     var self = this;
-    
+
+    // iPadOS/iOS Safari 26.4 要求 speechSynthesis.speak() 必須在 user gesture 內以「真實」
+    // utterance 觸發過一次 onstart，引擎才會被解鎖供整個 page session 使用。
+    // 之前嘗試的 volume=0 utterance 被 iOS 視為 no-op 直接丟棄，無法解鎖（runtime log 證實）。
+    // 改用 volume=1 + 單一空白字元的 utterance：iOS 會真實處理（觸發 onstart/onend），
+    // 但實際無音節可發音 → 使用者聽不到聲音。
+    // 只有在 onstart 真正觸發後才標記為已解鎖；否則下一次手勢會再嘗試。
+    var unlockSpeechSynthesis = function() {
+      if (self._speechSynthesisUnlocked) return;
+      try {
+        if (!self.speechSynthesis) return;
+        // 避免在已有 utterance 排隊時再塞入解鎖 utterance（防止疊加）
+        if (self.speechSynthesis.pending || self.speechSynthesis.speaking) return;
+        var u = new SpeechSynthesisUtterance(' ');
+        u.volume = 1;
+        u.rate = 10;
+        u.onstart = function() {
+          self._speechSynthesisUnlocked = true;
+          console.log('[unlock] silent utterance onstart — SpeechSynthesis 已解鎖');
+          // #region agent log
+          if (window.__dbg) window.__dbg('script-screen-awake:unlock.onstart', 'unlock confirmed', {
+            hypothesisId: 'A', runId: 'post-fix2'
+          });
+          // #endregion
+        };
+        u.onerror = function(ev) {
+          console.log('[unlock] utterance error:', ev && ev.error);
+          // #region agent log
+          if (window.__dbg) window.__dbg('script-screen-awake:unlock.onerror', 'unlock error', {
+            hypothesisId: 'A', runId: 'post-fix2', error: ev && ev.error
+          });
+          // #endregion
+        };
+        u.onend = function() {
+          console.log('[unlock] utterance ended');
+          // #region agent log
+          if (window.__dbg) window.__dbg('script-screen-awake:unlock.onend', 'unlock ended', {
+            hypothesisId: 'A', runId: 'post-fix2', unlocked: self._speechSynthesisUnlocked
+          });
+          // #endregion
+        };
+        self.speechSynthesis.speak(u);
+        console.log('SpeechSynthesis 解鎖嘗試（gesture 內 speak " " volume=1）');
+        // #region agent log
+        if (window.__dbg) window.__dbg('script-screen-awake:unlockSpeechSynthesis', 'unlock speak() called', {
+          hypothesisId: 'A,F', runId: 'post-fix3',
+          userGestureSeen: !!self._userGestureSeen,
+          msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
+          ssSpeakingAfter: (function(){ try { return self.speechSynthesis.speaking; } catch(e){ return 'err'; } })(),
+          ssPendingAfter: (function(){ try { return self.speechSynthesis.pending; } catch(e){ return 'err'; } })(),
+          voicesLen: (function(){ try { return self.speechSynthesis.getVoices().length; } catch(e){ return -1; } })()
+        });
+        // #endregion
+      } catch (e) {
+        console.log('SpeechSynthesis 解鎖失敗:', e && e.message);
+      }
+    };
+
     var activateOnGesture = function() {
       if (!self.keepScreenAwake) return;
-      
+
+      // ★ 紀錄使用者已產生過手勢，解除 speak() 的 pre-gesture 守衛
+      self._userGestureSeen = true;
+
+      // ★ 不論資料是否載完，先隱藏「輕觸畫面以開始」覆蓋層
+      //   （若資料還沒載完，handleLoadingComplete 之後會自己呼叫 startNewRound）
+      if (typeof self._hideTapToStartOverlay === 'function') {
+        self._hideTapToStartOverlay();
+      }
+
+      // ★ 若 startNewRound 被延遲（等待首次手勢），現在執行
+      if (typeof self._consumePendingStartNewRound === 'function') {
+        self._consumePendingStartNewRound();
+      }
+
       // 啟動或恢復持續靜音音頻
       if (!self._persistentAudioRunning) {
         self._startPersistentAudio();
       } else {
         self._resumePersistentAudio();
       }
-      
+
+      // ★ 第一次手勢時解鎖 SpeechSynthesis（iOS 限制）
+      unlockSpeechSynthesis();
+
       // 嘗試播放 NoSleep 視頻
       if (self.noSleepVideo && self.noSleepVideo.paused) {
         var playPromise = self.noSleepVideo.play();
@@ -415,13 +489,13 @@
           }).catch(function() {});
         }
       }
-      
+
       // 若 Wake Lock 尚未取得，重試
       if (!self._wakeLockAcquired) {
         self._requestWakeLock();
       }
     };
-    
+
     // ★ 不移除監聽器 —— 每次觸碰都嘗試恢復
     document.addEventListener('touchstart', activateOnGesture, true);
     document.addEventListener('touchend', activateOnGesture, true);

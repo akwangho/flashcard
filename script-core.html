@@ -326,6 +326,12 @@
     this.speechSynthesis = window.speechSynthesis;
     this.speechActivated = false;
     this.isLegacyBrowser = false;
+    // iPadOS Safari 26.4: 任何在使用者第一個手勢前呼叫的 speechSynthesis.speak()
+    // 會「污染」語音引擎，導致之後即使在手勢內 speak() 也都不會觸發 onstart。
+    // 此問題只發生在 iPad；其他平台 (iPhone / Android / PC) 不需要這個 gating。
+    // window.__flashcardNeedsTapToStart 由 index.html 的 inline 偵測腳本設定。
+    this._needsTapToStart = !!window.__flashcardNeedsTapToStart;
+    this._userGestureSeen = false;
     this.chineseWaitInterval = null;
     this._speechWaitInterval = null;
     this._speechWaitTimeout = null;
@@ -574,6 +580,7 @@
   FlashcardApp.prototype.handleLoadingComplete = function(hasDuplicates, shouldOpenSettings) {
     if (this.isLegacyBrowser && !this.speechActivated) {
       // 舊版瀏覽器顯示語音啟用按鈕
+      this._hideTapToStartOverlay();
       this.showSpeechActivation();
     } else {
       // 新版瀏覽器或已啟用語音，直接進入主畫面
@@ -581,11 +588,63 @@
       this.applySettings();
       
       if (shouldOpenSettings) {
+        // 設定畫面需要互動 → 關掉覆蓋層
+        this._hideTapToStartOverlay();
         this.openSheetSettings();
-      } else if (!hasDuplicates) {
-        this.startNewRound();
+      } else if (hasDuplicates) {
+        // 重複單字對話框需要互動 → 關掉覆蓋層
+        this._hideTapToStartOverlay();
+      } else {
+        // iPad 限定：等待第一次 user gesture 後才 startNewRound（覆蓋層由 HTML 預設顯示）。
+        // 其他平台 (iPhone / Android / PC) 不需要 gating，直接 startNewRound。
+        if (this._needsTapToStart && !this._userGestureSeen) {
+          // 使用者還沒點 → 把 startNewRound 留給 _consumePendingStartNewRound 觸發
+          this._pendingStartNewRound = true;
+          // #region agent log
+          if (window.__dbg) window.__dbg('script-core:handleLoadingComplete', 'iPad: data ready, waiting for gesture', {
+            hypothesisId: 'G', runId: 'post-fix6'
+          });
+          // #endregion
+        } else {
+          // 非 iPad 直接開始；或 iPad 但使用者已在載入時點過覆蓋層
+          this._hideTapToStartOverlay();
+          // #region agent log
+          if (window.__dbg) window.__dbg('script-core:handleLoadingComplete', 'startNewRound now', {
+            hypothesisId: 'G', runId: 'post-fix6',
+            needsTapToStart: this._needsTapToStart,
+            userGestureSeen: this._userGestureSeen
+          });
+          // #endregion
+          this.startNewRound();
+        }
       }
       
+    }
+  };
+
+  /** 隱藏「輕觸畫面以開始」覆蓋層；overlay 由 HTML 預設就是顯示狀態，所以不需要 _show。 */
+  FlashcardApp.prototype._hideTapToStartOverlay = function() {
+    var overlay = document.getElementById('tap-to-start-overlay');
+    if (overlay) overlay.style.display = 'none';
+  };
+
+  /**
+   * 由首次使用者手勢呼叫：若有 startNewRound 被延後，現在執行。
+   * 這個方法是 idempotent — 第二次以後呼叫不會做事。
+   */
+  FlashcardApp.prototype._consumePendingStartNewRound = function() {
+    if (!this._pendingStartNewRound) return;
+    this._pendingStartNewRound = false;
+    // 覆蓋層已由 activateOnGesture 隱藏；這裡只負責 startNewRound
+    // #region agent log
+    if (window.__dbg) window.__dbg('script-core:_consumePendingStartNewRound', 'gesture received, starting now', {
+      hypothesisId: 'G', runId: 'post-fix5'
+    });
+    // #endregion
+    try {
+      this.startNewRound();
+    } catch (e) {
+      console.log('延後的 startNewRound 執行失敗:', e && e.message);
     }
   };
   

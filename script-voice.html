@@ -45,6 +45,13 @@
       if (callback) callback();
       return;
     }
+
+    // iPadOS Safari 26.4 限定：手勢前呼叫 speak() 會永久污染語音引擎
+    if (this._needsTapToStart && !this._userGestureSeen) {
+      console.log('字母拼讀略過：使用者尚未產生第一個手勢 (iPad)');
+      if (callback) callback();
+      return;
+    }
     
     try {
       // 提取純英文字母
@@ -141,7 +148,14 @@
       console.log('舊版瀏覽器：語音未啟用，跳過播放');
       return;
     }
-    
+
+    // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
+    if (this._needsTapToStart && !this._userGestureSeen) {
+      console.log('英文語音略過：使用者尚未產生第一個手勢 (iPad)');
+      this._speechSequenceActive = false;
+      return;
+    }
+
     var self = this;
     
     // 如果啟用了字母拼讀，先拼讀字母，然後再唸單字
@@ -162,9 +176,33 @@
   FlashcardApp.prototype.speakEnglishWordOnly = function(text) {
     if (!this.voiceSettings.enabled) return;
     if (!text) return;
-    
+
+    // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
+    if (this._needsTapToStart && !this._userGestureSeen) {
+      console.log('英文語音略過：使用者尚未產生第一個手勢 (iPad)');
+      // #region agent log
+      if (window.__dbg) window.__dbg('script-voice:speakEnglishWordOnly', 'pre-gesture skip', {
+        hypothesisId: 'F', runId: 'post-fix3', text: text
+      });
+      // #endregion
+      return;
+    }
+
     try {
       console.log('播放英文語音:', text);
+      // #region agent log
+      if (window.__dbg) window.__dbg('script-voice:speakEnglishWordOnly', 'speak called', {
+        hypothesisId: 'A,B,C,D,E',
+        text: text,
+        msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
+        ssSpeaking: (function(){ try { return speechSynthesis.speaking; } catch(e){ return 'err'; } })(),
+        ssPending: (function(){ try { return speechSynthesis.pending; } catch(e){ return 'err'; } })(),
+        ssPaused: (function(){ try { return speechSynthesis.paused; } catch(e){ return 'err'; } })(),
+        voicesLen: (function(){ try { return speechSynthesis.getVoices().length; } catch(e){ return -1; } })(),
+        voiceURI: this.voiceSettings.voiceURI,
+        _speechSequenceActive: this._speechSequenceActive
+      });
+      // #endregion
       
       var utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = (this._speechRateOverride !== null && this._speechRateOverride !== undefined)
@@ -204,18 +242,46 @@
       // 為舊版瀏覽器添加錯誤處理
       utterance.onerror = function(event) {
         console.log('英文語音播放錯誤:', event.error);
+        // #region agent log
+        if (window.__dbg) window.__dbg('script-voice:utterance.onerror', 'error event fired', {
+          hypothesisId: 'A,B,E',
+          text: text,
+          error: event && event.error
+        });
+        // #endregion
         self._speechSequenceActive = false;
       };
       
       utterance.onstart = function() {
         console.log('英文語音開始播放:', text);
+        // #region agent log
+        if (window.__dbg) window.__dbg('script-voice:utterance.onstart', 'speech actually started', {
+          hypothesisId: 'A,B,C',
+          text: text
+        });
+        // #endregion
       };
       
       utterance.onend = function() {
+        // #region agent log
+        if (window.__dbg) window.__dbg('script-voice:utterance.onend', 'speech ended', {
+          hypothesisId: 'A,B,C',
+          text: text
+        });
+        // #endregion
         self._speechSequenceActive = false;
       };
       
       this.speechSynthesis.speak(utterance);
+      // #region agent log
+      if (window.__dbg) window.__dbg('script-voice:speakEnglishWordOnly', 'after .speak()', {
+        hypothesisId: 'A,B',
+        text: text,
+        ssSpeaking: (function(){ try { return speechSynthesis.speaking; } catch(e){ return 'err'; } })(),
+        ssPending: (function(){ try { return speechSynthesis.pending; } catch(e){ return 'err'; } })(),
+        ssPaused: (function(){ try { return speechSynthesis.paused; } catch(e){ return 'err'; } })()
+      });
+      // #endregion
     } catch (error) {
       console.log('英文語音播放失敗:', error);
       this._speechSequenceActive = false;
@@ -232,7 +298,13 @@
       console.log('舊版瀏覽器：語音未啟用，跳過播放');
       return;
     }
-    
+
+    // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
+    if (this._needsTapToStart && !this._userGestureSeen) {
+      console.log('日文語音略過：使用者尚未產生第一個手勢 (iPad)');
+      return;
+    }
+
     try {
       console.log('播放日文語音:', text);
       this.speechSynthesis.cancel();
@@ -295,7 +367,13 @@
       console.log('舊版瀏覽器：語音未啟用，跳過播放');
       return;
     }
-    
+
+    // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
+    if (this._needsTapToStart && !this._userGestureSeen) {
+      console.log('中文語音略過：使用者尚未產生第一個手勢 (iPad)');
+      return;
+    }
+
     var self = this;
     
     // 清理之前的等待定時器（如果存在）

@@ -429,6 +429,17 @@
     }
 
     var self = this;
+    // #region agent log
+    if (window.__dbg) window.__dbg('script-display:_revealSecondPart', 'phase2 entry', {
+      hypothesisId: 'A',
+      listeningMode: this.settings.listeningMode,
+      isReversed: isReversed,
+      delaySpeechInNormalMode: this.settings.delaySpeechInNormalMode,
+      chineseEnabled: this.voiceSettings.chineseEnabled,
+      msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
+      english: currentWord && currentWord.english
+    });
+    // #endregion
     if (this.settings.listeningMode) {
       // 聽力模式：Phase 2 出現文字時再次發音，強化聽覺記憶（忽略延遲發音設定）
       setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);

@@ -471,6 +471,10 @@
     var errorDiv = document.getElementById('error');
     if (loadingDiv) loadingDiv.style.display = 'none';
     if (errorDiv) errorDiv.style.display = 'block';
+    // 錯誤狀態需要使用者互動 → 關掉「輕觸畫面以開始」覆蓋層
+    if (typeof this._hideTapToStartOverlay === 'function') {
+      this._hideTapToStartOverlay();
+    }
   };
   
   // 重新載入單字（未經整頁初始化）時，若目前為快速複習模式，須與 F5 相同在下一回合還原
@@ -670,6 +674,13 @@
 
     firstElement.textContent = '';
     firstElement.classList.add('show');
+    // #region agent log
+    if (window.__dbg) window.__dbg('script-events:_displayListeningWord', 'phase1 entry, calling speakWord sync', {
+      hypothesisId: 'A',
+      msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
+      english: currentWord && currentWord.english
+    });
+    // #endregion
     this.speakWord(currentWord.english);
 
     this._setDisplayTimer(function() {
@@ -685,7 +696,24 @@
     var firstElement = document.getElementById('english-word');
     var self = this;
 
-    if (this.isReversedForCurrentWord()) {
+    var isReversed = this.isReversedForCurrentWord();
+    // #region agent log
+    var willCallSpeak = isReversed
+      ? this.voiceSettings.chineseEnabled
+      : !this.settings.delaySpeechInNormalMode;
+    if (window.__dbg) window.__dbg('script-events:_displayNormalWord', 'phase1 entry', {
+      hypothesisId: 'A',
+      displayMode: this.settings.displayMode,
+      isReversed: isReversed,
+      delaySpeechInNormalMode: this.settings.delaySpeechInNormalMode,
+      chineseEnabled: this.voiceSettings.chineseEnabled,
+      voiceEnabled: this.voiceSettings.enabled,
+      msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
+      willCallSpeakInPhase1: willCallSpeak,
+      english: currentWord && currentWord.english
+    });
+    // #endregion
+    if (isReversed) {
       firstElement.textContent = currentWord.chinese;
       setTimeout(function() {
         self.speakChineseWord(currentWord.chinese);
