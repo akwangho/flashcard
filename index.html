@@ -79,12 +79,21 @@
     // iPad 偵測：僅 iPad 需要「輕觸畫面以開始」的 gating。
     //   - iPadOS 13+ 在 navigator.userAgent 上報為「Macintosh」，需用 maxTouchPoints 區分真正的 Mac。
     //   - 老版 iPad (iOS 12 以前) userAgent 仍含 "iPad"。
+    //   - 新款 iPad（含 M1/M2/M4 等 Apple Silicon 機型）的 Safari/Chrome 上，
+    //     navigator.platform 已被棄用，可能不再回傳 'MacIntel'，因此不能單靠 platform 判斷。
+    //     改用「Mac 系列 UA + 多點觸控」作為主要訊號，同時保留舊版 platform 檢查作為兜底。
     //   - iPhone / Android / PC 上 speech 不需要 gating（依使用者實測）。
     (function() {
       var ua = navigator.userAgent || '';
-      var isOldIPad = /iPad/.test(ua);
-      var isIPadOSAsMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-      var needsTapToStart = isOldIPad || isIPadOSAsMac;
+      var hasIPadInUA = /iPad/.test(ua);
+      var hasMacInUA = /Macintosh|Mac OS X/.test(ua);
+      var hasMultiTouch = (navigator.maxTouchPoints || 0) > 1;
+      var hasTouchSupport = hasMultiTouch || ('ontouchstart' in window);
+      // 主要偵測：iPadOS 13+（含 M 系列晶片）以 Mac UA 上報，但具備觸控能力
+      var isIPadOSAsMac = hasMacInUA && hasTouchSupport;
+      // 兜底：仍保留舊有 navigator.platform 檢查（部分舊版 WebKit 仍回傳 MacIntel）
+      var legacyPlatformCheck = navigator.platform === 'MacIntel' && hasMultiTouch;
+      var needsTapToStart = hasIPadInUA || isIPadOSAsMac || legacyPlatformCheck;
 
       // 把結果暴露給 FlashcardApp，這樣 speak() 與 handleLoadingComplete 可以據此分支
       window.__flashcardNeedsTapToStart = needsTapToStart;

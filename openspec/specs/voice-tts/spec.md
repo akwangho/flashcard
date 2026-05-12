@@ -123,3 +123,34 @@ The system SHALL provide a manual activation step on browsers that require user 
 - **WHEN** the user clicks it
 - **THEN** a silent test utterance is played to unlock the TTS engine
 - **AND** normal voice functionality is enabled
+
+### Requirement: iPadOS Tap-to-Start Overlay
+
+The system SHALL gate the first `speechSynthesis.speak()` call on iPad behind an explicit user gesture, because iPadOS Safari permanently breaks the speech engine if `speak()` is invoked before the first user interaction.
+
+#### Scenario: iPad detection
+
+- **WHEN** the page loads
+- **THEN** the system detects iPad using a combination of signals:
+  - The user-agent string contains `iPad` (older iPads / "Request Mobile Site" mode), OR
+  - The user-agent string contains `Macintosh`/`Mac OS X` AND the device reports multi-touch capability (`navigator.maxTouchPoints > 1` or `'ontouchstart' in window`) — covers iPadOS 13+ including Apple-Silicon iPads (M1/M2/M4) where `navigator.platform` is deprecated, OR
+  - The legacy fallback `navigator.platform === 'MacIntel'` together with `navigator.maxTouchPoints > 1`
+- **AND** if any of these is true, `window.__flashcardNeedsTapToStart` is set to `true`
+- **AND** iPhone, Android, and desktop browsers SHALL NOT trigger the overlay (their speech engines do not require this gating)
+
+#### Scenario: Overlay display
+
+- **WHEN** iPad is detected
+- **THEN** a fullscreen "輕觸畫面以開始" overlay (z-index above all UI) is shown immediately, before the flashcard data finishes loading
+- **AND** touch/click events on the overlay are swallowed (`preventDefault` + `stopPropagation`) so they do not fall through to the flashcard underneath
+
+#### Scenario: First-gesture activation
+
+- **WHEN** the user taps the overlay (or anywhere on the document)
+- **THEN** the global gesture handler sets `_userGestureSeen = true`, hides the overlay, unlocks `SpeechSynthesis` with a silent utterance, and triggers any pending `startNewRound` that was deferred
+- **AND** subsequent `speak()` calls are allowed to proceed normally
+
+#### Scenario: Pre-gesture speak guard
+
+- **WHEN** any voice (English/Japanese/Chinese/letter spell-out) is asked to play before the first user gesture on iPad
+- **THEN** the call is skipped and a console message is logged, to avoid permanently corrupting the iPadOS speech engine
