@@ -170,6 +170,10 @@
     }
 
     // Enter 鍵觸發儲存（在文字/數字輸入框按下時直接儲存，免用滑鼠點確定）
+    // 但中文等 IME 選字過程中按下的 Enter 不應該觸發儲存：
+    //   1. e.isComposing === true（現代瀏覽器在 composition 進行中設定為 true）
+    //   2. e.keyCode === 229（部分瀏覽器在 IME 處理 Enter 時會回傳此特殊值）
+    //   3. compositionend 後同一個 Enter 事件可能緊接著觸發（透過旗標過濾）
     var inputIds = [
       'edit-word-english', 'edit-word-chinese',
       'edit-word-image', 'edit-word-tags',
@@ -178,14 +182,41 @@
     for (var k = 0; k < inputIds.length; k++) {
       var inputEl = document.getElementById(inputIds[k]);
       if (inputEl) {
+        inputEl._isComposingIme = false;
+        inputEl.addEventListener('compositionstart', function() {
+          this._isComposingIme = true;
+        });
+        inputEl.addEventListener('compositionend', function() {
+          var el = this;
+          el._isComposingIme = false;
+          // compositionend 之後，瀏覽器可能會緊接派發一個 keydown(Enter)
+          // 設定短暫旗標避免誤觸發儲存（Safari/部分中文輸入法行為）
+          el._justFinishedComposition = true;
+          setTimeout(function() { el._justFinishedComposition = false; }, 50);
+        });
         inputEl.addEventListener('keydown', function(e) {
-          if (e.keyCode === 13 || e.key === 'Enter') {
-            e.preventDefault();
-            e.stopPropagation();
-            self.saveEditWord();
-          }
+          if (e.keyCode !== 13 && e.key !== 'Enter') return;
+          if (document.activeElement !== this) return;
+          if (this._isComposingIme || this._justFinishedComposition) return;
+          if (e.isComposing === true || e.keyCode === 229) return;
+          e.preventDefault();
+          e.stopPropagation();
+          self.saveEditWord();
         });
       }
+    }
+
+    // 點擊圖片預覽以開啟全畫面放大檢視
+    var previewImgEl = document.getElementById('edit-word-image-preview-img');
+    if (previewImgEl) {
+      previewImgEl.style.cursor = 'zoom-in';
+      previewImgEl.title = '點擊放大檢視';
+      previewImgEl.addEventListener('click', function() {
+        var src = previewImgEl.getAttribute('src');
+        if (!src) return;
+        if (previewImgEl.style.display === 'none') return;
+        self.openImageLightbox(src);
+      });
     }
 
     if (modal) {
@@ -195,6 +226,55 @@
         }
       });
     }
+  };
+
+  // 開啟圖片放大檢視（lightbox）：點擊預覽圖片時呼叫
+  FlashcardApp.prototype.openImageLightbox = function(url) {
+    if (!url) return;
+
+    // 如果已存在則先移除（避免重複疊加）
+    var existing = document.getElementById('image-lightbox-overlay');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+    var overlay = document.createElement('div');
+    overlay.id = 'image-lightbox-overlay';
+    overlay.className = 'image-lightbox-overlay';
+
+    var img = document.createElement('img');
+    img.className = 'image-lightbox-img';
+    img.src = url;
+    img.alt = '放大圖片';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'image-lightbox-close';
+    closeBtn.setAttribute('aria-label', '關閉');
+    closeBtn.innerHTML = '&times;';
+
+    overlay.appendChild(img);
+    overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
+
+    function closeLightbox() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      document.removeEventListener('keydown', onKeyDown, true);
+    }
+    function onKeyDown(e) {
+      if (e.key === 'Escape' || e.keyCode === 27) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeLightbox();
+      }
+    }
+
+    overlay.addEventListener('click', function(e) {
+      // 點擊背景或圖片本身（zoom-out）皆關閉
+      if (e.target === overlay || e.target === img || e.target === closeBtn) {
+        closeLightbox();
+      }
+    });
+    // 使用 capture 階段攔截 Escape，避免被外層 modal 處理
+    document.addEventListener('keydown', onKeyDown, true);
   };
 
   // 更新編輯模態框的圖片預覽
