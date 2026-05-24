@@ -1228,9 +1228,16 @@
     var key = e.key || '';
 
     // ESC 鍵關閉最上層開啟的 modal（優先於所有其他按鍵處理）
+    // 全螢幕＋有 modal：先關 modal，保持全螢幕（需依賴 Keyboard.lock(['Escape']) 攔截瀏覽器預設行為）
+    // 全螢幕＋無 modal：手動退出全螢幕（補回原本 ESC 退出全螢幕的行為，因為瀏覽器 ESC 預設已被鎖定）
     if (keyCode === 27 || code === 'Escape' || key === 'Escape') {
       if (self._closeTopmostModal()) {
         if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
+        return;
+      }
+      if (self.isFullscreen && self.isFullscreen()) {
+        if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
+        self.exitFullscreen();
         return;
       }
     }
@@ -1603,8 +1610,13 @@
         
         if (isFullscreen) {
           console.log('已進入全螢幕模式');
+          // 嘗試鎖定 Escape 鍵：避免瀏覽器在全螢幕下用 ESC 直接退出，
+          // 改由 app 自身的鍵盤處理器（_closeTopmostModal / 手動 exit）控制
+          // Keyboard Lock API 僅在 Chromium 系（Chrome/Edge/Opera）支援
+          self._lockEscapeKey();
         } else {
           console.log('已退出全螢幕模式');
+          self._unlockEscapeKey();
         }
         
         self.updateFullscreenButtonText();
@@ -1628,6 +1640,8 @@
 
   FlashcardApp.prototype.exitFullscreen = function() {
     console.log('嘗試退出全螢幕模式');
+    // 在發出退出請求前先解除 Escape 鎖定，避免極端情況下殘留鎖定狀態
+    this._unlockEscapeKey();
     try {
       if (document.exitFullscreen) {
         document.exitFullscreen();
@@ -1645,6 +1659,36 @@
       console.log('退出全螢幕請求已發送');
     } catch (error) {
       console.error('退出全螢幕時發生錯誤:', error);
+    }
+  };
+
+  // 鎖定 Escape 鍵：使用 Keyboard Lock API（Chrome/Edge/Opera 支援）
+  // 鎖定後，全螢幕模式下按 ESC 不會退出全螢幕，而是傳給 JavaScript 處理。
+  // 不支援的瀏覽器（Firefox/Safari）會靜默 no-op，行為退回到瀏覽器原生（ESC 退出全螢幕）。
+  FlashcardApp.prototype._lockEscapeKey = function() {
+    try {
+      if (navigator.keyboard && typeof navigator.keyboard.lock === 'function') {
+        var p = navigator.keyboard.lock(['Escape']);
+        if (p && typeof p.then === 'function') {
+          p.then(function() {
+            console.log('Keyboard.lock(Escape) 已啟用');
+          }).catch(function(err) {
+            console.log('Keyboard.lock(Escape) 失敗（可能瀏覽器不支援或未獲得權限）:', err);
+          });
+        }
+      }
+    } catch (e) {
+      console.log('Keyboard.lock 不可用:', e);
+    }
+  };
+
+  FlashcardApp.prototype._unlockEscapeKey = function() {
+    try {
+      if (navigator.keyboard && typeof navigator.keyboard.unlock === 'function') {
+        navigator.keyboard.unlock();
+      }
+    } catch (e) {
+      // 解鎖失敗不影響使用者，靜默忽略
     }
   };
 
