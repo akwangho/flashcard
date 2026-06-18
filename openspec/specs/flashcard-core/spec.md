@@ -39,16 +39,16 @@ The system SHALL automatically cycle through word cards, displaying the first la
 - **AND** waits the delay time again
 - **AND** automatically advances to the next word
 
-#### Scenario: Round completion and reshuffle
+#### Scenario: Round completion and reordering
 
 - **WHEN** the last word in the current round is displayed
-- **THEN** the system reshuffles all qualifying words (Fisher-Yates algorithm)
+- **THEN** the system reorders all qualifying words by the review-priority score (see `srs/spec.md` → Word Priority Ordering), so the most unfamiliar / longest-unreviewed words lead the next round
 - **AND** starts a new round from the beginning
 
-#### Scenario: Post-filter reshuffle
+#### Scenario: Post-filter reordering
 
 - **WHEN** words are loaded from multiple sheets or filters are applied
-- **THEN** the system reshuffles the filtered result to mix words from different sheets evenly
+- **THEN** the system orders the filtered result by the review-priority score, with equal-score words randomised so words from different sheets are mixed evenly
 
 #### Scenario: Word load failure fallback
 

@@ -179,8 +179,9 @@
       });
     }
     
-    // 篩選後重新打亂順序，確保多工作表的單字充分混合
-    this.shuffleArray(filtered);
+    // 篩選後依「複習優先分數」排序：不熟程度數字大的、很久沒複習的優先出現；
+    // 最近剛複習且數字小的排到後面。同分數的單字之間以亂數輕度混合（多工作表打散）。
+    this.sortWordsByReviewPriority(filtered);
     
     return filtered;
   };

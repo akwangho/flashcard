@@ -121,10 +121,11 @@ The system SHALL apply all active filters simultaneously using intersection logi
 - **WHEN** two or more filters are active
 - **THEN** only words satisfying ALL active filter conditions are included in the carousel
 
-#### Scenario: Filter application triggers reshuffle
+#### Scenario: Filter application triggers reordering
 
 - **WHEN** any filter is applied or changed
-- **THEN** the word pool is reshuffled and the carousel restarts from the beginning of a new round
+- **THEN** the filtered word pool is reordered by the review-priority score (see `srs/spec.md` → Word Priority Ordering) so that unfamiliar and long-unreviewed words appear first, and the carousel restarts from the beginning of a new round
+- **AND** words with equal scores are randomised (light mixing) so multi-sheet words stay shuffled and the daily order is not identical
 
 #### Scenario: Filter with no matches
 

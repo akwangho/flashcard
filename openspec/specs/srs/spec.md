@@ -158,14 +158,36 @@ The system SHALL provide a quick-review modal with statistics, word priority lis
 
 ### Requirement: Word Priority Ordering
 
-The system SHALL sort words for quick review by a fixed priority order.
+The system SHALL sort words for review by a unified **review-priority score** that combines how unfamiliar a word is (`difficultyLevel`, sheet column D) with how long it has gone without review (`lastReviewDate`, sheet column G). Words with a higher score appear first. This same score drives both the normal carousel order and the quick-review selection.
 
-#### Scenario: Priority order
+#### Scenario: Review-priority score formula
 
-1. **Never reviewed AND unfamiliar** — `lastReviewDate` is empty AND `difficultyLevel > 0`; unconditionally highest priority, regardless of SRS data; sorted by decreasing difficulty
-2. **SRS due / overdue** — `nextReview ≤ today`; more overdue = higher priority; lower box = higher priority within same due date
-3. **Familiar with review history** — no SRS data, `difficultyLevel ≤ 0`, `lastReviewDate` is not empty; sorted by decreasing difficulty
-4. **Not yet due** — SRS data exists but `nextReview > today`; sorted by ascending `nextReview`
+- **WHEN** ordering words for review
+- **THEN** each word's score is computed as `staleness + difficultyComponent` where:
+  - `staleness` = days since `lastReviewDate`, clamped to `[0, MAX_STALENESS_DAYS]` (default 365); a word that was **never reviewed** (empty column G) uses `NEVER_REVIEWED_DAYS` (default 365)
+  - `difficultyComponent` = `difficultyLevel × UNFAMILIAR_DAY_WEIGHT` (default 15) when `difficultyLevel > 0`
+  - `difficultyComponent` = `difficultyLevel × FAMILIAR_DAY_WEIGHT` (default 8) when `difficultyLevel < 0` (a negative penalty, so very familiar words sink to the bottom)
+  - `difficultyComponent` = 0 when `difficultyLevel = 0`
+- **AND** words are sorted by score descending
+
+#### Scenario: Stale + unfamiliar outranks recent + familiar
+
+- **WHEN** comparing a word with a large `difficultyLevel` that has not been reviewed for a long time against a word with a small/negative `difficultyLevel` that was reviewed recently
+- **THEN** the stale, unfamiliar word receives the higher score and appears first
+- **AND** the recently-reviewed, low-difficulty word is pushed toward the back
+
+#### Scenario: Tie-breaking
+
+- **WHEN** two words have the same score in the carousel (`applyAllFilters` / `sortWordsByReviewPriority`)
+- **THEN** their relative order is randomised (light mixing, also keeps multi-sheet words shuffled)
+- **WHEN** two words have the same score in the quick-review priority list (`_buildPriorityList`)
+- **THEN** ties break deterministically by decreasing `difficultyLevel`, then older `lastReviewDate` first, then English text, so the displayed list is stable
+
+#### Scenario: Display category (priority list only)
+
+- **WHEN** rendering the collapsible priority table
+- **THEN** each row still shows a category label for context — 不熟/全新, SRS到期, 已熟悉, 未到期 — derived from SRS due state and review history
+- **AND** the category is a label only; the row order is governed by the review-priority score, not the category
 
 ### Requirement: Review Session Flow
 
