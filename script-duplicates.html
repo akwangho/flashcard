@@ -250,18 +250,20 @@
         
       var results = [];
       var wordsToRemove = []; // 記錄要從記憶體中移除的單字ID
-      var wordsToModify = {}; // 記錄要修改定義的單字ID和新定義
+      var wordsToModify = {}; // 記錄要修改的單字ID -> { chinese, group }
       
       for (var i = 0; i < duplicates.length; i++) {
         var duplicate = duplicates[i];
           console.log('處理重複單字:', duplicate.english, '是否相同定義:', duplicate.isSameDefinition);
           
           if (duplicate.isSameDefinition) {
-            // 中文意義相同：保留第一個工作表的，移除其他
+            // 中文意義相同：保留第一個工作表的，移除其他（仍合併中繼資料避免遺失欄位）
           var keepWord = duplicate.words[0];
           var removeWords = duplicate.words.slice(1);
             
             console.log('相同定義，保留第一個工作表:', keepWord.sheetName);
+            
+          wordsToModify[keepWord.id] = { chinese: null, group: duplicate.words };
             
             // 記錄要移除的單字ID
           for (var j = 0; j < removeWords.length; j++) {
@@ -290,7 +292,7 @@
           var mergedDefinition = allDefinitions.join('\n');
             
             // 記錄要修改的單字
-          wordsToModify[targetWord.id] = mergedDefinition;
+          wordsToModify[targetWord.id] = { chinese: mergedDefinition, group: duplicate.words };
             
             // 記錄要移除的單字ID
           for (var l = 0; l < mergeWords.length; l++) {
@@ -308,7 +310,7 @@
           }
         }
         
-        // 處理單字陣列：移除重複項目並修改定義
+        // 處理單字陣列：移除重複項目並合併定義與中繼資料
       var processedWords = [];
       for (var m = 0; m < allWords.length; m++) {
         var word = allWords[m];
@@ -319,14 +321,12 @@
           }
           
         if (wordsToModify.hasOwnProperty(word.id)) {
-            // 修改定義
-          var modifiedWord = {};
-          for (var key in word) {
-            if (word.hasOwnProperty(key)) {
-              modifiedWord[key] = word[key];
-            }
+            // 合併中繼資料（不熟程度、圖片、標籤、要會拼），必要時更新定義
+          var mod = wordsToModify[word.id];
+          var modifiedWord = this.applyMergedMetadataToWord(word, mod.group);
+          if (mod.chinese) {
+            modifiedWord.chinese = mod.chinese;
           }
-          modifiedWord.chinese = wordsToModify[word.id];
             processedWords.push(modifiedWord);
           } else {
             // 保持原樣

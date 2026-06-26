@@ -17,9 +17,9 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.18.13',
+    APP_VERSION: '1.18.14',
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-05-12 11:00',
+    APP_BUILD_TIME: '2026-06-26 19:30',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -1233,6 +1233,85 @@
     return duplicates;
   };
 
+  /**
+   * 合併重複單字群組的中繼資料，避免去重/合併時遺失欄位。
+   * 規則：
+   *   - 不熟程度(difficultyLevel)：取群組最大值（最不熟者優先，確保仍會被複習）
+   *   - 圖片(image) / 圖片公式(imageFormula)：取第一個非空值（依群組順序，目標單字優先）
+   *   - 標籤(tags)：聯集，去重並保留出現順序
+   *   - 要會拼(mustSpell)：任一為真即為真
+   * 複習日期(lastReviewDate)不在此合併，沿用目標單字原值以避免影響 SRS 排程。
+   * @param {Array} groupWords 同一英文單字的重複群組
+   * @returns {Object} { difficultyLevel, image, imageFormula, mustSpell, tags }
+   */
+  FlashcardApp.prototype.mergeDuplicateWordMetadata = function(groupWords) {
+    var merged = {
+      difficultyLevel: undefined,
+      image: '',
+      imageFormula: '',
+      mustSpell: false,
+      tags: []
+    };
+    var seenTags = {};
+    for (var i = 0; i < groupWords.length; i++) {
+      var w = groupWords[i];
+      if (!w) continue;
+
+      if (w.difficultyLevel !== undefined && w.difficultyLevel !== null) {
+        if (merged.difficultyLevel === undefined || w.difficultyLevel > merged.difficultyLevel) {
+          merged.difficultyLevel = w.difficultyLevel;
+        }
+      }
+
+      if (!merged.image && w.image) {
+        merged.image = w.image;
+      }
+      if (!merged.imageFormula && w.imageFormula) {
+        merged.imageFormula = w.imageFormula;
+      }
+
+      if (w.mustSpell) {
+        merged.mustSpell = true;
+      }
+
+      if (w.tags && w.tags.length) {
+        for (var t = 0; t < w.tags.length; t++) {
+          var tag = w.tags[t];
+          if (tag && !seenTags[tag]) {
+            seenTags[tag] = true;
+            merged.tags.push(tag);
+          }
+        }
+      }
+    }
+    if (merged.difficultyLevel === undefined) {
+      merged.difficultyLevel = 0;
+    }
+    return merged;
+  };
+
+  /**
+   * 以目標單字為基礎，套用群組合併後的中繼資料，回傳新物件（不修改原物件）。
+   * @param {Object} targetWord 保留的目標單字
+   * @param {Array} groupWords 同一英文單字的重複群組
+   * @returns {Object} 套用合併中繼資料後的新單字物件
+   */
+  FlashcardApp.prototype.applyMergedMetadataToWord = function(targetWord, groupWords) {
+    var result = {};
+    for (var key in targetWord) {
+      if (targetWord.hasOwnProperty(key)) {
+        result[key] = targetWord[key];
+      }
+    }
+    var merged = this.mergeDuplicateWordMetadata(groupWords);
+    result.difficultyLevel = merged.difficultyLevel;
+    result.image = merged.image;
+    result.imageFormula = merged.imageFormula;
+    result.mustSpell = merged.mustSpell;
+    result.tags = merged.tags;
+    return result;
+  };
+
   // 客戶端 ES5 相容的重複單字偵測與自動處理
   FlashcardApp.prototype.detectAndHandleDuplicatesInMemory = function(allWords) {
     var duplicates = this.findDuplicateGroupsInMemory(allWords);
@@ -1250,7 +1329,8 @@
     for (i = 0; i < duplicates.length; i++) {
       var dup = duplicates[i];
       if (dup.isSameDefinition) {
-        // 中文相同：保留第一個，移除其餘
+        // 中文相同：保留第一個，移除其餘（仍合併中繼資料避免遺失欄位）
+        wordsToModify[dup.words[0].id] = { chinese: null, group: dup.words };
         for (j = 1; j < dup.words.length; j++) {
           wordsToRemoveIds[dup.words[j].id] = true;
         }
@@ -1262,7 +1342,7 @@
           allDefs.push((j + 1) + '. ' + dup.words[j].chinese.trim());
         }
         var mergedDef = allDefs.join('\n');
-        wordsToModify[dup.words[0].id] = mergedDef;
+        wordsToModify[dup.words[0].id] = { chinese: mergedDef, group: dup.words };
         for (j = 1; j < dup.words.length; j++) {
           wordsToRemoveIds[dup.words[j].id] = true;
         }
@@ -1276,14 +1356,12 @@
       word = allWords[i];
       if (wordsToRemoveIds[word.id]) continue;
       if (wordsToModify.hasOwnProperty(String(word.id))) {
-        // 複製並修改
-        var modifiedWord = {};
-        for (var prop in word) {
-          if (word.hasOwnProperty(prop)) {
-            modifiedWord[prop] = word[prop];
-          }
+        // 複製並合併中繼資料（不熟程度、圖片、標籤、要會拼）
+        var mod = wordsToModify[word.id];
+        var modifiedWord = this.applyMergedMetadataToWord(word, mod.group);
+        if (mod.chinese) {
+          modifiedWord.chinese = mod.chinese;
         }
-        modifiedWord.chinese = wordsToModify[word.id];
         processedWords.push(modifiedWord);
       } else {
         processedWords.push(word);

@@ -755,7 +755,102 @@ function countValidWords(sheet) {
   // ===========================================
 
   /**
+  * 合併重複單字群組的中繼資料，避免去重/合併時遺失欄位。
+  * 規則：
+  *   - 不熟程度(difficultyLevel)：取群組最大值（最不熟者優先，確保仍會被複習）
+  *   - 圖片(image/imageUrl)：取第一個非空值（依群組順序，目標單字優先）
+  *   - 標籤(tags)：聯集，去重並保留出現順序
+  *   - 要會拼(mustSpell)：任一為真即為真
+  * 複習日期(lastReviewDate)不在此合併，沿用目標列原值以避免影響 SRS 排程。
+  * @param {Array} groupWords 同一英文單字的重複群組（目標單字應排在第一個）
+  * @returns {Object} { difficultyLevel, image, mustSpell, tags }
+  */
+  function mergeDuplicateMetadata(groupWords) {
+    var merged = { difficultyLevel: undefined, image: '', mustSpell: false, tags: [] };
+    var seenTags = {};
+    for (var i = 0; i < groupWords.length; i++) {
+      var w = groupWords[i];
+      if (!w) continue;
+
+      if (w.difficultyLevel !== undefined && w.difficultyLevel !== null && w.difficultyLevel !== '') {
+        var lvl = Number(w.difficultyLevel);
+        if (!isNaN(lvl) && (merged.difficultyLevel === undefined || lvl > merged.difficultyLevel)) {
+          merged.difficultyLevel = lvl;
+        }
+      }
+
+      var img = w.image || w.imageUrl || '';
+      if (!merged.image && img) {
+        merged.image = img.toString().trim();
+      }
+
+      if (w.mustSpell) {
+        merged.mustSpell = true;
+      }
+
+      if (w.tags && w.tags.length) {
+        for (var t = 0; t < w.tags.length; t++) {
+          var tag = (w.tags[t] || '').toString().trim();
+          if (tag && !seenTags[tag]) {
+            seenTags[tag] = true;
+            merged.tags.push(tag);
+          }
+        }
+      }
+    }
+    if (merged.difficultyLevel === undefined) {
+      merged.difficultyLevel = 0;
+    }
+    return merged;
+  }
+
+  /**
+  * 將合併後的中繼資料寫入工作表指定列（A=要會拼, D=不熟程度, E=圖片URL, H=標籤）。
+  */
+  function writeMergedMetadataToRow(sheet, row, groupWords) {
+    var merged = mergeDuplicateMetadata(groupWords);
+    var level = Math.max(-999, Math.min(10, parseInt(merged.difficultyLevel) || 0));
+    sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
+    sheet.getRange(row, COL_NUM.IMAGE_URL).setValue(merged.image);
+    sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(merged.mustSpell ? 1 : '');
+    sheet.getRange(row, COL_NUM.TAGS).setValue(merged.tags.join(','));
+    console.log('已寫入合併中繼資料 - 不熟程度:', level, '圖片:', merged.image, '要會拼:', merged.mustSpell, '標籤:', merged.tags.join(','));
+  }
+
+  /**
+  * 刪除一組重複單字所在的列，回傳成功刪除的數量。
+  */
+  function deleteDuplicateRows(spreadsheet, deleteWords) {
+    var deletedCount = 0;
+    for (var i = 0; i < deleteWords.length; i++) {
+      var word = deleteWords[i];
+      try {
+        var sheet = spreadsheet.getSheetByName(word.sheetName);
+        if (!sheet) {
+          console.error('找不到工作表:', word.sheetName);
+          continue;
+        }
+
+        var foundRowIndex = findWordRowIndex(sheet, word.english, word.chinese);
+
+        if (foundRowIndex !== -1) {
+          var actualRow = foundRowIndex + 1; // 轉換為1-based索引
+          sheet.deleteRow(actualRow);
+          deletedCount++;
+          console.log('已刪除:', word.sheetName, '第', actualRow, '行', '內容:', word.english, '-', word.chinese);
+        } else {
+          console.warn('找不到要刪除的行:', word.english, '-', word.chinese, '在工作表:', word.sheetName);
+        }
+      } catch (deleteError) {
+        console.error('刪除單字失敗:', word, deleteError);
+      }
+    }
+    return deletedCount;
+  }
+
+  /**
   * 處理重複單字 - 保留一個，刪除其他
+  * 保留列會合併其餘重複項目的中繼資料（不熟程度、圖片、標籤、要會拼），避免欄位遺失。
   */
   function handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords) {
     try {
@@ -764,31 +859,24 @@ function countValidWords(sheet) {
       console.log('刪除:', deleteWords);
       
       const spreadsheet = openSpreadsheetSafely(sheetId.trim());
-      let deletedCount = 0;
-      
-      // 為每個要刪除的單字找到當前的實際行位置
-      for (const word of deleteWords) {
-        try {
-          const sheet = spreadsheet.getSheetByName(word.sheetName);
-          if (!sheet) {
-            console.error('找不到工作表:', word.sheetName);
-            continue;
-          }
-          
-          const foundRowIndex = findWordRowIndex(sheet, word.english, word.chinese);
-          
-          if (foundRowIndex !== -1) {
-            const actualRow = foundRowIndex + 1; // 轉換為1-based索引
-            sheet.deleteRow(actualRow);
-            deletedCount++;
-            console.log('已刪除:', word.sheetName, '第', actualRow, '行', '內容:', word.english, '-', word.chinese);
+
+      // 先將其他重複項目的中繼資料合併寫入保留列，避免刪除後遺失欄位
+      try {
+        const keepSheet = spreadsheet.getSheetByName(keepWord.sheetName);
+        if (keepSheet) {
+          const keepRowIndex = findWordRowIndex(keepSheet, keepWord.english, keepWord.chinese);
+          if (keepRowIndex !== -1) {
+            writeMergedMetadataToRow(keepSheet, keepRowIndex + 1, [keepWord].concat(deleteWords));
           } else {
-            console.warn('找不到要刪除的行:', word.english, '-', word.chinese, '在工作表:', word.sheetName);
+            console.warn('找不到保留單字位置，略過中繼資料合併:', keepWord.english, '-', keepWord.chinese);
           }
-        } catch (deleteError) {
-          console.error('刪除單字失敗:', word, deleteError);
         }
+      } catch (metaError) {
+        console.error('合併保留單字中繼資料失敗:', metaError);
       }
+
+      // 為每個要刪除的單字找到當前的實際行位置並刪除
+      const deletedCount = deleteDuplicateRows(spreadsheet, deleteWords);
       
       console.log('成功刪除', deletedCount, '個重複單字');
       return { success: true, deletedCount: deletedCount };
@@ -815,28 +903,30 @@ function countValidWords(sheet) {
       );
       const mergedDefinition = allDefinitions.join('\n');
       
-      // 更新目標單字的定義
+      // 更新目標單字的定義與合併中繼資料（不熟程度、圖片、標籤、要會拼）
       const targetSheet = spreadsheet.getSheetByName(targetWord.sheetName);
       if (targetSheet) {
         const foundRowIndex = findWordRowIndex(targetSheet, targetWord.english, targetWord.chinese);
         
         if (foundRowIndex !== -1) {
           const targetRow = foundRowIndex + 1; // 轉換為1-based索引
+          // 合併其餘重複項目的中繼資料到目標列（不熟程度、圖片、要會拼、標籤）
+          writeMergedMetadataToRow(targetSheet, targetRow, [targetWord].concat(mergeWords));
           targetSheet.getRange(targetRow, COL_NUM.CHINESE).setValue(mergedDefinition);
-          console.log('已更新目標定義:', targetWord.sheetName, '第', targetRow, '行');
+          console.log('已更新目標定義與中繼資料:', targetWord.sheetName, '第', targetRow, '行');
         } else {
           console.error('找不到目標單字:', targetWord.english, '-', targetWord.chinese);
           return { success: false, error: '找不到目標單字位置' };
         }
       }
       
-      // 刪除其他重複項目
-      const deleteResult = handleDuplicateWordKeepOne(sheetId, targetWord, mergeWords);
+      // 刪除其他重複項目（直接刪列，中繼資料已於上方合併寫入目標列）
+      const deletedCount = deleteDuplicateRows(spreadsheet, mergeWords);
       
       return { 
         success: true, 
         mergedDefinition: mergedDefinition,
-        deletedCount: deleteResult.deletedCount 
+        deletedCount: deletedCount 
       };
     } catch (error) {
       console.error('合併重複單字失敗:', error);
@@ -860,11 +950,13 @@ function countValidWords(sheet) {
         console.log('處理重複單字:', duplicate.english, '是否相同定義:', duplicate.isSameDefinition);
         
         if (duplicate.isSameDefinition) {
-          // 中文意義相同：保留第一個工作表的，移除其他
+          // 中文意義相同：保留第一個工作表的，移除其他（仍合併中繼資料避免遺失欄位）
           const keepWord = duplicate.words[0]; // 第一個工作表的
           const removeWords = duplicate.words.slice(1); // 其他工作表的
           
           console.log('相同定義，保留第一個工作表:', keepWord.sheetName);
+          
+          wordsToModify.set(keepWord.id, { chinese: null, group: duplicate.words });
           
           // 記錄要移除的單字ID
           removeWords.forEach(word => {
@@ -892,7 +984,7 @@ function countValidWords(sheet) {
           const mergedDefinition = allDefinitions.join('\n');
           
           // 記錄要修改的單字
-          wordsToModify.set(targetWord.id, mergedDefinition);
+          wordsToModify.set(targetWord.id, { chinese: mergedDefinition, group: duplicate.words });
           
           // 記錄要移除的單字ID
           mergeWords.forEach(word => {
@@ -910,7 +1002,7 @@ function countValidWords(sheet) {
         }
       }
       
-      // 處理單字陣列：移除重複項目並修改定義
+      // 處理單字陣列：移除重複項目並合併定義與中繼資料
       const processedWords = [];
       for (let i = 0; i < allWords.length; i++) {
         const word = allWords[i];
@@ -921,9 +1013,17 @@ function countValidWords(sheet) {
         }
         
         if (wordsToModify.has(word.id)) {
-          // 修改定義
+          // 合併中繼資料（不熟程度、圖片、標籤、要會拼），必要時更新定義
+          const mod = wordsToModify.get(word.id);
+          const merged = mergeDuplicateMetadata(mod.group);
           const modifiedWord = { ...word };
-          modifiedWord.chinese = wordsToModify.get(word.id);
+          modifiedWord.difficultyLevel = merged.difficultyLevel;
+          modifiedWord.image = merged.image;
+          modifiedWord.mustSpell = merged.mustSpell;
+          modifiedWord.tags = merged.tags;
+          if (mod.chinese) {
+            modifiedWord.chinese = mod.chinese;
+          }
           processedWords.push(modifiedWord);
         } else {
           // 保持原樣

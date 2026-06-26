@@ -164,6 +164,132 @@ describe('processDuplicatesInMemory', function() {
   });
 });
 
+// ============================================================
+// Metadata merging (難易度 / 圖片 / 標籤 / 要會拼)
+// Spec: openspec/specs/duplicate-handling/spec.md
+// ============================================================
+describe('mergeDuplicateWordMetadata', function() {
+
+  test('takes max difficulty, first non-empty image, union of tags, any mustSpell', function() {
+    var group = [
+      { id: 1, english: 'bank', chinese: '銀行', difficultyLevel: 0, image: '', imageFormula: '', mustSpell: false, tags: ['金融'] },
+      { id: 2, english: 'bank', chinese: '河岸', difficultyLevel: 5, image: 'http://img/river.png', imageFormula: '=IMAGE("x")', mustSpell: true, tags: ['地理', '金融'] }
+    ];
+
+    var merged = app.mergeDuplicateWordMetadata(group);
+
+    expect(merged.difficultyLevel).toBe(5);
+    expect(merged.image).toBe('http://img/river.png');
+    expect(merged.imageFormula).toBe('=IMAGE("x")');
+    expect(merged.mustSpell).toBe(true);
+    expect(merged.tags).toEqual(['金融', '地理']);
+  });
+
+  test('defaults difficulty to 0 when none present', function() {
+    var merged = app.mergeDuplicateWordMetadata([
+      { id: 1, english: 'x', chinese: '甲' },
+      { id: 2, english: 'x', chinese: '乙' }
+    ]);
+    expect(merged.difficultyLevel).toBe(0);
+    expect(merged.image).toBe('');
+    expect(merged.mustSpell).toBe(false);
+    expect(merged.tags).toEqual([]);
+  });
+
+  test('keeps first occurrence image even if later words also have images', function() {
+    var merged = app.mergeDuplicateWordMetadata([
+      { id: 1, english: 'x', chinese: '甲', image: 'first.png' },
+      { id: 2, english: 'x', chinese: '乙', image: 'second.png' }
+    ]);
+    expect(merged.image).toBe('first.png');
+  });
+});
+
+describe('applyMergedMetadataToWord', function() {
+  test('returns a new object preserving target identity fields but merged metadata', function() {
+    var target = { id: 1, english: 'bank', chinese: '銀行', sheetName: 'Sheet1', originalRowIndex: 2, difficultyLevel: 0, image: '', tags: [], mustSpell: false };
+    var group = [
+      target,
+      { id: 2, english: 'bank', chinese: '河岸', sheetName: 'Sheet2', difficultyLevel: 7, image: 'http://img', tags: ['地理'], mustSpell: true }
+    ];
+
+    var result = app.applyMergedMetadataToWord(target, group);
+
+    expect(result).not.toBe(target);
+    expect(result.id).toBe(1);
+    expect(result.sheetName).toBe('Sheet1');
+    expect(result.difficultyLevel).toBe(7);
+    expect(result.image).toBe('http://img');
+    expect(result.tags).toEqual(['地理']);
+    expect(result.mustSpell).toBe(true);
+    // Original target must not be mutated
+    expect(target.difficultyLevel).toBe(0);
+    expect(target.image).toBe('');
+  });
+});
+
+describe('processDuplicatesInMemory metadata preservation', function() {
+
+  test('different-definition merge keeps metadata from non-first duplicate', function() {
+    var allWords = [
+      { id: 1, english: 'bank', chinese: '銀行', sheetName: 'Sheet1', originalRowIndex: 2, difficultyLevel: 0, image: '', imageFormula: '', mustSpell: false, tags: [] },
+      { id: 2, english: 'bank', chinese: '河岸', sheetName: 'Sheet2', originalRowIndex: 2, difficultyLevel: 8, image: 'http://img/river.png', imageFormula: '', mustSpell: true, tags: ['地理'] }
+    ];
+    var duplicates = [
+      { english: 'bank', isSameDefinition: false, words: [allWords[0], allWords[1]] }
+    ];
+
+    var result = app.processDuplicatesInMemory(allWords, duplicates);
+    var bank = result.processedWords.find(function(w) { return w.english === 'bank'; });
+
+    expect(bank.chinese).toContain('銀行');
+    expect(bank.chinese).toContain('河岸');
+    expect(bank.difficultyLevel).toBe(8);
+    expect(bank.image).toBe('http://img/river.png');
+    expect(bank.tags).toEqual(['地理']);
+    expect(bank.mustSpell).toBe(true);
+  });
+
+  test('same-definition keep-first still merges metadata from removed duplicate', function() {
+    var allWords = [
+      { id: 1, english: 'apple', chinese: '蘋果', sheetName: 'Sheet1', originalRowIndex: 2, difficultyLevel: 2, image: '', imageFormula: '', mustSpell: false, tags: ['水果'] },
+      { id: 2, english: 'apple', chinese: '蘋果', sheetName: 'Sheet2', originalRowIndex: 2, difficultyLevel: 0, image: 'http://img/apple.png', imageFormula: '', mustSpell: true, tags: ['食物'] }
+    ];
+    var duplicates = [
+      { english: 'apple', isSameDefinition: true, words: [allWords[0], allWords[1]] }
+    ];
+
+    var result = app.processDuplicatesInMemory(allWords, duplicates);
+    var apple = result.processedWords.find(function(w) { return w.english === 'apple'; });
+
+    expect(apple.id).toBe(1);
+    expect(apple.chinese).toBe('蘋果');
+    expect(apple.difficultyLevel).toBe(2);
+    expect(apple.image).toBe('http://img/apple.png');
+    expect(apple.tags).toEqual(['水果', '食物']);
+    expect(apple.mustSpell).toBe(true);
+  });
+});
+
+describe('detectAndHandleDuplicatesInMemory metadata preservation', function() {
+
+  test('auto-merge keeps metadata from non-first duplicate', function() {
+    var allWords = [
+      { id: 1, english: 'bank', chinese: '銀行', sheetName: 'Sheet1', difficultyLevel: 0, image: '', imageFormula: '', mustSpell: false, tags: [] },
+      { id: 2, english: 'bank', chinese: '河岸', sheetName: 'Sheet2', difficultyLevel: 3, image: 'http://img', imageFormula: '', mustSpell: true, tags: ['地理'] }
+    ];
+
+    var out = app.detectAndHandleDuplicatesInMemory(allWords);
+    var bank = out.words.find(function(w) { return w.english === 'bank'; });
+
+    expect(out.autoHandled).toBe(true);
+    expect(bank.difficultyLevel).toBe(3);
+    expect(bank.image).toBe('http://img');
+    expect(bank.tags).toEqual(['地理']);
+    expect(bank.mustSpell).toBe(true);
+  });
+});
+
 describe('findDuplicateGroupsInMemory', function() {
   test('returns empty when no duplicates', function() {
     var words = [
