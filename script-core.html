@@ -17,7 +17,7 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.18.14',
+    APP_VERSION: '1.18.15',
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
     APP_BUILD_TIME: '2026-06-26 19:30',
 
@@ -50,6 +50,16 @@
     SRS_COUNT_OPTIONS: [10, 20, 30, 50, 100],
     SRS_BOX_INTERVALS: { 1: 1, 2: 2, 3: 4, 4: 7, 5: 14, 6: 30, 7: 60, 8: 120 },
     SRS_MAX_BOX: 8,
+
+    // === 複習優先分數（決定每天輪播與快速複習的單字順序） ===
+    // 分數越高越優先出現。score = staleness(天) + difficultyComponent。
+    // 「不熟程度數字大」與「很久沒複習」都會推高分數；「最近剛複習 + 數字小」分數低，排到後面。
+    REVIEW_PRIORITY: {
+      NEVER_REVIEWED_DAYS: 365,   // 從未複習（欄G為空）視為的 staleness 天數（=最久）
+      MAX_STALENESS_DAYS: 365,    // staleness 上限，避免極舊日期蓋過不熟程度
+      UNFAMILIAR_DAY_WEIGHT: 15,  // 不熟程度 > 0 時，每 +1 等同的 staleness 天數
+      FAMILIAR_DAY_WEIGHT: 8       // 不熟程度 < 0 時，每 -1 扣除的 staleness 天數（越熟越往後）
+    },
 
     // === 測驗 ===
     QUIZ_MIN_WORDS: 3,

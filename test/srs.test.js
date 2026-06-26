@@ -17,6 +17,16 @@ beforeEach(function() {
   localStorage.clear();
 });
 
+// 產生「n 天前」的日期字串 YYYY-MM-DD（以本地時間為準）
+function daysAgo(n) {
+  var d = new Date();
+  d.setDate(d.getDate() - n);
+  var y = d.getFullYear();
+  var m = d.getMonth() + 1;
+  var day = d.getDate();
+  return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
 // ============================================================
 // getBoxInterval — openspec/specs/srs/spec.md
 // ============================================================
@@ -411,17 +421,16 @@ describe('getRecommendedWords', function() {
     expect(result[1].english).toBe('overdue-srs');
   });
 
-  test('overdue SRS words come before familiar reviewed words (difficulty <= 0)', function() {
+  test('a very stale familiar word can outrank a recently-reviewed unfamiliar word', function() {
     app.words = [
-      { id: 0, english: 'familiar-reviewed', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 0, lastReviewDate: '2025-01-01' },
-      { id: 1, english: 'overdue-srs', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 0 }
+      { id: 0, english: 'recent-hard', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 2, lastReviewDate: daysAgo(1) },
+      { id: 1, english: 'stale-easy', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: -1, lastReviewDate: '2020-01-01' }
     ];
-    app.srsData = {
-      'S1:2': { box: 1, nextReview: '2020-01-01' }
-    };
+    app.srsData = {};
     var result = app.getRecommendedWords();
-    expect(result[0].english).toBe('overdue-srs');
-    expect(result[1].english).toBe('familiar-reviewed');
+    // recent-hard: 1 + 2*15 = 31 ; stale-easy: 365 + (-1*8) = 357 → staleness dominates
+    expect(result[0].english).toBe('stale-easy');
+    expect(result[1].english).toBe('recent-hard');
   });
 
   test('new words come before future-due words', function() {
@@ -450,19 +459,16 @@ describe('getRecommendedWords', function() {
     expect(result[2].english).toBe('easy');
   });
 
-  test('among due words with same date, lower box comes first', function() {
+  test('among reviewed words with same difficulty, the staler one comes first', function() {
     app.words = [
-      { id: 0, english: 'highbox', sheetName: 'S1', originalRowIndex: 1 },
-      { id: 1, english: 'lowbox', sheetName: 'S1', originalRowIndex: 2 }
+      { id: 0, english: 'recent', sheetName: 'S1', originalRowIndex: 1, difficultyLevel: 0, lastReviewDate: daysAgo(5) },
+      { id: 1, english: 'older', sheetName: 'S1', originalRowIndex: 2, difficultyLevel: 0, lastReviewDate: daysAgo(40) }
     ];
-    app.srsData = {
-      'S1:1': { box: 4, nextReview: '2020-01-01' },
-      'S1:2': { box: 1, nextReview: '2020-01-01' }
-    };
+    app.srsData = {};
     var result = app.getRecommendedWords();
-    // sortKey = -(box), so -4 < -1 → box 4 sorts first (more negative = earlier)
-    expect(result[0].english).toBe('highbox');
-    expect(result[1].english).toBe('lowbox');
+    // recent: 5 ; older: 40 → older first
+    expect(result[0].english).toBe('older');
+    expect(result[1].english).toBe('recent');
   });
 
   test('accepts sourceWords parameter', function() {
@@ -487,6 +493,96 @@ describe('getRecommendedWords', function() {
     var result = app.getRecommendedWords();
     expect(result[0].english).toBe('hard');
     expect(result[1].english).toBe('familiar');
+  });
+});
+
+// ============================================================
+// getReviewPriorityScore — openspec/specs/srs/spec.md
+// ============================================================
+describe('getReviewPriorityScore', function() {
+  var RP = APP_CONSTANTS.REVIEW_PRIORITY;
+
+  test('null word returns 0', function() {
+    expect(app.getReviewPriorityScore(null)).toBe(0);
+  });
+
+  test('never reviewed + difficulty 0 equals NEVER_REVIEWED_DAYS', function() {
+    expect(app.getReviewPriorityScore({ difficultyLevel: 0, lastReviewDate: '' })).toBe(RP.NEVER_REVIEWED_DAYS);
+  });
+
+  test('never reviewed + unfamiliar adds difficulty weight', function() {
+    var score = app.getReviewPriorityScore({ difficultyLevel: 5, lastReviewDate: '' });
+    expect(score).toBe(RP.NEVER_REVIEWED_DAYS + 5 * RP.UNFAMILIAR_DAY_WEIGHT);
+  });
+
+  test('reviewed today + difficulty 0 scores 0', function() {
+    expect(app.getReviewPriorityScore({ difficultyLevel: 0, lastReviewDate: daysAgo(0) })).toBe(0);
+  });
+
+  test('staleness counts days since last review', function() {
+    expect(app.getReviewPriorityScore({ difficultyLevel: 0, lastReviewDate: daysAgo(10) })).toBe(10);
+  });
+
+  test('unfamiliar word reviewed recently still gets a difficulty boost', function() {
+    var score = app.getReviewPriorityScore({ difficultyLevel: 4, lastReviewDate: daysAgo(10) });
+    expect(score).toBe(10 + 4 * RP.UNFAMILIAR_DAY_WEIGHT);
+  });
+
+  test('familiar word reviewed recently gets a negative score (pushed back)', function() {
+    var score = app.getReviewPriorityScore({ difficultyLevel: -4, lastReviewDate: daysAgo(1) });
+    expect(score).toBe(1 - 4 * RP.FAMILIAR_DAY_WEIGHT);
+    expect(score).toBeLessThan(0);
+  });
+
+  test('stale unfamiliar word outscores recent familiar word', function() {
+    var stale = app.getReviewPriorityScore({ difficultyLevel: 8, lastReviewDate: daysAgo(40) });
+    var recent = app.getReviewPriorityScore({ difficultyLevel: -4, lastReviewDate: daysAgo(1) });
+    expect(stale).toBeGreaterThan(recent);
+  });
+
+  test('staleness is clamped at MAX_STALENESS_DAYS', function() {
+    expect(app.getReviewPriorityScore({ difficultyLevel: 0, lastReviewDate: '2000-01-01' })).toBe(RP.MAX_STALENESS_DAYS);
+  });
+
+  test('missing difficultyLevel is treated as 0', function() {
+    expect(app.getReviewPriorityScore({ lastReviewDate: daysAgo(7) })).toBe(7);
+  });
+});
+
+// ============================================================
+// sortWordsByReviewPriority — openspec/specs/srs/spec.md
+// ============================================================
+describe('sortWordsByReviewPriority', function() {
+
+  test('orders by score descending (distinct scores)', function() {
+    var words = [
+      { english: 'recent-easy', difficultyLevel: -2, lastReviewDate: daysAgo(1) },   // 1 - 16 = -15
+      { english: 'new-hard', difficultyLevel: 6, lastReviewDate: '' },               // 365 + 90 = 455
+      { english: 'stale-mid', difficultyLevel: 2, lastReviewDate: daysAgo(20) }      // 20 + 30 = 50
+    ];
+    app.sortWordsByReviewPriority(words);
+    expect(words.map(function(w) { return w.english; })).toEqual(['new-hard', 'stale-mid', 'recent-easy']);
+  });
+
+  test('sorts in place and returns the same array reference', function() {
+    var words = [
+      { english: 'a', difficultyLevel: 0, lastReviewDate: daysAgo(1) },
+      { english: 'b', difficultyLevel: 0, lastReviewDate: daysAgo(2) }
+    ];
+    var returned = app.sortWordsByReviewPriority(words);
+    expect(returned).toBe(words);
+    expect(words[0].english).toBe('b');
+  });
+
+  test('keeps every word (no loss) when scores tie', function() {
+    var words = [
+      { english: 'x', difficultyLevel: 0, lastReviewDate: daysAgo(3) },
+      { english: 'y', difficultyLevel: 0, lastReviewDate: daysAgo(3) },
+      { english: 'z', difficultyLevel: 0, lastReviewDate: daysAgo(3) }
+    ];
+    app.sortWordsByReviewPriority(words);
+    expect(words.length).toBe(3);
+    expect(words.map(function(w) { return w.english; }).sort()).toEqual(['x', 'y', 'z']);
   });
 });
 
