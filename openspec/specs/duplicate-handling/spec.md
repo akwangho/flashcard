@@ -72,6 +72,13 @@ The system SHALL provide a modal for resolving duplicates one group at a time.
 
 - **WHEN** the duplicate modal is open and a group of duplicates is shown
 - **THEN** the user can choose one of:
-  1. **Keep first, delete others** — retains the first occurrence and deletes the rest (modifies Google Sheet)
-  2. **Merge definitions** — combines all translations into one entry (modifies Google Sheet)
+  1. **Keep one, delete others** — retains the selected sheet's version and deletes the rest (modifies Google Sheet)
+  2. **Merge definitions** — combines all translations into the selected destination sheet (modifies Google Sheet; only offered when the group has different Chinese translations)
   3. **Skip, handle later** — applies in-memory auto-handling without modifying Google Sheet
+
+#### Scenario: Selecting a destination sheet also selects its action
+
+- **WHEN** the user clicks a destination option under "Keep one, delete others" or "Merge definitions" (either the radio or its label)
+- **THEN** the matching action (keep or merge) is automatically selected together with that destination
+- **AND** confirming applies that action to the chosen destination sheet, so the result is written to the selected sheet and (for merge) the Chinese translations are combined there
+- **AND** the user is not required to separately click the action radio before picking a destination

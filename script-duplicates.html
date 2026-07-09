@@ -456,76 +456,48 @@
     englishSpan.textContent = duplicate.english;
     optionsContainer.innerHTML = '';
     actionsDiv.style.display = 'block';
-    
-    if (duplicate.isSameDefinition) {
-      // 定義相同：選擇保留哪一個
-      var keepOption = document.createElement('div');
-      keepOption.className = 'duplicate-option';
-      keepOption.innerHTML = 
-        '<div class="option-header">' +
-          '<input type="radio" name="duplicate-action" value="keep" class="option-radio" checked>' +
-          '<span class="option-title">保留其中一個，刪除其他</span>' +
-        '</div>' +
-        '<div class="option-description">選擇要保留的工作表版本，其他版本將被永久刪除</div>' +
-        '<div class="merge-target-selection" id="keep-target-selection"></div>';
-      
-      var targetSelection = keepOption.querySelector('#keep-target-selection');
-      for (var i = 0; i < duplicate.words.length; i++) {
-        var word = duplicate.words[i];
-        var targetOption = document.createElement('div');
-        targetOption.className = 'merge-target-option';
-        targetOption.innerHTML = 
-          '<input type="radio" name="keep-target" value="' + i + '" class="merge-target-radio" ' + 
-          (i === 0 ? 'checked' : '') + '>' +
-          '<span class="merge-target-label">保留 ' + word.sheetName + ': ' + word.chinese + '</span>';
-        
-        (function(option) {
-          targetOption.addEventListener('click', function(e) {
-            if (e.target.type !== 'radio') {
-              var radio = option.querySelector('input[type="radio"]');
-              if (radio) radio.checked = true;
-            }
-          });
-        })(targetOption);
-        
-        targetSelection.appendChild(targetOption);
-      }
-      
-      optionsContainer.appendChild(keepOption);
-          } else {
-      // 定義不同：保留一個或合併
-      var keepOption = document.createElement('div');
-      keepOption.className = 'duplicate-option';
-      keepOption.innerHTML = 
-        '<div class="option-header">' +
-          '<input type="radio" name="duplicate-action" value="keep" class="option-radio" checked>' +
-          '<span class="option-title">保留其中一個，刪除其他</span>' +
-        '</div>' +
-        '<div class="option-description">選擇要保留的工作表版本，其他版本將被永久刪除</div>' +
-        '<div class="merge-target-selection" id="keep-target-selection"></div>';
-      
-      var targetSelection = keepOption.querySelector('#keep-target-selection');
-      for (var j = 0; j < duplicate.words.length; j++) {
-        var word = duplicate.words[j];
-        var targetOption = document.createElement('div');
-        targetOption.className = 'merge-target-option';
-        targetOption.innerHTML = 
-          '<input type="radio" name="keep-target" value="' + j + '" class="merge-target-radio" ' + 
-          (j === 0 ? 'checked' : '') + '>' +
-          '<span class="merge-target-label">保留 ' + word.sheetName + ': ' + word.chinese + '</span>';
-        
-        (function(option) {
-          targetOption.addEventListener('click', function(e) {
-            if (e.target.type !== 'radio') {
-              var radio = option.querySelector('input[type="radio"]');
-              if (radio) radio.checked = true;
-            }
-          });
-        })(targetOption);
-        
-        targetSelection.appendChild(targetOption);
-      }
-      
+
+    // 點選目的地選項時，同步選取對應的處理方式（保留 / 合併）。
+    // 若不同步，使用者選了合併目的地卻仍沿用預設「保留」，會導致結果被放到
+    // 錯誤的工作表（永遠是第一個）且中文意思未合併。
+    function bindTargetOption(optionEl, actionValue) {
+      optionEl.addEventListener('click', function(e) {
+        var actionRadio = document.querySelector('input[name="duplicate-action"][value="' + actionValue + '"]');
+        if (actionRadio) actionRadio.checked = true;
+        if (!e.target || e.target.type !== 'radio') {
+          var radio = optionEl.querySelector('input[type="radio"]');
+          if (radio) radio.checked = true;
+        }
+      });
+    }
+
+    // 「保留其中一個，刪除其他」：相同/不同定義皆提供此選項
+    var keepOption = document.createElement('div');
+    keepOption.className = 'duplicate-option';
+    keepOption.innerHTML = 
+      '<div class="option-header">' +
+        '<input type="radio" name="duplicate-action" value="keep" class="option-radio" checked>' +
+        '<span class="option-title">保留其中一個，刪除其他</span>' +
+      '</div>' +
+      '<div class="option-description">選擇要保留的工作表版本，其他版本將被永久刪除</div>' +
+      '<div class="merge-target-selection" id="keep-target-selection"></div>';
+
+    var keepTargetSelection = keepOption.querySelector('#keep-target-selection');
+    for (var i = 0; i < duplicate.words.length; i++) {
+      var keepWord = duplicate.words[i];
+      var keepTargetOption = document.createElement('div');
+      keepTargetOption.className = 'merge-target-option';
+      keepTargetOption.innerHTML = 
+        '<input type="radio" name="keep-target" value="' + i + '" class="merge-target-radio" ' + 
+        (i === 0 ? 'checked' : '') + '>' +
+        '<span class="merge-target-label">保留 ' + keepWord.sheetName + ': ' + keepWord.chinese + '</span>';
+      bindTargetOption(keepTargetOption, 'keep');
+      keepTargetSelection.appendChild(keepTargetOption);
+    }
+    optionsContainer.appendChild(keepOption);
+
+    // 定義不同時，額外提供「合併所有定義」選項
+    if (!duplicate.isSameDefinition) {
       var mergeOption = document.createElement('div');
       mergeOption.className = 'duplicate-option';
       mergeOption.innerHTML = 
@@ -535,30 +507,19 @@
         '</div>' +
         '<div class="option-description">將所有定義合併到選定的工作表中，其他版本將被刪除</div>' +
         '<div class="merge-target-selection" id="merge-target-selection"></div>';
-      
+
       var mergeTargetSelection = mergeOption.querySelector('#merge-target-selection');
       for (var k = 0; k < duplicate.words.length; k++) {
-        var word = duplicate.words[k];
-        var targetOption = document.createElement('div');
-        targetOption.className = 'merge-target-option';
-        targetOption.innerHTML = 
+        var mergeWord = duplicate.words[k];
+        var mergeTargetOption = document.createElement('div');
+        mergeTargetOption.className = 'merge-target-option';
+        mergeTargetOption.innerHTML = 
           '<input type="radio" name="merge-target" value="' + k + '" class="merge-target-radio" ' + 
           (k === 0 ? 'checked' : '') + '>' +
-          '<span class="merge-target-label">合併到 ' + word.sheetName + '</span>';
-        
-        (function(option) {
-          targetOption.addEventListener('click', function(e) {
-            if (e.target.type !== 'radio') {
-              var radio = option.querySelector('input[type="radio"]');
-              if (radio) radio.checked = true;
-            }
-          });
-        })(targetOption);
-        
-        mergeTargetSelection.appendChild(targetOption);
+          '<span class="merge-target-label">合併到 ' + mergeWord.sheetName + ': ' + mergeWord.chinese + '</span>';
+        bindTargetOption(mergeTargetOption, 'merge');
+        mergeTargetSelection.appendChild(mergeTargetOption);
       }
-      
-      optionsContainer.appendChild(keepOption);
       optionsContainer.appendChild(mergeOption);
     }
   };

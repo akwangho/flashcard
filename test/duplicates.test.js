@@ -360,6 +360,149 @@ describe('showDuplicateModal', function() {
   });
 });
 
+// ============================================================
+// Manual resolution: selecting a destination must also select
+// the matching action (keep / merge). Regression for the bug
+// where picking a merge destination still ran "keep" on the
+// first sheet and did not merge the Chinese meanings.
+// Spec: openspec/specs/duplicate-handling/spec.md
+// ============================================================
+describe('showDuplicateOptions destination selection', function() {
+
+  function makeDifferentGroup() {
+    return {
+      english: 'bank',
+      isSameDefinition: false,
+      words: [
+        { id: 1, english: 'bank', chinese: '銀行', sheetName: 'Sheet1' },
+        { id: 2, english: 'bank', chinese: '河岸', sheetName: 'Sheet2' }
+      ]
+    };
+  }
+
+  test('clicking a merge destination selects the merge action and that target', function() {
+    var group = makeDifferentGroup();
+    app.showDuplicateOptions(group);
+
+    var mergeOptions = document.querySelectorAll('#merge-target-selection .merge-target-option');
+    expect(mergeOptions.length).toBe(2);
+
+    // User clicks "合併到 Sheet2" (index 1)
+    mergeOptions[1].click();
+
+    var action = document.querySelector('input[name="duplicate-action"]:checked');
+    var mergeTarget = document.querySelector('input[name="merge-target"]:checked');
+    expect(action.value).toBe('merge');
+    expect(mergeTarget.value).toBe('1');
+  });
+
+  test('clicking a keep destination selects the keep action and that target', function() {
+    var group = makeDifferentGroup();
+    app.showDuplicateOptions(group);
+
+    var keepOptions = document.querySelectorAll('#keep-target-selection .merge-target-option');
+    keepOptions[1].click();
+
+    var action = document.querySelector('input[name="duplicate-action"]:checked');
+    var keepTarget = document.querySelector('input[name="keep-target"]:checked');
+    expect(action.value).toBe('keep');
+    expect(keepTarget.value).toBe('1');
+  });
+
+  test('same-definition group only renders a keep option (no merge option)', function() {
+    var group = {
+      english: 'apple',
+      isSameDefinition: true,
+      words: [
+        { id: 1, english: 'apple', chinese: '蘋果', sheetName: 'Sheet1' },
+        { id: 2, english: 'apple', chinese: '蘋果', sheetName: 'Sheet2' }
+      ]
+    };
+    app.showDuplicateOptions(group);
+
+    expect(document.getElementById('keep-target-selection')).not.toBeNull();
+    expect(document.getElementById('merge-target-selection')).toBeNull();
+  });
+});
+
+describe('confirmDuplicateAction dispatch', function() {
+
+  function setupGroup(app) {
+    var group = {
+      english: 'bank',
+      isSameDefinition: false,
+      words: [
+        { id: 1, english: 'bank', chinese: '銀行', sheetName: 'Sheet1' },
+        { id: 2, english: 'bank', chinese: '河岸', sheetName: 'Sheet2' }
+      ]
+    };
+    app.sheetSettings = { sheetId: 'sheet-abc' };
+    app.duplicateWords = [group];
+    app.currentDuplicateIndex = 0;
+    app.duplicateProcessingResults = [];
+    // Mirror selectDuplicateWord: ensure the confirm button is enabled so the
+    // "processing in progress" guard does not swallow the confirm call.
+    var confirmBtn = document.getElementById('confirm-duplicate-action');
+    if (confirmBtn) confirmBtn.disabled = false;
+    app.showDuplicateOptions(group);
+    return group;
+  }
+
+  test('choosing a merge destination calls merge (not keep) on the selected sheet', function() {
+    jest.useFakeTimers();
+    try {
+      setupGroup(app);
+      var runner = global.google.script.run;
+      var mergeSpy = jest.spyOn(runner, 'handleDuplicateWordMerge');
+      var keepSpy = jest.spyOn(runner, 'handleDuplicateWordKeepOne');
+
+      // User picks the second sheet as the merge destination
+      document.querySelectorAll('#merge-target-selection .merge-target-option')[1].click();
+
+      app.confirmDuplicateAction();
+
+      expect(keepSpy).not.toHaveBeenCalled();
+      expect(mergeSpy).toHaveBeenCalled();
+      var args = mergeSpy.mock.calls[0];
+      expect(args[0]).toBe('sheet-abc');
+      expect(args[1].sheetName).toBe('Sheet2'); // target = chosen destination
+      expect(args[2].length).toBe(1);
+      expect(args[2][0].sheetName).toBe('Sheet1'); // the other one gets merged/removed
+
+      mergeSpy.mockRestore();
+      keepSpy.mockRestore();
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  test('choosing a keep destination calls keep on the selected sheet', function() {
+    jest.useFakeTimers();
+    try {
+      setupGroup(app);
+      var runner = global.google.script.run;
+      var mergeSpy = jest.spyOn(runner, 'handleDuplicateWordMerge');
+      var keepSpy = jest.spyOn(runner, 'handleDuplicateWordKeepOne');
+
+      document.querySelectorAll('#keep-target-selection .merge-target-option')[1].click();
+
+      app.confirmDuplicateAction();
+
+      expect(mergeSpy).not.toHaveBeenCalled();
+      expect(keepSpy).toHaveBeenCalled();
+      var args = keepSpy.mock.calls[0];
+      expect(args[1].sheetName).toBe('Sheet2');
+
+      mergeSpy.mockRestore();
+      keepSpy.mockRestore();
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+});
+
 describe('closeDuplicateModal', function() {
 
   test('hides modal and resumes timer', function() {
