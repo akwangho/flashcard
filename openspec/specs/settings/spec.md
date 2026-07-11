@@ -15,7 +15,7 @@ Defines the settings UI (general and voice modals) and the LocalStorage data mod
   displayMode: String,            // 'english-first' (default) | 'chinese-first' | 'mixed'
   fontFamily: String,             // Font code; default 'system-default'
   delaySpeechInNormalMode: Boolean, // Delay EN speech until phase 2; default false
-  mustSpellChineseFirst: Boolean, // Force Chinese-first in mixed mode for must-spell level 1 only (level 2 stays random); default true
+  mustSpellChineseFirst: Boolean, // Force Chinese-first in mixed mode for must-spell level 1 only (level 0.5 stays random); default true
   showTimerProgressBar: Boolean,  // Show timer progress bar; default true
   timerProgressBarOffset: Number, // Top offset in px (0–100); default 0
   smartTimerEnabled: Boolean      // Smart timer; default false

@@ -602,7 +602,7 @@
     
     // 混合模式：每張卡片隨機決定顯示順序
     // 僅「要會拼」等級 1 在 mustSpellChineseFirst 開啟時強制先中文；
-    // 等級 2（初學）即使勾選仍以隨機方式出現，降低初學挫折感
+    // 等級 0.5（初學）即使勾選仍以隨機方式出現，降低初學挫折感
     if (this.settings.displayMode === 'mixed') {
       if (currentWord && currentWord.mustSpell === 1 && this.settings.mustSpellChineseFirst) {
         this.currentWordReversed = true;

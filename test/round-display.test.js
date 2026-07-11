@@ -119,7 +119,7 @@ describe('displayCurrentWord and startNewRound', function() {
   });
 
   // ===========================================
-  // 混合模式 + 要會拼強制先中文（等級 1 強制、等級 2 隨機）
+  // 混合模式 + 要會拼強制先中文（等級 1 強制、等級 0.5 隨機）
   // ===========================================
   describe('mixed-mode must-spell display order', function() {
     beforeEach(function() {
@@ -138,16 +138,16 @@ describe('displayCurrentWord and startNewRound', function() {
       expect(app.currentWordReversed).toBe(true);
     });
 
-    test('mustSpell level 2 follows random (not forced) - false branch', function() {
+    test('mustSpell level 0.5 follows random (not forced) - false branch', function() {
       jest.spyOn(Math, 'random').mockReturnValue(0.9);
-      app.currentWords[app.currentIndex].mustSpell = 2;
+      app.currentWords[app.currentIndex].mustSpell = 0.5;
       app.displayCurrentWord();
       expect(app.currentWordReversed).toBe(false);
     });
 
-    test('mustSpell level 2 follows random (not forced) - true branch', function() {
+    test('mustSpell level 0.5 follows random (not forced) - true branch', function() {
       jest.spyOn(Math, 'random').mockReturnValue(0.1);
-      app.currentWords[app.currentIndex].mustSpell = 2;
+      app.currentWords[app.currentIndex].mustSpell = 0.5;
       app.displayCurrentWord();
       expect(app.currentWordReversed).toBe(true);
     });

@@ -255,7 +255,7 @@ function createDOMElements() {
     if (id === 'edit-word-must-spell') {
       el = document.createElement('select');
       el.id = id;
-      ['0', '1', '2'].forEach(function(val) {
+      ['0', '1', '0.5'].forEach(function(val) {
         var opt = document.createElement('option');
         opt.value = val;
         el.appendChild(opt);

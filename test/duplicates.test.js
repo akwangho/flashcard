@@ -204,27 +204,27 @@ describe('mergeDuplicateWordMetadata', function() {
     expect(merged.image).toBe('first.png');
   });
 
-  test('mustSpell level 1 wins over level 2 and 0', function() {
+  test('mustSpell level 1 wins over level 0.5 and 0', function() {
     var merged = app.mergeDuplicateWordMetadata([
-      { id: 1, english: 'x', chinese: '甲', mustSpell: 2 },
+      { id: 1, english: 'x', chinese: '甲', mustSpell: 0.5 },
       { id: 2, english: 'x', chinese: '乙', mustSpell: 1 },
       { id: 3, english: 'x', chinese: '丙', mustSpell: 0 }
     ]);
     expect(merged.mustSpell).toBe(1);
   });
 
-  test('mustSpell level 2 wins over 0 when no level 1 present', function() {
+  test('mustSpell level 0.5 wins over 0 when no level 1 present', function() {
     var merged = app.mergeDuplicateWordMetadata([
       { id: 1, english: 'x', chinese: '甲', mustSpell: 0 },
-      { id: 2, english: 'x', chinese: '乙', mustSpell: 2 }
+      { id: 2, english: 'x', chinese: '乙', mustSpell: 0.5 }
     ]);
-    expect(merged.mustSpell).toBe(2);
+    expect(merged.mustSpell).toBe(0.5);
   });
 
   test('legacy boolean true normalizes to level 1', function() {
     var merged = app.mergeDuplicateWordMetadata([
       { id: 1, english: 'x', chinese: '甲', mustSpell: true },
-      { id: 2, english: 'x', chinese: '乙', mustSpell: 2 }
+      { id: 2, english: 'x', chinese: '乙', mustSpell: 0.5 }
     ]);
     expect(merged.mustSpell).toBe(1);
   });
@@ -240,10 +240,10 @@ describe('normalizeMustSpell', function() {
     expect(app.normalizeMustSpell('0')).toBe(0);
   });
 
-  test('value 2 (string or number) maps to 2', function() {
-    expect(app.normalizeMustSpell(2)).toBe(2);
-    expect(app.normalizeMustSpell('2')).toBe(2);
-    expect(app.normalizeMustSpell(' 2 ')).toBe(2);
+  test('value 0.5 (string or number) maps to 0.5', function() {
+    expect(app.normalizeMustSpell(0.5)).toBe(0.5);
+    expect(app.normalizeMustSpell('0.5')).toBe(0.5);
+    expect(app.normalizeMustSpell(' 0.5 ')).toBe(0.5);
   });
 
   test('value 1, legacy true, and other non-empty map to 1', function() {

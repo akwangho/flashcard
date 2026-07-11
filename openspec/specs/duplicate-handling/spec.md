@@ -42,7 +42,7 @@ When resolving duplicates (auto, skip/in-memory, or manual keep/merge), the syst
 - **THEN** the kept entry's `不熟程度` (difficultyLevel) is set to the **maximum** value across the group (the least-familiar wins, so it is still reviewed)
 - **AND** its `圖片URL` (image) and image formula are set to the **first non-empty** value in group order (the kept entry's own value takes precedence)
 - **AND** its `標籤` (tags) is the **union** of all tags in the group, de-duplicated and in first-seen order
-- **AND** its `要會拼` (mustSpell) takes the strictest level in the group: `1` if any entry is `1`; otherwise `2` if any entry is `2`; otherwise `0`
+- **AND** its `要會拼` (mustSpell) takes the strictest level in the group: `1` if any entry is `1`; otherwise `0.5` if any entry is `0.5`; otherwise `0`
 - **AND** the `複習日期` (lastReviewDate) of the kept entry is left unchanged to avoid affecting SRS scheduling
 
 #### Scenario: Manual resolution writes merged metadata to the sheet
