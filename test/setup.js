@@ -173,7 +173,7 @@ function createDOMElements() {
     el.id = id;
     // Some elements need special types
     if (id.indexOf('-setting') !== -1 && id.indexOf('select') === -1) {
-      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting' || id === 'edit-word-must-spell' || id === 'listening-mode-setting') {
+      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting' || id === 'listening-mode-setting') {
         el = document.createElement('input');
         el.id = id;
         el.type = 'checkbox';
@@ -251,6 +251,15 @@ function createDOMElements() {
       el = document.createElement('input');
       el.id = id;
       el.type = 'checkbox';
+    }
+    if (id === 'edit-word-must-spell') {
+      el = document.createElement('select');
+      el.id = id;
+      ['0', '1', '2'].forEach(function(val) {
+        var opt = document.createElement('option');
+        opt.value = val;
+        el.appendChild(opt);
+      });
     }
     if (id === 'edit-word-image-preview-img') {
       el = document.createElement('img');

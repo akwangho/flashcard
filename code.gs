@@ -46,6 +46,24 @@
   // ===========================================
 
   /**
+  * 正規化 A 欄「要會拼」值為 0 / 1 / 2。
+  *   - 空 / 0 → 0（不需會拼）
+  *   - 1 → 1（要會拼，混合模式可強制先中文）
+  *   - 2 → 2（要會拼-初學，混合模式強制先中文時仍隨機）
+  *   - 其他非空值 → 1（相容舊資料，任何標記皆視為要會拼）
+  * @param {*} raw A 欄原始值
+  * @returns {number} 0 | 1 | 2
+  */
+  function normalizeMustSpell(raw) {
+    if (raw === undefined || raw === null || raw === '') return 0;
+    var s = raw.toString().trim();
+    if (s === '') return 0;
+    if (s === '0') return 0;
+    if (s === '2') return 2;
+    return 1;
+  }
+
+  /**
   * 驗證和清理 Sheet ID
   */
   function validateAndCleanSheetId(sheetId) {
@@ -136,7 +154,8 @@ function countValidWords(sheet) {
     }
 
     // 讀取 A 欄（第1欄，index 0）的「要會拼」標記
-    var mustSpell = (rowData[COL.MUST_SPELL] !== undefined && rowData[COL.MUST_SPELL] !== null && rowData[COL.MUST_SPELL] !== '') ? true : false;
+    // 0/空 = 不需會拼；1 = 要會拼；2 = 要會拼（初學，混合模式強制先中文時仍隨機）
+    var mustSpell = normalizeMustSpell(rowData[COL.MUST_SPELL]);
 
     // 讀取 H 欄：標籤（以半形或全形逗號分隔）
     var tags = [];
@@ -502,10 +521,11 @@ function countValidWords(sheet) {
         console.log('已更新圖片URL:', properties.imageUrl);
       }
       
-      // 更新 A 欄：要會拼（1 為要會拼，空字串為不需要）
+      // 更新 A 欄：要會拼（1 = 要會拼；2 = 要會拼-初學；空字串 = 不需要）
       if (properties.mustSpell !== undefined && properties.mustSpell !== null) {
-        sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(properties.mustSpell ? 1 : '');
-        console.log('已更新要會拼:', properties.mustSpell);
+        var mustSpellVal = normalizeMustSpell(properties.mustSpell);
+        sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(mustSpellVal === 0 ? '' : mustSpellVal);
+        console.log('已更新要會拼:', mustSpellVal);
       }
 
       // 更新 H 欄：標籤（以半形逗號分隔的字串）
@@ -600,8 +620,9 @@ function countValidWords(sheet) {
         const level = w.difficultyLevel || 0;
         
         var tagsStr = (w.tags && w.tags.length > 0) ? w.tags.join(',') : '';
+        var mustSpellVal = normalizeMustSpell(w.mustSpell);
         targetSheet.appendRow([
-          w.mustSpell ? 1 : '',      // A 欄：要會拼標記
+          mustSpellVal === 0 ? '' : mustSpellVal,  // A 欄：要會拼標記（1/2/空）
           w.english || '',           // B 欄：單字
           w.chinese || '',           // C 欄：翻譯
           level === 0 ? '' : level,  // D 欄：不熟程度（數字格式）
@@ -760,13 +781,13 @@ function countValidWords(sheet) {
   *   - 不熟程度(difficultyLevel)：取群組最大值（最不熟者優先，確保仍會被複習）
   *   - 圖片(image/imageUrl)：取第一個非空值（依群組順序，目標單字優先）
   *   - 標籤(tags)：聯集，去重並保留出現順序
-  *   - 要會拼(mustSpell)：任一為真即為真
+  *   - 要會拼(mustSpell)：取最嚴等級（任一為 1 → 1；否則任一為 2 → 2；否則 0）
   * 複習日期(lastReviewDate)不在此合併，沿用目標列原值以避免影響 SRS 排程。
   * @param {Array} groupWords 同一英文單字的重複群組（目標單字應排在第一個）
   * @returns {Object} { difficultyLevel, image, mustSpell, tags }
   */
   function mergeDuplicateMetadata(groupWords) {
-    var merged = { difficultyLevel: undefined, image: '', mustSpell: false, tags: [] };
+    var merged = { difficultyLevel: undefined, image: '', mustSpell: 0, tags: [] };
     var seenTags = {};
     for (var i = 0; i < groupWords.length; i++) {
       var w = groupWords[i];
@@ -784,8 +805,11 @@ function countValidWords(sheet) {
         merged.image = img.toString().trim();
       }
 
-      if (w.mustSpell) {
-        merged.mustSpell = true;
+      var ms = normalizeMustSpell(w.mustSpell);
+      if (ms === 1) {
+        merged.mustSpell = 1;
+      } else if (ms === 2 && merged.mustSpell !== 1) {
+        merged.mustSpell = 2;
       }
 
       if (w.tags && w.tags.length) {
@@ -812,7 +836,7 @@ function countValidWords(sheet) {
     var level = Math.max(-999, Math.min(10, parseInt(merged.difficultyLevel) || 0));
     sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
     sheet.getRange(row, COL_NUM.IMAGE_URL).setValue(merged.image);
-    sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(merged.mustSpell ? 1 : '');
+    sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(merged.mustSpell === 0 ? '' : merged.mustSpell);
     sheet.getRange(row, COL_NUM.TAGS).setValue(merged.tags.join(','));
     console.log('已寫入合併中繼資料 - 不熟程度:', level, '圖片:', merged.image, '要會拼:', merged.mustSpell, '標籤:', merged.tags.join(','));
   }

@@ -59,7 +59,7 @@
     if (sheetNameEl) sheetNameEl.textContent = currentWord.sheetName || '未知';
 
     var mustSpellToggle = document.getElementById('edit-word-must-spell');
-    if (mustSpellToggle) mustSpellToggle.checked = !!currentWord.mustSpell;
+    if (mustSpellToggle) mustSpellToggle.value = String(this.normalizeMustSpell(currentWord.mustSpell));
 
     var tagsInput = document.getElementById('edit-word-tags');
     if (tagsInput) tagsInput.value = (currentWord.tags && currentWord.tags.length > 0) ? currentWord.tags.join(', ') : '';
@@ -326,7 +326,7 @@
     if (isNaN(newDifficulty)) newDifficulty = 0;
     newDifficulty = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, Math.min(10, newDifficulty));
     var newImage = imageInput ? imageInput.value.trim() : '';
-    var newMustSpell = mustSpellToggle ? mustSpellToggle.checked : false;
+    var newMustSpell = mustSpellToggle ? this.normalizeMustSpell(mustSpellToggle.value) : 0;
 
     var tagsInput = document.getElementById('edit-word-tags');
     var newTags = [];

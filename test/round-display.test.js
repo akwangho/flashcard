@@ -119,6 +119,56 @@ describe('displayCurrentWord and startNewRound', function() {
   });
 
   // ===========================================
+  // 混合模式 + 要會拼強制先中文（等級 1 強制、等級 2 隨機）
+  // ===========================================
+  describe('mixed-mode must-spell display order', function() {
+    beforeEach(function() {
+      app.settings.displayMode = 'mixed';
+      app.settings.mustSpellChineseFirst = true;
+    });
+
+    afterEach(function() {
+      if (Math.random.mockRestore) Math.random.mockRestore();
+    });
+
+    test('mustSpell level 1 is forced reversed even when random would be false', function() {
+      jest.spyOn(Math, 'random').mockReturnValue(0.9);
+      app.currentWords[app.currentIndex].mustSpell = 1;
+      app.displayCurrentWord();
+      expect(app.currentWordReversed).toBe(true);
+    });
+
+    test('mustSpell level 2 follows random (not forced) - false branch', function() {
+      jest.spyOn(Math, 'random').mockReturnValue(0.9);
+      app.currentWords[app.currentIndex].mustSpell = 2;
+      app.displayCurrentWord();
+      expect(app.currentWordReversed).toBe(false);
+    });
+
+    test('mustSpell level 2 follows random (not forced) - true branch', function() {
+      jest.spyOn(Math, 'random').mockReturnValue(0.1);
+      app.currentWords[app.currentIndex].mustSpell = 2;
+      app.displayCurrentWord();
+      expect(app.currentWordReversed).toBe(true);
+    });
+
+    test('mustSpell level 0 follows random', function() {
+      jest.spyOn(Math, 'random').mockReturnValue(0.9);
+      app.currentWords[app.currentIndex].mustSpell = 0;
+      app.displayCurrentWord();
+      expect(app.currentWordReversed).toBe(false);
+    });
+
+    test('level 1 not forced when mustSpellChineseFirst is off', function() {
+      app.settings.mustSpellChineseFirst = false;
+      jest.spyOn(Math, 'random').mockReturnValue(0.9);
+      app.currentWords[app.currentIndex].mustSpell = 1;
+      app.displayCurrentWord();
+      expect(app.currentWordReversed).toBe(false);
+    });
+  });
+
+  // ===========================================
   // startNewRound
   // ===========================================
   describe('startNewRound', function() {

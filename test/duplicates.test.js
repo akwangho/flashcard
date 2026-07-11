@@ -181,7 +181,7 @@ describe('mergeDuplicateWordMetadata', function() {
     expect(merged.difficultyLevel).toBe(5);
     expect(merged.image).toBe('http://img/river.png');
     expect(merged.imageFormula).toBe('=IMAGE("x")');
-    expect(merged.mustSpell).toBe(true);
+    expect(merged.mustSpell).toBe(1);
     expect(merged.tags).toEqual(['金融', '地理']);
   });
 
@@ -192,7 +192,7 @@ describe('mergeDuplicateWordMetadata', function() {
     ]);
     expect(merged.difficultyLevel).toBe(0);
     expect(merged.image).toBe('');
-    expect(merged.mustSpell).toBe(false);
+    expect(merged.mustSpell).toBe(0);
     expect(merged.tags).toEqual([]);
   });
 
@@ -202,6 +202,55 @@ describe('mergeDuplicateWordMetadata', function() {
       { id: 2, english: 'x', chinese: '乙', image: 'second.png' }
     ]);
     expect(merged.image).toBe('first.png');
+  });
+
+  test('mustSpell level 1 wins over level 2 and 0', function() {
+    var merged = app.mergeDuplicateWordMetadata([
+      { id: 1, english: 'x', chinese: '甲', mustSpell: 2 },
+      { id: 2, english: 'x', chinese: '乙', mustSpell: 1 },
+      { id: 3, english: 'x', chinese: '丙', mustSpell: 0 }
+    ]);
+    expect(merged.mustSpell).toBe(1);
+  });
+
+  test('mustSpell level 2 wins over 0 when no level 1 present', function() {
+    var merged = app.mergeDuplicateWordMetadata([
+      { id: 1, english: 'x', chinese: '甲', mustSpell: 0 },
+      { id: 2, english: 'x', chinese: '乙', mustSpell: 2 }
+    ]);
+    expect(merged.mustSpell).toBe(2);
+  });
+
+  test('legacy boolean true normalizes to level 1', function() {
+    var merged = app.mergeDuplicateWordMetadata([
+      { id: 1, english: 'x', chinese: '甲', mustSpell: true },
+      { id: 2, english: 'x', chinese: '乙', mustSpell: 2 }
+    ]);
+    expect(merged.mustSpell).toBe(1);
+  });
+});
+
+describe('normalizeMustSpell', function() {
+  test('empty / falsy values map to 0', function() {
+    expect(app.normalizeMustSpell(undefined)).toBe(0);
+    expect(app.normalizeMustSpell(null)).toBe(0);
+    expect(app.normalizeMustSpell('')).toBe(0);
+    expect(app.normalizeMustSpell(false)).toBe(0);
+    expect(app.normalizeMustSpell(0)).toBe(0);
+    expect(app.normalizeMustSpell('0')).toBe(0);
+  });
+
+  test('value 2 (string or number) maps to 2', function() {
+    expect(app.normalizeMustSpell(2)).toBe(2);
+    expect(app.normalizeMustSpell('2')).toBe(2);
+    expect(app.normalizeMustSpell(' 2 ')).toBe(2);
+  });
+
+  test('value 1, legacy true, and other non-empty map to 1', function() {
+    expect(app.normalizeMustSpell(1)).toBe(1);
+    expect(app.normalizeMustSpell('1')).toBe(1);
+    expect(app.normalizeMustSpell(true)).toBe(1);
+    expect(app.normalizeMustSpell('x')).toBe(1);
   });
 });
 
@@ -221,7 +270,7 @@ describe('applyMergedMetadataToWord', function() {
     expect(result.difficultyLevel).toBe(7);
     expect(result.image).toBe('http://img');
     expect(result.tags).toEqual(['地理']);
-    expect(result.mustSpell).toBe(true);
+    expect(result.mustSpell).toBe(1);
     // Original target must not be mutated
     expect(target.difficultyLevel).toBe(0);
     expect(target.image).toBe('');
@@ -247,7 +296,7 @@ describe('processDuplicatesInMemory metadata preservation', function() {
     expect(bank.difficultyLevel).toBe(8);
     expect(bank.image).toBe('http://img/river.png');
     expect(bank.tags).toEqual(['地理']);
-    expect(bank.mustSpell).toBe(true);
+    expect(bank.mustSpell).toBe(1);
   });
 
   test('same-definition keep-first still merges metadata from removed duplicate', function() {
@@ -267,7 +316,7 @@ describe('processDuplicatesInMemory metadata preservation', function() {
     expect(apple.difficultyLevel).toBe(2);
     expect(apple.image).toBe('http://img/apple.png');
     expect(apple.tags).toEqual(['水果', '食物']);
-    expect(apple.mustSpell).toBe(true);
+    expect(apple.mustSpell).toBe(1);
   });
 });
 
@@ -286,7 +335,7 @@ describe('detectAndHandleDuplicatesInMemory metadata preservation', function() {
     expect(bank.difficultyLevel).toBe(3);
     expect(bank.image).toBe('http://img');
     expect(bank.tags).toEqual(['地理']);
-    expect(bank.mustSpell).toBe(true);
+    expect(bank.mustSpell).toBe(1);
   });
 });
 

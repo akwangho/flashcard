@@ -17,9 +17,9 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.18.16',
+    APP_VERSION: '1.18.17',
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-07-09 16:30',
+    APP_BUILD_TIME: '2026-07-11 19:45',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -1244,12 +1244,30 @@
   };
 
   /**
+   * 正規化「要會拼」值為 0 / 1 / 2。
+   *   - 空 / 0 → 0（不需會拼）
+   *   - 1 → 1（要會拼，混合模式可強制先中文）
+   *   - 2 → 2（要會拼-初學，混合模式強制先中文時仍隨機）
+   *   - 其他非空值（含 true）→ 1（相容舊布林資料）
+   * @param {*} raw 原始值
+   * @returns {number} 0 | 1 | 2
+   */
+  FlashcardApp.prototype.normalizeMustSpell = function(raw) {
+    if (raw === undefined || raw === null || raw === '' || raw === false) return 0;
+    if (raw === true) return 1;
+    var s = ('' + raw).replace(/^\s+|\s+$/g, '');
+    if (s === '' || s === '0') return 0;
+    if (s === '2') return 2;
+    return 1;
+  };
+
+  /**
    * 合併重複單字群組的中繼資料，避免去重/合併時遺失欄位。
    * 規則：
    *   - 不熟程度(difficultyLevel)：取群組最大值（最不熟者優先，確保仍會被複習）
    *   - 圖片(image) / 圖片公式(imageFormula)：取第一個非空值（依群組順序，目標單字優先）
    *   - 標籤(tags)：聯集，去重並保留出現順序
-   *   - 要會拼(mustSpell)：任一為真即為真
+   *   - 要會拼(mustSpell)：取最嚴等級（任一為 1 → 1；否則任一為 2 → 2；否則 0）
    * 複習日期(lastReviewDate)不在此合併，沿用目標單字原值以避免影響 SRS 排程。
    * @param {Array} groupWords 同一英文單字的重複群組
    * @returns {Object} { difficultyLevel, image, imageFormula, mustSpell, tags }
@@ -1259,7 +1277,7 @@
       difficultyLevel: undefined,
       image: '',
       imageFormula: '',
-      mustSpell: false,
+      mustSpell: 0,
       tags: []
     };
     var seenTags = {};
@@ -1280,8 +1298,11 @@
         merged.imageFormula = w.imageFormula;
       }
 
-      if (w.mustSpell) {
-        merged.mustSpell = true;
+      var ms = this.normalizeMustSpell(w.mustSpell);
+      if (ms === 1) {
+        merged.mustSpell = 1;
+      } else if (ms === 2 && merged.mustSpell !== 1) {
+        merged.mustSpell = 2;
       }
 
       if (w.tags && w.tags.length) {

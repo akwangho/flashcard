@@ -61,7 +61,7 @@ The system SHALL allow filtering to show only words marked as "must spell."
 - **WHEN** the user clicks the must-spell filter button in the menu
 - **THEN** the filter toggles on or off (no separate modal)
 - **WHEN** enabled
-- **THEN** only words with `mustSpell: true` are included in the carousel
+- **THEN** only words with a must-spell level (`mustSpell` is `1` or `2`) are included in the carousel
 
 ### Requirement: Word Type Filter
 

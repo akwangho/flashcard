@@ -424,7 +424,7 @@ describe('saveEditWord', function() {
     document.getElementById('edit-word-difficulty').value = '7';
     document.getElementById('edit-word-difficulty-number').value = '7';
     document.getElementById('edit-word-image').value = 'http://example.com/orange.png';
-    document.getElementById('edit-word-must-spell').checked = true;
+    document.getElementById('edit-word-must-spell').value = '1';
 
     // Mock dependent methods
     app.displayCurrentWord = jest.fn();
@@ -437,7 +437,7 @@ describe('saveEditWord', function() {
     expect(app.words[0].chinese).toBe('橘子');
     expect(app.words[0].difficultyLevel).toBe(7);
     expect(app.words[0].image).toBe('http://example.com/orange.png');
-    expect(app.words[0].mustSpell).toBe(true);
+    expect(app.words[0].mustSpell).toBe(1);
   });
 
   test('syncs updates to currentWords array', function() {

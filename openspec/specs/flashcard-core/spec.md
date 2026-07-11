@@ -17,7 +17,7 @@ Defines the auto-carousel flashcard loop, display modes, word-card interaction (
   image: String,             // Image URL (column E)
   imageFormula: String,      // Image display formula (column F)
   lastReviewDate: String,    // Last review date 'YYYY-MM-DD' (column G; empty = never reviewed)
-  mustSpell: Boolean,        // Must-spell flag (column A)
+  mustSpell: Number,         // Must-spell level (column A): 0 = no, 1 = must spell, 2 = must spell but early-learning
   tags: Array,               // Tags array (column H; comma-separated)
   sheetName: String,         // Source sheet name
   originalRowIndex: Number   // 1-based row index in source sheet
@@ -80,8 +80,15 @@ The system SHALL support three display modes controlling which language appears 
 
 - **GIVEN** display mode is `mixed`
 - **AND** the general setting `mustSpellChineseFirst` is `true`
-- **WHEN** a word has `mustSpell: true`
+- **WHEN** a word has `mustSpell` equal to `1`
 - **THEN** that word is always shown Chinese-first (to prompt the learner to recall the spelling)
+
+#### Scenario: Early-learning must-spell stays random
+
+- **GIVEN** display mode is `mixed`
+- **AND** the general setting `mustSpellChineseFirst` is `true`
+- **WHEN** a word has `mustSpell` equal to `2` (must spell but still early-learning)
+- **THEN** that word is NOT forced Chinese-first; its order is decided randomly (50%) like a normal mixed-mode card, to reduce early-learning frustration
 
 ### Requirement: Smart Timer
 
@@ -101,7 +108,7 @@ The system SHALL optionally adjust the phase-2 wait time based on text length wh
 
 #### Scenario: Smart timer suppression
 
-- **WHEN** the word has `mustSpell: true` AND `difficultyLevel > 0` (both conditions simultaneously)
+- **WHEN** the word has a must-spell level (`mustSpell` is `1` or `2`) AND `difficultyLevel > 0` (both conditions simultaneously)
 - **OR WHEN** `difficultyLevel ≥ 3`
 - **THEN** the full `delayTime` is used regardless of text length
 
@@ -238,7 +245,7 @@ The system SHALL display a visual indicator when the current word requires spell
 
 #### Scenario: Indicator visibility
 
-- **WHEN** the current word has `mustSpell: true`
+- **WHEN** the current word has a must-spell level (`mustSpell` is `1` or `2`)
 - **THEN** a "✍️要會拼" indicator is shown in the progress area regardless of display mode
 
 ### Requirement: Quick Timer Dock
