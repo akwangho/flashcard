@@ -291,9 +291,7 @@
     this.saveFilterSettings();
 
     // 重置暫停狀態，確保新複習開始時計時器與暫停指示同步
-    this.userPaused = false;
-    this.isPaused = false;
-    this._pauseRemainingMs = 0;
+    this._resumePlaybackState();
 
     // 直接關閉 modal（不經 closeModalById → resumeTimer 以免雙重計時器）
     var modal = document.getElementById('srs-review-modal');

@@ -571,6 +571,10 @@
    * 顯示當前單字：共用前置作業 → 依模式委派至子函式。
    */
   FlashcardApp.prototype.displayCurrentWord = function() {
+    // 顯示新卡片即代表倒數重新開始：清除任何殘留的暫停狀態，
+    // 讓「已暫停」標示與倒數進度條保持同步（未暫停時為 no-op）。
+    this._resumePlaybackState();
+
     if (this.currentWords.length === 0) {
       this.startNewRound();
       return;

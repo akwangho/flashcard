@@ -1194,6 +1194,22 @@
     }
   };
 
+  // 只要倒數開始播放，就清除殘留的暫停狀態，確保「已暫停」標示與倒數進度條同步。
+  // 正常播放時（未暫停）為 no-op。任何會重新顯示卡片/重啟倒數的操作都應經過此處，
+  // 避免出現「已暫停」仍顯示、但進度條卻在跑的情況。
+  FlashcardApp.prototype._resumePlaybackState = function() {
+    if (!this.userPaused && !this.isPaused) return;
+    var wasUserPaused = this.userPaused;
+    this.userPaused = false;
+    this.isPaused = false;
+    this._pauseRemainingMs = 0;
+    this.updatePauseButtonState();
+    // 對應 pauseTimer 中的 _pausePersistentAudio：使用者主動暫停過才需要恢復靜音音頻
+    if (wasUserPaused && typeof this._resumePersistentAudio === 'function') {
+      this._resumePersistentAudio();
+    }
+  };
+
   FlashcardApp.prototype.redisplayCurrentWord = function() {
     this.clearAllTimersAndSpeech();
     

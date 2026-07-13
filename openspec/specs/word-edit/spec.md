@@ -25,8 +25,13 @@ The system SHALL allow opening the edit-word modal for the current word or a spe
 
 - **WHEN** the edit modal opens
 - **THEN** the carousel is paused and a "Paused" indicator is shown
-- **WHEN** the edit modal closes
-- **THEN** the carousel resumes if it was not already paused before opening
+- **WHEN** the edit modal is closed via Cancel/close (without saving)
+- **THEN** the carousel resumes if it was not already paused before opening (otherwise it remains paused)
+
+#### Scenario: Save auto-resumes
+
+- **WHEN** the user saves the edit (Save button or Enter)
+- **THEN** the current card is re-displayed and the carousel always resumes, automatically clearing the "Paused" indicator, even if it was paused before the edit modal opened
 
 ### Requirement: Editable Fields
 

@@ -13,6 +13,10 @@
 
   // phase=1: 0%→50%  |  phase=2: 50%→100%  |  phase='carousel': 0%→100%
   FlashcardApp.prototype.startProgressBar = function(phase, customDuration) {
+    // 防護：開始一段全新的倒數動畫即代表正在播放，清除殘留的暫停狀態，
+    // 確保「已暫停」標示不會在進度條運行時仍顯示（涵蓋非經 displayCurrentWord 的呼叫）。
+    if (typeof this._resumePlaybackState === 'function') this._resumePlaybackState();
+
     var bar = document.getElementById('timer-progress-bar');
     if (!bar) return;
 

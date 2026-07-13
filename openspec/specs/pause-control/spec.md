@@ -47,6 +47,22 @@ The system SHALL make the "Paused" indicator itself a tappable control.
 - **AND** the user taps/clicks it
 - **THEN** the carousel resumes
 
+### Requirement: Pause/Progress Synchronisation Invariant
+
+The system SHALL keep the "Paused" indicator and the countdown progress bar in sync at all times, so the "Paused" indicator is never shown while the progress bar is animating.
+
+#### Scenario: Starting a fresh countdown clears stale paused state
+
+- **WHEN** a fresh countdown is started for a card (via `startProgressBar`, or any operation that re-displays the current card through `displayCurrentWord`)
+- **AND** the carousel is currently marked as paused
+- **THEN** the paused state is cleared (`userPaused`, `isPaused`, `_pauseRemainingMs`), the "Paused" indicator is hidden, and the persistent silent audio is resumed
+- **AND** playback proceeds so the indicator and progress bar remain in sync
+
+#### Scenario: Card-refreshing operations auto-resume
+
+- **WHEN** the user performs an operation that refreshes the current card while paused (e.g. saving a word edit, applying a filter, changing difficulty, applying settings that re-display the card, or starting a quick review)
+- **THEN** the carousel auto-resumes (the "Paused" indicator is cleared) rather than leaving "Paused" shown while the progress bar runs
+
 ### Requirement: Pause Button State
 
 The system SHALL reflect the current playback state in the pause button icon.
