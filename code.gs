@@ -47,10 +47,14 @@
 
   /**
   * 正規化 A 欄「要會拼」值為 0 / 0.5 / 1。
+  * A 欄語意：
   *   - 空 / 0 → 0（不需會拼）
-  *   - 1 → 1（要會拼，混合模式可強制先中文）
-  *   - 0.5 → 0.5（要會拼-初學，混合模式強制先中文時仍隨機）
-  *   - 其他非空值 → 1（相容舊資料，任何標記皆視為要會拼）
+  *   - 0.5 → 0.5「隨機要會拼單字」：可代表「初學要會拼」或「已熟練要會拼」，
+  *          混合模式即使開啟「強制先中文」仍以隨機順序出現，避免小朋友因為總是
+  *          先看到中文，反而在看到英文時一時反應不過來正確意思。
+  *   - 1 → 1「衝刺要會拼單字」：考試前衝刺、要熟悉的要會拼單字，
+  *          混合模式開啟「強制先中文」時固定先顯示中文。
+  *   - 其他非空值 → 1（相容舊資料，任何標記皆視為衝刺要會拼單字）
   * @param {*} raw A 欄原始值
   * @returns {number} 0 | 0.5 | 1
   */
@@ -154,7 +158,8 @@ function countValidWords(sheet) {
     }
 
     // 讀取 A 欄（第1欄，index 0）的「要會拼」標記
-    // 0/空 = 不需會拼；1 = 要會拼；0.5 = 要會拼（初學，混合模式強制先中文時仍隨機）
+    // 0/空 = 不需會拼；1 = 衝刺要會拼單字（考前衝刺，混合模式強制先中文）；
+    // 0.5 = 隨機要會拼單字（初學或已熟練，混合模式強制先中文時仍隨機）
     var mustSpell = normalizeMustSpell(rowData[COL.MUST_SPELL]);
 
     // 讀取 H 欄：標籤（以半形或全形逗號分隔）
@@ -521,7 +526,7 @@ function countValidWords(sheet) {
         console.log('已更新圖片URL:', properties.imageUrl);
       }
       
-      // 更新 A 欄：要會拼（1 = 要會拼；0.5 = 要會拼-初學；空字串 = 不需要）
+      // 更新 A 欄：要會拼（1 = 衝刺要會拼單字；0.5 = 隨機要會拼單字；空字串 = 不需要）
       if (properties.mustSpell !== undefined && properties.mustSpell !== null) {
         var mustSpellVal = normalizeMustSpell(properties.mustSpell);
         sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(mustSpellVal === 0 ? '' : mustSpellVal);
@@ -781,7 +786,7 @@ function countValidWords(sheet) {
   *   - 不熟程度(difficultyLevel)：取群組最大值（最不熟者優先，確保仍會被複習）
   *   - 圖片(image/imageUrl)：取第一個非空值（依群組順序，目標單字優先）
   *   - 標籤(tags)：聯集，去重並保留出現順序
-  *   - 要會拼(mustSpell)：取最嚴等級（任一為 1 → 1；否則任一為 0.5 → 0.5；否則 0）
+  *   - 要會拼(mustSpell)：取最嚴等級（任一為 1「衝刺要會拼單字」→ 1；否則任一為 0.5「隨機要會拼單字」→ 0.5；否則 0）
   * 複習日期(lastReviewDate)不在此合併，沿用目標列原值以避免影響 SRS 排程。
   * @param {Array} groupWords 同一英文單字的重複群組（目標單字應排在第一個）
   * @returns {Object} { difficultyLevel, image, mustSpell, tags }

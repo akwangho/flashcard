@@ -605,8 +605,9 @@
     chineseElement.style.color = '';
     
     // 混合模式：每張卡片隨機決定顯示順序
-    // 僅「要會拼」等級 1 在 mustSpellChineseFirst 開啟時強制先中文；
-    // 等級 0.5（初學）即使勾選仍以隨機方式出現，降低初學挫折感
+    // 僅「衝刺要會拼單字」（等級 1）在 mustSpellChineseFirst 開啟時強制先中文；
+    // 「隨機要會拼單字」（等級 0.5，可為初學或已熟練）即使勾選仍以隨機方式出現，
+    // 避免小朋友總是先看到中文，反而在看到英文時一時反應不過來正確意思。
     if (this.settings.displayMode === 'mixed') {
       if (currentWord && currentWord.mustSpell === 1 && this.settings.mustSpellChineseFirst) {
         this.currentWordReversed = true;
@@ -727,7 +728,7 @@
     } else {
       firstElement.textContent = currentWord.english;
       if (!this.settings.delaySpeechInNormalMode) {
-        var speechDelay = this.voiceSettings.spellOutLetters ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
+        var speechDelay = this._shouldSpellOutCurrentWord() ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
         setTimeout(function() {
           self.speakWord(currentWord.english);
         }, speechDelay);
@@ -1042,6 +1043,12 @@
         if (isModalBackgroundClick(e, voiceSettingsModal)) {
           self.closeVoiceSettings();
         }
+      });
+    }
+    var spellOutLettersToggle = document.getElementById('spell-out-letters-setting');
+    if (spellOutLettersToggle) {
+      spellOutLettersToggle.addEventListener('change', function() {
+        self.updateSpellOutScopeVisibility();
       });
     }
     if (voiceRateSlider) {

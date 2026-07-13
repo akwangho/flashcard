@@ -14,6 +14,27 @@
    *   toggleVoice, openVoiceSettings, populateVoiceSelect ...
    */
 
+  /**
+   * 判斷「目前這張卡片的英文單字」是否應該逐字母拼讀。
+   * 依 voiceSettings.spellOutLetters（總開關）與 voiceSettings.spellOutScope（範圍）決定：
+   *   - 'all'                → 所有單字都拼讀
+   *   - 'must-spell-all'     → 只拼讀所有要會拼單字（隨機 0.5 + 衝刺 1）
+   *   - 'must-spell-random'  → 只拼讀隨機要會拼單字（0.5）
+   *   - 'must-spell-sprint'  → 只拼讀衝刺要會拼單字（1）
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._shouldSpellOutCurrentWord = function() {
+    if (!this.voiceSettings.enabled || !this.voiceSettings.spellOutLetters) return false;
+    var scope = this.voiceSettings.spellOutScope || 'all';
+    if (scope === 'all') return true;
+    var currentWord = this.currentWords ? this.currentWords[this.currentIndex] : null;
+    var ms = currentWord ? this.normalizeMustSpell(currentWord.mustSpell) : 0;
+    if (scope === 'must-spell-all') return ms === 1 || ms === 0.5;
+    if (scope === 'must-spell-random') return ms === 0.5;
+    if (scope === 'must-spell-sprint') return ms === 1;
+    return true;
+  };
+
   // 檢測日文字符
   FlashcardApp.prototype.isJapaneseText = function(text) {
     if (!text) return false;
@@ -158,8 +179,8 @@
 
     var self = this;
     
-    // 如果啟用了字母拼讀，先拼讀字母，然後再唸單字
-    if (this.voiceSettings.spellOutLetters) {
+    // 如果啟用了字母拼讀且目前單字在拼讀範圍內，先拼讀字母，然後再唸單字
+    if (this._shouldSpellOutCurrentWord()) {
       // 標記語音序列開始（拼讀 + 單字發音），防止中途被切換
       this._speechSequenceActive = true;
       this.speakEnglishLetters(text, function() {
@@ -604,6 +625,9 @@
         voiceRateValue.textContent = formattedRate;
       }
       if (spellOutLettersSetting) spellOutLettersSetting.checked = this.voiceSettings.spellOutLetters || false;
+      var spellOutScopeSetting = document.getElementById('spell-out-scope-setting');
+      if (spellOutScopeSetting) spellOutScopeSetting.value = this.voiceSettings.spellOutScope || 'all';
+      this.updateSpellOutScopeVisibility();
       if (chineseSpeechEnabledSetting) chineseSpeechEnabledSetting.checked = this.voiceSettings.chineseEnabled || false;
       
       var delaySpeechToggle = document.getElementById('delay-speech-setting');
@@ -618,6 +642,16 @@
   
   FlashcardApp.prototype.closeVoiceSettings = function() {
     closeModalById(this, 'voice-settings-modal');
+  };
+
+  // 依「唸出每一個英文字母」開關，顯示/隱藏「逐字拼讀的範圍」選項
+  FlashcardApp.prototype.updateSpellOutScopeVisibility = function() {
+    var spellOutLettersSetting = document.getElementById('spell-out-letters-setting');
+    var spellOutScopeGroup = document.getElementById('spell-out-scope-group');
+    if (spellOutScopeGroup) {
+      var enabled = spellOutLettersSetting ? spellOutLettersSetting.checked : false;
+      spellOutScopeGroup.style.display = enabled ? '' : 'none';
+    }
   };
   
   // 預覽語音 - 播放示例文字
@@ -695,6 +729,8 @@
     if (speechEnabledSetting) this.voiceSettings.enabled = speechEnabledSetting.checked;
     if (voiceRateSetting) this.voiceSettings.rate = parseFloat(voiceRateSetting.value);
     if (spellOutLettersSetting) this.voiceSettings.spellOutLetters = spellOutLettersSetting.checked;
+    var spellOutScopeSetting = document.getElementById('spell-out-scope-setting');
+    if (spellOutScopeSetting) this.voiceSettings.spellOutScope = spellOutScopeSetting.value;
     if (chineseSpeechEnabledSetting) this.voiceSettings.chineseEnabled = chineseSpeechEnabledSetting.checked;
     if (delaySpeechToggle) this.settings.delaySpeechInNormalMode = delaySpeechToggle.checked;
     

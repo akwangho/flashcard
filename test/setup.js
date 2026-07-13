@@ -63,6 +63,7 @@ function createDOMElements() {
     'speech-enabled-setting', 'voice-rate-setting', 'voice-rate-value',
     'voice-select-setting', 'japanese-voice-select-setting',
     'delay-speech-setting', 'spell-out-letters-setting',
+    'spell-out-scope-setting', 'spell-out-scope-group',
     'chinese-speech-enabled-setting', 'chinese-voice-select-setting',
     'cancel-voice-settings', 'save-voice-settings',
     // Export modal
@@ -192,6 +193,15 @@ function createDOMElements() {
       el = document.createElement('input');
       el.id = id;
       el.type = 'checkbox';
+    }
+    if (id === 'spell-out-scope-setting') {
+      el = document.createElement('select');
+      el.id = id;
+      ['all', 'must-spell-all', 'must-spell-random', 'must-spell-sprint'].forEach(function(v) {
+        var opt = document.createElement('option');
+        opt.value = v;
+        el.appendChild(opt);
+      });
     }
     if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'listening-spell-input' || id === 'search-word-input') {
       el = document.createElement('input');

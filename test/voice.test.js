@@ -202,6 +202,87 @@ describe('speakEnglishWord', function() {
 });
 
 // ============================================================
+// _shouldSpellOutCurrentWord (spell-out scope) — openspec/specs/voice-tts/spec.md
+// ============================================================
+describe('_shouldSpellOutCurrentWord', function() {
+
+  function setCurrent(mustSpell) {
+    app.currentWords = [{ id: 0, english: 'apple', chinese: '蘋果', mustSpell: mustSpell }];
+    app.currentIndex = 0;
+  }
+
+  beforeEach(function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+  });
+
+  test('false when spell-out disabled', function() {
+    app.voiceSettings.spellOutLetters = false;
+    setCurrent(1);
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+  });
+
+  test('false when voice disabled', function() {
+    app.voiceSettings.enabled = false;
+    setCurrent(1);
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+  });
+
+  test("scope 'all' spells out every word regardless of mustSpell", function() {
+    app.voiceSettings.spellOutScope = 'all';
+    setCurrent(0);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+    setCurrent(0.5);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+    setCurrent(1);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+  });
+
+  test("scope 'must-spell-all' spells out 0.5 and 1 only", function() {
+    app.voiceSettings.spellOutScope = 'must-spell-all';
+    setCurrent(0);
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+    setCurrent(0.5);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+    setCurrent(1);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+  });
+
+  test("scope 'must-spell-random' spells out 0.5 only", function() {
+    app.voiceSettings.spellOutScope = 'must-spell-random';
+    setCurrent(0);
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+    setCurrent(0.5);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+    setCurrent(1);
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+  });
+
+  test("scope 'must-spell-sprint' spells out 1 only", function() {
+    app.voiceSettings.spellOutScope = 'must-spell-sprint';
+    setCurrent(0);
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+    setCurrent(0.5);
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+    setCurrent(1);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+  });
+
+  test('missing scope defaults to spelling out (all)', function() {
+    app.voiceSettings.spellOutScope = undefined;
+    setCurrent(0);
+    expect(app._shouldSpellOutCurrentWord()).toBe(true);
+  });
+
+  test('handles missing current word without throwing (non-all scope)', function() {
+    app.voiceSettings.spellOutScope = 'must-spell-sprint';
+    app.currentWords = [];
+    app.currentIndex = 0;
+    expect(app._shouldSpellOutCurrentWord()).toBe(false);
+  });
+});
+
+// ============================================================
 // speakChineseWord — openspec/specs/voice-tts/spec.md
 // ============================================================
 describe('speakChineseWord', function() {

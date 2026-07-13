@@ -441,12 +441,15 @@
           </div>
           
           <div class="setting-group" id="must-spell-chinese-first-group" style="display: none;">
-            <label for="must-spell-chinese-first-setting">✍️ 混合模式下，要會拼單字強制先顯示中文</label>
+            <label for="must-spell-chinese-first-setting">✍️ 混合模式下，衝刺要會拼單字強制先顯示中文</label>
             <div class="setting-control">
               <label class="switch">
                 <input type="checkbox" id="must-spell-chinese-first-setting">
                 <span class="slider"></span>
               </label>
+            </div>
+            <div class="setting-help">
+              <small>只影響「衝刺要會拼單字」（考前衝刺）；「隨機要會拼單字」（初學或已熟練）仍隨機決定先中文或先英文，避免小朋友總是先看到中文，反而看到英文時一時反應不過來正確意思</small>
             </div>
           </div>
           
@@ -547,6 +550,20 @@
             </div>
             <div class="setting-help">
               <small>啟用後，在唸英文單字前會先逐字母拼讀（例如：h-e-l-l-o），有助於記憶單字拼寫</small>
+            </div>
+          </div>
+          <div class="setting-group" id="spell-out-scope-group" style="display: none;">
+            <label for="spell-out-scope-setting">🔤 逐字拼讀的範圍</label>
+            <div class="setting-control">
+              <select id="spell-out-scope-setting">
+                <option value="all">所有單字</option>
+                <option value="must-spell-all">所有要會拼單字</option>
+                <option value="must-spell-random">隨機要會拼單字</option>
+                <option value="must-spell-sprint">衝刺要會拼單字</option>
+              </select>
+            </div>
+            <div class="setting-help">
+              <small>選擇哪些單字要逐字母拼讀：所有單字、所有要會拼單字、隨機要會拼單字（0.5）或衝刺要會拼單字（1）</small>
             </div>
           </div>
           <div class="setting-group">
@@ -735,8 +752,8 @@
           <div class="setting-control">
             <select id="edit-word-must-spell">
               <option value="0">不需</option>
-              <option value="1">要會拼</option>
-              <option value="0.5">要會拼（初學）</option>
+              <option value="1">衝刺要會拼單字</option>
+              <option value="0.5">隨機要會拼單字</option>
             </select>
           </div>
         </div>

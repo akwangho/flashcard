@@ -233,6 +233,7 @@ All frontend code must run on iPad 4 (iOS 10 and below).
 | EN/JA voice | Enabled |
 | Voice speed | 0.8 |
 | Letter spell-out | Disabled |
+| Letter spell-out scope | 所有單字 (`all`) |
 | Chinese voice | Disabled |
 | Chinese voice locale | zh-TW |
 | English voice locale | en-US |

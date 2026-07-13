@@ -15,7 +15,7 @@ Defines the settings UI (general and voice modals) and the LocalStorage data mod
   displayMode: String,            // 'english-first' (default) | 'chinese-first' | 'mixed'
   fontFamily: String,             // Font code; default 'system-default'
   delaySpeechInNormalMode: Boolean, // Delay EN speech until phase 2; default false
-  mustSpellChineseFirst: Boolean, // Force Chinese-first in mixed mode for must-spell level 1 only (level 0.5 stays random); default true
+  mustSpellChineseFirst: Boolean, // Force Chinese-first in mixed mode for 衝刺要會拼單字 (sprint, level 1) only; 隨機要會拼單字 (random, level 0.5) stays random; default true
   showTimerProgressBar: Boolean,  // Show timer progress bar; default true
   timerProgressBarOffset: Number, // Top offset in px (0–100); default 0
   smartTimerEnabled: Boolean      // Smart timer; default false
@@ -37,6 +37,7 @@ Defines the settings UI (general and voice modals) and the LocalStorage data mod
   japaneseLang: String,       // Japanese locale; default 'ja-JP'
   japaneseVoiceURI: String,   // Selected Japanese voice URI
   spellOutLetters: Boolean,   // Spell out each letter; default false
+  spellOutScope: String,      // Which words to spell out; 'all' | 'must-spell-all' | 'must-spell-random' | 'must-spell-sprint'; default 'all'
   chineseEnabled: Boolean,    // Enable Chinese voice; default false
   chineseLang: String,        // Chinese locale; default 'zh-TW'
   chineseVoiceURI: String     // Selected Chinese voice URI
@@ -104,7 +105,7 @@ The system SHALL provide a modal for configuring core carousel behaviour.
   - **Font size** slider: 20–120 px, step 4 px, with live preview
   - **Font family** dropdown: 9 font options with live preview area
   - **Display mode** radio: English first / Chinese first / Mixed
-  - **Must-spell force Chinese first** toggle (visible only in Mixed mode; default enabled)
+  - **Sprint must-spell force Chinese first** toggle (visible only in Mixed mode; affects 衝刺要會拼單字/level 1 only; default enabled)
   - **Smart timer** toggle (default disabled)
   - **Show timer progress bar** toggle (default enabled)
   - **Progress bar top offset** number input: 0–100 px (visible only when progress bar is enabled)
@@ -123,6 +124,7 @@ The system SHALL provide a modal for configuring text-to-speech behaviour.
   - **Japanese voice** dropdown
   - **Delayed speech** toggle (EN speech deferred to phase 2)
   - **Spell out letters** toggle (spell-out mode)
+  - **Spell-out scope** dropdown (shown only when spell-out is enabled): 所有單字 / 所有要會拼單字 / 隨機要會拼單字 / 衝刺要會拼單字
   - **Enable Chinese voice** toggle
   - **Chinese voice** dropdown
 

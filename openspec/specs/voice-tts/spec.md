@@ -61,15 +61,26 @@ The system SHALL optionally spell out each letter of an English word before sayi
 
 #### Scenario: Spell-out sequence
 
-- **WHEN** letter spell-out is enabled
+- **WHEN** letter spell-out is enabled AND the current word is within the configured spell-out scope
 - **THEN** each letter (a–z, A–Z only; spaces and hyphens skipped) is played individually
 - **AND** after all letters, the complete word is read
 - **THEN** the sequence is: letter 1 → letter 2 → … → full word
 
 #### Scenario: Reduced initial delay
 
-- **WHEN** letter spell-out is enabled
+- **WHEN** letter spell-out is enabled AND the current word is within the configured spell-out scope
 - **THEN** the initial speech delay is shortened from 500 ms to 50 ms (the letters themselves guide attention)
+
+#### Scenario: Spell-out scope selection
+
+- **WHEN** letter spell-out is enabled
+- **THEN** a scope selector (`spellOutScope`) determines which words are spelled out:
+  - `all` (所有單字) = every word is spelled out
+  - `must-spell-all` (所有要會拼單字) = only must-spell words (level `0.5` or `1`)
+  - `must-spell-random` (隨機要會拼單字) = only level `0.5` words
+  - `must-spell-sprint` (衝刺要會拼單字) = only level `1` words
+- **AND** the scope selector is shown only while letter spell-out is enabled; when disabled it is hidden
+- **AND** words outside the selected scope are read at normal speed with the standard 500 ms initial delay (no letter spell-out)
 
 ### Requirement: Voice Wait Mechanism
 
