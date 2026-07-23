@@ -44,7 +44,7 @@ The system SHALL allow editing the following word properties.
 | English word | B | Text input | Required; cannot be empty |
 | Chinese translation | C | Text input | Required; cannot be empty |
 | Difficulty level | D | Slider (-1~10) + number input (-999~10) | Bidirectional sync; ≤-999 shows "✓ 已掌握" (green); -1~-998 shows ★0 (grey); 0–10 shows ★N with colour |
-| Must-spell | A | Three-state select | `0` 不需 / `1` 衝刺要會拼單字 / `0.5` 隨機要會拼單字; level `0.5` is still must-spell but not forced Chinese-first in mixed mode |
+| Must-spell | A | Four-option select | `0` 不需 / `1` 衝刺要會拼單字 / `0.5` 隨機要會拼單字 / `-1` 看懂就好（先英文，不用中翻英）; level `0.5` is still must-spell but not forced Chinese-first in mixed mode; level `-1` is understand-only (forced English-first in mixed mode, treated as non-must-spell) |
 | Image URL | E | Text input (may be empty) | With live image preview |
 | Tags | H | Text input (comma-separated; `,` or `，`) | — |
 

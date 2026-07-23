@@ -146,10 +146,11 @@
       });
     }
     
-    // 篩選 3：要會拼篩選
+    // 篩選 3：要會拼篩選（只保留 0.5/1；排除 -1「看懂就好」與 0「不需會拼」）
     if (this.mustSpellFilter) {
+      var app3 = this;
       filtered = filtered.filter(function(w) {
-        return w.mustSpell;
+        return app3.normalizeMustSpell(w.mustSpell) > 0;
       });
     }
 
@@ -246,10 +247,11 @@
       }
     }
     
-    // 如果同時啟用了要會拼篩選，先套用
+    // 如果同時啟用了要會拼篩選，先套用（只保留 0.5/1；排除 -1「看懂就好」與 0）
     if (this.mustSpellFilter) {
+      var appCount = this;
       words = words.filter(function(w) {
-        return w.mustSpell;
+        return appCount.normalizeMustSpell(w.mustSpell) > 0;
       });
     }
     
@@ -498,10 +500,11 @@
       });
     }
     
-    // 如果同時啟用了要會拼篩選，先套用
+    // 如果同時啟用了要會拼篩選，先套用（只保留 0.5/1；排除 -1「看懂就好」與 0）
     if (this.mustSpellFilter) {
+      var appDiff = this;
       words = words.filter(function(w) {
-        return w.mustSpell;
+        return appDiff.normalizeMustSpell(w.mustSpell) > 0;
       });
     }
     

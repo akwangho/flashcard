@@ -104,7 +104,9 @@
     if (!indicator) return;
     
     var currentWord = this.currentWords[this.currentIndex];
-    if (currentWord && currentWord.mustSpell) {
+    // 只有「隨機/衝刺要會拼」(0.5 / 1) 顯示標記；「看懂就好」(-1) 與「不需」(0) 不顯示
+    var ms = currentWord ? this.normalizeMustSpell(currentWord.mustSpell) : 0;
+    if (ms === 1 || ms === 0.5) {
       indicator.style.display = 'inline-block';
     } else {
       indicator.style.display = 'none';
@@ -135,7 +137,8 @@
     var isReversed = this.isReversedForCurrentWord();
     var smartDelay;
     var difficulty = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-    var disableSmartTimer = (currentWord.mustSpell && difficulty > 0) || (difficulty >= 3);
+    // 「看懂就好」(-1) 不視為要會拼，不因其阻擋智慧計時加速；僅 0.5/1 且不熟程度>0 時停用加速
+    var disableSmartTimer = (this.normalizeMustSpell(currentWord.mustSpell) > 0 && difficulty > 0) || (difficulty >= 3);
 
     if (isReversed) {
       var english = currentWord.english || '';

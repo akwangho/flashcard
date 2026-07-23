@@ -62,6 +62,7 @@ The system SHALL allow filtering to show only words marked as "must spell."
 - **THEN** the filter toggles on or off (no separate modal)
 - **WHEN** enabled
 - **THEN** only words with a must-spell level (`mustSpell` is `1` 衝刺要會拼單字 or `0.5` 隨機要會拼單字) are included in the carousel
+- **AND** words with `mustSpell` equal to `-1` (看懂就好 / understand-only) or `0` (不需) are excluded (normalized `mustSpell > 0`)
 
 ### Requirement: Word Type Filter
 

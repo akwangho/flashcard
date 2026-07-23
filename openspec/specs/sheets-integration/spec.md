@@ -12,7 +12,7 @@ Each sheet's first row is a header row; data starts from row 2.
 
 | Column | Header row (row 1) | Data rows | Required |
 |--------|-------------------|-----------|----------|
-| A (col 1) | Valid word count (number in A1) | Must-spell flag (`1` = 衝刺要會拼單字 / sprint must-spell, forced Chinese-first in mixed mode; `0.5` = 隨機要會拼單字 / random must-spell for beginner or already-mastered words, stays random order; empty/`0` = no). Any other non-empty legacy value reads as `1` | No |
+| A (col 1) | Valid word count (number in A1) | Must-spell flag (`1` = 衝刺要會拼單字 / sprint must-spell, forced Chinese-first in mixed mode; `0.5` = 隨機要會拼單字 / random must-spell for beginner or already-mastered words, stays random order; `-1` = 看懂就好 / understand-only, forced English-first in mixed mode and treated as non-must-spell; empty/`0` = no). Any other non-empty legacy value reads as `1` | No |
 | B (col 2) | `單字` | English word | Yes |
 | C (col 3) | `翻譯` | Chinese translation | Yes |
 | D (col 4) | `不熟程度` | Difficulty -999~10 (negative = very familiar; empty = 0). Reads legacy `*` format; writes numbers | No |

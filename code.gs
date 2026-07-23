@@ -46,9 +46,11 @@
   // ===========================================
 
   /**
-  * 正規化 A 欄「要會拼」值為 0 / 0.5 / 1。
+  * 正規化 A 欄「要會拼」值為 -1 / 0 / 0.5 / 1。
   * A 欄語意：
   *   - 空 / 0 → 0（不需會拼）
+  *   - -1 → -1「看懂就好單字」：只要求看得懂英文，不要求中翻英/會拼；
+  *          混合模式時強制先顯示英文（視為非要會拼，不列入要會拼篩選、不顯示要會拼標記）。
   *   - 0.5 → 0.5「隨機要會拼單字」：可代表「初學要會拼」或「已熟練要會拼」，
   *          混合模式即使開啟「強制先中文」仍以隨機順序出現，避免小朋友因為總是
   *          先看到中文，反而在看到英文時一時反應不過來正確意思。
@@ -56,13 +58,14 @@
   *          混合模式開啟「強制先中文」時固定先顯示中文。
   *   - 其他非空值 → 1（相容舊資料，任何標記皆視為衝刺要會拼單字）
   * @param {*} raw A 欄原始值
-  * @returns {number} 0 | 0.5 | 1
+  * @returns {number} -1 | 0 | 0.5 | 1
   */
   function normalizeMustSpell(raw) {
     if (raw === undefined || raw === null || raw === '') return 0;
     var s = raw.toString().trim();
     if (s === '') return 0;
     if (s === '0') return 0;
+    if (s === '-1') return -1;
     if (s === '0.5') return 0.5;
     return 1;
   }
@@ -786,7 +789,7 @@ function countValidWords(sheet) {
   *   - 不熟程度(difficultyLevel)：取群組最大值（最不熟者優先，確保仍會被複習）
   *   - 圖片(image/imageUrl)：取第一個非空值（依群組順序，目標單字優先）
   *   - 標籤(tags)：聯集，去重並保留出現順序
-  *   - 要會拼(mustSpell)：取最嚴等級（任一為 1「衝刺要會拼單字」→ 1；否則任一為 0.5「隨機要會拼單字」→ 0.5；否則 0）
+  *   - 要會拼(mustSpell)：取最嚴等級（任一為 1「衝刺要會拼單字」→ 1；否則任一為 0.5「隨機要會拼單字」→ 0.5；否則若任一為 -1「看懂就好」且無更嚴者 → -1；否則 0）
   * 複習日期(lastReviewDate)不在此合併，沿用目標列原值以避免影響 SRS 排程。
   * @param {Array} groupWords 同一英文單字的重複群組（目標單字應排在第一個）
   * @returns {Object} { difficultyLevel, image, mustSpell, tags }
@@ -815,6 +818,8 @@ function countValidWords(sheet) {
         merged.mustSpell = 1;
       } else if (ms === 0.5 && merged.mustSpell !== 1) {
         merged.mustSpell = 0.5;
+      } else if (ms === -1 && merged.mustSpell === 0) {
+        merged.mustSpell = -1;
       }
 
       if (w.tags && w.tags.length) {

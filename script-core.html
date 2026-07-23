@@ -17,9 +17,9 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.19.0',
+    APP_VERSION: '1.20.0',
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-07-13 17:40',
+    APP_BUILD_TIME: '2026-07-23 19:05',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -111,6 +111,7 @@
     SWIPE_TIME_LIMIT_MS: 500,          // 最大滑動時間（ms）
     TOAST_CONFIRM_DURATION_MS: 1500,   // Toast 確認訊息顯示時間
     SPELL_LETTER_GAP_MS: 100,          // 拼讀字母與單字之間的間隔
+    SPELL_LETTER_SPRINT_RATE: 3,       // 衝刺(col=1)單字逐字拼讀速率倍數（時間縮短為 1/3）
     SLOW_SPEECH_RATE_FACTOR: 0.5,      // P 鍵第二次按下時的慢速倍率（相對 voiceSettings.rate）
     UI_ANIMATION_DELAY_MS: 100,        // 一般 UI 動畫延遲
     LISTENING_AUDIO_DELAY_MS: 300,     // 聽力練習播放音訊前延遲
@@ -1250,8 +1251,10 @@
   };
 
   /**
-   * 正規化「要會拼」值為 0 / 0.5 / 1。
+   * 正規化「要會拼」值為 -1 / 0 / 0.5 / 1。
    *   - 空 / 0 → 0（不需會拼）
+   *   - -1 → -1「看懂就好單字」：只要求看得懂英文，不要求中翻英/會拼；
+   *          混合模式時強制先顯示英文（視為非要會拼，不列入要會拼篩選、不顯示要會拼標記）。
    *   - 0.5 → 0.5「隨機要會拼單字」：可代表「初學要會拼」或「已熟練要會拼」，
    *          混合模式即使開啟「強制先中文」仍以隨機順序出現，避免小朋友因為
    *          總是先看到中文，反而在看到英文時一時反應不過來正確意思。
@@ -1259,13 +1262,14 @@
    *          混合模式開啟「強制先中文」時固定先顯示中文。
    *   - 其他非空值（含 true）→ 1（相容舊布林資料，一律視為衝刺要會拼單字）
    * @param {*} raw 原始值
-   * @returns {number} 0 | 0.5 | 1
+   * @returns {number} -1 | 0 | 0.5 | 1
    */
   FlashcardApp.prototype.normalizeMustSpell = function(raw) {
     if (raw === undefined || raw === null || raw === '' || raw === false) return 0;
     if (raw === true) return 1;
     var s = ('' + raw).replace(/^\s+|\s+$/g, '');
     if (s === '' || s === '0') return 0;
+    if (s === '-1') return -1;
     if (s === '0.5') return 0.5;
     return 1;
   };
@@ -1276,7 +1280,7 @@
    *   - 不熟程度(difficultyLevel)：取群組最大值（最不熟者優先，確保仍會被複習）
    *   - 圖片(image) / 圖片公式(imageFormula)：取第一個非空值（依群組順序，目標單字優先）
    *   - 標籤(tags)：聯集，去重並保留出現順序
-   *   - 要會拼(mustSpell)：取最嚴等級（任一為 1「衝刺要會拼單字」→ 1；否則任一為 0.5「隨機要會拼單字」→ 0.5；否則 0）
+   *   - 要會拼(mustSpell)：取最嚴等級（任一為 1「衝刺要會拼單字」→ 1；否則任一為 0.5「隨機要會拼單字」→ 0.5；否則若任一為 -1「看懂就好」且無更嚴者 → -1；否則 0）
    * 複習日期(lastReviewDate)不在此合併，沿用目標單字原值以避免影響 SRS 排程。
    * @param {Array} groupWords 同一英文單字的重複群組
    * @returns {Object} { difficultyLevel, image, imageFormula, mustSpell, tags }
@@ -1312,6 +1316,8 @@
         merged.mustSpell = 1;
       } else if (ms === 0.5 && merged.mustSpell !== 1) {
         merged.mustSpell = 0.5;
+      } else if (ms === -1 && merged.mustSpell === 0) {
+        merged.mustSpell = -1;
       }
 
       if (w.tags && w.tags.length) {

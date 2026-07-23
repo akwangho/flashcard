@@ -17,7 +17,7 @@ Defines the auto-carousel flashcard loop, display modes, word-card interaction (
   image: String,             // Image URL (column E)
   imageFormula: String,      // Image display formula (column F)
   lastReviewDate: String,    // Last review date 'YYYY-MM-DD' (column G; empty = never reviewed)
-  mustSpell: Number,         // Must-spell level (column A): 0 = no, 1 = 衝刺要會拼單字 (sprint), 0.5 = 隨機要會拼單字 (random, beginner or already-mastered)
+  mustSpell: Number,         // Must-spell level (column A): 0 = no, 1 = 衝刺要會拼單字 (sprint), 0.5 = 隨機要會拼單字 (random, beginner or already-mastered), -1 = 看懂就好 (understand-only; forces English-first in mixed mode, treated as non-must-spell)
   tags: Array,               // Tags array (column H; comma-separated)
   sheetName: String,         // Source sheet name
   originalRowIndex: Number   // 1-based row index in source sheet
@@ -90,6 +90,13 @@ The system SHALL support three display modes controlling which language appears 
 - **WHEN** a word has `mustSpell` equal to `0.5` (隨機要會拼單字 / random must-spell, for beginner or already-mastered words)
 - **THEN** that word is NOT forced Chinese-first; its order is decided randomly (50%) like a normal mixed-mode card, so the learner does not always see Chinese first and can still react to the English meaning
 
+#### Scenario: Understand-only word forced English first
+
+- **GIVEN** display mode is `mixed`
+- **WHEN** a word has `mustSpell` equal to `-1` (看懂就好 / understand-only)
+- **THEN** that word is always shown English-first, regardless of the `mustSpellChineseFirst` setting, because only comprehension is required (no Chinese-to-English recall)
+- **AND** this rule takes priority over the sprint (`1`) forced Chinese-first rule
+
 ### Requirement: Smart Timer
 
 The system SHALL optionally adjust the phase-2 wait time based on text length when smart timer is enabled.
@@ -111,6 +118,7 @@ The system SHALL optionally adjust the phase-2 wait time based on text length wh
 - **WHEN** the word has a must-spell level (`mustSpell` is `1` or `0.5`) AND `difficultyLevel > 0` (both conditions simultaneously)
 - **OR WHEN** `difficultyLevel ≥ 3`
 - **THEN** the full `delayTime` is used regardless of text length
+- **AND** `mustSpell` equal to `-1` (看懂就好) does NOT count as must-spell here, so it does not suppress the smart timer
 
 ### Requirement: Timer Progress Bar
 
@@ -247,6 +255,7 @@ The system SHALL display a visual indicator when the current word requires spell
 
 - **WHEN** the current word has a must-spell level (`mustSpell` is `1` or `0.5`)
 - **THEN** a "✍️要會拼" indicator is shown in the progress area regardless of display mode
+- **AND** words with `mustSpell` equal to `-1` (看懂就好) or `0` do NOT show the indicator
 
 ### Requirement: Quick Timer Dock
 

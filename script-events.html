@@ -605,11 +605,15 @@
     chineseElement.style.color = '';
     
     // 混合模式：每張卡片隨機決定顯示順序
+    // 「看懂就好單字」（等級 -1）強制先英文（只要求看得懂，不要求中翻英），優先於衝刺先中文規則；
     // 僅「衝刺要會拼單字」（等級 1）在 mustSpellChineseFirst 開啟時強制先中文；
     // 「隨機要會拼單字」（等級 0.5，可為初學或已熟練）即使勾選仍以隨機方式出現，
     // 避免小朋友總是先看到中文，反而在看到英文時一時反應不過來正確意思。
     if (this.settings.displayMode === 'mixed') {
-      if (currentWord && currentWord.mustSpell === 1 && this.settings.mustSpellChineseFirst) {
+      var ms = currentWord ? this.normalizeMustSpell(currentWord.mustSpell) : 0;
+      if (currentWord && ms === -1) {
+        this.currentWordReversed = false;
+      } else if (currentWord && ms === 1 && this.settings.mustSpellChineseFirst) {
         this.currentWordReversed = true;
       } else {
         this.currentWordReversed = Math.random() < 0.5;

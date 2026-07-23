@@ -93,6 +93,13 @@
       
       var self = this;
       var currentLetterIndex = 0;
+
+      // 衝刺要會拼單字（mustSpell === 1）逐字拼讀加速：考前衝刺已熟悉，只需加深印象，不用刻意念慢
+      var letterRate = 1;
+      var cw = this.currentWords ? this.currentWords[this.currentIndex] : null;
+      if (cw && this.normalizeMustSpell(cw.mustSpell) === 1) {
+        letterRate = APP_CONSTANTS.SPELL_LETTER_SPRINT_RATE;
+      }
       
       // 遞迴函數：逐個唸字母
       var speakNextLetter = function() {
@@ -106,7 +113,7 @@
         
         var letter = letters[currentLetterIndex];
         var utterance = new SpeechSynthesisUtterance(letter);
-        utterance.rate = 1; // 英文字母簡單易懂，固定使用正常速度
+        utterance.rate = letterRate; // 一般固定正常速度；衝刺要會拼單字加速（時間縮短為 1/SPELL_LETTER_SPRINT_RATE）
         utterance.pitch = self.voiceSettings.pitch;
         utterance.volume = self.voiceSettings.volume;
         utterance.lang = self.voiceSettings.lang;
