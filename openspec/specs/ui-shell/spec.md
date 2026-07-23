@@ -179,7 +179,7 @@ The system SHALL provide one-click preset modes in the menu's quick-settings sub
 
 | Preset | Settings applied |
 |--------|-----------------|
-| 🎧 用聽的背單字 | `displayMode='chinese-first'`, `spellOutLetters=true`, `chineseEnabled=true`, `delayTime=9`, `smartTimerEnabled=true` |
+| 🎧 用聽的背單字 | `displayMode='chinese-first'`, `spellOutLetters=true`, `spellOutScope='all'`, `chineseEnabled=true`, `delayTime=9`, `smartTimerEnabled=true`, `showTimerProgressBar=true` |
 | 👂 用聽的認識單字 | `displayMode='english-first'`, `spellOutLetters=false`, `chineseEnabled=true`, `delayTime=4.5`, `smartTimerEnabled=true`, `delaySpeechInNormalMode=false` |
 | 📝 日常複習 | `displayMode='mixed'`, `delaySpeechInNormalMode=true`, `spellOutLetters=true`, `spellOutScope='must-spell-sprint'`, `chineseEnabled=false`, `delayTime=9`, `smartTimerEnabled=true`, `showTimerProgressBar=true` |
 | 🎧 聽力訓練 | `listeningMode=true`, `spellOutLetters=false`, `chineseEnabled=false`, `smartTimerEnabled=true` |

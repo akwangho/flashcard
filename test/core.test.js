@@ -277,10 +277,11 @@ describe('applyQuickMode', function() {
     app.redisplayCurrentWord = jest.fn();
   });
 
-  test('mode 1 sets chinese-first, spellOutLetters on, chinese on, 9s, smart timer', function() {
+  test('mode 1 sets chinese-first, spellOutLetters on (all scope), chinese on, 9s, smart timer', function() {
     app.applyQuickMode(1);
     expect(app.settings.displayMode).toBe('chinese-first');
     expect(app.voiceSettings.spellOutLetters).toBe(true);
+    expect(app.voiceSettings.spellOutScope).toBe('all');
     expect(app.voiceSettings.chineseEnabled).toBe(true);
     expect(app.settings.delayTime).toBe(9);
     expect(app.settings.smartTimerEnabled).toBe(true);
