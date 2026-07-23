@@ -181,7 +181,7 @@ The system SHALL provide one-click preset modes in the menu's quick-settings sub
 |--------|-----------------|
 | 🎧 用聽的背單字 | `displayMode='chinese-first'`, `spellOutLetters=true`, `chineseEnabled=true`, `delayTime=9`, `smartTimerEnabled=true` |
 | 👂 用聽的認識單字 | `displayMode='english-first'`, `spellOutLetters=false`, `chineseEnabled=true`, `delayTime=4.5`, `smartTimerEnabled=true`, `delaySpeechInNormalMode=false` |
-| 📝 日常複習 | `displayMode='mixed'`, `delaySpeechInNormalMode=true`, `spellOutLetters=false`, `chineseEnabled=false`, `delayTime=10`, `smartTimerEnabled=true` |
+| 📝 日常複習 | `displayMode='mixed'`, `delaySpeechInNormalMode=true`, `spellOutLetters=true`, `spellOutScope='must-spell-sprint'`, `chineseEnabled=false`, `delayTime=9`, `smartTimerEnabled=true`, `showTimerProgressBar=true` |
 | 🎧 聽力訓練 | `listeningMode=true`, `spellOutLetters=false`, `chineseEnabled=false`, `smartTimerEnabled=true` |
 | 🔄 輪播記憶 | `carouselMemoryMode=true`, `displayMode='english-first'`, `spellOutLetters=false`, `chineseEnabled=false`, `delayTime=5`, `smartTimerEnabled=false`, `showTimerProgressBar=false`, `delaySpeechInNormalMode=false` |
 

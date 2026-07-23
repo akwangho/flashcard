@@ -166,7 +166,8 @@
     } else if (mode === 3) {
       this.settings.displayMode = 'mixed';
       this.settings.delaySpeechInNormalMode = true;
-      this.voiceSettings.spellOutLetters = false;
+      this.voiceSettings.spellOutLetters = true;
+      this.voiceSettings.spellOutScope = 'must-spell-sprint';
       this.voiceSettings.chineseEnabled = false;
       this.settings.delayTime = 9;
       this.settings.smartTimerEnabled = true;
@@ -175,7 +176,7 @@
       details = [
         '📝 日常複習',
         '🔄 顯示模式：隨機混合',
-        '🔤 字母拼讀：關',
+        '🔤 字母拼讀：開（衝刺要會拼單字）',
         '🗣️ 中文發音：關',
         '⏱️ 延遲秒數：9 秒',
         '⏱️ 智慧計時：開',

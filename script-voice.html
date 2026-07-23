@@ -93,13 +93,6 @@
       
       var self = this;
       var currentLetterIndex = 0;
-
-      // 衝刺要會拼單字（mustSpell === 1）逐字拼讀加速：考前衝刺已熟悉，只需加深印象，不用刻意念慢
-      var letterRate = 1;
-      var cw = this.currentWords ? this.currentWords[this.currentIndex] : null;
-      if (cw && this.normalizeMustSpell(cw.mustSpell) === 1) {
-        letterRate = APP_CONSTANTS.SPELL_LETTER_SPRINT_RATE;
-      }
       
       // 遞迴函數：逐個唸字母
       var speakNextLetter = function() {
@@ -113,7 +106,7 @@
         
         var letter = letters[currentLetterIndex];
         var utterance = new SpeechSynthesisUtterance(letter);
-        utterance.rate = letterRate; // 一般固定正常速度；衝刺要會拼單字加速（時間縮短為 1/SPELL_LETTER_SPRINT_RATE）
+        utterance.rate = 1; // 英文字母簡單易懂，固定使用正常速度
         utterance.pitch = self.voiceSettings.pitch;
         utterance.volume = self.voiceSettings.volume;
         utterance.lang = self.voiceSettings.lang;
@@ -166,6 +159,99 @@
     }
   };
 
+  // 衝刺要會拼單字（mustSpell === 1）專用拼讀：
+  // 把單字拆成「中間有空格」的字串（例如 breakfast → b r e a k f a s t），
+  // 以「單一」語音一次唸出，靠空格自然停頓；速度夠快又舒服，取代逐字母個別發音。
+  FlashcardApp.prototype.speakEnglishLettersSpaced = function(text, callback) {
+    if (!this.voiceSettings.enabled || !this.voiceSettings.spellOutLetters) {
+      if (callback) callback();
+      return;
+    }
+    if (!text) {
+      if (callback) callback();
+      return;
+    }
+
+    // 舊版瀏覽器檢查用戶交互狀態
+    if (this.isLegacyBrowser && !this.speechActivated) {
+      console.log('舊版瀏覽器：語音未啟用，跳過拆字發音');
+      if (callback) callback();
+      return;
+    }
+
+    // iPadOS Safari 26.4 限定：手勢前呼叫 speak() 會永久污染語音引擎
+    if (this._needsTapToStart && !this._userGestureSeen) {
+      console.log('拆字發音略過：使用者尚未產生第一個手勢 (iPad)');
+      if (callback) callback();
+      return;
+    }
+
+    try {
+      // 提取純英文字母，以空格串接（例如 breakfast → b r e a k f a s t）
+      var letters = [];
+      for (var i = 0; i < text.length; i++) {
+        var char = text.charAt(i);
+        if (/[a-zA-Z]/.test(char)) {
+          letters.push(char.toLowerCase());
+        }
+      }
+
+      if (letters.length === 0) {
+        if (callback) callback();
+        return;
+      }
+
+      var spaced = letters.join(' ');
+      console.log('拆字發音:', spaced);
+
+      var utterance = new SpeechSynthesisUtterance(spaced);
+      utterance.rate = 1; // 字母以正常速度連續唸出，靠空格自然停頓
+      utterance.pitch = this.voiceSettings.pitch;
+      utterance.volume = this.voiceSettings.volume;
+      utterance.lang = this.voiceSettings.lang;
+
+      // 選擇語音（與逐字母拼讀相同：優先使用者指定的英文語音）
+      var voices = this.speechSynthesis.getVoices();
+      var selectedVoice = null;
+      if (this.voiceSettings.voiceURI) {
+        for (var j = 0; j < voices.length; j++) {
+          if (voices[j].voiceURI === this.voiceSettings.voiceURI) {
+            selectedVoice = voices[j];
+            break;
+          }
+        }
+      }
+      if (!selectedVoice) {
+        for (var k = 0; k < voices.length; k++) {
+          if (voices[k].lang.indexOf('en-') === 0) {
+            selectedVoice = voices[k];
+            break;
+          }
+        }
+      }
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
+      utterance.onend = function() {
+        if (callback) {
+          setTimeout(callback, APP_CONSTANTS.SPELL_LETTER_GAP_MS); // 拆字與單字發音之間留一點間隔
+        }
+      };
+
+      utterance.onerror = function(event) {
+        console.log('拆字發音錯誤:', event.error);
+        if (callback) callback();
+      };
+
+      this.speechSynthesis.speak(utterance);
+
+    } catch (error) {
+      console.log('拆字發音失敗:', error);
+      if (callback) callback();
+    }
+  };
+
   // 語音播放（英文單字）
   FlashcardApp.prototype.speakEnglishWord = function(text) {
     if (!this.voiceSettings.enabled) return;
@@ -190,8 +276,13 @@
     if (this._shouldSpellOutCurrentWord()) {
       // 標記語音序列開始（拼讀 + 單字發音），防止中途被切換
       this._speechSequenceActive = true;
-      this.speakEnglishLetters(text, function() {
-        // 字母拼讀完成後，唸完整單字
+      // 衝刺要會拼單字（mustSpell === 1）改用「拆字後單一發音」（b r e a k f a s t），
+      // 速度快又自然；其餘單字維持逐字母個別拼讀。
+      var currentWord = this.currentWords ? this.currentWords[this.currentIndex] : null;
+      var useSpaced = currentWord && this.normalizeMustSpell(currentWord.mustSpell) === 1;
+      var spellOutFn = useSpaced ? this.speakEnglishLettersSpaced : this.speakEnglishLetters;
+      spellOutFn.call(this, text, function() {
+        // 拼讀完成後，唸完整單字
         self.speakEnglishWordOnly(text);
       });
     } else {

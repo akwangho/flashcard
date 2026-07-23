@@ -66,11 +66,12 @@ The system SHALL optionally spell out each letter of an English word before sayi
 - **AND** after all letters, the complete word is read
 - **THEN** the sequence is: letter 1 → letter 2 → … → full word
 
-#### Scenario: Faster spell-out for sprint words
+#### Scenario: Spaced single-utterance spell-out for sprint words
 
 - **WHEN** letter spell-out runs for a sprint must-spell word (`mustSpell` level `1`)
-- **THEN** each letter utterance uses `rate = APP_CONSTANTS.SPELL_LETTER_SPRINT_RATE` (default `3`, i.e. per-letter duration reduced to ~1/3), because exam-sprint words are already familiar and only need reinforcement
-- **AND** all other words (level `0.5`, `0`, or `-1`) spell out letters at the normal `rate = 1`
+- **THEN** instead of speaking each letter as a separate utterance, the word's letters are joined with single spaces (e.g. `breakfast` → `b r e a k f a s t`) and spoken as ONE utterance at normal `rate = 1`, relying on the spaces for natural pauses (fast and comfortable)
+- **AND** the complete word is then read as usual
+- **AND** all other words (level `0.5`, `0`, or `-1`) still use the per-letter spell-out sequence
 
 #### Scenario: Reduced initial delay
 
