@@ -199,6 +199,38 @@ describe('speakEnglishWord', function() {
     app.speakEnglishWord('hello');
     expect(spy).toHaveBeenCalledWith('hello');
   });
+
+  test('routes must-spell words (level 1 and 0.5) to spaced spell-out', function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    app.voiceSettings.spellOutScope = 'all';
+    var spacedSpy = jest.spyOn(app, 'speakEnglishLettersSpaced');
+
+    app.currentWords = [{ id: 0, english: 'breakfast', chinese: '早餐', mustSpell: 1 }];
+    app.currentIndex = 0;
+    app.speakEnglishWord('breakfast');
+    expect(spacedSpy).toHaveBeenCalledWith('breakfast', expect.any(Function));
+
+    spacedSpy.mockClear();
+    app.currentWords = [{ id: 1, english: 'apple', chinese: '蘋果', mustSpell: 0.5 }];
+    app.currentIndex = 0;
+    app.speakEnglishWord('apple');
+    expect(spacedSpy).toHaveBeenCalledWith('apple', expect.any(Function));
+  });
+
+  test('non-must-spell words use per-letter spell-out (not spaced)', function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    app.voiceSettings.spellOutScope = 'all';
+    var perLetterSpy = jest.spyOn(app, 'speakEnglishLetters');
+    var spacedSpy = jest.spyOn(app, 'speakEnglishLettersSpaced');
+
+    app.currentWords = [{ id: 0, english: 'apple', chinese: '蘋果', mustSpell: 0 }];
+    app.currentIndex = 0;
+    app.speakEnglishWord('apple');
+    expect(perLetterSpy).toHaveBeenCalled();
+    expect(spacedSpy).not.toHaveBeenCalled();
+  });
 });
 
 // ============================================================

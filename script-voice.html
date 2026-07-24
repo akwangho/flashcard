@@ -276,10 +276,11 @@
     if (this._shouldSpellOutCurrentWord()) {
       // 標記語音序列開始（拼讀 + 單字發音），防止中途被切換
       this._speechSequenceActive = true;
-      // 衝刺要會拼單字（mustSpell === 1）改用「拆字後單一發音」（b r e a k f a s t），
-      // 速度快又自然；其餘單字維持逐字母個別拼讀。
+      // 要會拼單字（衝刺 mustSpell === 1、隨機 mustSpell === 0.5）改用「拆字後單一發音」
+      // （b r e a k f a s t），速度快又自然；其餘單字維持逐字母個別拼讀。
       var currentWord = this.currentWords ? this.currentWords[this.currentIndex] : null;
-      var useSpaced = currentWord && this.normalizeMustSpell(currentWord.mustSpell) === 1;
+      var ms = currentWord ? this.normalizeMustSpell(currentWord.mustSpell) : 0;
+      var useSpaced = (ms === 1 || ms === 0.5);
       var spellOutFn = useSpaced ? this.speakEnglishLettersSpaced : this.speakEnglishLetters;
       spellOutFn.call(this, text, function() {
         // 拼讀完成後，唸完整單字
