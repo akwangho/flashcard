@@ -15,31 +15,6 @@
   <meta name="msapplication-tap-highlight" content="no">
   <meta name="theme-color" content="#1a1a1a">
   <title>英文單字閃卡</title>
-  <!-- #region agent log -->
-  <script>
-    // Debug instrumentation helper for session 58992a (auto-removed after fix verified)
-    // Always console.log too, since iPad/GAS HTTPS page cannot fetch the localhost HTTP endpoint
-    window.__dbg = function(loc, msg, data) {
-      try {
-        console.log('[DBG]', loc, msg, data || {});
-        fetch('http://127.0.0.1:7490/ingest/131b7d84-aca0-4308-a6c7-3fd60e1ce560', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '58992a' },
-          body: JSON.stringify({
-            sessionId: '58992a',
-            location: loc,
-            message: msg,
-            data: data || null,
-            timestamp: Date.now()
-          })
-        }).catch(function(){});
-      } catch (e) {}
-    };
-    window.__lastUserGestureTime = 0;
-    document.addEventListener('touchstart', function(){ window.__lastUserGestureTime = Date.now(); }, true);
-    document.addEventListener('click', function(){ window.__lastUserGestureTime = Date.now(); }, true);
-  </script>
-  <!-- #endregion -->
   <?!= include('style-base'); ?>
   <?!= include('style-flashcard'); ?>
   <?!= include('style-modal'); ?>

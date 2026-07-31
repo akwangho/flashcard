@@ -231,6 +231,68 @@ describe('speakEnglishWord', function() {
     expect(perLetterSpy).toHaveBeenCalled();
     expect(spacedSpy).not.toHaveBeenCalled();
   });
+
+  test('P-key path speaks whole word only at slow rate (skips letter spell-out)', function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    app.voiceSettings.spellOutScope = 'all';
+    app.voiceSettings.rate = 1;
+    app.currentWords = [{ id: 0, english: 'cold', chinese: '冷', mustSpell: 1 }];
+    app.currentIndex = 0;
+
+    var spacedSpy = jest.spyOn(app, 'speakEnglishLettersSpaced');
+    var lettersSpy = jest.spyOn(app, 'speakEnglishLetters');
+    var slowRate = Math.max(0.1, app.voiceSettings.rate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
+
+    // Simulate P-key even press: bump playId, set slow override, speak whole word only
+    app._speechPlayId = (app._speechPlayId || 0) + 1;
+    app._speechRateOverride = slowRate;
+    app.speakEnglishWordOnly('cold');
+
+    expect(spacedSpy).not.toHaveBeenCalled();
+    expect(lettersSpy).not.toHaveBeenCalled();
+    expect(global.speechSynthesis.speak).toHaveBeenCalled();
+    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(utterance.text).toBe('cold');
+    expect(utterance.rate).toBe(slowRate);
+    expect(app._speechRateOverride).toBeNull();
+  });
+
+  test('stale spaced spell-out callback is ignored after playId bump (P interrupt)', function() {
+    jest.useFakeTimers();
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    app.voiceSettings.spellOutScope = 'all';
+    app.currentWords = [{ id: 0, english: 'cold', chinese: '冷', mustSpell: 1 }];
+    app.currentIndex = 0;
+
+    app.speakEnglishWord('cold');
+    var spacedUtterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(spacedUtterance.text).toBe('c o l d');
+
+    // P key: invalidate in-flight spell-out then speak whole word
+    app._speechPlayId = (app._speechPlayId || 0) + 1;
+    global.speechSynthesis.speak.mockClear();
+    app.speakEnglishWordOnly('cold');
+    expect(global.speechSynthesis.speak.mock.calls[0][0].text).toBe('cold');
+
+    // Stale spaced onend must NOT schedule another full-word speak
+    var callsBefore = global.speechSynthesis.speak.mock.calls.length;
+    spacedUtterance.onend();
+    jest.advanceTimersByTime(APP_CONSTANTS.SPELL_LETTER_GAP_MS);
+    expect(global.speechSynthesis.speak.mock.calls.length).toBe(callsBefore);
+    jest.useRealTimers();
+  });
+
+  test('speakEnglishWordOnly consumes speech rate override', function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.rate = 1;
+    app._speechRateOverride = 0.5;
+    app.speakEnglishWordOnly('hello');
+    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(utterance.rate).toBe(0.5);
+    expect(app._speechRateOverride).toBeNull();
+  });
 });
 
 // ============================================================

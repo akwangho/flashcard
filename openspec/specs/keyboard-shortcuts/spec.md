@@ -25,7 +25,7 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 | `D` | Mark as very familiar (-999); requires two presses within 3 s | — |
 | `R` | Restore word (cancel pending removal) | — |
 | `E` | Open edit-word modal | Works even while paused |
-| `P` | Replay current word pronunciation (EN / JA auto-detected); odd press uses normal rate, even press uses slow rate (`SLOW_SPEECH_RATE_FACTOR` × `voiceSettings.rate`); counter resets when the displayed word changes | Works even while paused |
+| `P` | Replay the **whole word only** (EN / JA auto-detected); MUST skip letter spell-out even when spell-out is enabled. Odd press uses normal rate, even press uses slow rate (`SLOW_SPEECH_RATE_FACTOR` × `voiceSettings.rate`, default factor `0.25` ≈ Google Dictionary slow / syllable-clear speed). Increments `_speechPlayId` and cancels in-flight speech so stale spell-out callbacks cannot interrupt. Counter resets when the displayed word changes | Works even while paused |
 | Escape | Close menu / exit fullscreen / cancel D-key pending state | — |
 
 #### Scenario: Matching strategy

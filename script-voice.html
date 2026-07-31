@@ -93,13 +93,19 @@
       
       var self = this;
       var currentLetterIndex = 0;
+      var playId = this._speechPlayId || 0;
       
       // 遞迴函數：逐個唸字母
       var speakNextLetter = function() {
+        // 已被 cancel / P 鍵等新播放取代 → 停止後續字母與 callback
+        if ((self._speechPlayId || 0) !== playId) return;
         if (currentLetterIndex >= letters.length) {
           // 所有字母都唸完了，執行回調
           if (callback) {
-            setTimeout(callback, APP_CONSTANTS.SPELL_LETTER_GAP_MS); // 字母拼讀和單字發音之間留一點間隔
+            setTimeout(function() {
+              if ((self._speechPlayId || 0) !== playId) return;
+              callback();
+            }, APP_CONSTANTS.SPELL_LETTER_GAP_MS); // 字母拼讀和單字發音之間留一點間隔
           }
           return;
         }
@@ -144,6 +150,8 @@
         
         utterance.onerror = function(event) {
           console.log('字母拼讀錯誤:', event.error);
+          // cancel 導致 interrupted：不要繼續拼讀
+          if ((self._speechPlayId || 0) !== playId) return;
           currentLetterIndex++;
           setTimeout(speakNextLetter, 10);
         };
@@ -204,6 +212,9 @@
       var spaced = letters.join(' ');
       console.log('拆字發音:', spaced);
 
+      var self = this;
+      var playId = this._speechPlayId || 0;
+
       var utterance = new SpeechSynthesisUtterance(spaced);
       utterance.rate = 1; // 字母以正常速度連續唸出，靠空格自然停頓
       utterance.pitch = this.voiceSettings.pitch;
@@ -235,12 +246,18 @@
 
       utterance.onend = function() {
         if (callback) {
-          setTimeout(callback, APP_CONSTANTS.SPELL_LETTER_GAP_MS); // 拆字與單字發音之間留一點間隔
+          setTimeout(function() {
+            // 已被 cancel / P 鍵等新播放取代 → 勿再觸發完整單字發音
+            if ((self._speechPlayId || 0) !== playId) return;
+            callback();
+          }, APP_CONSTANTS.SPELL_LETTER_GAP_MS); // 拆字與單字發音之間留一點間隔
         }
       };
 
       utterance.onerror = function(event) {
         console.log('拆字發音錯誤:', event.error);
+        // cancel 導致 interrupted：不要再 callback（否則會打斷剛按下的 P 發音）
+        if ((self._speechPlayId || 0) !== playId) return;
         if (callback) callback();
       };
 
@@ -271,6 +288,7 @@
     }
 
     var self = this;
+    var playId = this._speechPlayId || 0;
     
     // 如果啟用了字母拼讀且目前單字在拼讀範圍內，先拼讀字母，然後再唸單字
     if (this._shouldSpellOutCurrentWord()) {
@@ -283,7 +301,8 @@
       var useSpaced = (ms === 1 || ms === 0.5);
       var spellOutFn = useSpaced ? this.speakEnglishLettersSpaced : this.speakEnglishLetters;
       spellOutFn.call(this, text, function() {
-        // 拼讀完成後，唸完整單字
+        // 拼讀期間若已被 cancel / P 鍵取代，略過完整單字發音
+        if ((self._speechPlayId || 0) !== playId) return;
         self.speakEnglishWordOnly(text);
       });
     } else {
@@ -300,34 +319,18 @@
     // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
     if (this._needsTapToStart && !this._userGestureSeen) {
       console.log('英文語音略過：使用者尚未產生第一個手勢 (iPad)');
-      // #region agent log
-      if (window.__dbg) window.__dbg('script-voice:speakEnglishWordOnly', 'pre-gesture skip', {
-        hypothesisId: 'F', runId: 'post-fix3', text: text
-      });
-      // #endregion
       return;
     }
 
     try {
       console.log('播放英文語音:', text);
-      // #region agent log
-      if (window.__dbg) window.__dbg('script-voice:speakEnglishWordOnly', 'speak called', {
-        hypothesisId: 'A,B,C,D,E',
-        text: text,
-        msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
-        ssSpeaking: (function(){ try { return speechSynthesis.speaking; } catch(e){ return 'err'; } })(),
-        ssPending: (function(){ try { return speechSynthesis.pending; } catch(e){ return 'err'; } })(),
-        ssPaused: (function(){ try { return speechSynthesis.paused; } catch(e){ return 'err'; } })(),
-        voicesLen: (function(){ try { return speechSynthesis.getVoices().length; } catch(e){ return -1; } })(),
-        voiceURI: this.voiceSettings.voiceURI,
-        _speechSequenceActive: this._speechSequenceActive
-      });
-      // #endregion
-      
       var utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = (this._speechRateOverride !== null && this._speechRateOverride !== undefined)
         ? this._speechRateOverride
         : this.voiceSettings.rate;
+      // 一次性覆寫：套用到 utterance 後立刻清除，避免影響後續自動發音
+      // （P 鍵慢速需保留到字母拼讀非同步完成後才進到這裡）
+      this._speechRateOverride = null;
       utterance.pitch = this.voiceSettings.pitch;
       utterance.volume = this.voiceSettings.volume;
       utterance.lang = this.voiceSettings.lang;
@@ -362,46 +365,18 @@
       // 為舊版瀏覽器添加錯誤處理
       utterance.onerror = function(event) {
         console.log('英文語音播放錯誤:', event.error);
-        // #region agent log
-        if (window.__dbg) window.__dbg('script-voice:utterance.onerror', 'error event fired', {
-          hypothesisId: 'A,B,E',
-          text: text,
-          error: event && event.error
-        });
-        // #endregion
         self._speechSequenceActive = false;
       };
       
       utterance.onstart = function() {
         console.log('英文語音開始播放:', text);
-        // #region agent log
-        if (window.__dbg) window.__dbg('script-voice:utterance.onstart', 'speech actually started', {
-          hypothesisId: 'A,B,C',
-          text: text
-        });
-        // #endregion
       };
       
       utterance.onend = function() {
-        // #region agent log
-        if (window.__dbg) window.__dbg('script-voice:utterance.onend', 'speech ended', {
-          hypothesisId: 'A,B,C',
-          text: text
-        });
-        // #endregion
         self._speechSequenceActive = false;
       };
       
       this.speechSynthesis.speak(utterance);
-      // #region agent log
-      if (window.__dbg) window.__dbg('script-voice:speakEnglishWordOnly', 'after .speak()', {
-        hypothesisId: 'A,B',
-        text: text,
-        ssSpeaking: (function(){ try { return speechSynthesis.speaking; } catch(e){ return 'err'; } })(),
-        ssPending: (function(){ try { return speechSynthesis.pending; } catch(e){ return 'err'; } })(),
-        ssPaused: (function(){ try { return speechSynthesis.paused; } catch(e){ return 'err'; } })()
-      });
-      // #endregion
     } catch (error) {
       console.log('英文語音播放失敗:', error);
       this._speechSequenceActive = false;
@@ -433,6 +408,8 @@
       utterance.rate = (this._speechRateOverride !== null && this._speechRateOverride !== undefined)
         ? this._speechRateOverride
         : this.voiceSettings.rate;
+      // 一次性覆寫：套用到 utterance 後立刻清除（與英文路徑相同）
+      this._speechRateOverride = null;
       utterance.pitch = this.voiceSettings.pitch;
       utterance.volume = this.voiceSettings.volume;
       utterance.lang = this.voiceSettings.japaneseLang;

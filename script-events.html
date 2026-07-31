@@ -685,13 +685,6 @@
 
     firstElement.textContent = '';
     firstElement.classList.add('show');
-    // #region agent log
-    if (window.__dbg) window.__dbg('script-events:_displayListeningWord', 'phase1 entry, calling speakWord sync', {
-      hypothesisId: 'A',
-      msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
-      english: currentWord && currentWord.english
-    });
-    // #endregion
     this.speakWord(currentWord.english);
 
     this._setDisplayTimer(function() {
@@ -708,22 +701,6 @@
     var self = this;
 
     var isReversed = this.isReversedForCurrentWord();
-    // #region agent log
-    var willCallSpeak = isReversed
-      ? this.voiceSettings.chineseEnabled
-      : !this.settings.delaySpeechInNormalMode;
-    if (window.__dbg) window.__dbg('script-events:_displayNormalWord', 'phase1 entry', {
-      hypothesisId: 'A',
-      displayMode: this.settings.displayMode,
-      isReversed: isReversed,
-      delaySpeechInNormalMode: this.settings.delaySpeechInNormalMode,
-      chineseEnabled: this.voiceSettings.chineseEnabled,
-      voiceEnabled: this.voiceSettings.enabled,
-      msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
-      willCallSpeakInPhase1: willCallSpeak,
-      english: currentWord && currentWord.english
-    });
-    // #endregion
     if (isReversed) {
       firstElement.textContent = currentWord.chinese;
       setTimeout(function() {
@@ -1217,22 +1194,25 @@
         { keyCodes: [69], codes: ['KeyE'], keys: [],
           action: function() { self.openEditWordModal(); },
           allowWhenPaused: true },
-        // P → 重新播放當前單字發音（奇數次正常、偶數次慢速；切換單字時重置；暫停時也可用）
+        // P → 重新播放「整個單字」發音（略過字母拼讀）；奇數次正常、偶數次慢速；切換單字時重置；暫停時也可用
         { keyCodes: [80], codes: ['KeyP'], keys: [],
           action: function() {
             var w = self.currentWords && self.currentWords[self.currentIndex];
             if (!w || !w.english) return;
             self._pKeyPressCount = (self._pKeyPressCount || 0) + 1;
             var isSlow = (self._pKeyPressCount % 2 === 0);
-            try { self.speechSynthesis.cancel(); } catch (e) {}
+            // 使進行中的字母拼讀 callback 失效，避免稍後又插播/打斷本次發音
+            self._speechPlayId = (self._speechPlayId || 0) + 1;
             self._speechSequenceActive = false;
+            try { self.speechSynthesis.cancel(); } catch (e) {}
             var baseRate = (self.voiceSettings && self.voiceSettings.rate) ? self.voiceSettings.rate : 1;
             var slowRate = Math.max(0.1, baseRate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
             self._speechRateOverride = isSlow ? slowRate : null;
-            try {
-              self.speakWord(w.english);
-            } finally {
-              self._speechRateOverride = null;
+            // 略過逐字母拼讀，直接唸整個單字（或日文）
+            if (self.isJapaneseText(w.english)) {
+              self.speakJapaneseWord(w.english);
+            } else {
+              self.speakEnglishWordOnly(w.english);
             }
           },
           allowWhenPaused: true }

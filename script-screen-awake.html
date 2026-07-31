@@ -387,13 +387,6 @@
     } catch (e) {
       console.log('暫停持續靜音音頻失敗:', e && e.message);
     }
-    // #region agent log
-    if (window.__dbg) window.__dbg('script-screen-awake:_pausePersistentAudio', 'after suspend', {
-      hypothesisId: 'A,B', runId: 'post-fix',
-      ctxState: (function(self){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(this),
-      audioElPaused: (function(self){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })(this)
-    });
-    // #endregion
   };
 
   // 恢復持續靜音音頻（iOS 會在各種情況下暫停 AudioContext）
@@ -401,11 +394,6 @@
     // ★ 使用者主動暫停中，不可恢復（任何途徑：visibilitychange、touchstart 手勢、watchdog、
     //   resumeTimer 之間競爭時）。否則會在使用者切到 YouTube 後又被搶回音訊焦點。
     if (this.userPaused) {
-      // #region agent log
-      if (window.__dbg) window.__dbg('script-screen-awake:_resumePersistentAudio', 'skip while userPaused', {
-        hypothesisId: 'A,B,C', runId: 'post-fix'
-      });
-      // #endregion
       return;
     }
     try {
@@ -452,40 +440,15 @@
         u.onstart = function() {
           self._speechSynthesisUnlocked = true;
           console.log('[unlock] silent utterance onstart — SpeechSynthesis 已解鎖');
-          // #region agent log
-          if (window.__dbg) window.__dbg('script-screen-awake:unlock.onstart', 'unlock confirmed', {
-            hypothesisId: 'A', runId: 'post-fix2'
-          });
-          // #endregion
         };
         u.onerror = function(ev) {
           console.log('[unlock] utterance error:', ev && ev.error);
-          // #region agent log
-          if (window.__dbg) window.__dbg('script-screen-awake:unlock.onerror', 'unlock error', {
-            hypothesisId: 'A', runId: 'post-fix2', error: ev && ev.error
-          });
-          // #endregion
         };
         u.onend = function() {
           console.log('[unlock] utterance ended');
-          // #region agent log
-          if (window.__dbg) window.__dbg('script-screen-awake:unlock.onend', 'unlock ended', {
-            hypothesisId: 'A', runId: 'post-fix2', unlocked: self._speechSynthesisUnlocked
-          });
-          // #endregion
         };
         self.speechSynthesis.speak(u);
         console.log('SpeechSynthesis 解鎖嘗試（gesture 內 speak " " volume=1）');
-        // #region agent log
-        if (window.__dbg) window.__dbg('script-screen-awake:unlockSpeechSynthesis', 'unlock speak() called', {
-          hypothesisId: 'A,F', runId: 'post-fix3',
-          userGestureSeen: !!self._userGestureSeen,
-          msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
-          ssSpeakingAfter: (function(){ try { return self.speechSynthesis.speaking; } catch(e){ return 'err'; } })(),
-          ssPendingAfter: (function(){ try { return self.speechSynthesis.pending; } catch(e){ return 'err'; } })(),
-          voicesLen: (function(){ try { return self.speechSynthesis.getVoices().length; } catch(e){ return -1; } })()
-        });
-        // #endregion
       } catch (e) {
         console.log('SpeechSynthesis 解鎖失敗:', e && e.message);
       }
@@ -549,13 +512,6 @@
       // ★ 使用者主動暫停時，watchdog 不可恢復音訊，否則會搶回 iOS
       //   音訊焦點，導致鄰近分頁的 YouTube 被自動暫停。
       if (self.userPaused) {
-        // #region agent log
-        if (window.__dbg) window.__dbg('script-screen-awake:watchdog', 'skip while userPaused', {
-          hypothesisId: 'C', runId: 'post-fix',
-          ctxState: (function(){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(),
-          audioElPaused: (function(){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })()
-        });
-        // #endregion
         return;
       }
       
@@ -590,11 +546,6 @@
       if (!self.keepScreenAwake) return;
       // ★ 使用者主動暫停時，不再產生 oscillator 脈衝，避免占用 iOS 音訊焦點
       if (self.userPaused) {
-        // #region agent log
-        if (window.__dbg) window.__dbg('script-screen-awake:keepAlive', 'skip while userPaused', {
-          hypothesisId: 'D', runId: 'post-fix'
-        });
-        // #endregion
         return;
       }
 

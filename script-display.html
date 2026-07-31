@@ -44,16 +44,6 @@
       this._pausePersistentAudio();
     }
 
-    // #region agent log
-    if (window.__dbg) window.__dbg('script-display:pauseTimer', 'paused — persistent audio state', {
-      hypothesisId: 'A,B,C,D,E', runId: 'post-fix',
-      userPaused: !!this.userPaused,
-      isPaused: !!this.isPaused,
-      ctxState: (function(self){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(this),
-      audioElPaused: (function(self){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })(this),
-      keepScreenAwake: !!this.keepScreenAwake
-    });
-    // #endregion
   };
   
   // 恢復計時器
@@ -110,15 +100,6 @@
     // 更新UI狀態
     this.updatePauseButtonState();
 
-    // #region agent log
-    if (window.__dbg) window.__dbg('script-display:resumeTimer', 'resumed — persistent audio state', {
-      hypothesisId: 'A,B,C', runId: 'pre-fix',
-      userPaused: !!this.userPaused,
-      isPaused: !!this.isPaused,
-      ctxState: (function(self){ try { return self._persistentAudioContext ? self._persistentAudioContext.state : 'no-ctx'; } catch(e){ return 'err'; } })(this),
-      audioElPaused: (function(self){ try { return self._persistentAudioElement ? self._persistentAudioElement.paused : 'no-el'; } catch(e){ return 'err'; } })(this)
-    });
-    // #endregion
   };
 
   // 處理flashcard點擊事件（檢查點擊位置）
@@ -460,17 +441,6 @@
     }
 
     var self = this;
-    // #region agent log
-    if (window.__dbg) window.__dbg('script-display:_revealSecondPart', 'phase2 entry', {
-      hypothesisId: 'A',
-      listeningMode: this.settings.listeningMode,
-      isReversed: isReversed,
-      delaySpeechInNormalMode: this.settings.delaySpeechInNormalMode,
-      chineseEnabled: this.voiceSettings.chineseEnabled,
-      msSinceUserGesture: window.__lastUserGestureTime ? (Date.now() - window.__lastUserGestureTime) : -1,
-      english: currentWord && currentWord.english
-    });
-    // #endregion
     if (this.settings.listeningMode) {
       // 聽力模式：Phase 2 出現文字時再次發音，強化聽覺記憶（忽略延遲發音設定）
       setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);

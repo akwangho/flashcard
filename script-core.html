@@ -17,9 +17,9 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.20.3',
+    APP_VERSION: '1.20.6',
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-07-24 21:30',
+    APP_BUILD_TIME: '2026-07-31 21:00',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -111,7 +111,9 @@
     SWIPE_TIME_LIMIT_MS: 500,          // 最大滑動時間（ms）
     TOAST_CONFIRM_DURATION_MS: 1500,   // Toast 確認訊息顯示時間
     SPELL_LETTER_GAP_MS: 100,          // 拼讀字母與單字之間的間隔
-    SLOW_SPEECH_RATE_FACTOR: 0.5,      // P 鍵第二次按下時的慢速倍率（相對 voiceSettings.rate）
+    // P 鍵第二次按下時的慢速倍率（相對 voiceSettings.rate）
+    // 對齊 Google 字典喇叭「連點變慢」：約 1/4 速，方便逐音節聽清楚（預設 rate 0.8 → 約 0.2）
+    SLOW_SPEECH_RATE_FACTOR: 0.25,
     UI_ANIMATION_DELAY_MS: 100,        // 一般 UI 動畫延遲
     LISTENING_AUDIO_DELAY_MS: 300,     // 聽力練習播放音訊前延遲
     LISTENING_FEEDBACK_DELAY_MS: 1200, // 聽力練習回饋顯示時間
@@ -346,6 +348,8 @@
     this._speechWaitInterval = null;
     this._speechWaitTimeout = null;
     this._speechSequenceActive = false;
+    // 語音播放世代：每次 cancel / 新播放遞增；拼讀非同步 callback 用此判斷是否已過期
+    this._speechPlayId = 0;
     this.voiceSettings = {
       enabled: true,
       rate: 0.8,
@@ -519,6 +523,7 @@
       this.chineseWaitInterval = null;
     }
     this._speechSequenceActive = false;
+    this._speechPlayId = (this._speechPlayId || 0) + 1;
     this.speechSynthesis.cancel();
   };
 
@@ -616,21 +621,9 @@
         if (this._needsTapToStart && !this._userGestureSeen) {
           // 使用者還沒點 → 把 startNewRound 留給 _consumePendingStartNewRound 觸發
           this._pendingStartNewRound = true;
-          // #region agent log
-          if (window.__dbg) window.__dbg('script-core:handleLoadingComplete', 'iPad: data ready, waiting for gesture', {
-            hypothesisId: 'G', runId: 'post-fix6'
-          });
-          // #endregion
         } else {
           // 非 iPad 直接開始；或 iPad 但使用者已在載入時點過覆蓋層
           this._hideTapToStartOverlay();
-          // #region agent log
-          if (window.__dbg) window.__dbg('script-core:handleLoadingComplete', 'startNewRound now', {
-            hypothesisId: 'G', runId: 'post-fix6',
-            needsTapToStart: this._needsTapToStart,
-            userGestureSeen: this._userGestureSeen
-          });
-          // #endregion
           this.startNewRound();
         }
       }
@@ -652,11 +645,6 @@
     if (!this._pendingStartNewRound) return;
     this._pendingStartNewRound = false;
     // 覆蓋層已由 activateOnGesture 隱藏；這裡只負責 startNewRound
-    // #region agent log
-    if (window.__dbg) window.__dbg('script-core:_consumePendingStartNewRound', 'gesture received, starting now', {
-      hypothesisId: 'G', runId: 'post-fix5'
-    });
-    // #endregion
     try {
       this.startNewRound();
     } catch (e) {
