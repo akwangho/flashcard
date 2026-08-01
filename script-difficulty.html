@@ -100,16 +100,17 @@
   };
 
   FlashcardApp.prototype.renderMustSpellIndicator = function() {
-    var indicator = document.getElementById('must-spell-indicator');
-    if (!indicator) return;
+    var mustSpellEl = document.getElementById('must-spell-indicator');
+    var enZhEl = document.getElementById('en-zh-indicator');
     
     var currentWord = this.currentWords[this.currentIndex];
-    // 只有「隨機/衝刺要會拼」(0.5 / 1) 顯示標記；「看懂就好」(-1) 與「不需」(0) 不顯示
+    // 0.5 / 1 → ✍️要會拼；-1 → 👁英翻中；0 → 皆不顯示
     var ms = currentWord ? this.normalizeMustSpell(currentWord.mustSpell) : 0;
-    if (ms === 1 || ms === 0.5) {
-      indicator.style.display = 'inline-block';
-    } else {
-      indicator.style.display = 'none';
+    if (mustSpellEl) {
+      mustSpellEl.style.display = (ms === 1 || ms === 0.5) ? 'inline-block' : 'none';
+    }
+    if (enZhEl) {
+      enZhEl.style.display = (ms === -1) ? 'inline-block' : 'none';
     }
   };
 

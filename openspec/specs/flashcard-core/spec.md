@@ -249,13 +249,23 @@ The system SHALL display a word count indicator showing current position within 
 
 ### Requirement: Must-Spell Indicator
 
-The system SHALL display a visual indicator when the current word requires spelling practice.
+The system SHALL display a visual indicator in the progress area for must-spell and understand-only words.
 
-#### Scenario: Indicator visibility
+#### Scenario: Must-spell indicator visibility
 
 - **WHEN** the current word has a must-spell level (`mustSpell` is `1` or `0.5`)
-- **THEN** a "✍️要會拼" indicator is shown in the progress area regardless of display mode
-- **AND** words with `mustSpell` equal to `-1` (看懂就好) or `0` do NOT show the indicator
+- **THEN** a "✍️要會拼" indicator (sky-blue style) is shown in the progress area regardless of display mode
+
+#### Scenario: Understand-only (英翻中) indicator visibility
+
+- **WHEN** the current word has `mustSpell` equal to `-1` (看懂就好 / understand-only)
+- **THEN** a "👁英翻中" indicator is shown in the progress area (amber/orange style, visually distinct from the sky-blue must-spell badge)
+- **AND** the "✍️要會拼" indicator is NOT shown for that word
+
+#### Scenario: No indicator
+
+- **WHEN** the current word has `mustSpell` equal to `0` (or empty)
+- **THEN** neither the must-spell nor the 英翻中 indicator is shown
 
 ### Requirement: Quick Timer Dock
 

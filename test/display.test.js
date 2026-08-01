@@ -46,31 +46,57 @@ describe('renderMustSpellIndicator', function() {
   beforeEach(function() {
     app.currentWords = [
       { id: 1, english: 'apple', chinese: '蘋果', mustSpell: true },
-      { id: 2, english: 'banana', chinese: '香蕉', mustSpell: false }
+      { id: 2, english: 'banana', chinese: '香蕉', mustSpell: false },
+      { id: 3, english: 'cold', chinese: '冷', mustSpell: -1 },
+      { id: 4, english: 'hello', chinese: '你好', mustSpell: 0.5 }
     ];
     app.currentIndex = 0;
   });
 
-  test('shows indicator when current word has mustSpell true', function() {
-    app.currentIndex = 0; // apple, mustSpell: true
+  test('shows must-spell indicator when current word has mustSpell true/1', function() {
+    app.currentIndex = 0; // apple, mustSpell: true → 1
     app.renderMustSpellIndicator();
     var indicator = document.getElementById('must-spell-indicator');
+    var enZh = document.getElementById('en-zh-indicator');
     expect(indicator.style.display).toBe('inline-block');
+    expect(enZh.style.display).toBe('none');
   });
 
-  test('hides indicator when current word has mustSpell false', function() {
+  test('shows must-spell indicator for mustSpell 0.5', function() {
+    app.currentIndex = 3;
+    app.renderMustSpellIndicator();
+    var indicator = document.getElementById('must-spell-indicator');
+    var enZh = document.getElementById('en-zh-indicator');
+    expect(indicator.style.display).toBe('inline-block');
+    expect(enZh.style.display).toBe('none');
+  });
+
+  test('hides must-spell indicator when current word has mustSpell false', function() {
     app.currentIndex = 1; // banana, mustSpell: false
     app.renderMustSpellIndicator();
     var indicator = document.getElementById('must-spell-indicator');
+    var enZh = document.getElementById('en-zh-indicator');
     expect(indicator.style.display).toBe('none');
+    expect(enZh.style.display).toBe('none');
   });
 
-  test('hides indicator when no current word', function() {
+  test('shows en-zh indicator when mustSpell is -1', function() {
+    app.currentIndex = 2; // cold, mustSpell: -1
+    app.renderMustSpellIndicator();
+    var indicator = document.getElementById('must-spell-indicator');
+    var enZh = document.getElementById('en-zh-indicator');
+    expect(indicator.style.display).toBe('none');
+    expect(enZh.style.display).toBe('inline-block');
+  });
+
+  test('hides both indicators when no current word', function() {
     app.currentWords = [];
     app.currentIndex = 0;
     app.renderMustSpellIndicator();
     var indicator = document.getElementById('must-spell-indicator');
+    var enZh = document.getElementById('en-zh-indicator');
     expect(indicator.style.display).toBe('none');
+    expect(enZh.style.display).toBe('none');
   });
 });
 

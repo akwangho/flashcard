@@ -31,7 +31,7 @@ function createDOMElements() {
     'paused-indicator', 'muted-indicator',
     'english-section', 'english-word', 'chinese-section', 'chinese-word',
     'progress-area', 'progress-text', 'difficulty-display', 'difficulty-level',
-    'must-spell-indicator',
+    'must-spell-indicator', 'en-zh-indicator',
     // Filters
     'active-filters', 'active-filters-text', 'clear-filters-btn',
     // Restore
