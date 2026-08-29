@@ -297,13 +297,14 @@ describe('applyQuickMode', function() {
     expect(app.settings.delaySpeechInNormalMode).toBe(false);
   });
 
-  test('mode 3 sets mixed, delay speech on, spellOutLetters on (sprint scope), chinese off, smart timer', function() {
+  test('mode 3 sets mixed, delay speech on, spellOutLetters on (all must-spell scope), chinese off, 10s, smart timer', function() {
     app.applyQuickMode(3);
     expect(app.settings.displayMode).toBe('mixed');
     expect(app.settings.delaySpeechInNormalMode).toBe(true);
     expect(app.voiceSettings.spellOutLetters).toBe(true);
-    expect(app.voiceSettings.spellOutScope).toBe('must-spell-sprint');
+    expect(app.voiceSettings.spellOutScope).toBe('must-spell-all');
     expect(app.voiceSettings.chineseEnabled).toBe(false);
+    expect(app.settings.delayTime).toBe(10);
     expect(app.settings.smartTimerEnabled).toBe(true);
   });
 
