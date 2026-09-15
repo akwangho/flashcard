@@ -16,6 +16,7 @@ jest.config.js
 
 # Documentation
 openspec/**
+AGENTS.md
 README.md
 
 # Scripts
