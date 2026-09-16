@@ -201,6 +201,27 @@ describe('Filter modal open/apply flows', function() {
       expect(getWordType('')).toBe('word');
       expect(getWordType(undefined)).toBe('word');
     });
+
+    test('returns word for semicolon-separated verb forms', function() {
+      expect(getWordType('swing; swung; swung')).toBe('word');
+      expect(getWordType('swim; swam; swum')).toBe('word');
+    });
+
+    test('returns word for slash-separated word forms', function() {
+      expect(getWordType('woman / women')).toBe('word');
+      expect(getWordType('mouse/mice')).toBe('word');
+    });
+
+    test('returns word for hyphenated compounds', function() {
+      expect(getWordType('twenty-five')).toBe('word');
+      expect(getWordType('mother-in-law')).toBe('word');
+    });
+
+    test('does not treat phrases as word form lists', function() {
+      expect(getWordType('hot dog')).toBe('phrase');
+      expect(getWordType('take off / take out')).toBe('phrase');
+      expect(getWordType('apple / banana split')).toBe('phrase');
+    });
   });
 
   // ===========================================

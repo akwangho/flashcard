@@ -95,6 +95,15 @@ describe('KK phonetic eligibility', function() {
     expect(app._isKKPhoneticEligible(makeWord({ english: 'hot dog' }))).toBe(false);   // phrase
     expect(app._isKKPhoneticEligible(makeWord({ english: 'I am a boy.' }))).toBe(false); // sentence
   });
+
+  test('eligible for word form lists and hyphenated compounds', function() {
+    app.settings.showKKPhonetic = true;
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'swing; swung; swung' }))).toBe(true);
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'woman / women' }))).toBe(true);
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'twenty-five' }))).toBe(true);
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'mother-in-law' }))).toBe(true);
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'take off / take out' }))).toBe(false); // phrase
+  });
 });
 
 // ============================================================
@@ -114,7 +123,7 @@ describe('KK phonetic display', function() {
     // 英文顯示時機到 → 音標同步出現
     app._maybeShowKKPhonetic();
     expect(el.style.display).toBe('flex');
-    expect(el.textContent).toBe('əˈpɛl');
+    expect(el.textContent).toBe('[əˈpɛl]');
   });
 
   test('shows cached phonetic without GAS call', function() {
@@ -125,7 +134,7 @@ describe('KK phonetic display', function() {
 
     app._maybeShowKKPhonetic();
     expect(el.style.display).toBe('flex');
-    expect(el.textContent).toBe('ˈkærəktɚ');
+    expect(el.textContent).toBe('[ˈkærəktɚ]');
     expect(app._kkApiCalls.length).toBe(0);
   });
 
@@ -153,7 +162,7 @@ describe('KK phonetic display', function() {
     setTimeout(function() {
       // 回應晚到：自動補上顯示
       expect(el.style.display).toBe('flex');
-      expect(el.textContent).toBe('ˋæpḷ');
+      expect(el.textContent).toBe('[ˋæpḷ]');
       done();
     }, 30);
   });
@@ -187,7 +196,7 @@ describe('KK phonetic display', function() {
     setTimeout(function() {
       // 回應晚到：自動補上顯示 + 寫回 Sheet I 欄
       expect(el.style.display).toBe('flex');
-      expect(el.textContent).toBe('əˈpɛl');
+      expect(el.textContent).toBe('[əˈpɛl]');
       expect(app._kkSheetWrites.length).toBe(1);
       expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('əˈpɛl');
       expect(app._kkSheetWrites[0].rowIndex).toBe(1);

@@ -202,6 +202,7 @@
 
   /**
    * 判斷單字類型：sentence（句號/問號/驚嘆號結尾，含引號包裹）、phrase（含空格）、word（其他）
+   * 以「;」或「/」分隔的單字型態列（swing; swung; swung、woman / women）視為 word。
    * @param {string} english - 英文字串
    * @returns {string} 'sentence' | 'phrase' | 'word'
    */
@@ -212,8 +213,34 @@
       last = trimmed.charAt(trimmed.length - 2);
     }
     if (last === '.' || last === '?' || last === '!') return 'sentence';
-    if (trimmed.indexOf(' ') !== -1) return 'phrase';
+    if (trimmed.indexOf(' ') !== -1) {
+      // 以「;」或「/」分隔的單字型態列視為單字（各段皆為單一英文詞才成立）
+      if (isWordFormList(trimmed)) return 'word';
+      return 'phrase';
+    }
     return 'word';
+  }
+
+  /**
+   * 判斷是否為以「;」或「/」分隔的單字型態列：
+   * 每一段皆為單一英文字（可含連字號 hyphen / 撇號，如 twenty-five、mother-in-law）才成立。
+   * 例：'swing; swung; swung' → true；'woman / women' → true；
+   *     'hot dog' → false（無分隔符）；'take off / take out' → false（段內含空格）。
+   * @param {string} text - 英文字串
+   * @returns {boolean}
+   */
+  function isWordFormList(text) {
+    var trimmed = (text || '').trim();
+    if (!trimmed) return false;
+    if (trimmed.indexOf(';') === -1 && trimmed.indexOf('/') === -1) return false;
+    var segments = trimmed.split(/[;\/]/);
+    if (segments.length < 2) return false;
+    var wordToken = /^[A-Za-z][A-Za-z'-]*$/;
+    for (var i = 0; i < segments.length; i++) {
+      var seg = segments[i].trim();
+      if (!seg || !wordToken.test(seg)) return false;
+    }
+    return true;
   }
 
   /**

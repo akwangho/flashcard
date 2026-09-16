@@ -42,12 +42,19 @@ The system SHALL use Google Sheet column I (`KK音標`) to store the user-select
 ### Requirement: Word-Type Only
 
 The system SHALL restrict KK phonetic display, fetching, and pre-caching to content classified as a single word.
+A "word" also covers semicolon- or slash-separated word-form lists (e.g. `swing; swung; swung`, `woman / women`) where every segment is a single English token, and hyphenated compounds (e.g. `twenty-five`, `mother-in-law`).
 
 #### Scenario: Phrase or sentence content
 
 - **WHEN** the displayed content is a phrase or sentence (multi-word content)
 - **THEN** no phonetic is displayed
 - **AND** no phonetic is fetched or pre-cached for that content
+
+#### Scenario: Word-form list content
+
+- **WHEN** the content is a semicolon- or slash-separated list of single-word forms (e.g. `swing; swung; swung`)
+- **THEN** it is treated as a word: the phonetic is displayed, fetched, and pre-cached
+- **AND** the backend resolves each segment against the dictionary and combines the per-segment candidates (e.g. `siŋ swəŋ`)
 
 ### Requirement: Centre Display
 
@@ -56,7 +63,7 @@ The system SHALL display the KK phonetic in the centre of the flashcard while th
 #### Scenario: Display and overlap
 
 - **WHEN** a phonetic is available for the current word
-- **THEN** it appears centred on the card
+- **THEN** it appears centred on the card wrapped in square brackets (e.g. `[faɪr]`)
 - **AND** it shifts upward slightly when the Chinese translation is revealed so the two do not overlap
 
 #### Scenario: Typography matches the word display

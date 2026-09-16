@@ -1563,6 +1563,35 @@ function countValidWords(sheet) {
         return { success: true, word: trimmed, candidates: dictCandidates.slice(), source: 'dict' };
       }
 
+      // 1.5) 單字型態列（swing; swung; swung / woman / women）：
+      //      整串在字庫查不到，拆成各段逐段查詢後組合
+      var segments = splitWordFormList_(trimmed);
+      if (segments) {
+        var segCandidates = [];
+        var allFound = true;
+        var anyWeb = false;
+        for (var s = 0; s < segments.length; s++) {
+          var segKey = segments[s].toLowerCase();
+          var segDict = lookupKKPhoneticAnywhere(segKey, wordsSheetId);
+          if (segDict.length === 0) {
+            var segWeb = fetchKKPhoneticFromWeb(segments[s]);
+            if (segWeb.candidates.length > 0) {
+              segDict = segWeb.candidates;
+              anyWeb = true;
+              // 各段查到的結果存入字庫，之後直接命中
+              saveKKPhoneticToDictionary(segKey, segDict, wordsSheetId);
+            }
+          }
+          if (segDict.length === 0) { allFound = false; break; }
+          segCandidates.push(segDict);
+        }
+        if (allFound) {
+          var combined = combineWordFormPhonetics_(segCandidates);
+          console.log('KK 音標（型態列組合）:', trimmed, combined);
+          return { success: true, word: trimmed, candidates: combined, source: anyWeb ? 'web' : 'dict' };
+        }
+      }
+
       // 2) 外部字典 REST API
       var web = fetchKKPhoneticFromWeb(trimmed);
       if (web.candidates.length > 0) {
@@ -1585,6 +1614,50 @@ function countValidWords(sheet) {
       console.error('查詢 KK 音標失敗:', error);
       return { success: false, word: word, candidates: [], source: 'none', error: error.message };
     }
+  }
+
+  /**
+  * 將單字型態列（swing; swung; swung、woman / women）拆成各段。
+  * 每段皆須為單一英文詞（可含 hyphen/撇號）才成立；否則回 null（交由一般流程）。
+  * 與 script-core.html 的 isWordFormList 保持同步。
+  * @param {string} word - 英文字串
+  * @returns {Array<string>|null}
+  */
+  function splitWordFormList_(word) {
+    var trimmed = (word || '').toString().trim();
+    if (!trimmed) return null;
+    if (trimmed.indexOf(';') === -1 && trimmed.indexOf('/') === -1) return null;
+    var segments = trimmed.split(/[;/]/);
+    if (segments.length < 2) return null;
+    var wordToken = /^[A-Za-z][A-Za-z'-]*$/;
+    var out = [];
+    for (var i = 0; i < segments.length; i++) {
+      var seg = segments[i].trim();
+      if (!seg || !wordToken.test(seg)) return null;
+      out.push(seg);
+    }
+    return out;
+  }
+
+  /**
+  * 組合各段的候選音標（笛卡兒積，上限 8 筆）。
+  * 例：swing 1 筆 × swung 2 筆 × swung 1 筆 → 2 筆組合候選。
+  * @param {Array<Array<string>>} segmentCandidates - 各段候選音標
+  * @returns {Array<string>}
+  */
+  function combineWordFormPhonetics_(segmentCandidates) {
+    var combos = [''];
+    for (var i = 0; i < segmentCandidates.length; i++) {
+      var next = [];
+      for (var c = 0; c < combos.length; c++) {
+        for (var k = 0; k < segmentCandidates[i].length; k++) {
+          next.push(combos[c] ? combos[c] + ' ' + segmentCandidates[i][k] : segmentCandidates[i][k]);
+        }
+      }
+      combos = next;
+      if (combos.length > 8) combos = combos.slice(0, 8);
+    }
+    return combos;
   }
 
   /**

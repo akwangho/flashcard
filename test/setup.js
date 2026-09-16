@@ -532,7 +532,8 @@ function bootstrapApp() {
     'if (typeof APP_CONSTANTS !== "undefined") { global.APP_CONSTANTS = APP_CONSTANTS; }\n' +
     'if (typeof formatDateYYYYMMDD !== "undefined") { global.formatDateYYYYMMDD = formatDateYYYYMMDD; }\n' +
     'if (typeof isModalBackgroundClick !== "undefined") { global.isModalBackgroundClick = isModalBackgroundClick; }\n' +
-    'if (typeof getWordType !== "undefined") { global.getWordType = getWordType; }\n';
+    'if (typeof getWordType !== "undefined") { global.getWordType = getWordType; }\n' +
+    'if (typeof isWordFormList !== "undefined") { global.isWordFormList = isWordFormList; }\n';
   var script = new Function(exportCode);
   script.call(global);
 }

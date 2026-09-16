@@ -230,11 +230,11 @@
     this._showKKPhoneticText(this._kkPendingResult);
   };
 
-  /** 實際將音標文字顯示在畫面正中央 */
+  /** 實際將音標文字顯示在畫面正中央（加上中括號，如 [faɪr]） */
   FlashcardApp.prototype._showKKPhoneticText = function(phonetic) {
     var el = document.getElementById('kk-phonetic-display');
     if (!el) return;
-    el.textContent = phonetic;
+    el.textContent = '[' + phonetic + ']';
     el.style.display = 'flex';
     el.classList.add('show');
     this._updateKKOverlapShift();
