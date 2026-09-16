@@ -92,6 +92,17 @@
   
   .kk-phonetic-display.show {
     display: flex;
+    /* 與 .word.show 的 0.5s（--transition-slow）一致，避免音標突兀跳出 */
+    animation: kkFadeIn 0.5s ease;
+  }
+  
+  @keyframes kkFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
   
   /* 與 .word 的響應式字級同步（style-base.html 的 768px 斷點） */

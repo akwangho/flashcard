@@ -735,11 +735,9 @@
     }
     firstElement.classList.add('show');
 
-    // KK 音標：英文（第一語言）此刻顯示 → 音標同步出現
-    // （先中文時第一語言是中文，不顯示音標；等 _revealSecondPart 英文出現時才顯示）
-    if (!isReversed && typeof this._maybeShowKKPhonetic === 'function') {
-      try { this._maybeShowKKPhonetic(); } catch (kkError) {}
-    }
+    // KK 音標不在 Phase 1 顯示：先英文時只看英文即可確認唸法，
+    // 音標等到 Phase 2（計時器走到一半、第二語言出現）才淡入（_revealSecondPart 觸發）；
+    // 先中文時第一語言是中文，同樣等 Phase 2 英文出現才顯示。
 
     this._setDisplayTimer(function() {
       self.waitForSpeechThenExecute(function() {

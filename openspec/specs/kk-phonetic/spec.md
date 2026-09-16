@@ -76,12 +76,19 @@ The system SHALL display the KK phonetic in the centre of the flashcard while th
 - **WHEN** the feature is disabled (or content is not a word)
 - **THEN** the phonetic element is hidden and cleared
 
-#### Scenario: Timing matches the English word
+#### Scenario: Timing matches the second-language reveal (phase 2)
 
-- **WHEN** the English word becomes visible (normal mode phase 1 with english first, carousel mode, or phase 2 reveal in chinese-first/listening mode)
-- **THEN** the phonetic appears at the same moment (or as soon as a slow fetch resolves afterwards)
+- **WHEN** phase 2 begins (the timer reaches half: the second language text is revealed in normal, chinese-first, and listening modes)
+- **THEN** the phonetic fades in at that moment (or as soon as a slow fetch resolves afterwards)
+- **AND** the phonetic is NOT shown during phase 1, so it never gives an extra hint before the second language appears (english-only phase 1 stays unassisted; chinese-only phase 1 does not leak the answer)
+- **AND** in carousel memory mode (english and chinese shown simultaneously) the phonetic appears right away with the card
 - **AND** when the card transitions away (next/previous/undo), the phonetic disappears together with the English word instead of lingering
 - **AND** the phonetic is revealed at most once per card
+
+#### Scenario: Fade-in animation
+
+- **WHEN** the phonetic becomes visible
+- **THEN** it fades in over 0.5s (matching the `.word` `--transition-slow` reveal) instead of appearing abruptly
 
 ### Requirement: Fetch Behaviour
 

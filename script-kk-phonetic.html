@@ -37,9 +37,9 @@
     this._kkPendingFetches = {};
     // 顯示世代 token：每次更新顯示遞增；非同步回呼比對 token，過期則不顯示（race condition 保護）
     this._kkDisplayToken = 0;
-    // 顯示時機同步：音標只在英文單字實際顯示時出現（與英文一致）
+    // 顯示時機同步：音標在 Phase 2（第二語言出現）才顯示，與 .word 的 0.5s 淡入一致
     this._kkPendingResult = null;   // 已取得但尚未到顯示時機的音標
-    this._kkFirstPartShown = false; // 英文顯示時機是否已到（_maybeShowKKPhonetic 設定）
+    this._kkFirstPartShown = false; // Phase 2 顯示時機是否已到（_maybeShowKKPhonetic 設定）
     this._kkPendingShown = false;   // 本卡片音標是否已顯示（防重複）
     // 編輯單字 modal 暫存狀態
     this._kkEditCandidates = null;      // 重新抓取得到的多筆候選
@@ -154,9 +154,9 @@
   /**
    * 更新畫面正中央的 KK 音標顯示。
    * 由 displayCurrentWord 在每次切換卡片時、依模式派發「之前」呼叫：
-   * 此處只做查詢與隱藏重置；實際顯示時機與英文單字一致，由英文顯示的函式
-   * （_displayNormalWord 先英文、_displayCarouselWord、_revealSecondPart）
-   * 呼叫 _maybeShowKKPhonetic 觸發。
+   * 此處只做查詢與隱藏重置；實際顯示時機為 Phase 2（第二語言出現時），
+   * 由 _revealSecondPart（一般/先中文/聽力）與 _displayCarouselWord（輪播）
+   * 呼叫 _maybeShowKKPhonetic 觸發，以 0.5s 淡入與 .word 動畫一致。
    *  - 功能關閉 / 非單字 → 隱藏。
    *  - I 欄或快取已有音標 → 暫存結果，等顯示時機（不呼叫 GAS）。
    *  - 否則從 GAS 查詢；回應時比對顯示 token，僅在仍停留在同一單字時暫存/顯示。
@@ -220,7 +220,11 @@
 
   /**
    * 英文單字實際顯示時呼叫：音標與英文同步出現。
-   * 音標已取得 → 立即顯示（同一張卡片只顯示一次）；
+   * 觸發時機（Phase 2）：
+   *  - 一般/先中文/聽力模式：_revealSecondPart（計時器走到一半，第二語言出現）——
+   *    Phase 1 只看英文時不被音標干擾、只看中文時音標不會提前洩露答案；
+ *  - 輪播記憶模式（中英同顯）：_displayCarouselWord 直接觸發。
+   * 音標已取得 → 立即淡入（同一張卡片只顯示一次）；
    * 尚未取得 → 僅記錄時機已到，晚到的查詢結果會自動補上。
    */
   FlashcardApp.prototype._maybeShowKKPhonetic = function() {

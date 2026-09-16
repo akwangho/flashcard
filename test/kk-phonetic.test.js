@@ -138,6 +138,20 @@ describe('KK phonetic display', function() {
     expect(app._kkApiCalls.length).toBe(0);
   });
 
+  test('phase timing: hidden in phase 1, appears at phase 2 (second-language reveal)', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    app.updateKKPhoneticDisplay(makeWord({ kkPhonetic: 'əˈpɛl' }));
+
+    // Phase 1（先英文只顯示英文）：不顯示音標
+    expect(el.style.display).toBe('none');
+
+    // Phase 2（計時器走到一半，第二語言出現）：音標才出現
+    app._maybeShowKKPhonetic();
+    expect(el.style.display).toBe('flex');
+    expect(el.textContent).toBe('[əˈpɛl]');
+  });
+
   test('shows phonetic when it arrives after the english display moment', function(done) {
     var el = document.getElementById('kk-phonetic-display');
     app.settings.showKKPhonetic = true;
