@@ -125,7 +125,7 @@ describe('KK phonetic K-key toggle', function() {
     app.toggleKKPhonetic(); // K 鍵：開啟
 
     expect(app.settings.showKKPhonetic).toBe(true);
-    expect(spyToast).toHaveBeenCalledWith('✓ KK 音標：開啟', 'success');
+    expect(spyToast).toHaveBeenCalledWith('✓ KK 音標：開啟', 'success', { extraClass: 'toast-below' });
     if (toggleEl) expect(toggleEl.checked).toBe(true);
     // Phase 2 時機已到（_kkFirstPartShown），應立即淡入
     expect(el.style.display).toBe('flex');
@@ -147,7 +147,7 @@ describe('KK phonetic K-key toggle', function() {
     app.toggleKKPhonetic(); // K 鍵：關閉
 
     expect(app.settings.showKKPhonetic).toBe(false);
-    expect(spyToast).toHaveBeenCalledWith('✓ KK 音標：關閉', 'info');
+    expect(spyToast).toHaveBeenCalledWith('✓ KK 音標：關閉', 'info', { extraClass: 'toast-below' });
     if (toggleEl) expect(toggleEl.checked).toBe(false);
     expect(el.style.display).toBe('none');
     expect(el.textContent).toBe('');

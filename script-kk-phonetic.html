@@ -271,9 +271,11 @@
     var toggleEl = document.getElementById('kk-phonetic-setting');
     if (toggleEl) toggleEl.checked = !!this.settings.showKKPhonetic;
 
+    // toast 下移（toast-below），避免蓋住畫面正中央剛出現的音標
     this.showNotification(
       this.settings.showKKPhonetic ? '✓ KK 音標：開啟' : '✓ KK 音標：關閉',
-      this.settings.showKKPhonetic ? 'success' : 'info'
+      this.settings.showKKPhonetic ? 'success' : 'info',
+      { extraClass: 'toast-below' }
     );
 
     // 立即更新當下單字：關閉 → 隱藏並重置本卡狀態；開啟 → 走一般流程（查詢/快取暫存）

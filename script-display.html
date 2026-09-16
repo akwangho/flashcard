@@ -778,7 +778,8 @@
   };
 
   // 通用通知 toast
-  FlashcardApp.prototype.showNotification = function(message, type) {
+  // options.extraClass：額外 className（如 'toast-below' 讓 toast 下移避開畫面中央的音標）
+  FlashcardApp.prototype.showNotification = function(message, type, options) {
     var existing = document.getElementById('app-notification-toast');
     if (existing && existing.parentNode) {
       existing.parentNode.removeChild(existing);
@@ -790,7 +791,8 @@
 
     var toast = document.createElement('div');
     toast.id = 'app-notification-toast';
-    toast.className = 'app-notification-toast' + (type === 'success' ? ' toast-success' : type === 'info' ? ' toast-info' : '');
+    toast.className = 'app-notification-toast' + (type === 'success' ? ' toast-success' : type === 'info' ? ' toast-info' : '') +
+      (options && options.extraClass ? ' ' + options.extraClass : '');
 
     var lines = message.split('\n');
     if (lines.length > 1) {

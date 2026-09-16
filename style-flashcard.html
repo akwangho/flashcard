@@ -877,6 +877,13 @@
     border: 2px solid rgba(100, 180, 255, 0.6);
   }
 
+  /* KK 音標切換提示：下移避開畫面正中央的音標（toast 在上層會蓋住音標） */
+  .app-notification-toast.toast-below {
+    top: 68%;
+    -webkit-transform: translate(-50%, -30%);
+    transform: translate(-50%, -30%);
+  }
+
   .app-notification-toast .toast-title {
     text-align: center;
     font-size: 17px;
