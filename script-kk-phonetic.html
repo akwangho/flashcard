@@ -211,7 +211,6 @@
       el.style.display = 'none';
       el.textContent = '';
       el.classList.remove('show');
-      el.classList.remove('kk-overlap-shift');
     }
     this._kkPendingResult = null;
     this._kkFirstPartShown = false;
@@ -234,27 +233,13 @@
     this._showKKPhoneticText(this._kkPendingResult);
   };
 
-  /** 實際將音標文字顯示在畫面正中央（加上中括號，如 [faɪr]） */
+  /** 實際將音標文字顯示在畫面正中央（以斜線包團，如 /faɪr/） */
   FlashcardApp.prototype._showKKPhoneticText = function(phonetic) {
     var el = document.getElementById('kk-phonetic-display');
     if (!el) return;
-    el.textContent = '[' + phonetic + ']';
+    el.textContent = '/' + phonetic + '/';
     el.style.display = 'flex';
     el.classList.add('show');
-    this._updateKKOverlapShift();
-  };
-
-  /** 依中文翻譯是否已顯示，調整 KK 音標位置避免重疊 */
-  FlashcardApp.prototype._updateKKOverlapShift = function() {
-    var el = document.getElementById('kk-phonetic-display');
-    if (!el || el.style.display === 'none') return;
-    var chineseEl = document.getElementById('chinese-word');
-    var chineseShowing = chineseEl && chineseEl.classList.contains('show');
-    if (chineseShowing) {
-      el.classList.add('kk-overlap-shift');
-    } else {
-      el.classList.remove('kk-overlap-shift');
-    }
   };
 
   /**

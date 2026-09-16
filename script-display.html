@@ -438,9 +438,6 @@
     if (typeof this._maybeShowKKPhonetic === 'function') {
       try { this._maybeShowKKPhonetic(); } catch (kkError) {}
     }
-    if (typeof this._updateKKOverlapShift === 'function') {
-      try { this._updateKKOverlapShift(); } catch (kkError) {}
-    }
 
     var hasImage = currentWord.image && currentWord.image !== '';
     if (hasImage) {

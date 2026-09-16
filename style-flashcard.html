@@ -64,7 +64,19 @@
      KK 音標顯示（畫面正中央）
      ========================================================================== */
   
-  /* 畳置於 card-container 與控制列之間的畫面正中央，不遮擋單字與翻譯；
+  /* 垂直置中錨點容器：絕對定位在上方文字區（english-section）與下方文字區
+     （chinese-section）之間的整體範圍內取正中，音標不會因卡片其他內容偏上 */
+  .kk-phonetic-anchor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* 畳置於 card-container 與控制列之間的畫面正中央；
      字型/字體大小與中英文單字一致（.word：--font-4xl + bold，手機 768px 以下 --font-3xl）；
      var() 均提供硬編碼 fallback（iPad 4 兼容） */
   .kk-phonetic-display {
@@ -72,11 +84,10 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 5;
     display: none;
     align-items: center;
     justify-content: center;
-    padding: 8px 24px;
+    padding: 8px 12px;            /* 兩側留白減半，長音標盡量同行 */
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.55);
     color: #ffd54f;
@@ -84,9 +95,9 @@
     font-size: var(--font-4xl);
     font-weight: bold;
     text-align: center;
-    max-width: 86%;
-    word-wrap: break-word;
-    pointer-events: none; /* 不干擾卡片點擊（暫時刪除等手勢） */
+    white-space: nowrap;          /* 音標保持在同一行 */
+    max-width: 96%;
+    pointer-events: none;         /* 不干擾卡片點擊（暫時刪除等手勢） */
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
   }
   
@@ -111,11 +122,6 @@
       font-size: 36px;
       font-size: var(--font-3xl);
     }
-  }
-  
-  /* 當 KK 音標與翻譯同時出現時，避免兩者重疊：音標上移一點 */
-  .kk-phonetic-display.kk-overlap-shift {
-    transform: translate(-50%, -90%);
   }
   
   /* 英文區域保持原來的大字體並添加半透明背景 */

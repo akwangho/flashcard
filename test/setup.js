@@ -95,7 +95,8 @@ function createDOMElements() {
     'edit-word-kk-group', 'edit-word-kk-value', 'edit-word-kk-refetch',
     'edit-word-kk-status', 'edit-word-kk-candidates',
     'cancel-edit-word', 'save-edit-word',
-    // KK phonetic display (center of screen)
+    // KK phonetic display (centre of screen, inside anchor container)
+    'kk-phonetic-anchor',
     'kk-phonetic-display',
     // KK phonetic setting toggle
     'kk-phonetic-setting',

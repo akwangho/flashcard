@@ -67,11 +67,12 @@ A "word" also covers semicolon- or slash-separated word-form lists (e.g. `swing;
 
 The system SHALL display the KK phonetic in the centre of the flashcard while the feature is enabled.
 
-#### Scenario: Display and overlap
+#### Scenario: Display and placement
 
 - **WHEN** a phonetic is available for the current word
-- **THEN** it appears centred on the card wrapped in square brackets (e.g. `[faɪr]`)
-- **AND** it shifts upward slightly when the Chinese translation is revealed so the two do not overlap
+- **THEN** it appears centred on the card wrapped in slashes (e.g. `/faɪr/`)
+- **AND** it sits exactly midway between the upper text area (english-section) and the lower text area (chinese-section), via a dedicated anchor container spanning both sections
+- **AND** it stays on a single line (whitespace-nowrap, minimal side padding) so long phonetics use the full screen width instead of wrapping
 
 #### Scenario: Typography matches the word display
 

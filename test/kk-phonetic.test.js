@@ -129,7 +129,7 @@ describe('KK phonetic K-key toggle', function() {
     if (toggleEl) expect(toggleEl.checked).toBe(true);
     // Phase 2 時機已到（_kkFirstPartShown），應立即淡入
     expect(el.style.display).toBe('flex');
-    expect(el.textContent).toBe('[əˈpɛl]');
+    expect(el.textContent).toBe('/əˈpɛl/');
   });
 
   test('second press hides display and syncs modal toggle off', function() {
@@ -202,7 +202,7 @@ describe('KK phonetic display', function() {
     // 英文顯示時機到 → 音標同步出現
     app._maybeShowKKPhonetic();
     expect(el.style.display).toBe('flex');
-    expect(el.textContent).toBe('[əˈpɛl]');
+    expect(el.textContent).toBe('/əˈpɛl/');
   });
 
   test('shows cached phonetic without GAS call', function() {
@@ -213,7 +213,7 @@ describe('KK phonetic display', function() {
 
     app._maybeShowKKPhonetic();
     expect(el.style.display).toBe('flex');
-    expect(el.textContent).toBe('[ˈkærəktɚ]');
+    expect(el.textContent).toBe('/ˈkærəktɚ/');
     expect(app._kkApiCalls.length).toBe(0);
   });
 
@@ -228,7 +228,7 @@ describe('KK phonetic display', function() {
     // Phase 2（計時器走到一半，第二語言出現）：音標才出現
     app._maybeShowKKPhonetic();
     expect(el.style.display).toBe('flex');
-    expect(el.textContent).toBe('[əˈpɛl]');
+    expect(el.textContent).toBe('/əˈpɛl/');
   });
 
   test('shows phonetic when it arrives after the english display moment', function(done) {
@@ -255,7 +255,7 @@ describe('KK phonetic display', function() {
     setTimeout(function() {
       // 回應晚到：自動補上顯示
       expect(el.style.display).toBe('flex');
-      expect(el.textContent).toBe('[ˋæpḷ]');
+      expect(el.textContent).toBe('/ˋæpḷ/');
       done();
     }, 30);
   });
@@ -289,7 +289,7 @@ describe('KK phonetic display', function() {
     setTimeout(function() {
       // 回應晚到：自動補上顯示 + 寫回 Sheet I 欄
       expect(el.style.display).toBe('flex');
-      expect(el.textContent).toBe('[əˈpɛl]');
+      expect(el.textContent).toBe('/əˈpɛl/');
       expect(app._kkSheetWrites.length).toBe(1);
       expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('əˈpɛl');
       expect(app._kkSheetWrites[0].rowIndex).toBe(1);
