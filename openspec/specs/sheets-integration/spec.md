@@ -20,6 +20,7 @@ Each sheet's first row is a header row; data starts from row 2.
 | F (col 6) | `圖片` | Image display formula | No |
 | G (col 7) | `最後複習日期` | Last review date `YYYY-MM-DD` (empty = never reviewed) | No |
 | H (col 8) | `標籤` | Tags separated by half-width `,` or full-width `，` | No |
+| I (col 9) | `KK音標` | KK phonetic selected by the user (written by the app; see `kk-phonetic` spec) | No |
 
 ## Requirements
 
@@ -179,7 +180,7 @@ The backend SHALL provide utility functions and column-index constants.
 #### Scenario: Column constants
 
 - **WHEN** accessing sheet data
-- **THEN** `COL` provides 0-based indices: `MUST_SPELL=0, ENGLISH=1, CHINESE=2, DIFFICULTY=3, IMAGE_URL=4, IMAGE_FORMULA=5, LAST_REVIEW=6`
+- **THEN** `COL` provides 0-based indices: `MUST_SPELL=0, ENGLISH=1, CHINESE=2, DIFFICULTY=3, IMAGE_URL=4, IMAGE_FORMULA=5, LAST_REVIEW=6, TAGS=7, KK_PHONETIC=8`
 - **AND** `COL_NUM` provides 1-based column numbers for `getRange(row, col)` calls
 
 #### Scenario: Utility functions

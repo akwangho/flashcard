@@ -433,6 +433,11 @@
     chineseElement.classList.add('show');
     this.showingChinese = true;
 
+    // KK 音標顯示時，中文出現後微調位置避免重疊
+    if (typeof this._updateKKOverlapShift === 'function') {
+      try { this._updateKKOverlapShift(); } catch (kkError) {}
+    }
+
     var hasImage = currentWord.image && currentWord.image !== '';
     if (hasImage) {
       this.setFlashcardImage(currentWord.image);

@@ -60,6 +60,10 @@
     var timerOffsetInput = document.getElementById('timer-offset-setting');
     if (timerOffsetInput) this.settings.timerProgressBarOffset = parseInt(timerOffsetInput.value, 10) || 0;
     
+    // 讀取 KK 音標顯示開關
+    var kkPhoneticToggle = document.getElementById('kk-phonetic-setting');
+    if (kkPhoneticToggle) this.settings.showKKPhonetic = kkPhoneticToggle.checked;
+    
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
@@ -83,7 +87,8 @@
       timerProgressBarOffset: 0,
       smartTimerEnabled: false,
       listeningMode: false,
-      carouselMemoryMode: false
+      carouselMemoryMode: false,
+      showKKPhonetic: false            // KK 音標顯示開關（預設關閉）
     };
     this.voiceSettings = {
       enabled: true,

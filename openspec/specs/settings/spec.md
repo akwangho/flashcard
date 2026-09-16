@@ -18,7 +18,8 @@ Defines the settings UI (general and voice modals) and the LocalStorage data mod
   mustSpellChineseFirst: Boolean, // Force Chinese-first in mixed mode for 衝刺要會拼單字 (sprint, level 1) only; 隨機要會拼單字 (random, level 0.5) stays random; 看懂就好 (level -1) is always forced English-first regardless of this toggle; default true
   showTimerProgressBar: Boolean,  // Show timer progress bar; default true
   timerProgressBarOffset: Number, // Top offset in px (0–100); default 0
-  smartTimerEnabled: Boolean      // Smart timer; default false
+  smartTimerEnabled: Boolean,     // Smart timer; default false
+  showKKPhonetic: Boolean         // Show KK phonetic in card centre and enable fetch/pre-cache; default false (see `kk-phonetic` spec)
 }
 ```
 

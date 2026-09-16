@@ -22,5 +22,9 @@ README.md
 # Scripts
 deploy.sh
 
+# KK 音標字庫種子資料與建置腳本（字庫匯入 GAS 後不需要上傳）
+data/**
+scripts/**
+
 # OS files
 .DS_Store

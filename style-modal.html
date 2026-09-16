@@ -514,6 +514,77 @@
     font-size: 13px;
   }
 
+  /* 編輯單字：KK 音標區塊 */
+  .edit-word-kk-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .edit-word-kk-value {
+    font-size: 20px;
+    color: #ffd54f;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    word-break: break-all;
+  }
+
+  .edit-word-kk-value.kk-empty {
+    color: #888;
+    font-size: 14px;
+    font-weight: normal;
+  }
+
+  .edit-word-kk-refetch-btn {
+    font-size: 13px;
+    padding: 6px 12px;
+    white-space: nowrap;
+  }
+
+  .edit-word-kk-refetch-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .edit-word-kk-status {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #aaa;
+  }
+
+  .edit-word-kk-status.kk-status-error {
+    color: #ff6b6b;
+  }
+
+  .edit-word-kk-candidates {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .edit-word-kk-candidate-btn {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 17px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .edit-word-kk-candidate-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .edit-word-kk-candidate-btn.kk-candidate-selected {
+    border-color: #ffd54f;
+    background: rgba(255, 213, 79, 0.15);
+    color: #ffd54f;
+  }
+
   /* 圖片放大檢視（lightbox）*/
   .image-lightbox-overlay {
     position: fixed;

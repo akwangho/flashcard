@@ -176,6 +176,9 @@
         </div>
       </div>
       
+      <!-- KK 音標顯示（畫面正中央；僅在 KK 音標功能開啟且內容為單字時顯示） -->
+      <div id="kk-phonetic-display" class="kk-phonetic-display" style="display: none;"></div>
+      
       <!-- 主畫面快速計時（左緣 hover 或觸控 ⏱ 展開） -->
       <div id="quick-timer-dock" class="quick-timer-dock">
         <div class="quick-timer-dock-inner">
@@ -439,6 +442,19 @@
             </div>
             <div class="setting-help">
               <small>啟用後，根據翻譯文字長度自動縮短等待時間；要會拼且不熟程度大於0、或不熟程度≥3時不加速</small>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label for="kk-phonetic-setting">🔤 KK 音標</label>
+            <div class="setting-control">
+              <label class="switch">
+                <input type="checkbox" id="kk-phonetic-setting">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-help">
+              <small>啟用後，單字（不含片語/句子）會顯示 KK 音標於畫面中央；缺音標的單字會自動從線上字典查詢並寫回單字檔 I 欄</small>
             </div>
           </div>
 
@@ -748,6 +764,18 @@
           <label for="edit-word-tags">🏷️ 標籤</label>
           <div class="setting-control">
             <input type="text" id="edit-word-tags" placeholder="標籤（以逗號分隔，如：動詞,基礎）" autocomplete="off">
+          </div>
+        </div>
+        <div class="setting-group" id="edit-word-kk-group">
+          <label>🔤 KK 音標（I 欄）</label>
+          <div class="setting-control edit-word-kk-control">
+            <span id="edit-word-kk-value" class="edit-word-kk-value">—</span>
+            <button type="button" id="edit-word-kk-refetch" class="secondary-btn edit-word-kk-refetch-btn">重新抓取 KK 音標</button>
+          </div>
+          <div id="edit-word-kk-status" class="edit-word-kk-status" style="display: none;"></div>
+          <div id="edit-word-kk-candidates" class="edit-word-kk-candidates" style="display: none;"></div>
+          <div class="setting-help">
+            <small>查詢順序：單字檔「KK音標字庫」工作表（12.6 萬單字完整字庫）→ 線上字典（查到自動存入字庫）。修改單字本身時會自動清除舊音標，避免新單字錯誤沿用</small>
           </div>
         </div>
       </div>
@@ -1193,6 +1221,7 @@
   <?!= include('script-duplicates'); ?>
   <?!= include('script-filter'); ?>
   <?!= include('script-edit-word'); ?>
+  <?!= include('script-kk-phonetic'); ?>
   <?!= include('script-search-word'); ?>
   <?!= include('script-srs'); ?>
   <?!= include('script-screen-awake'); ?>

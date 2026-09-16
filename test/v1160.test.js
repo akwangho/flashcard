@@ -154,9 +154,9 @@ describe('Bug 2: applyQuickMode(3) sets delayTime', function() {
     app.saveSettings = jest.fn();
   });
 
-  test('sets delayTime to 9 for daily review mode', function() {
+  test('sets delayTime to 10 for daily review mode', function() {
     app.applyQuickMode(3);
-    expect(app.settings.delayTime).toBe(9);
+    expect(app.settings.delayTime).toBe(10);
   });
 
   test('sets displayMode to mixed', function() {

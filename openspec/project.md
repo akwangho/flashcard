@@ -106,6 +106,7 @@ flashcard/
 ├── script-sheets.html           # Google Sheet load, validate, sheet selection
 ├── script-duplicates.html       # Duplicate detection and handling
 ├── script-filter.html           # Review time filter, difficulty filter, must-spell filter
+├── script-kk-phonetic.html      # KK phonetic (toggle, centre display, GAS query, pre-cache, edit-modal refetch/chooser)
 ├── script-edit-word.html        # Edit word modal (open, close, save, image preview)
 ├── script-search-word.html      # Word search (substring/B-col exact match, sheet/row, open edit)
 ├── script-srs.html              # SRS Leitner Box (due check, quick-review UI)
@@ -248,6 +249,7 @@ All frontend code must run on iPad 4 (iOS 10 and below).
 | Timer progress bar | Enabled (`showTimerProgressBar: true`) |
 | Timer progress bar offset | 0 px |
 | Smart timer | Disabled (`smartTimerEnabled: false`) |
+| KK phonetic | Disabled (`showKKPhonetic: false`) |
 | Carousel memory mode | Disabled (`carouselMemoryMode: false`) |
 | Must-spell filter default | false (no filter) |
 | Type filter default | All (word / phrase / sentence) |

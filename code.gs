@@ -26,7 +26,8 @@
     IMAGE_URL: 4,      // E 欄：圖片URL
     IMAGE_FORMULA: 5,  // F 欄：圖片顯示公式
     LAST_REVIEW: 6,    // G 欄：最後複習日期
-    TAGS: 7            // H 欄：標籤
+    TAGS: 7,           // H 欄：標籤
+    KK_PHONETIC: 8     // I 欄：KK 音標（使用者選定的音標，由前端寫入）
   };
 
   /** 1-based 欄位編號（用於 getRange(row, col)） */
@@ -38,7 +39,8 @@
     IMAGE_URL: 5,      // E 欄
     IMAGE_FORMULA: 6,  // F 欄
     LAST_REVIEW: 7,    // G 欄
-    TAGS: 8            // H 欄
+    TAGS: 8,           // H 欄
+    KK_PHONETIC: 9     // I 欄：KK 音標
   };
 
   // ===========================================
@@ -178,6 +180,13 @@ function countValidWords(sheet) {
       }
     }
 
+    // 讀取 I 欄：KK 音標（可能不存在（舊資料列長度不足），需檢查長度）
+    var kkPhonetic = '';
+    if (rowData.length > COL.KK_PHONETIC && rowData[COL.KK_PHONETIC] !== undefined &&
+        rowData[COL.KK_PHONETIC] !== null) {
+      kkPhonetic = rowData[COL.KK_PHONETIC].toString().trim();
+    }
+
     return {
       id: id,
       english: rowData[COL.ENGLISH].toString().trim(),
@@ -188,6 +197,7 @@ function countValidWords(sheet) {
       lastReviewDate: lastReviewDate,
       mustSpell: mustSpell,
       tags: tags,
+      kkPhonetic: kkPhonetic,
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
@@ -542,6 +552,12 @@ function countValidWords(sheet) {
         sheet.getRange(row, COL_NUM.TAGS).setValue(tagsStr);
         console.log('已更新標籤:', tagsStr);
       }
+
+      // 更新 I 欄：KK 音標（空字串 = 清除）
+      if (properties.kkPhonetic !== undefined && properties.kkPhonetic !== null) {
+        sheet.getRange(row, COL_NUM.KK_PHONETIC).setValue(properties.kkPhonetic.toString().trim());
+        console.log('已更新 KK 音標:', properties.kkPhonetic);
+      }
       
       console.log('成功更新單字屬性');
       return { success: true };
@@ -615,7 +631,7 @@ function countValidWords(sheet) {
       
       // 寫入第一列：A1 放總數（如果是新工作表或覆寫模式）
       if (isFirstBatch || overwrite || !sheetExists) {
-        targetSheet.appendRow([words.length, '單字', '翻譯', '不熟程度', '圖片URL', '', '', '標籤']);
+        targetSheet.appendRow([words.length, '單字', '翻譯', '不熟程度', '圖片URL', '', '', '標籤', 'KK音標']);
       }
       
       // 寫入資料
@@ -637,7 +653,8 @@ function countValidWords(sheet) {
           imageUrl,                  // E 欄：圖片URL
           '',                        // F 欄：圖片公式（略）
           '',                        // G 欄：複習日期（略）
-          tagsStr                    // H 欄：標籤
+          tagsStr,                   // H 欄：標籤
+          w.kkPhonetic || ''         // I 欄：KK 音標
         ]);
       }
       
@@ -1214,4 +1231,435 @@ function countValidWords(sheet) {
       console.error('載入單字並偵測重複時發生錯誤:', error);
       throw error;
     }
+  }
+
+  // ===========================================
+  // KK 音標 REST API
+  // ===========================================
+  //
+  // 前端透過 google.script.run 呼叫 queryKKPhonetic(word)，
+  // 本函式再依序查：
+  //   1. 本專案 Sheet 內建的「KK音標字庫」工作表（欄位：A=單字, B=KK音標, 可多列候選）
+  //   2. 外部字典 REST API（moedict / 字典網），失敗時靜默降級
+  // 回傳所有候選音標（candidates），由使用者選定後以 updateWordProperties(kkPhonetic)
+  // 寫入單字檔的 I 欄。
+  //
+  // REST 端點（Google Web App JSONP / doGet）: doGet 支援 ?action=kk&word=apple
+  // 回傳 ContentService JSON，可讓外部程式或測試腳本直接查詢 KK 音標。
+  // ===========================================
+
+  /** KK 音標字庫工作表名稱 */
+  var KK_DICT_SHEET_NAME = 'KK音標字庫';
+  /** 使用者指定字庫位置的 Script Properties key */
+  var KK_DICT_SHEET_ID_KEY = 'KK_DICT_SHEET_ID';
+  /**
+  * KK 音標完整字庫不 hard-code 在程式碼：
+  *   - 完整字庫（約 12.6 萬單字，由 open-dict-data/ipa-dict en_US 轉換）
+  *     用 importKKPhonetics.gs 的 importKKPhoneticsFromGitHub() 匯入
+  *     「KK音標字庫」工作表（本機先跑 node scripts/build-kk-dictionary.mjs 產生 data/kk-phonetics.json）。
+  *   - 字庫缺的單字自動由外部字典 API 補查並寫回字庫。
+  */
+
+  /**
+  * KK 音標字庫查找目標試算表 ID（依序）：
+  *   1. setKKDictSpreadsheet() 記住的使用者指定字庫
+  *   2. 單字檔試算表（wordsSheetId）
+  * @returns {Array<string>} 候選試算表 ID 清單
+  */
+  function getKKDictSpreadsheetCandidates(wordsSheetId) {
+    var ids = [];
+    try {
+      var saved = PropertiesService.getScriptProperties().getProperty(KK_DICT_SHEET_ID_KEY);
+      if (saved) ids.push(saved);
+    } catch (propError) { /* PropertiesService 無法使用時忽略 */ }
+    if (wordsSheetId) ids.push(wordsSheetId);
+    return ids;
+  }
+
+  /**
+  * 在單一試算表的字庫工作表中查找單字（TextFinder，12 萬列仍毫秒級）。
+  * 字庫格式：第 1 列為標題列（單字 / KK音標），第 2 列起為資料；
+  * 同一單字可有多列（多種 KK 音標候選），比對不分大小寫。
+  * @param {Sheet} dictSheet - 字庫工作表
+  * @param {string} key - 小寫單字
+  * @returns {Array<string>} 候選音標陣列（查無回空陣列）
+  */
+  function findKKDictRows_(dictSheet, key) {
+    var lastRow = dictSheet.getLastRow();
+    if (lastRow < 2) return [];
+    var finder = dictSheet.getRange(2, 1, lastRow - 1, 1)
+      .createTextFinder(key)
+      .matchEntireCell(true)
+      .matchCase(false);
+    var matches = finder.findAll();
+    var out = [];
+    for (var i = 0; i < matches.length; i++) {
+      var phon = dictSheet.getRange(matches[i].getRow(), 2).getValue();
+      phon = phon ? phon.toString().trim() : '';
+      if (phon && out.indexOf(phon) === -1) out.push(phon);
+    }
+    return out;
+  }
+
+  /**
+  * 在單一試算表中查找 KK 音標。
+  * @param {Spreadsheet} ss - 已開啟的試算表
+  * @param {string} key - 小寫單字
+  * @returns {Array<string>|null} 候選音標陣列；無字庫工作表回 null
+  */
+  function lookupKKPhoneticInSpreadsheet(ss, key) {
+    try {
+      if (!ss) return null;
+      var dictSheet = ss.getSheetByName(KK_DICT_SHEET_NAME);
+      if (!dictSheet) return null;
+      return findKKDictRows_(dictSheet, key);
+    } catch (error) {
+      console.error('查找 KK 音標字庫失敗:', error);
+      return null;
+    }
+  }
+
+  /**
+  * 依序在（1) 使用者指定字庫 2) 單字檔試算表 3) 腳本綁定試算表 查找單字音標。
+  * @param {string} key - 小寫單字
+  * @param {string} [wordsSheetId] - 單字檔試算表 ID
+  * @returns {Array<string>} 候選音標陣列（全部都沒有字庫或查無回空陣列）
+  */
+  function lookupKKPhoneticAnywhere(key, wordsSheetId) {
+    var candidateIds = getKKDictSpreadsheetCandidates(wordsSheetId);
+    for (var i = 0; i < candidateIds.length; i++) {
+      try {
+        var found = lookupKKPhoneticInSpreadsheet(SpreadsheetApp.openById(candidateIds[i]), key);
+        if (found && found.length > 0) return found;
+      } catch (openError) {
+        console.warn('開啟 KK 音標字庫候選試算表失敗:', candidateIds[i], openError);
+      }
+    }
+    try {
+      var bound = SpreadsheetApp.getActiveSpreadsheet();
+      if (bound) {
+        var boundFound = lookupKKPhoneticInSpreadsheet(bound, key);
+        if (boundFound && boundFound.length > 0) return boundFound;
+      }
+    } catch (boundError) { /* 無綁定試算表（獨立部署）時忽略 */ }
+    return [];
+  }
+
+  /**
+  * 將查到的音標寫入字庫工作表（自動快取，之後同單字直接命中字庫、不再打外部 API）。
+  * 寫入位置依序：使用者指定字庫 → 單字檔試算表 → 綁定試算表；
+  * 字庫工作表不存在時自動建立（標題列：單字 / KK音標）。
+  * @param {string} word - 英文單字
+  * @param {Array<string>|string} phonetics - 候選音標（可多筆）
+  * @param {string} [wordsSheetId] - 單字檔試算表 ID
+  * @returns {boolean} 是否成功寫入（已存在也回 true）
+  */
+  function saveKKPhoneticToDictionary(word, phonetics, wordsSheetId) {
+    try {
+      var ss = null;
+      var savedId = getKKDictSpreadsheetCandidates('');[0];
+      if (savedId) {
+        try { ss = SpreadsheetApp.openById(savedId); } catch (e) { ss = null; }
+      }
+      if (!ss && wordsSheetId) {
+        try { ss = SpreadsheetApp.openById(wordsSheetId); } catch (e2) { ss = null; }
+      }
+      if (!ss) {
+        try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e3) { ss = null; }
+      }
+      if (!ss) return false;
+
+      var key = (word || '').toString().trim().toLowerCase();
+      if (!key) return false;
+
+      var dictSheet = ss.getSheetByName(KK_DICT_SHEET_NAME);
+      if (!dictSheet) {
+        dictSheet = ss.insertSheet(KK_DICT_SHEET_NAME);
+        dictSheet.getRange(1, 1, 1, 2).setValues([['單字', 'KK音標']]).setFontWeight('bold');
+        dictSheet.setFrozenRows(1);
+      }
+
+      var phons = Array.isArray(phonetics) ? phonetics : [phonetics];
+      var existing = findKKDictRows_(dictSheet, key);
+      var rows = [];
+      for (var i = 0; i < phons.length; i++) {
+        var phon = phons[i] ? phons[i].toString().trim() : '';
+        if (!phon) continue;
+        if (existing.indexOf(phon) !== -1) continue;
+        rows.push([key, phon]);
+      }
+      if (rows.length === 0) return true; // 已存在，視為成功
+      dictSheet.getRange(dictSheet.getLastRow() + 1, 1, rows.length, 2).setValues(rows);
+      console.log('已將線上查詢結果存入 KK 音標字庫:', key, rows.length, '筆');
+      return true;
+    } catch (error) {
+      console.error('寫入 KK 音標字庫失敗:', error);
+      return false;
+    }
+  }  /**
+  * IPA 音標轉 KK 音標（與 scripts/build-kk-dictionary.mjs 的權威實作保持同步）。
+  * 重點規則：əɫ→ḷ（音節性 l，apple → ˋæpḷ）、ˈ→ˋ、ˌ→ˏ、eɪ→e、oʊ→o、
+  * ɝ 依重音分流（帶主重音保留 ɝ，其餘 → ɚ）、ɫ→l、ɹ→r、ɡ→g、雙母音 aɪ/aʊ/ɔɪ 保留。
+  */
+  var IPA_TO_KK_MULTI_STEPS = [
+    ['əɫ', 'ḷ'], ['əl', 'ḷ'],
+    ['eɪ', 'e'], ['oʊ', 'o'], ['əʊ', 'o'],
+    ['aɪ', '\u0001'], ['aʊ', '\u0002'], ['ɔɪ', '\u0003'],
+    ['tʃ', 'tʃ'], ['dʒ', 'dʒ']
+  ];
+  var IPA_TO_KK_PLACEHOLDERS = { '\u0001': 'aɪ', '\u0002': 'aʊ', '\u0003': 'ɔɪ' };
+  var IPA_TO_KK_CHAR_MAP = {
+    'ˈ': 'ˋ', 'ˌ': 'ˏ',
+    'ɫ': 'l', 'ɹ': 'r', 'ɡ': 'g', 'g': 'g',
+    'ɑ': 'ɑ', 'æ': 'æ', 'ʌ': 'ʌ', 'ɛ': 'ɛ', 'ɪ': 'ɪ', 'ʊ': 'ʊ', 'ə': 'ə', 'ɔ': 'ɔ',
+    'i': 'i', 'u': 'u', 'e': 'ɛ', 'o': 'o',
+    'a': 'æ',
+    'ʃ': 'ʃ', 'ʒ': 'ʒ', 'θ': 'θ', 'ð': 'ð', 'ŋ': 'ŋ',
+    'j': 'j', 'w': 'w', 'h': 'h',
+    'ḷ': 'ḷ', 'ɚ': 'ɚ', 'ɝ': 'ɝ',
+    'ː': '', '(': '', ')': '', '.': ''
+  };
+
+  /**
+  * ɝ 依重音分流：帶重音符（ˈ/ˌ）的音節裡保留 ɝ，其餘 → ɚ。
+  * 例：world /ˈwɝɫd/ → ˋwɝld；letter /ˈlɛtɝ/ → ˋlɛtɚ。
+  */
+  function splitStressedEr_(s) {
+    var out = '';
+    var lastStressIdx = -1;
+    for (var i = 0; i < s.length; i++) {
+      var ch = s[i];
+      if (ch === 'ˈ' || ch === 'ˌ') lastStressIdx = i;
+      if (ch === 'ɝ') {
+        var between = lastStressIdx >= 0 ? s.slice(lastStressIdx + 1, i) : null;
+        var stressed = between !== null && between.length <= 2 && !/[æʌɛɪʊəɔaeiou]/.test(between);
+        out += stressed ? 'ɝ' : 'ɚ';
+      } else {
+        out += ch;
+      }
+    }
+    return out;
+  }
+
+  /**
+  * @param {string} ipa - IPA 音標（可含 / / 斜線）
+  * @returns {string} KK 音標（轉換失敗回空字串）
+  */
+  function ipaToKK(ipa) {
+    var s = (ipa || '').toString().trim().replace(/^\/+|\/+$/g, '');
+    if (!s) return '';
+    s = splitStressedEr_(s);
+    for (var i = 0; i < IPA_TO_KK_MULTI_STEPS.length; i++) {
+      s = s.split(IPA_TO_KK_MULTI_STEPS[i][0]).join(IPA_TO_KK_MULTI_STEPS[i][1]);
+    }
+    var out = '';
+    for (var k = 0; k < s.length; k++) {
+      var ch = s[k];
+      if (IPA_TO_KK_PLACEHOLDERS.hasOwnProperty(ch)) {
+        out += IPA_TO_KK_PLACEHOLDERS[ch];
+      } else if (IPA_TO_KK_CHAR_MAP.hasOwnProperty(ch)) {
+        out += IPA_TO_KK_CHAR_MAP[ch];
+      } else if (/[a-zA-Z']/.test(ch)) {
+        out += ch; // 一般子音字母直接保留
+      }
+      // 其餘未知 IPA 符號（長音符、聲調等）捨棄
+    }
+    return out;
+  }
+
+  /**
+  * 從外部字典 REST API 查詢音標（伺服端 fetch，全部失敗時回傳空陣列）。
+  * 來源順序：
+  *   1. Free Dictionary API（dictionaryapi.dev，查詢量大；回傳 IPA，自動轉 KK）
+  *   2. moedict 英文 API（教育部，原生 KK；近年服務不穩定，僅作備援）
+  * @param {string} word - 英文單字
+  * @returns {Object} { candidates: [KK 音標], sources: [來源名稱] }
+  */
+  function fetchKKPhoneticFromWeb(word) {
+    var candidates = [];
+    var sources = [];
+    var trimmed = (word || '').toString().trim();
+    // 只查詢合理的英文單字（phrase/sentence 不會到這裡，保護外部 API 配額）
+    if (!trimmed || !/^[A-Za-z][A-Za-z'-]*$/.test(trimmed)) {
+      return { candidates: candidates, sources: sources };
+    }
+
+    // 來源 1：Free Dictionary API（dictionaryapi.dev）
+    try {
+      var url1 = 'https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(trimmed.toLowerCase());
+      var resp1 = UrlFetchApp.fetch(url1, { muteHttpExceptions: true, followRedirects: true });
+      if (resp1.getResponseCode() === 200) {
+        var data1 = JSON.parse(resp1.getContentText());
+        if (Array.isArray(data1) && data1.length > 0 && data1[0]) {
+          var ipaList = [];
+          if (data1[0].phonetic) ipaList.push(data1[0].phonetic);
+          var phonetics = data1[0].phonetics || [];
+          for (var i = 0; i < phonetics.length; i++) {
+            if (phonetics[i] && phonetics[i].text) ipaList.push(phonetics[i].text);
+          }
+          for (var k = 0; k < ipaList.length; k++) {
+            var kk = ipaToKK(ipaList[k]);
+            if (kk && candidates.indexOf(kk) === -1) candidates.push(kk);
+          }
+          if (candidates.length > 0) sources.push('freedictionary');
+        }
+      }
+    } catch (webError1) {
+      console.warn('KK 音標外部查詢（Free Dictionary）失敗:', webError1);
+    }
+
+    // 來源 2：moedict 英文 API（教育部；備援，原生 KK 音標）
+    if (candidates.length === 0) {
+      try {
+        var url2 = 'https://www.moedict.tw/e/' + encodeURIComponent(trimmed) + '.json';
+        var resp2 = UrlFetchApp.fetch(url2, { muteHttpExceptions: true, followRedirects: true });
+        if (resp2.getResponseCode() === 200) {
+          var data2 = JSON.parse(resp2.getContentText());
+          if (data2 && data2.heteronyms) {
+            for (var h = 0; h < data2.heteronyms.length; h++) {
+              var het = data2.heteronyms[h];
+              if (het && het.kk) {
+                // kk 欄位可能是「音標1 / 音標2」多筆
+                var parts = het.kk.split('/');
+                for (var p = 0; p < parts.length; p++) {
+                  var phon = parts[p].trim();
+                  if (phon && candidates.indexOf(phon) === -1) candidates.push(phon);
+                }
+              }
+            }
+            if (candidates.length > 0) sources.push('moedict');
+          }
+        }
+      } catch (webError2) {
+        console.warn('KK 音標外部查詢（moedict）失敗:', webError2);
+      }
+    }
+
+    return { candidates: candidates, sources: sources };
+  }
+  
+  /**
+  * 查詢單字的所有候選 KK 音標（前端主要進入點，google.script.run 呼叫）。
+  * 查找順序：
+  *   1. KK 音標字庫工作表（使用者指定 → 單字檔 → 綁定試算表）+ 內建字庫
+  *   2. 外部字典 REST API（Free Dictionary → moedict）；
+  *      查到後自動存入字庫工作表，之後同單字直接命中字庫、不再打外部 API
+  * @param {string} word - 英文單字
+  * @param {string} [wordsSheetId] - 單字檔試算表 ID（決定字庫工作表所在位置）
+  * @returns {Object} { success, word, candidates: [string], source: 'dict'|'web'|'none', webSources?, dictCached?, error? }
+  */
+  function queryKKPhonetic(word, wordsSheetId) {
+    try {
+      var trimmed = (word || '').toString().trim();
+      if (!trimmed) {
+        return { success: false, word: word, candidates: [], source: 'none', error: '缺少單字' };
+      }
+
+      // 1) 字庫工作表（TextFinder 快速查找，含 12.6 萬單字完整字庫）
+      var key = trimmed.toLowerCase();
+      var dictCandidates = lookupKKPhoneticAnywhere(key, wordsSheetId);
+      if (dictCandidates.length > 0) {
+        console.log('KK 音標（字庫）:', trimmed, dictCandidates);
+        return { success: true, word: trimmed, candidates: dictCandidates.slice(), source: 'dict' };
+      }
+
+      // 2) 外部字典 REST API
+      var web = fetchKKPhoneticFromWeb(trimmed);
+      if (web.candidates.length > 0) {
+        console.log('KK 音標（外部 API）:', trimmed, web.candidates, web.sources);
+        // 查到後自動存入字庫（之後同單字直接命中字庫，不再打外部 API）
+        var dictCached = saveKKPhoneticToDictionary(trimmed, web.candidates, wordsSheetId);
+        return {
+          success: true,
+          word: trimmed,
+          candidates: web.candidates.slice(),
+          source: 'web',
+          webSources: web.sources,
+          dictCached: dictCached
+        };
+      }
+
+      // 查無資料
+      return { success: true, word: trimmed, candidates: [], source: 'none' };
+    } catch (error) {
+      console.error('查詢 KK 音標失敗:', error);
+      return { success: false, word: word, candidates: [], source: 'none', error: error.message };
+    }
+  }
+
+  /**
+  * 記住 KK 音標字庫所在的試算表 ID（寫入 Script Properties，跨執行有效）。
+  * 在 Apps Script 編輯器執行：setKKDictSpreadsheet('你的試算表ID')
+  * @param {string} sheetId - 試算表 ID 或完整網址
+  * @returns {Object} { success, sheetId }
+  */
+  function setKKDictSpreadsheet(sheetId) {
+    var clean = validateAndCleanSheetId(sheetId);
+    PropertiesService.getScriptProperties().setProperty(KK_DICT_SHEET_ID_KEY, clean);
+    console.log('已設定 KK 音標字庫試算表:', clean);
+    return { success: true, sheetId: clean };
+  }
+
+  /**
+  * 診斷 KK 音標查詢設定（字庫位置與列數、單字試查）。
+  * 在 Apps Script 編輯器執行：debugKKPhonetics('apple')
+  * 查不到音標時先用這個函式確認問題所在（例如字庫尚未匯入 12.6 萬單字）。
+  * @param {string} [testWord] - 順便試查的單字
+  * @returns {Object} 診斷資訊
+  */
+  function debugKKPhonetics(testWord) {
+    var info = {
+      dictSheetName: KK_DICT_SHEET_NAME,
+      configuredSheetId: '',
+      dictFoundIn: [],
+      testWord: testWord || ''
+    };
+    try {
+      info.configuredSheetId = PropertiesService.getScriptProperties().getProperty(KK_DICT_SHEET_ID_KEY) || '';
+    } catch (propError) { /* 忽略 */ }
+    var candidateIds = getKKDictSpreadsheetCandidates('');
+    for (var i = 0; i < candidateIds.length; i++) {
+      try {
+        var ss = SpreadsheetApp.openById(candidateIds[i]);
+        var dictSheet = ss.getSheetByName(KK_DICT_SHEET_NAME);
+        if (dictSheet) {
+          info.dictFoundIn.push({ spreadsheetId: candidateIds[i], rows: Math.max(dictSheet.getLastRow() - 1, 0) });
+        }
+      } catch (openError) { /* 忽略 */ }
+    }
+    try {
+      var bound = SpreadsheetApp.getActiveSpreadsheet();
+      if (bound) {
+        var boundSheet = bound.getSheetByName(KK_DICT_SHEET_NAME);
+        if (boundSheet) {
+          info.dictFoundIn.push({ spreadsheetId: 'bound:' + bound.getId(), rows: Math.max(boundSheet.getLastRow() - 1, 0) });
+        }
+      }
+    } catch (boundError) { /* 無綁定試算表 */ }
+    if (info.testWord) {
+      info.testResult = queryKKPhonetic(info.testWord);
+    }
+    return info;
+  }
+
+  /**
+  * REST 端點：doGet 支援 ?action=kk&word=apple 直接以 HTTP 查詢 KK 音標。
+  * 回傳 JSON：{ success, word, candidates, source }
+  */
+  function doGet(e) {
+    try {
+      var action = e && e.parameter ? e.parameter.action : null;
+      if (action === 'kk') {
+        var word = e.parameter.word || '';
+        var result = queryKKPhonetic(word);
+        return ContentService.createTextOutput(JSON.stringify(result))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    } catch (kkError) {
+      console.error('KK 音標 REST 查詢失敗:', kkError);
+    }
+
+    return HtmlService.createTemplateFromFile('index')
+      .evaluate()
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }

@@ -91,7 +91,14 @@ function createDOMElements() {
     'edit-word-must-spell',
     'edit-word-image', 'edit-word-image-preview',
     'edit-word-image-preview-img', 'edit-word-image-preview-error',
+    'edit-word-tags',
+    'edit-word-kk-group', 'edit-word-kk-value', 'edit-word-kk-refetch',
+    'edit-word-kk-status', 'edit-word-kk-candidates',
     'cancel-edit-word', 'save-edit-word',
+    // KK phonetic display (center of screen)
+    'kk-phonetic-display',
+    // KK phonetic setting toggle
+    'kk-phonetic-setting',
     // Search word modal
     'search-word-modal', 'close-search-word', 'search-word-input', 'search-word-run',
     'search-word-summary', 'search-word-results', 'close-search-word-footer',
@@ -203,7 +210,7 @@ function createDOMElements() {
         el.appendChild(opt);
       });
     }
-    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'listening-spell-input' || id === 'search-word-input') {
+    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'edit-word-tags' || id === 'listening-spell-input' || id === 'search-word-input') {
       el = document.createElement('input');
       el.id = id;
       el.type = 'text';
@@ -274,6 +281,15 @@ function createDOMElements() {
     if (id === 'edit-word-image-preview-img') {
       el = document.createElement('img');
       el.id = id;
+    }
+    if (id === 'edit-word-kk-refetch') {
+      el = document.createElement('button');
+      el.id = id;
+    }
+    if (id === 'kk-phonetic-setting') {
+      el = document.createElement('input');
+      el.id = id;
+      el.type = 'checkbox';
     }
     if (id === 'save-sheet-settings') {
       el = document.createElement('button');
@@ -378,7 +394,8 @@ function setupMocks() {
     'updateWordProperties', 'updateWordDifficulty', 'markWordAsDifficult',
     'batchUpdateReviewDates', 'exportWordsToSheet',
     'detectDuplicateWords', 'handleDuplicateWordKeepOne', 'handleDuplicateWordMerge',
-    'autoHandleSkippedDuplicatesInMemory', 'autoHandleSkippedDuplicates'
+    'autoHandleSkippedDuplicatesInMemory', 'autoHandleSkippedDuplicates',
+    'queryKKPhonetic'
   ];
   gasFunctions.forEach(function(fn) {
     mockRunner[fn] = function() { return mockRunner; };
@@ -458,6 +475,7 @@ function loadAllScripts() {
     'script-duplicates.html',
     'script-filter.html',
     'script-edit-word.html',
+    'script-kk-phonetic.html',
     'script-search-word.html',
     'script-srs.html',
     'script-screen-awake.html',

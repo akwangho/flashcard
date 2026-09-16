@@ -3,9 +3,10 @@
   /**
    * @module script-edit-word
    * @description 即時編輯單字模組：開啟/關閉編輯模態框、設置事件監聽器、
-   *   圖片預覽、不熟程度顯示、儲存編輯結果並同步到後端。
+   *   圖片預覽、不熟程度顯示、KK 音標顯示與重新抓取、儲存編輯結果並同步到後端。
    *
-   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, closeModalById)
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, closeModalById),
+   *   script-kk-phonetic.html (KK 音標重新抓取/候選選擇)
    * @provides FlashcardApp.prototype: openEditWordModal(optWord), closeEditWordModal,
    *   updateEditWordDifficultyColor, setupEditWordListeners,
    *   updateEditWordImagePreview, saveEditWord
@@ -67,6 +68,12 @@
     // 更新圖片預覽
     this.updateEditWordImagePreview(currentWord.image || '');
 
+    // KK 音標資訊（顯示目前 I 欄音標；重新抓取按鈕於下方 listener 綁定）
+    this._editingOriginalEnglish = currentWord.english || '';
+    if (typeof this._renderEditKKPhonetic === 'function') {
+      this._renderEditKKPhonetic(currentWord);
+    }
+
     // 記住正在編輯的單字 ID
     this._editingWordId = currentWord.id;
 
@@ -78,6 +85,12 @@
   FlashcardApp.prototype.closeEditWordModal = function() {
     closeModalById(this, 'edit-word-modal');
     this._editingWordId = undefined;
+    this._editingOriginalEnglish = undefined;
+
+    // 重置 KK 音標暫存狀態（未儲存的選定/查詢結果不寫回 Sheet）
+    if (typeof this._renderEditKKPhonetic === 'function') {
+      this._renderEditKKPhonetic(null);
+    }
 
     // 恢復編輯前的暫停狀態
     if (!this._wasPausedBeforeEdit) {
@@ -167,6 +180,14 @@
       };
       imageInput.addEventListener('input', handleImageChange);
       imageInput.addEventListener('change', handleImageChange);
+    }
+
+    // 「重新抓取 KK 音標」按鈕（強制重新查詢 GAS，忽略 I 欄與快取）
+    var kkRefetchBtn = document.getElementById('edit-word-kk-refetch');
+    if (kkRefetchBtn && typeof self.refetchKKPhoneticForEdit === 'function') {
+      kkRefetchBtn.addEventListener('click', function() {
+        self.refetchKKPhoneticForEdit();
+      });
     }
 
     // Enter 鍵觸發儲存（在文字/數字輸入框按下時直接儲存，免用滑鼠點確定）
@@ -360,6 +381,26 @@
       return;
     }
 
+    // KK 音標處理：
+    //  - 英文單字本身被修改 → 清除欄位 I（避免新單字錯誤沿用舊音標）。
+    //  - 使用者在編輯畫面重新抓取並選定音標 → 寫入選定音標
+    //    （選定音標必須是本次查詢所屬英文的結果，防止先選音標再改單字的錯誤沿用）。
+    //  - 其餘情況 → 維持原值。
+    var originalEnglish = this._editingOriginalEnglish;
+    var englishChanged = originalEnglish !== undefined && originalEnglish !== null &&
+      originalEnglish.trim().toLowerCase() !== newEnglish.trim().toLowerCase();
+    var kkSelection = this._kkEditSelectedPhonetic;
+    var kkSelectionValid = kkSelection !== undefined && kkSelection !== null &&
+      this._kkEditFetchedEnglish === newEnglish.trim();
+    var newKKPhonetic;
+    if (englishChanged) {
+      newKKPhonetic = kkSelectionValid ? kkSelection : '';
+    } else if (kkSelectionValid) {
+      newKKPhonetic = kkSelection;
+    } else {
+      newKKPhonetic = word.kkPhonetic || '';
+    }
+
     // 準備更新的屬性
     var properties = {
       english: newEnglish,
@@ -367,16 +408,29 @@
       difficultyLevel: newDifficulty,
       imageUrl: newImage,
       mustSpell: newMustSpell,
-      tags: newTags
+      tags: newTags,
+      kkPhonetic: newKKPhonetic
     };
 
     // 更新本地資料（主陣列）
+    if (englishChanged) {
+      // 清除舊單字的音標快取，避免新單字錯誤沿用
+      if (typeof this._kkNormalizeWord === 'function') {
+        delete this.kkPhoneticCache[this._kkNormalizeWord(originalEnglish)];
+      }
+    }
+    if (newKKPhonetic && newKKPhonetic !== '' && typeof this._setCachedKKPhonetic === 'function') {
+      // 選定/維持的音標同步進快取，顯示路徑即可直接使用（不需再呼叫 GAS）
+      this._setCachedKKPhonetic(newEnglish, newKKPhonetic);
+    }
+
     word.english = newEnglish;
     word.chinese = newChinese;
     word.difficultyLevel = newDifficulty;
     word.image = newImage;
     word.mustSpell = newMustSpell;
     word.tags = newTags;
+    word.kkPhonetic = newKKPhonetic;
 
     // 同步更新 currentWords 中的對應項目
     for (var j = 0; j < this.currentWords.length; j++) {
@@ -387,6 +441,7 @@
         this.currentWords[j].image = newImage;
         this.currentWords[j].mustSpell = newMustSpell;
         this.currentWords[j].tags = newTags;
+        this.currentWords[j].kkPhonetic = newKKPhonetic;
         break;
       }
     }

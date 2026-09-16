@@ -1,0 +1,634 @@
+<!-- script-kk-phonetic.html -->
+<script>
+  /**
+   * @module script-kk-phonetic
+   * @description KK 音標模組：顯示開關（settings.showKKPhonetic，預設關閉）、
+   *   畫面正中央音標顯示、GAS KK 音標 API 查詢（queryKKPhonetic）、
+   *   即將輪到單字的 pre-cache、同一單字不重複發送 request（in-flight dedupe）、
+   *   非同步回應 race condition 保護（顯示 token）、編輯單字的重新抓取與候選音標選擇。
+   *
+   * 資料流：
+   *   - Google Sheet I 欄（word.kkPhonetic）已有音標 → 直接顯示，不再呼叫 GAS。
+   *   - I 欄沒有且內容為「單字」（getWordType === 'word'）→ 從 GAS 查詢；
+   *     後端查找順序：字庫工作表（使用者指定 → 單字檔 → 綁定；12.6 萬單字）
+   *     → 外部字典 API；線上查到後自動存入字庫工作表，
+   *     之後同單字直接命中字庫。取得後立即顯示，並寫回 I 欄
+   *     （updateWordProperties { kkPhonetic }）。
+   *   - phrase / sentence 不顯示、不查詢、不 pre-cache。
+   *   - API 失敗只記錄 console，不影響 Flashcard 原本功能。
+   *   - 晚回來的回應可寫回原本單字資料（依列寫入），但不會顯示到目前卡片（token 比對）。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, getWordType)
+   * @provides FlashcardApp.prototype: updateKKPhoneticDisplay, fetchKKPhonetic,
+   *   precacheUpcomingKKPhonetics, resolveKKPhonetic, writeKKPhoneticToSheet,
+   *   refetchKKPhoneticForEdit, selectKKPhoneticForEdit, _initKKPhoneticState ...
+   */
+
+  // ==========================================================================
+  // 狀態初始化
+  // ==========================================================================
+
+  /** KK 音標相關狀態（在建構函式中呼叫） */
+  FlashcardApp.prototype._initKKPhoneticState = function() {
+    // 音標快取（localStorage 持久化）：key = 小寫單字 → { p: 音標字串, ts: 時間戳 }
+    // 注意：即使查無音標（空字串）也會快取，避免反覆打 API；可用編輯畫面「重新抓取」強制更新。
+    this.kkPhoneticCache = {};
+    // 進行中的查詢（key → 等待中的 callback 陣列），避免同一單字重複發送 request
+    this._kkPendingFetches = {};
+    // 顯示世代 token：每次更新顯示遞增；非同步回呼比對 token，過期則不顯示（race condition 保護）
+    this._kkDisplayToken = 0;
+    // 編輯單字 modal 暫存狀態
+    this._kkEditCandidates = null;      // 重新抓取得到的多筆候選
+    this._kkEditSelectedPhonetic = undefined; // 使用者選定的音標（儲存時寫入 I 欄）
+    this._kkEditFetchedEnglish = undefined;   // 候選音標所屬的英文（防止修改單字後沿用舊音標）
+
+    this.loadKKPhoneticCache();
+  };
+
+  // ==========================================================================
+  // localStorage 快取
+  // ==========================================================================
+
+  /** 從 localStorage 載入 KK 音標快取 */
+  FlashcardApp.prototype.loadKKPhoneticCache = function() {
+    try {
+      var raw = localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.KK_PHONETIC_CACHE);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          this.kkPhoneticCache = parsed;
+        }
+      }
+    } catch (e) {
+      console.log('載入 KK 音標快取失敗，使用空快取');
+      this.kkPhoneticCache = {};
+    }
+  };
+
+  /** 將 KK 音標快取保存到 localStorage（超過上限時保留最新的 N 筆） */
+  FlashcardApp.prototype.saveKKPhoneticCache = function() {
+    try {
+      var max = APP_CONSTANTS.KK_PHONETIC_CACHE_MAX || 500;
+      var keys = [];
+      var key;
+      for (key in this.kkPhoneticCache) {
+        if (this.kkPhoneticCache.hasOwnProperty(key)) keys.push(key);
+      }
+      if (keys.length > max) {
+        // 依時間戳由新到舊排序，只保留前 max 筆
+        var self = this;
+        keys.sort(function(a, b) {
+          var ta = (self.kkPhoneticCache[a] && self.kkPhoneticCache[a].ts) || 0;
+          var tb = (self.kkPhoneticCache[b] && self.kkPhoneticCache[b].ts) || 0;
+          return tb - ta;
+        });
+        var trimmed = {};
+        for (var i = 0; i < max; i++) {
+          trimmed[keys[i]] = this.kkPhoneticCache[keys[i]];
+        }
+        this.kkPhoneticCache = trimmed;
+      }
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.KK_PHONETIC_CACHE, JSON.stringify(this.kkPhoneticCache));
+    } catch (e) {
+      console.log('保存 KK 音標快取失敗');
+    }
+  };
+
+  /** 寫入單筆快取 */
+  FlashcardApp.prototype._setCachedKKPhonetic = function(english, phonetic, candidates) {
+    var key = this._kkNormalizeWord(english);
+    if (!key) return;
+    this.kkPhoneticCache[key] = { p: phonetic || '', ts: Date.now() };
+    if (candidates && candidates.length > 1) {
+      this.kkPhoneticCache[key].c = candidates;
+    }
+    this.saveKKPhoneticCache();
+  };
+
+  /** 讀取單筆快取（僅回傳非空音標；查無/空字串回傳 null） */
+  FlashcardApp.prototype._getCachedKKPhonetic = function(english) {
+    var key = this._kkNormalizeWord(english);
+    if (!key) return null;
+    var entry = this.kkPhoneticCache[key];
+    if (entry && entry.p && entry.p !== '') return entry.p;
+    return null;
+  };
+
+  /** 正規化單字為快取 key（小寫、去空白） */
+  FlashcardApp.prototype._kkNormalizeWord = function(english) {
+    return (english || '').toString().trim().toLowerCase();
+  };
+
+  // ==========================================================================
+  // 顯示邏輯
+  // ==========================================================================
+
+  /**
+   * 解析單字目前的 KK 音標：優先 Google Sheet I 欄（word.kkPhonetic），
+   * 其次本機快取。都沒有時回傳 null（需要呼叫 GAS 查詢）。
+   * @param {Object} word - 單字物件
+   * @returns {string|null}
+   */
+  FlashcardApp.prototype.resolveKKPhonetic = function(word) {
+    if (!word) return null;
+    if (word.kkPhonetic && word.kkPhonetic !== '') return word.kkPhonetic;
+    return this._getCachedKKPhonetic(word.english);
+  };
+
+  /**
+   * 該單字是否適用 KK 音標：功能開啟 + 有英文 + 類型為「單字」。
+   * phrase / sentence 一律不適用（不顯示、不查詢、不 pre-cache）。
+   * @param {Object} word - 單字物件
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._isKKPhoneticEligible = function(word) {
+    if (!this.settings.showKKPhonetic) return false;
+    if (!word || !word.english || word.english.trim() === '') return false;
+    return getWordType(word.english) === 'word';
+  };
+
+  /**
+   * 更新畫面正中央的 KK 音標顯示。
+   * 由 displayCurrentWord 在每次切換卡片時呼叫。
+   *  - 功能關閉 / 非單字 → 隱藏。
+   *  - I 欄或快取已有音標 → 直接顯示（不呼叫 GAS）。
+   *  - 否則從 GAS 查詢；回應時比對顯示 token，僅在仍停留在同一單字時顯示。
+   * @param {Object} word - 當前單字物件
+   */
+  FlashcardApp.prototype.updateKKPhoneticDisplay = function(word) {
+    var el = document.getElementById('kk-phonetic-display');
+
+    // 每次切換卡片都遞增顯示 token：先前的非同步回應（含快取/Sheet 命中而未發查詢者）
+    // 一律視為過期，不得顯示在目前已切換的卡片上（race condition 保護）
+    this._kkDisplayToken++;
+
+    if (!this._isKKPhoneticEligible(word)) {
+      if (el) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.classList.remove('show');
+        el.classList.remove('kk-overlap-shift');
+      }
+      return;
+    }
+
+    var cached = this.resolveKKPhonetic(word);
+    if (cached) {
+      this._showKKPhoneticText(cached);
+      return;
+    }
+
+    // 查詢中先隱藏，避免殘留上一個單字的音標
+    if (el) {
+      el.style.display = 'none';
+      el.textContent = '';
+      el.classList.remove('show');
+      el.classList.remove('kk-overlap-shift');
+    }
+
+    var token = this._kkDisplayToken;
+    var self = this;
+    this.fetchKKPhonetic(word, {}, function(result) {
+      // race condition 保護：使用者已切換到下一個單字時，不顯示舊音標
+      // （資料仍會由 fetchKKPhonetic 寫回快取與原本單字資料）
+      if (token !== self._kkDisplayToken) return;
+      if (result && result.phonetic) {
+        self._showKKPhoneticText(result.phonetic);
+      }
+    });
+  };
+
+  /** 實際將音標文字顯示在畫面正中央 */
+  FlashcardApp.prototype._showKKPhoneticText = function(phonetic) {
+    var el = document.getElementById('kk-phonetic-display');
+    if (!el) return;
+    el.textContent = phonetic;
+    el.style.display = 'flex';
+    el.classList.add('show');
+    this._updateKKOverlapShift();
+  };
+
+  /** 依中文翻譯是否已顯示，調整 KK 音標位置避免重疊 */
+  FlashcardApp.prototype._updateKKOverlapShift = function() {
+    var el = document.getElementById('kk-phonetic-display');
+    if (!el || el.style.display === 'none') return;
+    var chineseEl = document.getElementById('chinese-word');
+    var chineseShowing = chineseEl && chineseEl.classList.contains('show');
+    if (chineseShowing) {
+      el.classList.add('kk-overlap-shift');
+    } else {
+      el.classList.remove('kk-overlap-shift');
+    }
+  };
+
+  // ==========================================================================
+  // 查詢（含 dedupe / 寫回 Sheet / 寫回記憶體）
+  // ==========================================================================
+
+  /**
+   * 取得單字 KK 音標（核心查詢函式）。
+   *  - 同一單字進行中的查詢不會重複發送 request（等待中的 callback 會一起被喚醒）。
+   *  - 查詢成功後：寫入快取、寫回原本單字物件（words/currentWords）、
+   *    並將選定（第一筆候選）音標寫入 Google Sheet I 欄（可用 opts.writeBack = false 停用，
+   *    編輯畫面的重新抓取即停用寫回，改由使用者選定後於儲存時寫入）。
+   *  - 失敗時僅記錄 log 並回呼 null，不影響 Flashcard 其他功能。
+   * @param {Object} word - 單字物件（至少要有 english；寫回 Sheet 需要 sheetName/originalRowIndex）
+   * @param {Object} [opts] - { force: boolean 強制重新查詢（忽略快取與 I 欄）,
+   *                            writeBack: boolean 是否寫回 Sheet I 欄（預設 true） }
+   * @param {Function} [callback] - callback({ english, phonetic, candidates, source } | null)
+   */
+  FlashcardApp.prototype.fetchKKPhonetic = function(word, opts, callback) {
+    if (typeof opts === 'function') {
+      callback = opts;
+      opts = {};
+    }
+    opts = opts || {};
+    if (typeof callback !== 'function') callback = null;
+
+    var english = word ? (word.english || '').toString().trim() : '';
+    if (!english || getWordType(english) !== 'word') {
+      if (callback) callback(null);
+      return;
+    }
+
+    var key = this._kkNormalizeWord(english);
+
+    // 1) 非強制查詢時：優先 Sheet I 欄，其次本機快取。
+    //    快取以「有無紀錄」判斷（含查無音標的空結果），避免對同一單字反覆查詢。
+    if (!opts.force) {
+      // I 欄已有音標（word.kkPhonetic）→ 直接回呼，不呼叫 GAS
+      if (word.kkPhonetic && word.kkPhonetic !== '') {
+        if (callback) {
+          callback({ english: english, phonetic: word.kkPhonetic, candidates: [word.kkPhonetic], source: 'sheet' });
+        }
+        return;
+      }
+      var entry = this.kkPhoneticCache[key];
+      if (entry) {
+        var cached = entry.p || '';
+        if (callback) {
+          callback({
+            english: english,
+            phonetic: cached,
+            candidates: entry.c || (cached !== '' ? [cached] : []),
+            source: 'cache'
+          });
+        }
+        return;
+      }
+    }
+
+    // 2) 進行中查詢 dedupe：不重複發送 request，排隊等待同一份結果
+    if (this._kkPendingFetches[key]) {
+      if (callback) this._kkPendingFetches[key].push(callback);
+      return;
+    }
+    this._kkPendingFetches[key] = [];
+
+    var self = this;
+    var finish = function(result) {
+      // 喚醒排隊中的 callback（發起者排在最前，維持呼叫順序）
+      var waiters = self._kkPendingFetches[key] || [];
+      delete self._kkPendingFetches[key];
+      if (callback) waiters.unshift(callback);
+      for (var i = 0; i < waiters.length; i++) {
+        try {
+          waiters[i](result);
+        } catch (cbError) {
+          console.error('KK 音標 callback 執行失敗:', cbError);
+        }
+      }
+    };
+
+    var onSuccess = function(result) {
+      try {
+        if (!result || result.success !== true) {
+          console.warn('KK 音標查詢未成功:', english, result);
+          finish(null);
+          return;
+        }
+        var candidates = (result.candidates && result.candidates.length > 0) ? result.candidates : [];
+        var phonetic = candidates.length > 0 ? candidates[0] : '';
+
+        // 寫入快取（含空結果，避免反覆查詢；可用編輯畫面強制重新抓取）
+        self._setCachedKKPhonetic(english, phonetic, candidates);
+
+        // 晚回來的回應一律寫回原本的單字資料（race condition 下只影響資料、不影響目前顯示）
+        if (word) {
+          word.kkPhonetic = phonetic || '';
+          if (candidates && candidates.length > 0) {
+            word.kkCandidates = candidates;
+          }
+          // 同步 words / currentWords 中同 id 的物件（依 id 比對，不會寫錯對象）
+          if (word.id !== undefined) {
+            self._syncKKPhoneticToWordObjects(word.id, phonetic, candidates);
+          }
+        }
+
+        // 寫回 Google Sheet I 欄（顯示/pre-cache 流程；編輯畫面重新抓取停用，改為選定後儲存時寫入）
+        var writeBack = opts.writeBack !== false;
+        if (writeBack && word && phonetic !== '' &&
+            word.originalRowIndex !== undefined && word.originalRowIndex !== -1) {
+          self.writeKKPhoneticToSheet(word, phonetic);
+        }
+
+        finish({
+          english: english,
+          phonetic: phonetic,
+          candidates: candidates,
+          source: result.source || 'none'
+        });
+      } catch (handleError) {
+        console.error('KK 音標查詢結果處理失敗:', handleError);
+        finish(null);
+      }
+    };
+
+    var onFailure = function(error) {
+      // API 失敗不影響 Flashcard 原本功能；不寫入失敗快取，下次仍可重試
+      console.warn('KK 音標查詢失敗:', english, error);
+      finish(null);
+    };
+
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      finish(null);
+      return;
+    }
+
+    try {
+      // 傳入目前單字檔試算表 ID：後端字庫工作表優先建在單字檔內
+      var wordsSheetId = (this.sheetSettings && this.sheetSettings.sheetId) || '';
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(onFailure)
+        .queryKKPhonetic(english, wordsSheetId);
+    } catch (callError) {
+      console.error('KK 音標 API 呼叫失敗:', callError);
+      finish(null);
+    }
+  };
+
+  /**
+   * 將查到的 KK 音標同步回記憶體中的單字物件（words 與 currentWords，依 id 比對）。
+   * @param {number} wordId - 單字 id
+   * @param {string} phonetic - 音標（可能為空字串）
+   * @param {Array} [candidates] - 候選音標陣列
+   */
+  FlashcardApp.prototype._syncKKPhoneticToWordObjects = function(wordId, phonetic, candidates) {
+    var arrays = [this.words, this.currentWords];
+    for (var a = 0; a < arrays.length; a++) {
+      var arr = arrays[a];
+      if (!arr) continue;
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i] && arr[i].id === wordId) {
+          arr[i].kkPhonetic = phonetic || '';
+          if (candidates && candidates.length > 0) {
+            arr[i].kkCandidates = candidates;
+          }
+        }
+      }
+    }
+  };
+
+  /**
+   * 將 KK 音標寫入 Google Sheet I 欄（沿用 updateWordProperties 機制）。
+   * @param {Object} word - 單字物件（需 sheetName / originalRowIndex）
+   * @param {string} phonetic - 要寫入的音標
+   */
+  FlashcardApp.prototype.writeKKPhoneticToSheet = function(word, phonetic) {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+    if (!word || word.originalRowIndex === undefined || word.originalRowIndex === -1) return;
+
+    var sheetId = this.sheetSettings.sheetId;
+    var sheetName = word.sheetName || 'Sheet1';
+    try {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.success) {
+            console.log('KK 音標已寫入 Google Sheet I 欄:', word.english, phonetic);
+          } else {
+            console.error('KK 音標寫入 Google Sheet 失敗:', result ? result.error : '未知錯誤');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('KK 音標寫入 Google Sheet 失敗:', error);
+        })
+        .updateWordProperties(sheetId, sheetName, word.originalRowIndex, { kkPhonetic: phonetic });
+    } catch (writeError) {
+      console.error('KK 音標寫入 Google Sheet 例外:', writeError);
+    }
+  };
+
+  // ==========================================================================
+  // Pre-cache（對齊 preloadUpcomingImages 機制）
+  // ==========================================================================
+
+  /**
+   * 預先抓取即將輪到的單字 KK 音標（預設包含目前 + 接下來 N 個），
+   * 避免輪到該單字時因網路延遲造成音標晚出現。
+   *  - 僅處理「單字」（phrase / sentence 跳過）。
+   *  - 已有音標（I 欄/快取）或正在查詢中的單字不重複發送 request。
+   *  - 完全非同步，不阻塞目前單字顯示；失敗靜默。
+   * @param {number} [count] - 預抓數量，預設 APP_CONSTANTS.KK_PHONETIC_PRECACHE_COUNT
+   */
+  FlashcardApp.prototype.precacheUpcomingKKPhonetics = function(count) {
+    if (!this.settings.showKKPhonetic) return;
+    if (!this.currentWords || this.currentWords.length === 0) return;
+
+    var total = this.currentWords.length;
+    var n = count || APP_CONSTANTS.KK_PHONETIC_PRECACHE_COUNT;
+    for (var i = 0; i < n && i < total; i++) {
+      var idx = (this.currentIndex + i) % total;
+      var w = this.currentWords[idx];
+      if (!w || !w.english) continue;
+      if (getWordType(w.english) !== 'word') continue;   // 只針對單字
+      if (this.resolveKKPhonetic(w)) continue;           // I 欄或快取已有 → 不打 API
+      // fetchKKPhonetic 內建 in-flight dedupe，重複呼叫不會重複發送 request
+      this.fetchKKPhonetic(w, {}, null);
+    }
+  };
+
+  // ==========================================================================
+  // 編輯單字整合
+  // ==========================================================================
+
+  /** 編輯 modal 開啟時：重設 KK 音標區塊並顯示目前音標（word.kkPhonetic） */
+  FlashcardApp.prototype._renderEditKKPhonetic = function(word) {
+    this._kkEditCandidates = null;
+    this._kkEditSelectedPhonetic = undefined;
+    this._kkEditFetchedEnglish = undefined;
+    this._kkEditFetchedEnglish = undefined;
+
+    var statusEl = document.getElementById('edit-word-kk-status');
+    var candidatesEl = document.getElementById('edit-word-kk-candidates');
+    if (statusEl) {
+      statusEl.style.display = 'none';
+      statusEl.textContent = '';
+      statusEl.classList.remove('kk-status-error');
+    }
+    if (candidatesEl) {
+      candidatesEl.style.display = 'none';
+      candidatesEl.innerHTML = '';
+    }
+
+    this._renderEditKKValue(word ? (word.kkPhonetic || '') : '');
+  };
+
+  /** 更新編輯 modal 的 KK 音標值顯示 */
+  FlashcardApp.prototype._renderEditKKValue = function(phonetic) {
+    var valueEl = document.getElementById('edit-word-kk-value');
+    if (!valueEl) return;
+    if (phonetic && phonetic !== '') {
+      valueEl.textContent = phonetic;
+      valueEl.classList.remove('kk-empty');
+    } else {
+      valueEl.textContent = '（尚未設定）';
+      valueEl.classList.add('kk-empty');
+    }
+  };
+
+  /** 更新編輯 modal 的 KK 音標狀態列 */
+  FlashcardApp.prototype._setEditKKStatus = function(message, isError) {
+    var statusEl = document.getElementById('edit-word-kk-status');
+    if (!statusEl) return;
+    if (!message) {
+      statusEl.style.display = 'none';
+      statusEl.textContent = '';
+      return;
+    }
+    statusEl.textContent = message;
+    statusEl.style.display = 'block';
+    if (isError) {
+      statusEl.classList.add('kk-status-error');
+    } else {
+      statusEl.classList.remove('kk-status-error');
+    }
+  };
+
+  /**
+   * 編輯 modal：強制重新抓取 KK 音標（忽略 I 欄與快取，強制呼叫 GAS）。
+   * 查到多筆候選時顯示選擇清單，使用者選定後於「儲存」時寫入 I 欄。
+   */
+  FlashcardApp.prototype.refetchKKPhoneticForEdit = function() {
+    var wordId = this._editingWordId;
+    if (wordId === undefined) return;
+
+    var word = null;
+    for (var i = 0; i < this.words.length; i++) {
+      if (this.words[i].id === wordId) {
+        word = this.words[i];
+        break;
+      }
+    }
+    if (!word) return;
+
+    // 以輸入框中「目前的英文」查詢（可能尚未儲存）
+    var englishInput = document.getElementById('edit-word-english');
+    var english = englishInput ? englishInput.value.trim() : (word.english || '');
+    if (!english) {
+      this._setEditKKStatus('請先輸入英文單字', true);
+      return;
+    }
+
+    var refetchBtn = document.getElementById('edit-word-kk-refetch');
+    if (refetchBtn) refetchBtn.disabled = true;
+    this._setEditKKStatus('查詢中…', false);
+
+    // 記錄本次查詢所屬的英文（儲存時比對，防止修改單字後錯誤沿用舊音標）
+    this._kkEditFetchedEnglish = english;
+
+    var candidatesEl = document.getElementById('edit-word-kk-candidates');
+    if (candidatesEl) {
+      candidatesEl.style.display = 'none';
+      candidatesEl.innerHTML = '';
+    }
+
+    var self = this;
+    // force: true → 即使 I 欄已有音標也強制重新查詢；writeBack: false → 由使用者選定後儲存時寫入
+    this.fetchKKPhonetic({
+      id: word.id,
+      english: english,
+      sheetName: word.sheetName,
+      originalRowIndex: word.originalRowIndex,
+      kkPhonetic: word.kkPhonetic
+    }, { force: true, writeBack: false }, function(result) {
+      if (refetchBtn) refetchBtn.disabled = false;
+
+      if (!result) {
+        self._setEditKKStatus('查詢失敗，請稍後再試', true);
+        return;
+      }
+
+      var candidates = result.candidates || [];
+      if (candidates.length === 0) {
+        self._kkEditCandidates = null;
+        self._kkEditSelectedPhonetic = '';
+        self._renderEditKKValue('');
+        self._setEditKKStatus('查無 KK 音標（儲存後將清除 I 欄）', false);
+        return;
+      }
+
+      if (candidates.length === 1) {
+        self._kkEditCandidates = null;
+        self._kkEditSelectedPhonetic = candidates[0];
+        self._renderEditKKValue(candidates[0]);
+        self._setEditKKStatus('已取得 KK 音標（儲存後寫入 I 欄）', false);
+        return;
+      }
+
+      // 多筆候選：顯示選擇清單，預選第一筆
+      self._kkEditCandidates = candidates;
+      self._kkEditSelectedPhonetic = candidates[0];
+      self._renderEditKKValue(candidates[0]);
+      self._renderEditKKCandidates(candidates, candidates[0]);
+      self._setEditKKStatus('找到 ' + candidates.length + ' 筆候選音標，請點選要使用的音標', false);
+    });
+  };
+
+  /** 顯示候選音標選擇清單（編輯 modal） */
+  FlashcardApp.prototype._renderEditKKCandidates = function(candidates, selectedPhonetic) {
+    var container = document.getElementById('edit-word-kk-candidates');
+    if (!container) return;
+
+    container.innerHTML = '';
+    container.style.display = 'flex';
+
+    var self = this;
+    for (var i = 0; i < candidates.length; i++) {
+      (function(phonetic) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'edit-word-kk-candidate-btn' + (phonetic === selectedPhonetic ? ' kk-candidate-selected' : '');
+        btn.textContent = phonetic;
+        btn.addEventListener('click', function() {
+          self.selectKKPhoneticForEdit(phonetic);
+        });
+        container.appendChild(btn);
+      })(candidates[i]);
+    }
+  };
+
+  /**
+   * 編輯 modal：使用者選定候選音標（更新顯示與選取狀態）。
+   * 實際寫入 I 欄在「儲存」時進行（saveEditWord → updateWordProperties）。
+   * @param {string} phonetic - 選定的音標
+   */
+  FlashcardApp.prototype.selectKKPhoneticForEdit = function(phonetic) {
+    this._kkEditSelectedPhonetic = phonetic;
+    this._renderEditKKValue(phonetic);
+
+    var container = document.getElementById('edit-word-kk-candidates');
+    if (container) {
+      var btns = container.querySelectorAll('.edit-word-kk-candidate-btn');
+      for (var i = 0; i < btns.length; i++) {
+        if (btns[i].textContent === phonetic) {
+          btns[i].classList.add('kk-candidate-selected');
+        } else {
+          btns[i].classList.remove('kk-candidate-selected');
+        }
+      }
+    }
+    this._setEditKKStatus('已選定音標（儲存後寫入 I 欄）', false);
+  };
+
+</script>

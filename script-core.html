@@ -17,9 +17,9 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.20.8',
+    APP_VERSION: '1.21.0',
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-08-29 12:05',
+    APP_BUILD_TIME: '2026-09-15 12:00',
 
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
@@ -118,6 +118,11 @@
     LISTENING_AUDIO_DELAY_MS: 300,     // 聽力練習播放音訊前延遲
     LISTENING_FEEDBACK_DELAY_MS: 1200, // 聽力練習回饋顯示時間
 
+    // === KK 音標 ===
+    KK_PHONETIC_PRECACHE_COUNT: 5,        // KK 音標 pre-cache 數量（目前 + 接下來 N 個單字）
+    KK_PHONETIC_API_TIMEOUT_MS: 10000,    // 單次 KK 音標 API 查詢逾時（防呆，逾時仍保留等待回呼）
+    KK_PHONETIC_CACHE_MAX: 500,           // localStorage 音標快取上限（超過時保留最新 N 筆）
+
     // === 不熟程度 ===
     DIFFICULTY_VERY_FAMILIAR: -999,    // 「非常熟」門檻值
 
@@ -133,7 +138,8 @@
       LAST_WORD: 'flashcard-last-word',
       SRS: 'flashcard-srs',
       FILTER_SETTINGS: 'flashcard-filter-settings',
-      NO_AUTO_MERGE: 'flashcard-no-auto-merge'
+      NO_AUTO_MERGE: 'flashcard-no-auto-merge',
+      KK_PHONETIC_CACHE: 'flashcard-kk-phonetic-cache-v2', // v2： IPA→KK 轉換規則修正（əˈpɛl→ˋæpḷ），棄用 v1 舊資料
     }
   };
 
@@ -264,6 +270,7 @@
     this._initFilterState();
     this._initScreenAwakeState();
     this._initQuizState();
+    this._initKKPhoneticState();
     
     // 啟動初始化
     this.init();
@@ -385,7 +392,8 @@
       timerProgressBarOffset: 0,
       smartTimerEnabled: false,
       listeningMode: false,
-      carouselMemoryMode: false
+      carouselMemoryMode: false,
+      showKKPhonetic: false            // KK 音標顯示開關（預設關閉）
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -1009,6 +1017,10 @@
     // 設定智慧計時開關
     var smartTimerToggle = document.getElementById('smart-timer-setting');
     if (smartTimerToggle) smartTimerToggle.checked = this.settings.smartTimerEnabled;
+
+    // 設定 KK 音標顯示開關
+    var kkPhoneticToggle = document.getElementById('kk-phonetic-setting');
+    if (kkPhoneticToggle) kkPhoneticToggle.checked = !!this.settings.showKKPhonetic;
 
     // 主畫面快速計時區（與 delay-setting / smart-timer-setting 同步）
     var quickDelaySlider = document.getElementById('quick-delay-setting');
