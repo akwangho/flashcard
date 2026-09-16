@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.21.0',
-    /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-09-15 12:00',
+    APP_VERSION: '1.21.1',
 
+    /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
+    APP_BUILD_TIME: '2026-09-16 17:26',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -1087,6 +1087,7 @@
     var elements = [
       document.getElementById('english-word'),
       document.getElementById('chinese-word'),
+      document.getElementById('kk-phonetic-display'),
       document.querySelector('#loading p'),
       document.body // 應用到整個body作為fallback
     ];

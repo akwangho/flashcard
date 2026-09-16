@@ -433,7 +433,11 @@
     chineseElement.classList.add('show');
     this.showingChinese = true;
 
-    // KK 音標顯示時，中文出現後微調位置避免重疊
+    // KK 音標：先中文/聽力模式下，英文此刻才出現 → 音標同步顯示；
+    // 已顯示中（先英文模式）則僅微調位置避免與翻譯重疊
+    if (typeof this._maybeShowKKPhonetic === 'function') {
+      try { this._maybeShowKKPhonetic(); } catch (kkError) {}
+    }
     if (typeof this._updateKKOverlapShift === 'function') {
       try { this._updateKKOverlapShift(); } catch (kkError) {}
     }
@@ -907,6 +911,11 @@
     chineseElement.textContent = '';
     this.clearFlashcardImage();
 
+    // KK 音標與英文同步消失（過渡期間不殘留舊音標）
+    if (typeof this._hideKKPhonetic === 'function') {
+      try { this._hideKKPhonetic(); } catch (kkError) {}
+    }
+
     var self = this;
     setTimeout(function() {
       var origLevel = entry.originalDifficultyLevel;
@@ -983,6 +992,11 @@
     chineseElement.textContent = '';
     this.clearFlashcardImage();
     
+    // KK 音標與英文同步消失（過渡期間不殘留舊音標）
+    if (typeof this._hideKKPhonetic === 'function') {
+      try { this._hideKKPhonetic(); } catch (kkError) {}
+    }
+    
     var self = this;
     setTimeout(function() {
       self.currentIndex = (self.currentIndex + 1) % self.currentWords.length;
@@ -1029,6 +1043,11 @@
     
     chineseElement.textContent = '';
     this.clearFlashcardImage();
+    
+    // KK 音標與英文同步消失（過渡期間不殘留舊音標）
+    if (typeof this._hideKKPhonetic === 'function') {
+      try { this._hideKKPhonetic(); } catch (kkError) {}
+    }
     
     var self = this;
     setTimeout(function() {

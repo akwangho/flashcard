@@ -65,6 +65,7 @@
      ========================================================================== */
   
   /* 畳置於 card-container 與控制列之間的畫面正中央，不遮擋單字與翻譯；
+     字型/字體大小與中英文單字一致（.word：--font-4xl + bold，手機 768px 以下 --font-3xl）；
      var() 均提供硬編碼 fallback（iPad 4 兼容） */
   .kk-phonetic-display {
     position: absolute;
@@ -79,10 +80,9 @@
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.55);
     color: #ffd54f;
-    font-size: 28px;
-    font-size: clamp(20px, 5vw, 40px);
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-size: 96px;
+    font-size: var(--font-4xl);
+    font-weight: bold;
     text-align: center;
     max-width: 86%;
     word-wrap: break-word;
@@ -92,6 +92,14 @@
   
   .kk-phonetic-display.show {
     display: flex;
+  }
+  
+  /* 與 .word 的響應式字級同步（style-base.html 的 768px 斷點） */
+  @media (max-width: 768px) {
+    .kk-phonetic-display {
+      font-size: 36px;
+      font-size: var(--font-3xl);
+    }
   }
   
   /* 當 KK 音標與翻譯同時出現時，避免兩者重疊：音標上移一點 */

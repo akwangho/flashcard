@@ -59,10 +59,22 @@ The system SHALL display the KK phonetic in the centre of the flashcard while th
 - **THEN** it appears centred on the card
 - **AND** it shifts upward slightly when the Chinese translation is revealed so the two do not overlap
 
+#### Scenario: Typography matches the word display
+
+- **WHEN** the phonetic is shown
+- **THEN** its font family, size (`--font-4xl`, `--font-3xl` under 768px), and weight (bold) match the English/Chinese word styling, including the user's font-family setting
+
 #### Scenario: Setting turned off
 
 - **WHEN** the feature is disabled (or content is not a word)
 - **THEN** the phonetic element is hidden and cleared
+
+#### Scenario: Timing matches the English word
+
+- **WHEN** the English word becomes visible (normal mode phase 1 with english first, carousel mode, or phase 2 reveal in chinese-first/listening mode)
+- **THEN** the phonetic appears at the same moment (or as soon as a slow fetch resolves afterwards)
+- **AND** when the card transitions away (next/previous/undo), the phonetic disappears together with the English word instead of lingering
+- **AND** the phonetic is revealed at most once per card
 
 ### Requirement: Fetch Behaviour
 

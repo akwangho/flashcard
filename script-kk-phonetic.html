@@ -37,6 +37,10 @@
     this._kkPendingFetches = {};
     // 顯示世代 token：每次更新顯示遞增；非同步回呼比對 token，過期則不顯示（race condition 保護）
     this._kkDisplayToken = 0;
+    // 顯示時機同步：音標只在英文單字實際顯示時出現（與英文一致）
+    this._kkPendingResult = null;   // 已取得但尚未到顯示時機的音標
+    this._kkFirstPartShown = false; // 英文顯示時機是否已到（_maybeShowKKPhonetic 設定）
+    this._kkPendingShown = false;   // 本卡片音標是否已顯示（防重複）
     // 編輯單字 modal 暫存狀態
     this._kkEditCandidates = null;      // 重新抓取得到的多筆候選
     this._kkEditSelectedPhonetic = undefined; // 使用者選定的音標（儲存時寫入 I 欄）
@@ -149,10 +153,13 @@
 
   /**
    * 更新畫面正中央的 KK 音標顯示。
-   * 由 displayCurrentWord 在每次切換卡片時呼叫。
+   * 由 displayCurrentWord 在每次切換卡片時、依模式派發「之前」呼叫：
+   * 此處只做查詢與隱藏重置；實際顯示時機與英文單字一致，由英文顯示的函式
+   * （_displayNormalWord 先英文、_displayCarouselWord、_revealSecondPart）
+   * 呼叫 _maybeShowKKPhonetic 觸發。
    *  - 功能關閉 / 非單字 → 隱藏。
-   *  - I 欄或快取已有音標 → 直接顯示（不呼叫 GAS）。
-   *  - 否則從 GAS 查詢；回應時比對顯示 token，僅在仍停留在同一單字時顯示。
+   *  - I 欄或快取已有音標 → 暫存結果，等顯示時機（不呼叫 GAS）。
+   *  - 否則從 GAS 查詢；回應時比對顯示 token，僅在仍停留在同一單字時暫存/顯示。
    * @param {Object} word - 當前單字物件
    */
   FlashcardApp.prototype.updateKKPhoneticDisplay = function(word) {
@@ -163,27 +170,21 @@
     this._kkDisplayToken++;
 
     if (!this._isKKPhoneticEligible(word)) {
-      if (el) {
-        el.style.display = 'none';
-        el.textContent = '';
-        el.classList.remove('show');
-        el.classList.remove('kk-overlap-shift');
-      }
+      this._hideKKPhonetic();
       return;
     }
+
+    // 先隱藏（此刻英文尚未顯示；時機到了由 _maybeShowKKPhonetic 顯示）
+    this._hideKKPhonetic();
 
     var cached = this.resolveKKPhonetic(word);
     if (cached) {
-      this._showKKPhoneticText(cached);
+      this._kkPendingResult = cached;
+      // _display*Word 已在本函式之前執行時（英文已顯示），立刻補上
+      if (this._kkFirstPartShown) {
+        this._maybeShowKKPhonetic();
+      }
       return;
-    }
-
-    // 查詢中先隱藏，避免殘留上一個單字的音標
-    if (el) {
-      el.style.display = 'none';
-      el.textContent = '';
-      el.classList.remove('show');
-      el.classList.remove('kk-overlap-shift');
     }
 
     var token = this._kkDisplayToken;
@@ -192,10 +193,41 @@
       // race condition 保護：使用者已切換到下一個單字時，不顯示舊音標
       // （資料仍會由 fetchKKPhonetic 寫回快取與原本單字資料）
       if (token !== self._kkDisplayToken) return;
-      if (result && result.phonetic) {
-        self._showKKPhoneticText(result.phonetic);
+      self._kkPendingResult = result && result.phonetic ? result.phonetic : null;
+      // 若英文顯示時機已過（回應比 Phase 1 慢），立刻補上
+      if (self._kkFirstPartShown) {
+        self._maybeShowKKPhonetic();
       }
     });
+  };
+
+  /**
+   * 隱藏 KK 音標（切換卡片過渡、非單字、功能關閉時）。
+   * 同時重置本卡片的顯示狀態。
+   */
+  FlashcardApp.prototype._hideKKPhonetic = function() {
+    var el = document.getElementById('kk-phonetic-display');
+    if (el) {
+      el.style.display = 'none';
+      el.textContent = '';
+      el.classList.remove('show');
+      el.classList.remove('kk-overlap-shift');
+    }
+    this._kkPendingResult = null;
+    this._kkFirstPartShown = false;
+    this._kkPendingShown = false;
+  };
+
+  /**
+   * 英文單字實際顯示時呼叫：音標與英文同步出現。
+   * 音標已取得 → 立即顯示（同一張卡片只顯示一次）；
+   * 尚未取得 → 僅記錄時機已到，晚到的查詢結果會自動補上。
+   */
+  FlashcardApp.prototype._maybeShowKKPhonetic = function() {
+    this._kkFirstPartShown = true;
+    if (!this._kkPendingResult || this._kkPendingShown) return;
+    this._kkPendingShown = true;
+    this._showKKPhoneticText(this._kkPendingResult);
   };
 
   /** 實際將音標文字顯示在畫面正中央 */

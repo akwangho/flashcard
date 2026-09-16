@@ -632,17 +632,9 @@
     // 依模式委派
     var self = this;
     setTimeout(function() {
-      if (self.settings.carouselMemoryMode) {
-        self._displayCarouselWord(currentWord);
-      } else if (self.settings.listeningMode) {
-        self._displayListeningWord(currentWord);
-      } else {
-        self._displayNormalWord(currentWord);
-      }
-
-      self.preloadUpcomingImages(10);
-
-      // KK 音標：更新畫面正中央顯示 + pre-cache 接下來數個單字
+      // KK 音標：重置顯示狀態與查詢（必須在英文顯示之前，
+      // 音標才能在 _display*Word / _revealSecondPart 的英文顯示時機同步出現）
+      // + pre-cache 接下來數個單字
       // （功能預設關閉；內部會自行處理開關/非單字/快取命中/防重複查詢，失敗不影響卡片顯示）
       if (typeof self.updateKKPhoneticDisplay === 'function') {
         try {
@@ -652,6 +644,16 @@
           console.error('KK 音標顯示流程失敗（不影響卡片顯示）:', kkError);
         }
       }
+
+      if (self.settings.carouselMemoryMode) {
+        self._displayCarouselWord(currentWord);
+      } else if (self.settings.listeningMode) {
+        self._displayListeningWord(currentWord);
+      } else {
+        self._displayNormalWord(currentWord);
+      }
+
+      self.preloadUpcomingImages(10);
     }, APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
     
     this.renderDifficultyLevel();
@@ -671,6 +673,11 @@
     firstElement.classList.add('show');
     secondElement.classList.add('show');
     this.showingChinese = true;
+
+    // KK 音標：英文（第一語言）此刻顯示 → 音標同步出現
+    if (typeof this._maybeShowKKPhonetic === 'function') {
+      try { this._maybeShowKKPhonetic(); } catch (kkError) {}
+    }
 
     if (currentWord.image && currentWord.image !== '') {
       this.setFlashcardImage(currentWord.image);
@@ -727,6 +734,12 @@
       }
     }
     firstElement.classList.add('show');
+
+    // KK 音標：英文（第一語言）此刻顯示 → 音標同步出現
+    // （先中文時第一語言是中文，不顯示音標；等 _revealSecondPart 英文出現時才顯示）
+    if (!isReversed && typeof this._maybeShowKKPhonetic === 'function') {
+      try { this._maybeShowKKPhonetic(); } catch (kkError) {}
+    }
 
     this._setDisplayTimer(function() {
       self.waitForSpeechThenExecute(function() {
@@ -1204,6 +1217,10 @@
         // E → 編輯當前單字（暫停時也可用）
         { keyCodes: [69], codes: ['KeyE'], keys: [],
           action: function() { self.openEditWordModal(); },
+          allowWhenPaused: true },
+        // F → 切換全螢幕（等同於選單裡點擊全螢幕；暫停時也可用）
+        { keyCodes: [70], codes: ['KeyF'], keys: [],
+          action: function() { self.toggleFullscreen(); },
           allowWhenPaused: true },
         // P → 重新播放「整個單字」發音（略過字母拼讀）；奇數次正常、偶數次慢速；切換單字時重置；暫停時也可用
         { keyCodes: [80], codes: ['KeyP'], keys: [],

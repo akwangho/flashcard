@@ -107,9 +107,14 @@ describe('KK phonetic display', function() {
     app.settings.showKKPhonetic = true;
     app.updateKKPhoneticDisplay(makeWord({ kkPhonetic: 'əˈpɛl' }));
 
+    // 音標與英文同步：英文尚未顯示時先隱藏
+    expect(el.style.display).toBe('none');
+    expect(app._kkApiCalls.length).toBe(0); // 不呼叫 GAS
+
+    // 英文顯示時機到 → 音標同步出現
+    app._maybeShowKKPhonetic();
     expect(el.style.display).toBe('flex');
     expect(el.textContent).toBe('əˈpɛl');
-    expect(app._kkApiCalls.length).toBe(0); // 不呼叫 GAS
   });
 
   test('shows cached phonetic without GAS call', function() {
@@ -118,9 +123,50 @@ describe('KK phonetic display', function() {
     app.kkPhoneticCache['apple'] = { p: 'ˈkærəktɚ', ts: Date.now() };
     app.updateKKPhoneticDisplay(makeWord({ english: 'APPLE', kkPhonetic: '' }));
 
+    app._maybeShowKKPhonetic();
     expect(el.style.display).toBe('flex');
     expect(el.textContent).toBe('ˈkærəktɚ');
     expect(app._kkApiCalls.length).toBe(0);
+  });
+
+  test('shows phonetic when it arrives after the english display moment', function(done) {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    // 慢回應 mock：回應晚於英文顯示時機
+    google.script.run.queryKKPhonetic = function(w) {
+      app._kkApiCalls.push(w);
+      var successHandler = this._successHandler;
+      setTimeout(function() {
+        if (successHandler) {
+          successHandler({ success: true, word: w, candidates: ['ˋæpḷ'], source: 'web' });
+        }
+      }, 10);
+      return this;
+    };
+
+    app.updateKKPhoneticDisplay(makeWord({ kkPhonetic: '' }));
+
+    // 英文先顯示（查詢尚未回應，不顯示）
+    app._maybeShowKKPhonetic();
+    expect(el.style.display).toBe('none');
+
+    setTimeout(function() {
+      // 回應晚到：自動補上顯示
+      expect(el.style.display).toBe('flex');
+      expect(el.textContent).toBe('ˋæpḷ');
+      done();
+    }, 30);
+  });
+
+  test('displays only once per card (no duplicate reveal on phase 2)', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    app.updateKKPhoneticDisplay(makeWord({ kkPhonetic: 'əˈpɛl' }));
+
+    app._maybeShowKKPhonetic(); // phase 1（英文顯示）
+    el.textContent = 'MUTATED';
+    app._maybeShowKKPhonetic(); // phase 2（翻譯顯示）不應重複寫入
+    expect(el.textContent).toBe('MUTATED');
   });
 
   test('fetches from GAS when column I empty, then displays and writes back', function(done) {
@@ -134,8 +180,12 @@ describe('KK phonetic display', function() {
     expect(el.style.display).toBe('none');
     expect(app._kkApiCalls).toEqual(['apple']);
 
+    // 英文顯示時機先到（查詢仍進行中）
+    app._maybeShowKKPhonetic();
+    expect(el.style.display).toBe('none');
+
     setTimeout(function() {
-      // 回應後：顯示第一筆候選 + 寫回 Sheet I 欄
+      // 回應晚到：自動補上顯示 + 寫回 Sheet I 欄
       expect(el.style.display).toBe('flex');
       expect(el.textContent).toBe('əˈpɛl');
       expect(app._kkSheetWrites.length).toBe(1);
