@@ -1220,6 +1220,10 @@
         { keyCodes: [70], codes: ['KeyF'], keys: [],
           action: function() { self.toggleFullscreen(); },
           allowWhenPaused: true },
+        // K → 切換 KK 音標顯示（即時更新當下單字 + toast 提示；暫停時也可用）
+        { keyCodes: [75], codes: ['KeyK'], keys: [],
+          action: function() { self.toggleKKPhonetic(); },
+          allowWhenPaused: true },
         // P → 重新播放「整個單字」發音（略過字母拼讀）；奇數次正常、偶數次慢速；切換單字時重置；暫停時也可用
         { keyCodes: [80], codes: ['KeyP'], keys: [],
           action: function() {

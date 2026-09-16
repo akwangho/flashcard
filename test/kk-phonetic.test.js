@@ -107,6 +107,85 @@ describe('KK phonetic eligibility', function() {
 });
 
 // ============================================================
+// K 鍵快速切換（toggleKKPhonetic）
+// ============================================================
+describe('KK phonetic K-key toggle', function() {
+
+  test('toggles setting, shows toast, updates display immediately when timing already reached', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    var toggleEl = document.getElementById('kk-phonetic-setting');
+    app.settings.showKKPhonetic = false;
+    var word = makeWord({ kkPhonetic: 'əˈpɛl' });
+    app.currentWords = [word];
+    app.currentIndex = 0;
+    app.updateKKPhoneticDisplay(word); // 關閉狀態：隱藏
+    expect(el.style.display).toBe('none');
+
+    var spyToast = jest.spyOn(app, 'showNotification');
+    app.toggleKKPhonetic(); // K 鍵：開啟
+
+    expect(app.settings.showKKPhonetic).toBe(true);
+    expect(spyToast).toHaveBeenCalledWith('✓ KK 音標：開啟', 'success');
+    if (toggleEl) expect(toggleEl.checked).toBe(true);
+    // Phase 2 時機已到（_kkFirstPartShown），應立即淡入
+    expect(el.style.display).toBe('flex');
+    expect(el.textContent).toBe('[əˈpɛl]');
+  });
+
+  test('second press hides display and syncs modal toggle off', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    var toggleEl = document.getElementById('kk-phonetic-setting');
+    app.settings.showKKPhonetic = true;
+    var word = makeWord({ kkPhonetic: 'əˈpɛl' });
+    app.currentWords = [word];
+    app.currentIndex = 0;
+    app.updateKKPhoneticDisplay(word);
+    app._maybeShowKKPhonetic(); // 已顯示中
+    expect(el.style.display).toBe('flex');
+
+    var spyToast = jest.spyOn(app, 'showNotification');
+    app.toggleKKPhonetic(); // K 鍵：關閉
+
+    expect(app.settings.showKKPhonetic).toBe(false);
+    expect(spyToast).toHaveBeenCalledWith('✓ KK 音標：關閉', 'info');
+    if (toggleEl) expect(toggleEl.checked).toBe(false);
+    expect(el.style.display).toBe('none');
+    expect(el.textContent).toBe('');
+  });
+
+  test('toggle while fetch in flight: late response does not show after turning off', function(done) {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = false;
+    var word = makeWord({ kkPhonetic: '' });
+    app.currentWords = [word];
+    app.currentIndex = 0;
+    app.updateKKPhoneticDisplay(word); // 關閉：不查詢
+    expect(app._kkApiCalls.length).toBe(0);
+
+    app.toggleKKPhonetic(); // 開啟：發查詢
+    expect(app._kkApiCalls).toEqual(['apple']);
+    app._maybeShowKKPhonetic(); // 時機先到，回應未回
+    app.toggleKKPhonetic(); // 再按一次關閉
+
+    setTimeout(function() {
+      // 回應晚到：已關閉，不得顯示
+      expect(el.style.display).toBe('none');
+      done();
+    }, 10);
+  });
+
+  test('toggle persists to localStorage via saveSettings', function() {
+    app.settings.showKKPhonetic = false;
+    app.toggleKKPhonetic();
+    var stored = JSON.parse(localStorage.getItem('flashcard-settings'));
+    expect(stored.showKKPhonetic).toBe(true);
+    app.toggleKKPhonetic();
+    stored = JSON.parse(localStorage.getItem('flashcard-settings'));
+    expect(stored.showKKPhonetic).toBe(false);
+  });
+});
+
+// ============================================================
 // 顯示邏輯
 // ============================================================
 describe('KK phonetic display', function() {

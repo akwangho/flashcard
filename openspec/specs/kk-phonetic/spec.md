@@ -22,6 +22,13 @@ The system SHALL provide a settings toggle (`showKKPhonetic`) that controls the 
 - **THEN** the setting persists to localStorage
 - **AND** KK phonetics are displayed and fetched from that point on
 
+#### Scenario: Toggled with the K shortcut key
+
+- **WHEN** the user presses K on the flashcard (also available while paused)
+- **THEN** `showKKPhonetic` flips, persists to localStorage, and the settings-modal checkbox stays in sync
+- **AND** a toast confirms the new state (開啟/關閉)
+- **AND** the current word updates immediately: on enable, an already-resolved phonetic fades in right away (an in-flight response shows as soon as it arrives, not gated on phase 2); on disable, the phonetic is hidden at once and cleared
+
 ### Requirement: Column I Storage
 
 The system SHALL use Google Sheet column I (`KK音標`) to store the user-selected KK phonetic for each word row.

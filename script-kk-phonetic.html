@@ -257,6 +257,36 @@
     }
   };
 
+  /**
+   * 切換 KK 音標顯示（K 鍵快速切換，與設定 modal 的開關同一個 setting）。
+   *  - 更新 settings.showKKPhonetic 並存入 localStorage（設定 modal 的勾選狀態一併同步）。
+   *  - 當下單字立即更新：開啟時，顯示時機（Phase 2）已到就直接淡入；關閉時立即隱藏。
+   *  - 顯示 toast 提示（開啟/關閉各一次，操作回饋即時）。
+   */
+  FlashcardApp.prototype.toggleKKPhonetic = function() {
+    this.settings.showKKPhonetic = !this.settings.showKKPhonetic;
+    this.saveSettings();
+
+    // 設定 modal 內的開關狀態同步
+    var toggleEl = document.getElementById('kk-phonetic-setting');
+    if (toggleEl) toggleEl.checked = !!this.settings.showKKPhonetic;
+
+    this.showNotification(
+      this.settings.showKKPhonetic ? '✓ KK 音標：開啟' : '✓ KK 音標：關閉',
+      this.settings.showKKPhonetic ? 'success' : 'info'
+    );
+
+    // 立即更新當下單字：關閉 → 隱藏並重置本卡狀態；開啟 → 走一般流程（查詢/快取暫存）
+    var w = this.currentWords && this.currentWords[this.currentIndex];
+    this.updateKKPhoneticDisplay(w || null);
+
+    if (this.settings.showKKPhonetic) {
+      // 使用者主動開啟 → 顯示時機視為已到：已取得的音標立即淡入；
+      // 查詢進行中則晚到回應自動補上（不受 Phase 1/2 限制，因為是使用者主動要求）
+      this._maybeShowKKPhonetic();
+    }
+  };
+
   // ==========================================================================
   // 查詢（含 dedupe / 寫回 Sheet / 寫回記憶體）
   // ==========================================================================
