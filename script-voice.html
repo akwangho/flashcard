@@ -593,7 +593,7 @@
    */
   /** KK 音標真人發音音檔 URL（與 data/kk-flashcards.json 的 41 個音標一致）。 */
   var KK_AUDIO_BASE_URL = 'https://akwangho.github.io/kk-audio/';
-  /** 音檔未覆蓋的符號 → 用組成音檔拼接（<span> 陣列，順序即播放順序）。 */
+  /** 音檔未覆蓋的符號 → 用組成音檔拼接（陣列，順序即播放順序）。 */
   var KK_AUDIO_COMPOSITE = {
     'aɪ': ['a', 'i'],
     'aʊ': ['a', 'u']
@@ -617,7 +617,23 @@
   };
 
   /**
+   * 決定音檔副檔名（惰性，每次 session 只探測一次）：
+   * 支援 Opus 的瀏覽器用 .ogg（比 mp3 小 61%），否則用 .mp3。
+   * @param {string} sym - 音標符號或組成音
+   * @returns {string} 完整音檔 URL
+   */
+  FlashcardApp.prototype._kkAudioUrl = function(sym) {
+    if (!this._kkAudioExt) {
+      var probe = document.createElement('audio');
+      var can = probe.canPlayType ? probe.canPlayType('audio/ogg; codecs="opus"') : '';
+      this._kkAudioExt = can ? '.ogg' : '.mp3';
+    }
+    return KK_AUDIO_BASE_URL + encodeURIComponent(sym) + this._kkAudioExt;
+  };
+
+  /**
    * 播放 KK 音標真人音檔（單音直接播；aɪ/aʊ 用組成音依序拼接）。
+   * 格式策略：.ogg(Opus) 優先 → 載入失敗重試 .mp3 → 仍失敗（離線/CDN 異常）退 TTS。
    * @param {string} inner - 音標內容（不含斜線）
    * @returns {boolean} 是否成功開始播放（false = 呼叫端退回 TTS）
    */
@@ -628,20 +644,27 @@
 
     function playAt(idx) {
       if (idx >= parts.length) return;
-      audio.src = KK_AUDIO_BASE_URL + encodeURIComponent(parts[idx]) + '.mp3';
       audio.onended = function() { playAt(idx + 1); };
+      audio.onerror = function() {
+        audio.onerror = null;
+        audio.onended = null;
+        if (self._kkAudioExt === '.ogg') {
+          // 宣稱支援 Opus 但載入失敗 → 之後全部改用 mp3，重播同一段
+          self._kkAudioExt = '.mp3';
+          playAt(idx);
+          return;
+        }
+        // mp3 也失敗（離線/CDN 異常）→ TTS 近音後備
+        var speakable = self._kkToSpeakableText(inner);
+        if (speakable) self.speakEnglishWordOnly(speakable);
+      };
+      audio.src = self._kkAudioUrl(parts[idx]);
       var p = audio.play();
       if (p && typeof p.catch === 'function') {
         p.catch(function() { audio.onerror = null; }); // 自動播放被攔：靜默放棄，不退回 TTS
       }
     }
 
-    audio.onerror = function() {
-      audio.onerror = null;
-      audio.onended = null;
-      var speakable = self._kkToSpeakableText(inner);
-      if (speakable) self.speakEnglishWordOnly(speakable);
-    };
     playAt(0);
     return true;
   };

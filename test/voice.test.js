@@ -273,6 +273,7 @@ describe('speakKKPhonetic', function() {
 // ============================================================
 describe('speakKKPhonetic audio clips', function() {
   var FakeAudio;
+  var realCreateElement;
 
   beforeEach(function() {
     FakeAudio = function() {
@@ -287,10 +288,26 @@ describe('speakKKPhonetic audio clips', function() {
     };
     FakeAudio.instances = [];
     FakeAudio.rejectNextPlay = false;
+    FakeAudio.canPlayOpus = false; // 預設環境不支援 Opus → 選 .mp3
     global.Audio = FakeAudio;
+    // 拦截 format 探測用 createElement('audio')，讓測試可控支援 Opus 與否
+    realCreateElement = document.createElement.bind(document);
+    jest.spyOn(document, 'createElement').mockImplementation(function(tag) {
+      if (tag === 'audio') {
+        return {
+          canPlayType: jest.fn(function() { return FakeAudio.canPlayOpus ? 'probably' : ''; })
+        };
+      }
+      return realCreateElement(tag);
+    });
     delete app._kkAudioPlayer; // 重置單例，讓每個測試拿到新的 FakeAudio
+    delete app._kkAudioExt; // 重置格式協商快取
     app.voiceSettings.enabled = true;
     global.speechSynthesis.speak.mockClear();
+  });
+
+  afterEach(function() {
+    document.createElement = realCreateElement;
   });
 
   test('plays recorded clip for single phoneme instead of TTS', function() {
@@ -299,6 +316,27 @@ describe('speakKKPhonetic audio clips', function() {
     expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/m.mp3');
     expect(app._kkAudioPlayer.play).toHaveBeenCalled();
     expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+
+  test('prefers opus ogg when browser supports it', function() {
+    FakeAudio.canPlayOpus = true;
+    app.speakKKPhonetic('/m/');
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/m.ogg');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+
+  test('retries with mp3 when opus ogg fails to load, TTS only after mp3 also fails', function() {
+    FakeAudio.canPlayOpus = true;
+    app.speakKKPhonetic('/m/');
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/m.ogg');
+
+    app._kkAudioPlayer.onerror(); // ogg 載入失敗（宣稱支援但實際無法播放）
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/m.mp3');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+
+    app._kkAudioPlayer.onerror(); // mp3 也失敗（離線/CDN 異常）→ TTS 後備
+    expect(global.speechSynthesis.speak).toHaveBeenCalled();
+    expect(global.speechSynthesis.speak.mock.calls[0][0].text).toBe('muh');
   });
 
   test('chains composite clips for diphthong aI (a.mp3 then i.mp3)', function() {

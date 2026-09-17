@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * 下載 41 個 KK 音標的真人發音音檔（Wikimedia Commons 的 IPA 音素錄音，
- * 多為美式英語錄音，與 KK 音標一致），轉檔成 Safari/iPad 支援的 mp3
+ * 多為美式英語錄音，與 KK 音標一致），轉檔成 mp3（全部瀏覽器）與 ogg/Opus（省 61%，
+ * Safari 17+ 支援；App 依 canPlayType 自動協商）
  * 並做音量標準化，輸出到暫存目錄，供上傳到 akwangho.github.io/kk-audio/。
  *
  * 來源授權：Commons 音素錄音多為 CC BY-SA / 公有領域，免費可用於教育用途。
  *
  * 執行：node scripts/fetch-kk-audio.mjs
- * 產出：/tmp/kk-audio-stage/<symbol>.mp3
+ * 產出：/tmp/kk-audio-stage/<symbol>.mp3 與 <symbol>.ogg
  *
  * 策略：
  *   1. 依「已知檔名」直接嘗試 Special:FilePath
@@ -147,14 +148,27 @@ function toMp3(src, dest, extraFilter) {
   run(`ffmpeg -y -i '${src}' -af '${filter}' -ar 44100 -ac 1 -codec:a libmp3lame -qscale:a 5 '${dest}'`);
 }
 
+function toOpus(src, dest, extraFilter) {
+  const filter = 'loudnorm=I=-18:TP=-1.5:LRA=9' + (extraFilter ? ',' + extraFilter : '');
+  run(`ffmpeg -y -i '${src}' -af '${filter}' -ar 48000 -ac 1 -codec:a libopus -b:a 24k '${dest}'`);
+}
+
 function concatMp3(parts, dest) {
-  // 各段先標準化成 wav，插入 250ms 靜音，concat 後再 loudnorm 轉 mp3
+  concatAudio(parts, dest, 'libmp3lame', ['-qscale:a 5']);
+}
+
+function concatOpus(parts, dest) {
+  concatAudio(parts, dest, 'libopus', ['-b:a 24k']);
+}
+
+function concatAudio(parts, dest, codec, codecArgs) {
+  // 各段先標準化成 wav，插入 250ms 靜音，concat 後再 loudnorm 轉目標格式
   const tmp = parts.map((p, i) => `${OGG_DIR}/part${i}.wav`);
   parts.forEach((p, i) => run(`ffmpeg -y -i '${OGG_DIR}/${p}' -ar 44100 -ac 1 '${tmp[i]}'`));
   const silence = `${OGG_DIR}/sil.wav`;
   run(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono -t 0.25 '${silence}'`);
   const inputs = [tmp[0], silence, tmp[1]].map((f) => `-i '${f}'`).join(' ');
-  run(`ffmpeg -y ${inputs} -filter_complex '[0:a][1:a][2:a]concat=n=3:v=0:a=1,loudnorm=I=-18:TP=-1.5:LRA=9' -ar 44100 -ac 1 -codec:a libmp3lame -qscale:a 5 '${dest}'`);
+  run(`ffmpeg -y ${inputs} -filter_complex '[0:a][1:a][2:a]concat=n=3:v=0:a=1,loudnorm=I=-18:TP=-1.5:LRA=9' -ar 44100 -ac 1 -codec:a ${codec} ${codecArgs.join(' ')} '${dest}'`);
 }
 
 async function main() {
@@ -169,7 +183,8 @@ async function main() {
 
   for (const symbol of Object.keys(CANDIDATES)) {
     const out = `${OUT_DIR}/${symbol}.mp3`;
-    if (existsSync(out)) { report.ok.push(symbol); continue; }
+    const outOpus = `${OUT_DIR}/${symbol}.ogg`;
+    if (existsSync(out) && existsSync(outOpus)) { report.ok.push(symbol); continue; }
     if (CANDIDATES[symbol] === null) {
       report.concat.push(symbol);
       continue; // 等組成音抓好再拼
@@ -180,6 +195,7 @@ async function main() {
     console.log(got);
     try {
       toMp3(`${OGG_DIR}/${symbol}-src`, out);
+      toOpus(`${OGG_DIR}/${symbol}-src`, outOpus);
       report.ok.push(symbol);
     } catch (e) { report.missing.push(symbol); console.log('convert-fail', e.message); }
     await sleep(800);
@@ -194,11 +210,13 @@ async function main() {
   }
   for (const [symbol, parts] of Object.entries(CONCATS)) {
     const out = `${OUT_DIR}/${symbol}.mp3`;
-    if (existsSync(out)) continue;
+    const outOpus = `${OUT_DIR}/${symbol}.ogg`;
+    if (existsSync(out) && existsSync(outOpus)) continue;
     const have = parts.every((p) => existsSync(`${OGG_DIR}/${p}`));
     if (!have) { report.missing.push(symbol + '(concat缺件)'); continue; }
     try {
       concatMp3(parts, out);
+      concatOpus(parts, outOpus);
       report.concat.push(symbol);
     } catch (e) { report.missing.push(symbol + '(concat-fail)'); }
   }

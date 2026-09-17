@@ -28,12 +28,25 @@ The system SHALL read English words aloud using the Web Speech API (SpeechSynthe
 
 ### Requirement: KK Phonetic TTS
 
-When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 41 files matching the KK flashcard symbols, sourced from Wikimedia Commons IPA phoneme recordings), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
+When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 41 files in dual formats matching the KK flashcard symbols, sourced from Wikimedia Commons IPA phoneme recordings with per-file SHA-1 verification against the Commons API), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
+
+#### Scenario: Audio format negotiated by browser support
+
+- **WHEN** the browser reports Opus support (`canPlayType('audio/ogg; codecs="opus"')`, Safari 17+)
+- **THEN** `.ogg` (Opus, ~61% smaller) is used, probed once per session
+- **WHEN** Opus is not supported (older Safari)
+- **THEN** `.mp3` is used directly
+
+#### Scenario: Format downgrade on load failure
+
+- **WHEN** an `.ogg` clip fails to load despite claimed Opus support
+- **THEN** the session switches to `.mp3` for all subsequent clips and the same clip is retried
+- **AND** TTS fallback happens only if `.mp3` also fails
 
 #### Scenario: Real recorded clip plays instead of TTS
 
 - **WHEN** the english text is a single KK symbol wrapped in slashes (e.g. `/m/`, `/θ/`)
-- **THEN** `_playKKAudioClips` streams `https://akwangho.github.io/kk-audio/<symbol>.mp3` through a shared audio player
+- **THEN** `_playKKAudioClips` streams `https://akwangho.github.io/kk-audio/<symbol>.mp3` (or `.ogg` on Opus-capable browsers) through a shared audio player
 - **AND** TTS is not invoked
 
 #### Scenario: Diphthongs without a dedicated recording play composite clips
