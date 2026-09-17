@@ -628,7 +628,7 @@
   };
 
   /**
-   * 播放 KK 音標真人音檔（41 個音標都有單一音檔）。
+   * 播放 KK 音標真人音檔（40 個音標都有單一音檔）。
    * 格式策略：.ogg(Opus) 優先 → 載入失敗重試 .mp3 → 仍失敗（離線/CDN 異常）退 TTS。
    * @param {string} inner - 音標內容（不含斜線）
    * @returns {boolean} 是否成功開始播放（false = 呼叫端退回 TTS）
@@ -664,7 +664,7 @@
    * IPA → 可發音英文拼法轉換（與 code.gs 的字庫轉換規則對應的 KK 符號集）。
    *
    * 兩種模式：
-   *   1. 單一音標（41 張 KK 音標卡的實際使用場景）：
+   *   1. 單一音標（40 張 KK 音標卡的實際使用場景）：
    *      子音用「老師唸單音」的拼法（b → buh、θ → thuh），
    *      母音用獨立字拼法（aɪ → eye、i → ee、e → ay）——TTS 唸出來最接近單獨的音。
    *   2. 多音標組合（如 ˋtwɛntiˏfaɪv）：單次掃描（single-pass）逐符號換成 in-word 拼法
@@ -680,7 +680,7 @@
     var s = String(inner).trim();
     if (!s) return '';
 
-    // 單一音標：查專用對照表（41 張卡片的场景，品質最好）
+    // 單一音標：查專用對照表（40 張卡片的场景，品質最好）
     if (FlashcardApp.KK_SINGLE_SYMBOL_MAP[s]) {
       return FlashcardApp.KK_SINGLE_SYMBOL_MAP[s];
     }
@@ -717,7 +717,7 @@
     'i': 'ee', 'ɪ': 'ih', 'e': 'ay', 'ɛ': 'eh',
     'æ': 'aa', 'ɑ': 'ah', 'ʌ': 'uh', 'ə': 'uh',
     'ɔ': 'aw', 'o': 'oh', 'ʊ': 'oo', 'u': 'ooh',
-    'ɚ': 'er', 'ɝ': 'er', 'ɜ': 'er',
+    'ɚ': 'er', 'ɝ': 'er',
     'aɪ': 'eye', 'aʊ': 'ow', 'ɔɪ': 'oy'
   };
 
@@ -725,7 +725,7 @@
   FlashcardApp.KK_INWORD_MAP = {
     'dʒ': 'j', 'tʃ': 'ch',
     'aɪ': 'y', 'aʊ': 'ow', 'ɔɪ': 'oy',
-    'ɚ': 'er', 'ɝ': 'er', 'ɜ': 'er',
+    'ɚ': 'er', 'ɝ': 'er',
     'i': 'ee', 'ɪ': 'i', 'e': 'ay', 'ɛ': 'e',
     'æ': 'a', 'ɑ': 'o', 'ʌ': 'u', 'ə': 'a',
     'ɔ': 'aw', 'o': 'oh', 'ʊ': 'oo', 'u': 'oo',

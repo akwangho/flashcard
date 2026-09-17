@@ -556,15 +556,15 @@
     {
       "week": 41,
       "stage": 5,
-      "phonetic": "/ɜ/",
-      "category": "長母音",
-      "contrast": "/ɝ/",
-      "word": "her",
-      "phonics": "ir, ur, er（英式）→ /ɜ/",
-      "zhuyin": "ㄦ（不捲舌）",
-      "tip": "跟 /ɝ/ 一樣但舌頭不捲起來，英國人常這樣唸；美國人大多唸 /ɝ/。",
-      "extra": "work, word",
-      "wordPhonetic": "ˋhɝ"
+      "phonetic": "/ɑ/",
+      "category": "短母音",
+      "contrast": "/ɔ/",
+      "word": "hot",
+      "phonics": "o → /ɑ/（mom, hot）",
+      "zhuyin": "ㄚ（張大嘴）",
+      "tip": "嘴巴張到最大、舌頭放低，像醫生壓舌頭說「啊～」；對比 /ɔ/ 嘴型較圓。",
+      "extra": "mom, stop",
+      "wordPhonetic": "ˋhɑt"
     }
   ]
 }

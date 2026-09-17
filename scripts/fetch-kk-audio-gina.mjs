@@ -7,7 +7,7 @@
  * → 自動解析出「符號 → kkNN.mp3」對應後下載。
  *
  * 網站沒有的音標（沿用現有 akwangho.github.io/kk-audio 的 Commons 錄音）：
- *   /i/ /ɪ/（L01 為會員課程）、/ɜ/（網站課程未收錄）
+ *   /i/ /ɪ/（L01 為會員課程）
  *
  * 執行：node scripts/fetch-kk-audio-gina.mjs
  * 產出：/tmp/kk-gina/<symbol>-src.mp3（原始檔）、/tmp/kk-gina-stage/<symbol>.mp3|.ogg（loudnorm 後）
@@ -33,12 +33,12 @@ const LESSONS = [
   'consonants-lesson-13',
 ];
 
-// 我們字庫的 41 個音標（data/kk-flashcards.json）；網站缺 i ɪ ɜ
+// 我們字庫的 40 個音標（data/kk-flashcards.json）；網站缺 i ɪ
 const ALL_SYMBOLS = [
   'p','b','t','d','k','g','f','v','θ','ð','s','z','ʃ','ʒ','tʃ','dʒ','m','n','ŋ','l','r','h','j','w',
-  'i','ɪ','e','ɛ','æ','ɑ','o','ɔ','u','ʊ','ʌ','ə','ɚ','ɝ','ɜ','aɪ','aʊ','ɔɪ',
+  'i','ɪ','e','ɛ','æ','ɑ','o','ɔ','u','ʊ','ʌ','ə','ɚ','ɝ','aɪ','aʊ','ɔɪ',
 ];
-const SKIP = new Set(['i', 'ɪ', 'ɜ']); // 沿用 Commons 現有檔
+const SKIP = new Set(['i', 'ɪ']); // 沿用 Commons 現有檔
 
 // consonants-lesson-01 是會員頁面（解析不到卡片）；對照由使用者提供：kk01=/p/ kk02=/b/
 const FALLBACK = {

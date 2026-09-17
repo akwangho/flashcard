@@ -63,7 +63,6 @@ const CANDIDATES = {
   // r-colored 母音在 Commons 無獨立音素錄音 → 用例字發音（與閃卡例字一致）
   'ɚ':  ['En-us-water'],
   'ɝ':  ['En-us-bird'],
-  'ɜ':  ['Open-mid central unrounded vowel'],
   'aɪ': null, // → 拼接 a + ɪ
   'aʊ': null, // → 拼接 a + ʊ
   'ɔɪ': null, // → 拼接 ɔ + ɪ

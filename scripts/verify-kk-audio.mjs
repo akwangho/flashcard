@@ -60,7 +60,6 @@ const COMMONS_TITLE = {
   'ə':  'Mid central vowel',
   'ɚ':  'En-us-water',   // Commons 無獨立音素錄音 → 例字（與閃卡例字一致）
   'ɝ':  'En-us-bird',
-  'ɜ':  'Open-mid central unrounded vowel',
   'a':  'Open front unrounded vowel', // 拼接原料（aɪ/aʊ 用）
   // 拼接檔：由組成音拼接而成，分別驗證組成音
   'aɪ': null,

@@ -8,18 +8,18 @@ Defines the KK phonetic (KK 音標) feature: an opt-in display in the centre of 
 
 ### Requirement: Learning Flashcard Dictionary Sheet
 
-The system SHALL provide a curated 41-phoneme KK phonetic learning deck (one phoneme per week for a 5th grader, five stages: easy consonants, familiar consonants, special consonants, long/short vowel pairs, diphthongs and schwa) stored in a `KK音標閃卡` worksheet in the same spreadsheet as the phonetic dictionary, with per-card metadata: week, stage, phonetic, category, contrast phoneme, example word, example word phonetic (auto-filled from the same dictionary so the app display matches), phonics mapping, zhuyin hint, a child-friendly pronunciation tip, and extra words.
+The system SHALL provide a curated 40-phoneme KK phonetic learning deck (one phoneme per week for a 5th grader, five stages: easy consonants, familiar consonants, special consonants, long/short vowel pairs, diphthongs and schwa) stored in a `KK音標閃卡` worksheet in the same spreadsheet as the phonetic dictionary, with per-card metadata: week, stage, phonetic, category, contrast phoneme, example word, example word phonetic (auto-filled from the same dictionary so the app display matches), phonics mapping, zhuyin hint, a child-friendly pronunciation tip, and extra words.
 
 #### Scenario: Import the flashcard deck
 
 - **WHEN** `importKKFlashcardsFromGitHub()` runs in Apps Script (or `importKKFlashcardsFromDriveFile` / `importKKFlashcardsFromJson`)
-- **THEN** the `KK音標閃卡` worksheet is created in the dictionary spreadsheet if missing and all 41 cards are written
+- **THEN** the `KK音標閃卡` worksheet is created in the dictionary spreadsheet if missing and all 40 cards are written
 - **AND** re-running the import updates existing rows by week instead of duplicating them
 
 #### Scenario: Verify the deck
 
 - **WHEN** `verifyKKFlashcards()` runs
-- **THEN** it reports the stored card count and any missing weeks out of 1–41
+- **THEN** it reports the stored card count and any missing weeks out of 1–40
 
 ### Requirement: KK Phonetic Toggle
 

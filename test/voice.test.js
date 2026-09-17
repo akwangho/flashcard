@@ -203,7 +203,7 @@ describe('isKKPhoneticText', function() {
   });
 
   test('detects all 41 KK symbols', function() {
-    var syms = ['p','b','t','d','k','g','f','v','m','n','l','r','s','z','h','w','ŋ','ʃ','ʒ','tʃ','dʒ','θ','ð','j','i','ɪ','u','ʊ','o','ɔ','e','ɛ','æ','ʌ','aɪ','aʊ','ɔɪ','ə','ɚ','ɝ','ɜ'];
+    var syms = ['p','b','t','d','k','g','f','v','m','n','l','r','s','z','h','w','ŋ','ʃ','ʒ','tʃ','dʒ','θ','ð','j','i','ɪ','u','ʊ','o','ɔ','e','ɛ','æ','ɑ','ʌ','aɪ','aʊ','ɔɪ','ə','ɚ','ɝ'];
     for (var i = 0; i < syms.length; i++) {
       expect(app.isKKPhoneticText('/' + syms[i] + '/')).toBe(true);
     }
@@ -222,7 +222,7 @@ describe('_kkToSpeakableText', function() {
   });
 
   test('single-symbol map covers all 41 KK symbols', function() {
-    var syms = ['p','b','t','d','k','g','f','v','m','n','l','r','s','z','h','w','ŋ','ʃ','ʒ','tʃ','dʒ','θ','ð','j','i','ɪ','u','ʊ','o','ɔ','e','ɛ','æ','ʌ','aɪ','aʊ','ɔɪ','ə','ɚ','ɝ','ɜ'];
+    var syms = ['p','b','t','d','k','g','f','v','m','n','l','r','s','z','h','w','ŋ','ʃ','ʒ','tʃ','dʒ','θ','ð','j','i','ɪ','u','ʊ','o','ɔ','e','ɛ','æ','ɑ','ʌ','aɪ','aʊ','ɔɪ','ə','ɚ','ɝ'];
     for (var i = 0; i < syms.length; i++) {
       expect(FlashcardApp.KK_SINGLE_SYMBOL_MAP[syms[i]]).toBeTruthy();
     }

@@ -28,7 +28,7 @@ The system SHALL read English words aloud using the Web Speech API (SpeechSynthe
 
 ### Requirement: KK Phonetic TTS
 
-When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 41 files in dual formats matching the KK flashcard symbols; 39 recordings sourced from the Gina teacher KK phonetics course with American-accent phoneme takes, `/i/` `/ɪ/` sourced from Wikimedia Commons), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
+When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 40 files in dual formats matching the KK flashcard symbols; 39 recordings sourced from the Gina teacher KK phonetics course with American-accent phoneme takes, `/i/` `/ɪ/` sourced from Wikimedia Commons), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
 
 #### Scenario: Audio format negotiated by browser support
 
@@ -51,7 +51,7 @@ When `speakWord` receives a KK phonetic string (`/.../`, as stored in the englis
 
 #### Scenario: Every flashcard symbol has a single dedicated recording
 
-- **WHEN** any of the 41 flashcard symbols plays (`aɪ`, `aʊ`, `ɔɪ` included)
+- **WHEN** any of the 40 flashcard symbols plays (`aɪ`, `aʊ`, `ɔɪ` included)
 - **THEN** exactly one recording per symbol streams directly, no composite concatenation
 
 #### Scenario: Clip load failure falls back to TTS approximation
@@ -63,10 +63,10 @@ When `speakWord` receives a KK phonetic string (`/.../`, as stored in the englis
 - **WHEN** the browser rejects `audio.play()` (autoplay policy, e.g. before first user gesture on iOS)
 - **THEN** the failure is silent and TTS is not used, so enabling voice is a deliberate user action
 
-#### Scenario: KK TTS approximation covers all 41 symbols
+#### Scenario: KK TTS approximation covers all 40 symbols
 
 - **WHEN** the english text is a single KK symbol wrapped in slashes (e.g. `/m/`, `/aɪ/`, `/θ/`)
-- **THEN** `isKKPhoneticText` detects it (all 41 KK symbols are recognized)
+- **THEN** `isKKPhoneticText` detects it (all 40 KK symbols are recognized)
 - **AND** the TTS fallback path converts it via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh", `i` → "ee", `e` → "ay")
 - **AND** the converted text is spoken through `speakEnglishWordOnly` with the user's english voice/rate settings
 
