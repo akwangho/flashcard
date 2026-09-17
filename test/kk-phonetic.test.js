@@ -448,6 +448,95 @@ describe('KK phonetic precache', function() {
 });
 
 // ============================================================
+// 真人發音音檔預載（背景、去重、失敗靜默）
+// ============================================================
+describe('KK audio preload', function() {
+  var created;
+
+  beforeEach(function() {
+    created = [];
+    global.Audio = function() {
+      this.preload = '';
+      this.src = '';
+      this.onerror = null;
+      this.load = jest.fn();
+      created.push(this);
+    };
+    app._kkAudioPreloaded = {}; // 重置去重快取（不清除，保留建構初始化）
+    delete app._kkAudioExt;
+    delete app._kkAudioPlayer;
+    app.settings.showKKPhonetic = true;
+  });
+
+  afterEach(function() { delete global.Audio; });
+
+  test('preloads audio files for all phonetic cards in the round', function() {
+    app.currentWords = [
+      makeWord({ id: 1, english: '/p/' }),
+      makeWord({ id: 2, english: '/b/' }),
+      makeWord({ id: 3, english: 'cat' })
+    ];
+    app.currentIndex = 0;
+
+    app.preloadUpcomingKKAudio();
+
+    expect(created.length).toBe(2); // 音標卡全部預載，普通單字卡不預載
+    expect(decodeURIComponent(created[0].src)).toContain('/kk-audio/p');
+    expect(decodeURIComponent(created[1].src)).toContain('/kk-audio/b');
+    expect(created[0].preload).toBe('auto');
+  });
+
+  test('preloads resolved phonetics only for nearby regular cards', function() {
+    app.currentWords = [
+      makeWord({ id: 1, english: 'cat', kkPhonetic: 'kæt' }),   // 窗口內、已有音標
+      makeWord({ id: 2, english: 'dog', kkPhonetic: '' }),       // 尚無音標 → 無法預載
+      makeWord({ id: 3, english: 'sun', kkPhonetic: '' }),
+      makeWord({ id: 4, english: 'run', kkPhonetic: '' }),
+      makeWord({ id: 5, english: 'bun', kkPhonetic: '' }),
+      makeWord({ id: 6, english: 'fun', kkPhonetic: '' }),
+      makeWord({ id: 7, english: 'far', kkPhonetic: '' }),
+      makeWord({ id: 8, english: 'bar', kkPhonetic: 'bɑr' })     // 窗口外
+    ];
+    app.currentIndex = 0;
+
+    app.preloadUpcomingKKAudio();
+
+    expect(created.length).toBe(1);
+    expect(decodeURIComponent(created[0].src)).toContain('/kk-audio/kæt');
+  });
+
+  test('dedupes by symbol, retry allowed after load error', function() {
+    app.currentWords = [makeWord({ id: 1, english: '/θ/' })];
+    app.preloadUpcomingKKAudio();
+    app.preloadUpcomingKKAudio();
+    expect(created.length).toBe(1); // 同一音標只預載一次
+
+    created[0].onerror();          // 載入失敗 → 之後可重試
+    app.preloadUpcomingKKAudio();
+    expect(created.length).toBe(2);
+  });
+
+  test('does not preload regular word audio when KK setting off', function() {
+    app.settings.showKKPhonetic = false;
+    app.currentWords = [makeWord({ id: 1, english: 'cat', kkPhonetic: 'kæt' })];
+
+    app.preloadUpcomingKKAudio();
+
+    expect(created.length).toBe(0);
+  });
+
+  test('displayCurrentWord triggers background preload', function() {
+    app.currentWords = [makeWord({ id: 1, english: '/p/' })];
+    app.currentIndex = 0;
+    var spy = jest.spyOn(app, 'preloadUpcomingKKAudio');
+
+    try { app.displayCurrentWord(); } catch (e) { /* DOM 不足時忽略 */ }
+
+    expect(spy).toHaveBeenCalled();
+  });
+});
+
+// ============================================================
 // fetchKKPhonetic：dedupe / 寫回
 // ============================================================
 describe('fetchKKPhonetic', function() {

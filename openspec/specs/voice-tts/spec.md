@@ -28,7 +28,7 @@ The system SHALL read English words aloud using the Web Speech API (SpeechSynthe
 
 ### Requirement: KK Phonetic TTS
 
-When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 40 files in dual formats matching the KK flashcard symbols; 39 recordings sourced from the Gina teacher KK phonetics course with American-accent phoneme takes, `/i/` `/ɪ/` sourced from Wikimedia Commons), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
+When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 41 files in dual formats matching the KK flashcard symbols; 40 recordings sourced from the Gina teacher KK phonetics course with American-accent phoneme takes, `/i/` `/ɪ/` sourced from Wikimedia Commons), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
 
 #### Scenario: Audio format negotiated by browser support
 
@@ -51,10 +51,24 @@ When `speakWord` receives a KK phonetic string (`/.../`, as stored in the englis
 
 #### Scenario: Every flashcard symbol has a single dedicated recording
 
-- **WHEN** any of the 40 flashcard symbols plays (`aɪ`, `aʊ`, `ɔɪ` included)
+- **WHEN** any of the 41 flashcard symbols plays (`aɪ`, `aʊ`, `ɔɪ` included)
 - **THEN** exactly one recording per symbol streams directly, no composite concatenation
 
+#### Scenario: Audio clips preload in the background when a word list loads
+
+- **WHEN** `displayCurrentWord` runs for a freshly loaded word list containing KK phonetic cards (`/.../` english values)
+- **THEN** `preloadUpcomingKKAudio` creates hidden `Audio` elements with `preload = 'auto'` for every phonetic card in the round, plus resolved phonetics of regular cards within the pre-cache window
+- **AND** preloads dedupe by symbol, never block rendering, and fail silently
+
+#### Scenario: P key replays a phonetic card through its recording
+
+- **WHEN** the user presses P while the current card's english is a KK phonetic string
+- **THEN** `replayCurrentWordAudio` plays the recorded clip via `speakKKPhonetic` instead of TTS-reading the symbol text
+- **AND** normal words and japanese text keep the existing whole-word TTS behavior with alternating normal/slow rate
+
 #### Scenario: Clip load failure falls back to TTS approximation
+
+- **WHEN** the audio clip errors (offline, CDN unavailable)
 - **THEN** `speakKKPhonetic` converts via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh")
 - **AND** the converted text is spoken through `speakEnglishWordOnly` with the user's english voice/rate settings
 
@@ -63,10 +77,10 @@ When `speakWord` receives a KK phonetic string (`/.../`, as stored in the englis
 - **WHEN** the browser rejects `audio.play()` (autoplay policy, e.g. before first user gesture on iOS)
 - **THEN** the failure is silent and TTS is not used, so enabling voice is a deliberate user action
 
-#### Scenario: KK TTS approximation covers all 40 symbols
+#### Scenario: KK TTS approximation covers all 41 symbols
 
 - **WHEN** the english text is a single KK symbol wrapped in slashes (e.g. `/m/`, `/aɪ/`, `/θ/`)
-- **THEN** `isKKPhoneticText` detects it (all 40 KK symbols are recognized)
+- **THEN** `isKKPhoneticText` detects it (all 41 KK symbols are recognized)
 - **AND** the TTS fallback path converts it via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh", `i` → "ee", `e` → "ay")
 - **AND** the converted text is spoken through `speakEnglishWordOnly` with the user's english voice/rate settings
 

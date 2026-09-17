@@ -715,6 +715,72 @@ describe('updateVoiceButtonState', function() {
 // ============================================================
 // updateMutedIndicator — openspec/specs/voice-tts/spec.md
 // ============================================================
+describe('replayCurrentWordAudio (P key)', function() {
+  beforeEach(function() {
+    app.voiceSettings.enabled = true;
+    global.speechSynthesis.speak.mockClear();
+    global.speechSynthesis.cancel.mockClear();
+    app._pKeyPressCount = 0;
+  });
+
+  test('plays recorded clip for KK phonetic card instead of TTS reading the text', function() {
+    var instances = [];
+    var RealAudio = global.Audio;
+    global.Audio = function() {
+      this.src = '';
+      this.onerror = null;
+      this.play = jest.fn(function() { return Promise.resolve(); });
+      instances.push(this);
+      return this;
+    };
+    app.currentWords = [{ english: '/m/', chinese: '' }];
+    app.currentIndex = 0;
+
+    app.replayCurrentWordAudio();
+
+    // 走真人音檔路徑，不是 TTS 唸 /m/ 這串字
+    expect(instances.length).toBe(1);
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/m');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+
+    global.Audio = RealAudio;
+    delete app._kkAudioPlayer;
+    delete app._kkAudioExt;
+  });
+
+  test('normal english word still goes through TTS', function() {
+    app.currentWords = [{ english: 'apple', chinese: '' }];
+    app.currentIndex = 0;
+
+    app.replayCurrentWordAudio();
+
+    expect(global.speechSynthesis.speak).toHaveBeenCalled();
+  });
+
+  test('alternates normal and slow rate for regular words', function() {
+    app.currentWords = [{ english: 'apple', chinese: '' }];
+    app.currentIndex = 0;
+
+    app.replayCurrentWordAudio();
+    var firstRate = global.speechSynthesis.speak.mock.calls[0][0].rate;
+    expect(firstRate).toBe(app.voiceSettings.rate); // 第 1 次：正常
+
+    app.replayCurrentWordAudio();
+    var secondRate = global.speechSynthesis.speak.mock.calls[1][0].rate;
+    // 慢速 = max(0.1, rate × SLOW_SPEECH_RATE_FACTOR)，與實作同式
+    expect(secondRate).toBe(Math.max(0.1, app.voiceSettings.rate * 0.1)); // 第 2 次：慢速
+  });
+
+  test('does nothing when there is no current word', function() {
+    app.currentWords = [];
+    app.currentIndex = 0;
+
+    app.replayCurrentWordAudio();
+
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+});
+
 describe('updateMutedIndicator', function() {
 
   test('shows muted indicator when voice disabled', function() {

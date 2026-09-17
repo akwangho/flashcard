@@ -35,6 +35,8 @@
     this.kkPhoneticCache = {};
     // 進行中的查詢（key → 等待中的 callback 陣列），避免同一單字重複發送 request
     this._kkPendingFetches = {};
+    // 真人音檔預載去重：已預載（或預載中）的音標字串集合，避免重複下載
+    this._kkAudioPreloaded = {};
     // 顯示世代 token：每次更新顯示遞增；非同步回呼比對 token，過期則不顯示（race condition 保護）
     this._kkDisplayToken = 0;
     // 顯示時機同步：音標在 Phase 2（第二語言出現）才顯示，與 .word 的 0.5s 淡入一致
@@ -498,6 +500,69 @@
       if (this.resolveKKPhonetic(w)) continue;           // I 欄或快取已有 → 不打 API
       // fetchKKPhonetic 內建 in-flight dedupe，重複呼叫不會重複發送 request
       this.fetchKKPhonetic(w, {}, null);
+    }
+  };
+
+  /**
+   * 預載 KK 音標真人發音音檔（背景執行，不阻塞、失敗靜默）。
+   * 用 Audio 物件的 preload 機制讓瀏覽器提前下載，輪到音標卡按下發音時零延遲。
+   * 以音標字串去重：同一音標只預載一次（同 session 內）。
+   * @param {string} phonetic - 音標字串（/.../ 或裸音標如 ˋmɑm 皆可）
+   */
+  FlashcardApp.prototype.preloadKKAudio = function(phonetic) {
+    if (!phonetic) return;
+    var inner = String(phonetic).trim();
+    if (!inner) return;
+    // /.../ 格式 → 取出內容；裸音標（Sheet 來源）→ 驗證全是音標字元才預載，
+    // 避免拿普通文字去組 URL 產生無意義請求
+    if (this.isKKPhoneticText(inner)) {
+      inner = inner.replace(/^\/+/, '').replace(/\/+$/, '').trim();
+    } else if (!/^[0-9a-zA-Z\u00c0-\u024f\u0250-\u02af\u0370-\u03ff\u0300-\u036f\u02b0-\u02ff ːˑ.,!?-]+$/.test(inner)) {
+      return;
+    }
+    if (!inner) return;
+    if (this._kkAudioPreloaded[inner]) return; // 已預載（或預載中）
+    this._kkAudioPreloaded[inner] = true;
+
+    try {
+      var audio = new Audio();
+      audio.preload = 'auto';
+      audio.src = this._kkAudioUrl(inner);
+      var self = this;
+      // 載入失敗（離線/格式不支援）→ 清掉紀錄，之後仍可重試
+      audio.onerror = function() {
+        delete self._kkAudioPreloaded[inner];
+      };
+      audio.load();
+    } catch (e) { /* 預載失敗不影響任何功能 */ }
+  };
+
+  /**
+   * 預載 KK 音標發音檔：
+   *  - 音標卡（english 為 /.../）：全部預載（閃卡字庫小，P 鍵隨時可按）。
+   *  - 一般單字卡：僅預載即將輪到的範圍（與 KK pre-cache 窗口一致），
+   *    且 KK 功能開啟、已有音標（I 欄/快取）時——避免大字庫一口氣發出大量請求。
+   * 完全背景、以音標去重、失敗靜默。
+   */
+  FlashcardApp.prototype.preloadUpcomingKKAudio = function() {
+    if (!this.currentWords || this.currentWords.length === 0) return;
+    var total = this.currentWords.length;
+    var windowSize = (APP_CONSTANTS && APP_CONSTANTS.KK_PHONETIC_PRECACHE_COUNT) || 5;
+    for (var i = 0; i < total; i++) {
+      var w = this.currentWords[i];
+      if (!w || !w.english) continue;
+      // 音標卡：直接預載
+      if (this.isKKPhoneticText(w.english)) {
+        this.preloadKKAudio(w.english);
+        continue;
+      }
+      // 一般單字卡：只處理即將輪到的範圍
+      var offset = ((i - this.currentIndex) % total + total) % total;
+      if (offset > windowSize) continue;
+      if (this.settings.showKKPhonetic && getWordType(w.english) === 'word') {
+        var phonetic = this.resolveKKPhonetic(w);
+        if (phonetic) this.preloadKKAudio(phonetic);
+      }
     }
   };
 

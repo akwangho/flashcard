@@ -566,6 +566,35 @@
     }
   };
   
+  /**
+   * P 鍵：重新播放當前單字發音（略過字母拼讀）；奇數次正常、偶數次慢速；
+   * 切換單字時重置；暫停時也可用。
+   * KK 音標卡（english 為 /.../）：直接播對應的真人發音檔，不是 TTS 唸上面的文字。
+   */
+  FlashcardApp.prototype.replayCurrentWordAudio = function() {
+    var w = this.currentWords && this.currentWords[this.currentIndex];
+    if (!w || !w.english) return;
+    this._pKeyPressCount = (this._pKeyPressCount || 0) + 1;
+    var isSlow = (this._pKeyPressCount % 2 === 0);
+    // 使進行中的字母拼讀 callback 失效，避免稍後又插播/打斷本次發音
+    this._speechPlayId = (this._speechPlayId || 0) + 1;
+    this._speechSequenceActive = false;
+    try { this.speechSynthesis.cancel(); } catch (e) {}
+    var baseRate = (this.voiceSettings && this.voiceSettings.rate) ? this.voiceSettings.rate : 1;
+    var slowRate = Math.max(0.1, baseRate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
+    this._speechRateOverride = isSlow ? slowRate : null;
+    // 略過逐字母拼讀，直接唸整個單字（或日文/KK 音標）
+    if (this.isKKPhoneticText && this.isKKPhoneticText(w.english)) {
+      // KK 音標卡：直接播對應的真人發音檔；
+      // 慢速重播的 rate override 對音檔無效（長度固定），僅影響 TTS 後備路徑
+      this.speakKKPhonetic(w.english);
+    } else if (this.isJapaneseText(w.english)) {
+      this.speakJapaneseWord(w.english);
+    } else {
+      this.speakEnglishWordOnly(w.english);
+    }
+  };
+
   // 顯示當前單字
   /**
    * 顯示當前單字：共用前置作業 → 依模式委派至子函式。
@@ -631,6 +660,11 @@
     
     // 依模式委派
     var self = this;
+    // KK 音標真人發音檔預載：本輪單字含音標卡（/.../）就背景預載，
+    // 切換快時按 P 也能零延遲播音（獨立於 KK 顯示開關；失敗靜默）
+    if (typeof this.preloadUpcomingKKAudio === 'function') {
+      try { this.preloadUpcomingKKAudio(); } catch (e) { /* 不影響卡片顯示 */ }
+    }
     setTimeout(function() {
       // KK 音標：重置顯示狀態與查詢（必須在英文顯示之前，
       // 音標才能在 _display*Word / _revealSecondPart 的英文顯示時機同步出現）
@@ -1224,27 +1258,9 @@
         { keyCodes: [75], codes: ['KeyK'], keys: [],
           action: function() { self.toggleKKPhonetic(); },
           allowWhenPaused: true },
-        // P → 重新播放「整個單字」發音（略過字母拼讀）；奇數次正常、偶數次慢速；切換單字時重置；暫停時也可用
+        // P → 重新播放「整個單字」發音（略過字母拼讀）；KK 音標卡改播真人音檔；暫停時也可用
         { keyCodes: [80], codes: ['KeyP'], keys: [],
-          action: function() {
-            var w = self.currentWords && self.currentWords[self.currentIndex];
-            if (!w || !w.english) return;
-            self._pKeyPressCount = (self._pKeyPressCount || 0) + 1;
-            var isSlow = (self._pKeyPressCount % 2 === 0);
-            // 使進行中的字母拼讀 callback 失效，避免稍後又插播/打斷本次發音
-            self._speechPlayId = (self._speechPlayId || 0) + 1;
-            self._speechSequenceActive = false;
-            try { self.speechSynthesis.cancel(); } catch (e) {}
-            var baseRate = (self.voiceSettings && self.voiceSettings.rate) ? self.voiceSettings.rate : 1;
-            var slowRate = Math.max(0.1, baseRate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
-            self._speechRateOverride = isSlow ? slowRate : null;
-            // 略過逐字母拼讀，直接唸整個單字（或日文）
-            if (self.isJapaneseText(w.english)) {
-              self.speakJapaneseWord(w.english);
-            } else {
-              self.speakEnglishWordOnly(w.english);
-            }
-          },
+          action: function() { self.replayCurrentWordAudio(); },
           allowWhenPaused: true }
       ];
 
