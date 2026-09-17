@@ -7,7 +7,7 @@
  * scripts/fill-kk-flashcard-phonetics.mjs 從 12.6 萬筆字庫自動填入，與 App 顯示一致）。
  *
  * 匯入目標：與 KK 音標字庫同一本試算表（使用者指定字庫 → 綁定表 → 單字檔），
- * 新工作表「KK音標閃卡」。重複執行安全（依週數 upsert，不會產生重複列）。
+ * 工作表「猴猴教你KK音標」（原名「KK音標閃卡」，使用者已改名）。重複執行安全（依週數 upsert，不會產生重複列）。
  *
  * 執行方式（擇一）：
  *   1. importKKFlashcardsFromGitHub()       — 從本 repo raw 下載 JSON 匯入（最簡單）
@@ -19,8 +19,8 @@
  *   - verifyKKFlashcards()                  讀回全部列印，檢查 41 張完整
  */
 
-/** 閃卡工作表名稱（與音標字庫「KK音標字庫」同一本試算表） */
-var KK_FLASHCARD_SHEET_NAME = 'KK音標閃卡';
+/** 閃卡工作表名稱（與音標字庫「KK音標字庫」同一本試算表；使用者已將原名「KK音標閃卡」改名） */
+var KK_FLASHCARD_SHEET_NAME = '猴猴教你KK音標';
 
 /** data/kk-flashcards.json 的 GitHub raw 位址 */
 var KK_FLASHCARD_JSON_URL = 'https://raw.githubusercontent.com/akwangho/flashcard/master/data/kk-flashcards.json';
