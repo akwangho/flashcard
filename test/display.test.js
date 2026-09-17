@@ -1003,4 +1003,31 @@ describe('displayTextFor（顯示用文字正規化）', function() {
 
     expect(document.getElementById('english-word').textContent).toBe('');
   });
+
+  test('whitespace-only chinese gets word-empty class (background box hidden)', function() {
+    // 場景：KK 音標卡（自製圖片學習）翻譯是空白 → 中文區底框完全隱藏
+    var enEl = document.getElementById('english-word');
+    var zhEl = document.getElementById('chinese-word');
+
+    app.setCardText(zhEl, app.displayTextFor({ english: '/m/', chinese: ' ' }, 'chinese'));
+    expect(zhEl.textContent).toBe('');
+    expect(zhEl.classList.contains('word-empty')).toBe(true);
+
+    // 切到有翻譯的卡片：class 移除、底框恢復
+    app.setCardText(zhEl, app.displayTextFor({ english: 'apple', chinese: '蘋果' }, 'chinese'));
+    expect(zhEl.textContent).toBe('蘋果');
+    expect(zhEl.classList.contains('word-empty')).toBe(false);
+
+    // 過渡清空：word-empty 同步加上
+    app.setCardText(zhEl, '');
+    expect(zhEl.classList.contains('word-empty')).toBe(true);
+
+    // 英文區正常內容不受影響
+    app.setCardText(enEl, app.displayTextFor({ english: '/m/' }, 'english'));
+    expect(enEl.classList.contains('word-empty')).toBe(false);
+  });
+
+  test('setCardText handles null element safely', function() {
+    expect(function() { app.setCardText(null, 'x'); }).not.toThrow();
+  });
 });

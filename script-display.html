@@ -198,7 +198,7 @@
       // 聽力模式：點擊時同時顯示第一語言
       if (this.settings.listeningMode) {
         var isReversed = this.isReversedForCurrentWord();
-        englishElement.textContent = this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english');
+        this.setCardText(englishElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
       }
       this._revealSecondPart(currentWord);
     }
@@ -429,7 +429,7 @@
     var isReversed = this.isReversedForCurrentWord();
     var secondText = isReversed ? this.displayTextFor(currentWord, 'english') : this.displayTextFor(currentWord, 'chinese');
 
-    chineseElement.textContent = secondText;
+    this.setCardText(chineseElement, secondText);
     chineseElement.classList.add('show');
     this.showingChinese = true;
 
@@ -485,7 +485,7 @@
     if (this.settings.listeningMode) {
       var firstElement = document.getElementById('english-word');
       var isReversed = this.isReversedForCurrentWord();
-      firstElement.textContent = this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english');
+      this.setCardText(firstElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
     }
 
     this._revealSecondPart(currentWord);
@@ -658,7 +658,7 @@
     if (!this.showingChinese) {
       if (this.settings.listeningMode) {
         var isReversed = this.isReversedForCurrentWord();
-        englishElement.textContent = this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english');
+        this.setCardText(englishElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
       }
       this._revealSecondPart(currentWord);
     }
@@ -907,7 +907,7 @@
     englishElement.classList.remove('word-pending-removal');
     chineseElement.classList.remove('word-pending-removal');
 
-    chineseElement.textContent = '';
+    this.setCardText(chineseElement, '');
     this.clearFlashcardImage();
 
     // KK 音標與英文同步消失（過渡期間不殘留舊音標）
@@ -988,7 +988,7 @@
     englishElement.classList.remove('word-pending-removal');
     chineseElement.classList.remove('word-pending-removal');
     
-    chineseElement.textContent = '';
+    this.setCardText(chineseElement, '');
     this.clearFlashcardImage();
     
     // KK 音標與英文同步消失（過渡期間不殘留舊音標）
@@ -1040,7 +1040,7 @@
     englishElement.classList.remove('word-pending-removal');
     chineseElement.classList.remove('word-pending-removal');
     
-    chineseElement.textContent = '';
+    this.setCardText(chineseElement, '');
     this.clearFlashcardImage();
     
     // KK 音標與英文同步消失（過渡期間不殘留舊音標）
@@ -1123,8 +1123,8 @@
         if (lastWord && lastWord.english && lastWord.chinese) {
           var elEn = document.getElementById('loading-word-english');
           var elZh = document.getElementById('loading-word-chinese');
-          if (elEn) elEn.textContent = this.displayTextFor(lastWord, 'english');
-          if (elZh) elZh.textContent = this.displayTextFor(lastWord, 'chinese');
+          if (elEn) this.setCardText(elEn, this.displayTextFor(lastWord, 'english'));
+          if (elZh) this.setCardText(elZh, this.displayTextFor(lastWord, 'chinese'));
         }
       } catch (e) {}
 

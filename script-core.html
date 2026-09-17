@@ -262,6 +262,19 @@
   };
 
   /**
+   * 設定卡片文字並同步「空白內容」狀態 class。
+   * 空白翻譯（自製圖片學習）時中文區的半透明底框會被 CSS 隱藏
+   * （.word-empty），讓圖片完全沒有任何覆蓋物。
+   * @param {HTMLElement} element - 目標文字元素
+   * @param {string} text - 已正規化的顯示文字（displayTextFor 的結果）
+   */
+  FlashcardApp.prototype.setCardText = function(element, text) {
+    if (!element) return;
+    element.textContent = text;
+    element.classList.toggle('word-empty', text === '');
+  };
+
+  /**
    * 套用不熟程度 CSS class 到元素（清除舊 class 後加入新 class）
    * @param {HTMLElement} element - 目標元素
    * @param {number} level - 不熟程度等級 (-999 到 10)

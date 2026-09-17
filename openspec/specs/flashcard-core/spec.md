@@ -134,6 +134,14 @@ All on-card text rendering SHALL pass through `displayTextFor(word, lang)`, whic
 - **WHEN** a word's english or chinese has real content (with or without surrounding spaces)
 - **THEN** the trimmed content is displayed unchanged; full-width spaces (U+3000) within the content are rendered as half-width spaces
 
+#### Scenario: Whitespace-only translation hides the background box
+
+- **WHEN** a word's translation is whitespace-only AND the element's text is set via `setCardText`
+- **THEN** the element gets the `word-empty` class
+- **AND** the chinese section's semi-transparent background box, blur, padding and border-radius are removed (`.word-empty`), so a custom image is displayed with no overlay at all
+- **AND** the element is NOT `display: none`, so the 0.5s fade-in still plays when the next card has a real translation
+- **AND** the class is removed as soon as the element displays non-empty text again
+
 ### Requirement: Timer Progress Bar
 
 The system SHALL display a horizontal progress bar at the top of the screen that visually indicates time remaining in each phase.

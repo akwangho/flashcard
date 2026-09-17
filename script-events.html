@@ -599,8 +599,8 @@
     chineseElement.classList.remove('show');
     englishElement.classList.remove('word-pending-removal');
     chineseElement.classList.remove('word-pending-removal');
-    englishElement.textContent = '';
-    chineseElement.textContent = '';
+    this.setCardText(englishElement, '');
+    this.setCardText(chineseElement, '');
     englishElement.style.color = '';
     chineseElement.style.color = '';
     
@@ -668,8 +668,8 @@
     var secondElement = document.getElementById('chinese-word');
     var self = this;
 
-    firstElement.textContent = this.displayTextFor(currentWord, 'english');
-    secondElement.textContent = this.displayTextFor(currentWord, 'chinese');
+    this.setCardText(firstElement, this.displayTextFor(currentWord, 'english'));
+    this.setCardText(secondElement, this.displayTextFor(currentWord, 'chinese'));
     firstElement.classList.add('show');
     secondElement.classList.add('show');
     this.showingChinese = true;
@@ -701,7 +701,7 @@
     var firstElement = document.getElementById('english-word');
     var self = this;
 
-    firstElement.textContent = '';
+    this.setCardText(firstElement, '');
     firstElement.classList.add('show');
     this.speakWord(currentWord.english);
 
@@ -720,12 +720,12 @@
 
     var isReversed = this.isReversedForCurrentWord();
     if (isReversed) {
-      firstElement.textContent = this.displayTextFor(currentWord, 'chinese');
+      this.setCardText(firstElement, this.displayTextFor(currentWord, 'chinese'));
       setTimeout(function() {
         self.speakChineseWord(currentWord.chinese);
       }, APP_CONSTANTS.SPEECH_DELAY_MS);
     } else {
-      firstElement.textContent = this.displayTextFor(currentWord, 'english');
+      this.setCardText(firstElement, this.displayTextFor(currentWord, 'english'));
       if (!this.settings.delaySpeechInNormalMode) {
         var speechDelay = this._shouldSpellOutCurrentWord() ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
         setTimeout(function() {

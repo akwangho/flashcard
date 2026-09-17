@@ -59,6 +59,20 @@
     margin-top: auto; /* 置於底部 */
     margin-bottom: var(--spacing-xl);
   }
+
+  /* 空白翻譯（自製圖片學習）：中文區不渲染任何覆蓋物——
+     半透明底框、模糊、內距全部移除，圖片完全乾淨。
+     不用 display:none（會讓下一張有翻譯的卡失去淡入動畫），
+     元素留在版面中但視覺上完全透明，淡入/淡出流程不受影響。 */
+  #chinese-section .word.word-empty {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+    text-shadow: none;
+  }
   
   /* ==========================================================================
      KK 音標顯示（畫面正中央）
