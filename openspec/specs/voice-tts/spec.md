@@ -26,6 +26,33 @@ The system SHALL read English words aloud using the Web Speech API (SpeechSynthe
 - **THEN** a dropdown lists all system-available English voices
 - **AND** the user can select a specific voice or locale (default `en-US`)
 
+### Requirement: KK Phonetic TTS
+
+When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL convert it to a speakable english approximation and play it through the english TTS voice instead of reading the raw symbols.
+
+#### Scenario: Single-symbol card speaks teacher-style sound
+
+- **WHEN** the english text is a single KK symbol wrapped in slashes (e.g. `/m/`, `/aɪ/`, `/θ/`)
+- **THEN** `isKKPhoneticText` detects it (all 41 KK symbols are recognized)
+- **AND** `speakKKPhonetic` converts it via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh", `i` → "ee", `e` → "ay")
+- **AND** the converted text is spoken through `speakEnglishWordOnly` with the user's english voice/rate settings
+
+#### Scenario: Plain english is unaffected
+
+- **WHEN** the english text is a normal word (`hello`, `apple`) or a path-like string (`a/b/c`)
+- **THEN** `isKKPhoneticText` returns false and the text routes to `speakEnglishWord` as before
+
+#### Scenario: Multi-symbol string uses in-word approximations
+
+- **WHEN** the phonetic content contains multiple symbols (e.g. `sɪŋ swʌŋ`)
+- **THEN** `KK_INWORD_MAP` is applied in a single longest-match-first pass (`ŋ`→"ng", `ɪ`→"i", `ʌ`→"u")
+- **AND** unconvertible content (empty result) is silently skipped
+
+#### Scenario: Voice disabled
+
+- **WHEN** `voiceSettings.enabled` is false
+- **THEN** `speakKKPhonetic` does nothing
+
 ### Requirement: Japanese TTS
 
 The system SHALL automatically detect Japanese content and use a Japanese voice.

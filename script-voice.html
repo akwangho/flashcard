@@ -553,17 +553,126 @@
     }
   };
   
+  // 檢測 KK 音標字串（/.../ 格式，如 /m/、/aɪ/、/tʃ/）
+  FlashcardApp.prototype.isKKPhoneticText = function(text) {
+    if (!text) return false;
+    var t = String(text).trim();
+    if (t.length < 3 || t.charAt(0) !== '/' || t.charAt(t.length - 1) !== '/') return false;
+    var inner = t.slice(1, -1);
+    if (!inner) return false;
+    // 內容須全部是音標字元（拉丁/IPA 擴充/希臘 θ/組合符號/修飾符號/空白/標點），
+    // 排除 /path/to/file 這類普通字串與一般英文句子
+    return /^[0-9a-zA-Z\u00c0-\u024f\u0250-\u02af\u0370-\u03ff\u0300-\u036f\u02b0-\u02ff ːˑ.,!?-]*$/.test(inner);
+  };
+
   // 智能語音播放（自動檢測語言 - 僅用於英文/日文單字）
   FlashcardApp.prototype.speakWord = function(text) {
     if (!text) return;
     
-    if (this.isJapaneseText(text)) {
+    if (this.isKKPhoneticText(text)) {
+      // KK 音標卡（/.../）：轉成可發音文字後用英文語音播放
+      this.speakKKPhonetic(text);
+    } else if (this.isJapaneseText(text)) {
       // 文本包含日文字符，使用日文語音
       this.speakJapaneseWord(text);
     } else {
       // 文本為英文，使用英文語音（可能包含字母拼讀）
       this.speakEnglishWord(text);
     }
+  };
+
+  /**
+   * KK 音標發音：把 IPA 符號轉換成 TTS 引擎能「唸出近音」的文字，
+   * 用英文語音引擎播放。TTS 無法直接讀 IPA 符號（/æ/ /ʃ/ 會被跳過或亂唸），
+   * 因此採「近音拼法」策略：每個音標對應一個發音相近的英文拼法。
+   *
+   * 品質說明：這是「近似發音」而非精確 IPA 合成（瀏覽器 TTS 不支援 IPA 輸入），
+   * 目標是讓孩子聽到可辨識的近似音。長母音以 h 結尾（ee→eeh）拉長聽感。
+   * @param {string} text - KK 音標字串（/.../）
+   */
+  FlashcardApp.prototype.speakKKPhonetic = function(text) {
+    if (!this.voiceSettings.enabled) return;
+    if (!text) return;
+
+    var inner = String(text).trim().replace(/^\/|\/$/g, '');
+    var speakable = this._kkToSpeakableText(inner);
+    if (!speakable) return;
+
+    console.log('播放 KK 音標（轉換後）:', text, '→', speakable);
+    this.speakEnglishWordOnly(speakable);
+  };
+
+  /**
+   * IPA → 可發音英文拼法轉換（與 code.gs 的字庫轉換規則對應的 KK 符號集）。
+   *
+   * 兩種模式：
+   *   1. 單一音標（41 張 KK 音標卡的實際使用場景）：
+   *      子音用「老師唸單音」的拼法（b → buh、θ → thuh），
+   *      母音用獨立字拼法（aɪ → eye、i → ee、e → ay）——TTS 唸出來最接近單獨的音。
+   *   2. 多音標組合（如 ˋtwɛntiˏfaɪv）：單次掃描（single-pass）逐符號換成 in-word 拼法
+   *      （dʒ→j、aɪ→y、ɪ→i、ʌ→u...），品質為近似。
+   *
+   * 品質說明：瀏覽器 TTS 不支援直接輸入 IPA，此為「近似發音」策略，
+   * 目標是讓孩子聽到可辨識的近似音。
+   * @param {string} inner - 音標內容（不含斜線）
+   * @returns {string} 可交給英文 TTS 的近似音文字
+   */
+  FlashcardApp.prototype._kkToSpeakableText = function(inner) {
+    if (!inner) return '';
+    var s = String(inner).trim();
+    if (!s) return '';
+
+    // 單一音標：查專用對照表（41 張卡片的场景，品質最好）
+    if (FlashcardApp.KK_SINGLE_SYMBOL_MAP[s]) {
+      return FlashcardApp.KK_SINGLE_SYMBOL_MAP[s];
+    }
+
+    // 多音標組合：先正規化（重音→空白、長音清除），再單次掃描替換
+    s = s.replace(/[ˈˌˏ]/g, ' ').replace(/ː/g, '');
+
+    var keys = Object.keys(FlashcardApp.KK_INWORD_MAP).sort(function(a, b) {
+      return b.length - a.length;
+    });
+    var combined = new RegExp('(' + keys.map(function(k) {
+      return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }).join('|') + ')', 'g');
+    var map = FlashcardApp.KK_INWORD_MAP;
+    var PLACE = '\u0001';
+    s = s.replace(combined, function(m) { return PLACE + map[m] + PLACE; });
+
+    // 清理：佔位符→空白（避免相鄰轉換結果黏成怪字）、壓縮空白、移除殘留非英文字元
+    s = s.split(PLACE).join(' ');
+    s = s.replace(/\s+/g, ' ').trim();
+    s = s.replace(/[^a-zA-Z ]/g, '');
+
+    return s.trim();
+  };
+
+  /** 單一音標 → 獨立發音拼法（子音「+uh」模仿老師唸單音；母音用讀音最接近的獨立字） */
+  FlashcardApp.KK_SINGLE_SYMBOL_MAP = {
+    'p': 'puh', 'b': 'buh', 't': 'tuh', 'd': 'duh',
+    'k': 'kuh', 'g': 'guh', 'f': 'fuh', 'v': 'vuh',
+    'm': 'muh', 'n': 'nuh', 'l': 'luh', 'r': 'ruh',
+    's': 'suh', 'z': 'zuh', 'h': 'huh', 'w': 'wuh',
+    'ŋ': 'ung', 'θ': 'thuh', 'ð': 'the', 'ʃ': 'shh', 'ʒ': 'zhuh',
+    'tʃ': 'chuh', 'dʒ': 'juh', 'j': 'yuh',
+    'i': 'ee', 'ɪ': 'ih', 'e': 'ay', 'ɛ': 'eh',
+    'æ': 'aa', 'ɑ': 'ah', 'ʌ': 'uh', 'ə': 'uh',
+    'ɔ': 'aw', 'o': 'oh', 'ʊ': 'oo', 'u': 'ooh',
+    'ɚ': 'er', 'ɝ': 'er', 'ɜ': 'er',
+    'aɪ': 'eye', 'aʊ': 'ow', 'ɔɪ': 'oy'
+  };
+
+  /** 多音標組合用：in-word 近似拼法（單次掃描，不回掃輸出） */
+  FlashcardApp.KK_INWORD_MAP = {
+    'dʒ': 'j', 'tʃ': 'ch',
+    'aɪ': 'y', 'aʊ': 'ow', 'ɔɪ': 'oy',
+    'ɚ': 'er', 'ɝ': 'er', 'ɜ': 'er',
+    'i': 'ee', 'ɪ': 'i', 'e': 'ay', 'ɛ': 'e',
+    'æ': 'a', 'ɑ': 'o', 'ʌ': 'u', 'ə': 'a',
+    'ɔ': 'aw', 'o': 'oh', 'ʊ': 'oo', 'u': 'oo',
+    'ŋ': 'ng', 'θ': 'th', 'ð': 'th', 'ʃ': 'sh', 'ʒ': 'zh',
+    'ɡ': 'g', 'j': 'y'
   };
   
   // 清除語音等待計時器

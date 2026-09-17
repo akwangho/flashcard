@@ -171,6 +171,97 @@ describe('speakWord', function() {
     app.speakWord('hello');
     expect(spy).toHaveBeenCalledWith('hello');
   });
+
+  test('routes KK phonetic /.../ text to speakKKPhonetic', function() {
+    var spy = jest.spyOn(app, 'speakKKPhonetic');
+    app.voiceSettings.enabled = true;
+    app.speakWord('/m/');
+    expect(spy).toHaveBeenCalledWith('/m/');
+  });
+});
+
+// ============================================================
+// KK 音標發音 — openspec/specs/voice-tts/spec.md
+// ============================================================
+describe('isKKPhoneticText', function() {
+
+  test('detects single-symbol KK phonetic strings', function() {
+    expect(app.isKKPhoneticText('/m/')).toBe(true);
+    expect(app.isKKPhoneticText('/p/')).toBe(true);
+    expect(app.isKKPhoneticText('/aɪ/')).toBe(true);
+    expect(app.isKKPhoneticText('/tʃ/')).toBe(true);
+    expect(app.isKKPhoneticText('/θ/')).toBe(true);
+  });
+
+  test('rejects plain english words, paths and empty slashes', function() {
+    expect(app.isKKPhoneticText('hello')).toBe(false);
+    expect(app.isKKPhoneticText('apple')).toBe(false);
+    expect(app.isKKPhoneticText('a/b/c')).toBe(false);
+    expect(app.isKKPhoneticText('//')).toBe(false);
+    expect(app.isKKPhoneticText('')).toBe(false);
+    expect(app.isKKPhoneticText(null)).toBe(false);
+  });
+
+  test('detects all 41 KK symbols', function() {
+    var syms = ['p','b','t','d','k','g','f','v','m','n','l','r','s','z','h','w','ŋ','ʃ','ʒ','tʃ','dʒ','θ','ð','j','i','ɪ','u','ʊ','o','ɔ','e','ɛ','æ','ʌ','aɪ','aʊ','ɔɪ','ə','ɚ','ɝ','ɜ'];
+    for (var i = 0; i < syms.length; i++) {
+      expect(app.isKKPhoneticText('/' + syms[i] + '/')).toBe(true);
+    }
+  });
+});
+
+describe('_kkToSpeakableText', function() {
+
+  test('single symbol uses teacher-style pronunciation', function() {
+    expect(app._kkToSpeakableText('m')).toBe('muh');
+    expect(app._kkToSpeakableText('b')).toBe('buh');
+    expect(app._kkToSpeakableText('θ')).toBe('thuh');
+    expect(app._kkToSpeakableText('aɪ')).toBe('eye');
+    expect(app._kkToSpeakableText('i')).toBe('ee');
+    expect(app._kkToSpeakableText('e')).toBe('ay');
+  });
+
+  test('single-symbol map covers all 41 KK symbols', function() {
+    var syms = ['p','b','t','d','k','g','f','v','m','n','l','r','s','z','h','w','ŋ','ʃ','ʒ','tʃ','dʒ','θ','ð','j','i','ɪ','u','ʊ','o','ɔ','e','ɛ','æ','ʌ','aɪ','aʊ','ɔɪ','ə','ɚ','ɝ','ɜ'];
+    for (var i = 0; i < syms.length; i++) {
+      expect(FlashcardApp.KK_SINGLE_SYMBOL_MAP[syms[i]]).toBeTruthy();
+    }
+  });
+
+  test('multi-symbol strings use in-word approximations', function() {
+    expect(app._kkToSpeakableText('sɪŋ')).toContain('ng');
+    expect(app._kkToSpeakableText('aɪ aʊ')).toContain('y');
+  });
+
+  test('returns empty for empty input', function() {
+    expect(app._kkToSpeakableText('')).toBe('');
+    expect(app._kkToSpeakableText(null)).toBe('');
+  });
+});
+
+describe('speakKKPhonetic', function() {
+
+  test('does nothing when voice disabled', function() {
+    app.voiceSettings.enabled = false;
+    app.speakKKPhonetic('/m/');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+
+  test('speaks converted text through english voice', function() {
+    global.speechSynthesis.speak.mockClear();
+    app.voiceSettings.enabled = true;
+    app.speakKKPhonetic('/m/');
+    expect(global.speechSynthesis.speak).toHaveBeenCalled();
+    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(utterance.text).toBe('muh');
+  });
+
+  test('does nothing for unconvertible content', function() {
+    global.speechSynthesis.speak.mockClear();
+    app.voiceSettings.enabled = true;
+    app.speakKKPhonetic('/?/');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
 });
 
 // ============================================================
