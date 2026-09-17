@@ -339,19 +339,15 @@ describe('speakKKPhonetic audio clips', function() {
     expect(global.speechSynthesis.speak.mock.calls[0][0].text).toBe('muh');
   });
 
-  test('chains composite clips for diphthong aI (a.mp3 then i.mp3)', function() {
+  test('plays single clip for diphthong aI', function() {
     app.speakKKPhonetic('/aɪ/');
-    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/a.mp3');
-    app._kkAudioPlayer.onended(); // 第一段播完 → 接第二段
-    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/i.mp3');
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/aɪ');
     expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
   });
 
-  test('chains composite clips for diphthong aU (a.mp3 then u.mp3)', function() {
+  test('plays single clip for diphthong aU', function() {
     app.speakKKPhonetic('/aʊ/');
-    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/a.mp3');
-    app._kkAudioPlayer.onended();
-    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/u.mp3');
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/aʊ');
   });
 
   test('falls back to TTS near-speech when clip fails to load', function() {

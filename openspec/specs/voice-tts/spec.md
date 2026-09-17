@@ -28,7 +28,7 @@ The system SHALL read English words aloud using the Web Speech API (SpeechSynthe
 
 ### Requirement: KK Phonetic TTS
 
-When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 41 files in dual formats matching the KK flashcard symbols, sourced from Wikimedia Commons IPA phoneme recordings with per-file SHA-1 verification against the Commons API), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
+When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 41 files in dual formats matching the KK flashcard symbols; 39 recordings sourced from the Gina teacher KK phonetics course with American-accent phoneme takes, `/i/` `/ɪ/` sourced from Wikimedia Commons), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
 
 #### Scenario: Audio format negotiated by browser support
 
@@ -49,14 +49,12 @@ When `speakWord` receives a KK phonetic string (`/.../`, as stored in the englis
 - **THEN** `_playKKAudioClips` streams `https://akwangho.github.io/kk-audio/<symbol>.mp3` (or `.ogg` on Opus-capable browsers) through a shared audio player
 - **AND** TTS is not invoked
 
-#### Scenario: Diphthongs without a dedicated recording play composite clips
+#### Scenario: Every flashcard symbol has a single dedicated recording
 
-- **WHEN** the symbol has no single recording (`aɪ`, `aʊ`)
-- **THEN** the component phoneme clips play in sequence (`a.mp3` → `i.mp3`, `a.mp3` → `u.mp3`), chained on the `ended` event
+- **WHEN** any of the 41 flashcard symbols plays (`aɪ`, `aʊ`, `ɔɪ` included)
+- **THEN** exactly one recording per symbol streams directly, no composite concatenation
 
 #### Scenario: Clip load failure falls back to TTS approximation
-
-- **WHEN** the audio clip errors (offline, CDN unavailable)
 - **THEN** `speakKKPhonetic` converts via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh")
 - **AND** the converted text is spoken through `speakEnglishWordOnly` with the user's english voice/rate settings
 
@@ -65,14 +63,14 @@ When `speakWord` receives a KK phonetic string (`/.../`, as stored in the englis
 - **WHEN** the browser rejects `audio.play()` (autoplay policy, e.g. before first user gesture on iOS)
 - **THEN** the failure is silent and TTS is not used, so enabling voice is a deliberate user action
 
-#### Scenario: Plain english is unaffected
+#### Scenario: KK TTS approximation covers all 41 symbols
 
 - **WHEN** the english text is a single KK symbol wrapped in slashes (e.g. `/m/`, `/aɪ/`, `/θ/`)
 - **THEN** `isKKPhoneticText` detects it (all 41 KK symbols are recognized)
-- **AND** `speakKKPhonetic` converts it via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh", `i` → "ee", `e` → "ay")
+- **AND** the TTS fallback path converts it via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh", `i` → "ee", `e` → "ay")
 - **AND** the converted text is spoken through `speakEnglishWordOnly` with the user's english voice/rate settings
 
-#### Scenario: Plain english is unaffected
+#### Scenario: Plain english is unaffected (non-phonetic text)
 
 - **WHEN** the english text is a normal word (`hello`, `apple`) or a path-like string (`a/b/c`)
 - **THEN** `isKKPhoneticText` returns false and the text routes to `speakEnglishWord` as before

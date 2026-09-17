@@ -591,13 +591,9 @@
    * 長母音以 h 結尾（ee→eeh）拉長聽感。
    * @param {string} text - KK 音標字串（/.../）
    */
-  /** KK 音標真人發音音檔 URL（與 data/kk-flashcards.json 的 41 個音標一致）。 */
+  /** KK 音標真人發音音檔 URL（與 data/kk-flashcards.json 的 41 個音標一致）。
+   *  來源：吉娜英文 KK 音標課程的美國老師錄音（39 個）+ Wikimedia Commons（/i/ /ɪ/）。 */
   var KK_AUDIO_BASE_URL = 'https://akwangho.github.io/kk-audio/';
-  /** 音檔未覆蓋的符號 → 用組成音檔拼接（陣列，順序即播放順序）。 */
-  var KK_AUDIO_COMPOSITE = {
-    'aɪ': ['a', 'i'],
-    'aʊ': ['a', 'u']
-  };
 
   FlashcardApp.prototype.speakKKPhonetic = function(text) {
     if (!this.voiceSettings.enabled) return;
@@ -632,40 +628,35 @@
   };
 
   /**
-   * 播放 KK 音標真人音檔（單音直接播；aɪ/aʊ 用組成音依序拼接）。
+   * 播放 KK 音標真人音檔（41 個音標都有單一音檔）。
    * 格式策略：.ogg(Opus) 優先 → 載入失敗重試 .mp3 → 仍失敗（離線/CDN 異常）退 TTS。
    * @param {string} inner - 音標內容（不含斜線）
    * @returns {boolean} 是否成功開始播放（false = 呼叫端退回 TTS）
    */
   FlashcardApp.prototype._playKKAudioClips = function(inner) {
-    var parts = KK_AUDIO_COMPOSITE[inner] || [inner];
     var audio = this._kkAudioPlayer || (this._kkAudioPlayer = new Audio());
     var self = this;
 
-    function playAt(idx) {
-      if (idx >= parts.length) return;
-      audio.onended = function() { playAt(idx + 1); };
-      audio.onerror = function() {
-        audio.onerror = null;
-        audio.onended = null;
-        if (self._kkAudioExt === '.ogg') {
-          // 宣稱支援 Opus 但載入失敗 → 之後全部改用 mp3，重播同一段
-          self._kkAudioExt = '.mp3';
-          playAt(idx);
-          return;
-        }
-        // mp3 也失敗（離線/CDN 異常）→ TTS 近音後備
-        var speakable = self._kkToSpeakableText(inner);
-        if (speakable) self.speakEnglishWordOnly(speakable);
-      };
-      audio.src = self._kkAudioUrl(parts[idx]);
-      var p = audio.play();
-      if (p && typeof p.catch === 'function') {
-        p.catch(function() { audio.onerror = null; }); // 自動播放被攔：靜默放棄，不退回 TTS
+    audio.onended = null;
+    /** ogg 失敗 → 降級 mp3 重播；mp3 也失敗（離線/CDN 異常）→ TTS 近音後備 */
+    function handleKKAudioError() {
+      if (self._kkAudioExt === '.ogg') {
+        self._kkAudioExt = '.mp3';
+        audio.onerror = handleKKAudioError;
+        audio.src = self._kkAudioUrl(inner);
+        audio.play();
+        return;
       }
+      audio.onerror = null;
+      var speakable = self._kkToSpeakableText(inner);
+      if (speakable) self.speakEnglishWordOnly(speakable);
     }
-
-    playAt(0);
+    audio.onerror = handleKKAudioError;
+    audio.src = this._kkAudioUrl(inner);
+    var p = audio.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(function() { audio.onerror = null; }); // 自動播放被攔：靜默放棄，不退回 TTS
+    }
     return true;
   };
 
