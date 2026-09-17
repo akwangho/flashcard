@@ -120,6 +120,20 @@ The system SHALL optionally adjust the phase-2 wait time based on text length wh
 - **THEN** the full `delayTime` is used regardless of text length
 - **AND** `mustSpell` equal to `-1` (看懂就好) does NOT count as must-spell here, so it does not suppress the smart timer
 
+### Requirement: Display Text Normalization
+
+All on-card text rendering SHALL pass through `displayTextFor(word, lang)`, which trims surrounding whitespace and normalizes full-width spaces (U+3000) to half-width before display. This is display-layer only — the word object and Google Sheet data are never modified.
+
+#### Scenario: Whitespace-only translation renders as empty
+
+- **WHEN** a word's translation is deliberately a single space (e.g. user leaves the translation blank to learn with a custom-made image)
+- **THEN** the text element's `textContent` is set to `''` (trimmed), so no whitespace character is rendered inside the word's semi-transparent background box
+
+#### Scenario: Meaningful content is preserved
+
+- **WHEN** a word's english or chinese has real content (with or without surrounding spaces)
+- **THEN** the trimmed content is displayed unchanged; full-width spaces (U+3000) within the content are rendered as half-width spaces
+
 ### Requirement: Timer Progress Bar
 
 The system SHALL display a horizontal progress bar at the top of the screen that visually indicates time remaining in each phase.

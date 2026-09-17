@@ -198,7 +198,7 @@
       // 聽力模式：點擊時同時顯示第一語言
       if (this.settings.listeningMode) {
         var isReversed = this.isReversedForCurrentWord();
-        englishElement.textContent = isReversed ? currentWord.chinese : currentWord.english;
+        englishElement.textContent = this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english');
       }
       this._revealSecondPart(currentWord);
     }
@@ -427,7 +427,7 @@
     var chineseElement = document.getElementById('chinese-word');
     var flashcardDiv = document.getElementById('flashcard');
     var isReversed = this.isReversedForCurrentWord();
-    var secondText = isReversed ? currentWord.english : currentWord.chinese;
+    var secondText = isReversed ? this.displayTextFor(currentWord, 'english') : this.displayTextFor(currentWord, 'chinese');
 
     chineseElement.textContent = secondText;
     chineseElement.classList.add('show');
@@ -485,7 +485,7 @@
     if (this.settings.listeningMode) {
       var firstElement = document.getElementById('english-word');
       var isReversed = this.isReversedForCurrentWord();
-      firstElement.textContent = isReversed ? currentWord.chinese : currentWord.english;
+      firstElement.textContent = this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english');
     }
 
     this._revealSecondPart(currentWord);
@@ -658,7 +658,7 @@
     if (!this.showingChinese) {
       if (this.settings.listeningMode) {
         var isReversed = this.isReversedForCurrentWord();
-        englishElement.textContent = isReversed ? currentWord.chinese : currentWord.english;
+        englishElement.textContent = this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english');
       }
       this._revealSecondPart(currentWord);
     }
@@ -1123,8 +1123,8 @@
         if (lastWord && lastWord.english && lastWord.chinese) {
           var elEn = document.getElementById('loading-word-english');
           var elZh = document.getElementById('loading-word-chinese');
-          if (elEn) elEn.textContent = lastWord.english;
-          if (elZh) elZh.textContent = lastWord.chinese;
+          if (elEn) elEn.textContent = this.displayTextFor(lastWord, 'english');
+          if (elZh) elZh.textContent = this.displayTextFor(lastWord, 'chinese');
         }
       } catch (e) {}
 

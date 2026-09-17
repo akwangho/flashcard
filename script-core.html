@@ -244,6 +244,24 @@
   }
 
   /**
+   * 取得要在畫面上顯示的文字（英文或中文翻譯）。
+   * 進行顯示用正規化：
+   *   1. trim 前後空白——使用者刻意在翻譯輸入一個空白（搭配自製圖片學習）時，
+   *      畫面不會顯示空白字元的底色方塊（.word 有半透明背景，空白也會渲染）。
+   *   2. 全形空格（U+3000）正規化為半形——避免同樣的顯示問題。
+   * 僅處理顯示層，不修改 word 物件與 Sheet 資料。
+   * @param {Object} word - 單字物件
+   * @param {string} lang - 'english' 或 'chinese'
+   * @returns {string} 顯示用文字
+   */
+  FlashcardApp.prototype.displayTextFor = function(word, lang) {
+    if (!word) return '';
+    var text = word[lang];
+    if (text === undefined || text === null) return '';
+    return String(text).replace(/\u3000/g, ' ').trim();
+  };
+
+  /**
    * 套用不熟程度 CSS class 到元素（清除舊 class 後加入新 class）
    * @param {HTMLElement} element - 目標元素
    * @param {number} level - 不熟程度等級 (-999 到 10)

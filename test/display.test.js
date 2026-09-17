@@ -936,3 +936,71 @@ describe('preloadImage', function() {
     expect(function() { app.preloadImage(null); }).not.toThrow();
   });
 });
+
+describe('displayTextFor（顯示用文字正規化）', function() {
+  var origInit;
+  beforeEach(function() {
+    origInit = FlashcardApp.prototype.init;
+    FlashcardApp.prototype.init = function() {};
+    app = new FlashcardApp();
+  });
+  afterEach(function() {
+    FlashcardApp.prototype.init = origInit;
+  });
+
+  test('trims whitespace-only chinese translation to empty string', function() {
+    // 使用者在翻譯欄輸入一個空白（搭配自製圖片學習），畫面不應顯示空白字元
+    var word = { english: 'apple', chinese: ' ' };
+    expect(app.displayTextFor(word, 'chinese')).toBe('');
+  });
+
+  test('trims leading/trailing spaces from english and chinese', function() {
+    var word = { english: '  apple  ', chinese: ' 蘋果 ' };
+    expect(app.displayTextFor(word, 'english')).toBe('apple');
+    expect(app.displayTextFor(word, 'chinese')).toBe('蘋果');
+  });
+
+  test('normalizes full-width spaces (U+3000) to half-width', function() {
+    var word = { english: 'apple', chinese: '\u3000' };
+    expect(app.displayTextFor(word, 'chinese')).toBe('');
+    expect(app.displayTextFor({ english: 'a\u3000b', chinese: 'x' }, 'english')).toBe('a b');
+  });
+
+  test('keeps meaningful chinese translation untouched', function() {
+    var word = { english: 'apple', chinese: '蘋果' };
+    expect(app.displayTextFor(word, 'chinese')).toBe('蘋果');
+  });
+
+  test('returns empty string for null/undefined word or field', function() {
+    expect(app.displayTextFor(null, 'english')).toBe('');
+    expect(app.displayTextFor({ english: 'apple' }, 'chinese')).toBe('');
+    expect(app.displayTextFor({ english: null, chinese: 'x' }, 'english')).toBe('');
+  });
+
+  test('normal mode phase 1 does not render whitespace-only chinese (chinese-first)', function() {
+    // 場景：先中文模式 + 翻譯只有一個空白 → 畫面應為空字串而非空白字元
+    jest.useFakeTimers();
+    app.currentWords = [{ id: 0, english: '/m/', chinese: ' ', difficultyLevel: 0, image: '' }];
+    app.currentIndex = 0;
+    app.isPaused = false;
+    app.showingChinese = false;
+    app.settings.displayMode = 'chinese-first';
+    app.settings.listeningMode = false;
+    app.srsData = {};
+    app.speakWord = jest.fn();
+    app.speakChineseWord = jest.fn();
+    app.waitForSpeechThenExecute = jest.fn(function(cb) { cb(); });
+    app.clearSpeechWait = jest.fn();
+    app.updateSrsBadge = jest.fn();
+    app.updateActiveFilterDisplay = jest.fn();
+    app.updateDifficultyFilterButtonText = jest.fn();
+    app.updateReviewFilterButtonText = jest.fn();
+    app.syncReviewDates = jest.fn();
+
+    app.displayCurrentWord();
+    jest.advanceTimersByTime(APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
+    jest.useRealTimers();
+
+    expect(document.getElementById('english-word').textContent).toBe('');
+  });
+});

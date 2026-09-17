@@ -668,8 +668,8 @@
     var secondElement = document.getElementById('chinese-word');
     var self = this;
 
-    firstElement.textContent = currentWord.english;
-    secondElement.textContent = currentWord.chinese;
+    firstElement.textContent = this.displayTextFor(currentWord, 'english');
+    secondElement.textContent = this.displayTextFor(currentWord, 'chinese');
     firstElement.classList.add('show');
     secondElement.classList.add('show');
     this.showingChinese = true;
@@ -720,12 +720,12 @@
 
     var isReversed = this.isReversedForCurrentWord();
     if (isReversed) {
-      firstElement.textContent = currentWord.chinese;
+      firstElement.textContent = this.displayTextFor(currentWord, 'chinese');
       setTimeout(function() {
         self.speakChineseWord(currentWord.chinese);
       }, APP_CONSTANTS.SPEECH_DELAY_MS);
     } else {
-      firstElement.textContent = currentWord.english;
+      firstElement.textContent = this.displayTextFor(currentWord, 'english');
       if (!this.settings.delaySpeechInNormalMode) {
         var speechDelay = this._shouldSpellOutCurrentWord() ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
         setTimeout(function() {
