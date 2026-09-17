@@ -247,13 +247,10 @@ describe('speakKKPhonetic', function() {
     expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
   });
 
-  test('speaks converted text through english voice', function() {
-    global.speechSynthesis.speak.mockClear();
+  test('does nothing for empty phonetic content', function() {
     app.voiceSettings.enabled = true;
-    app.speakKKPhonetic('/m/');
-    expect(global.speechSynthesis.speak).toHaveBeenCalled();
-    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
-    expect(utterance.text).toBe('muh');
+    app.speakKKPhonetic('/ /');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
   });
 
   test('does nothing for unconvertible content', function() {
@@ -261,6 +258,80 @@ describe('speakKKPhonetic', function() {
     app.voiceSettings.enabled = true;
     app.speakKKPhonetic('/?/');
     expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+
+  test('does not use audio player for regular english words', function() {
+    app.voiceSettings.enabled = true;
+    app.speakEnglishWordOnly('apple');
+    expect(global.speechSynthesis.speak).toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// KK 音標真人音檔播放（akwangho.github.io/kk-audio/）
+// openspec/specs/voice-tts/spec.md：音檔優先，TTS 為後備
+// ============================================================
+describe('speakKKPhonetic audio clips', function() {
+  var FakeAudio;
+
+  beforeEach(function() {
+    FakeAudio = function() {
+      FakeAudio.instances.push(this);
+      this.src = '';
+      this.onended = null;
+      this.onerror = null;
+      var reject = FakeAudio.rejectNextPlay;
+      this.play = jest.fn(function() {
+        return reject ? Promise.reject(new Error('NotAllowedError')) : Promise.resolve();
+      });
+    };
+    FakeAudio.instances = [];
+    FakeAudio.rejectNextPlay = false;
+    global.Audio = FakeAudio;
+    delete app._kkAudioPlayer; // 重置單例，讓每個測試拿到新的 FakeAudio
+    app.voiceSettings.enabled = true;
+    global.speechSynthesis.speak.mockClear();
+  });
+
+  test('plays recorded clip for single phoneme instead of TTS', function() {
+    app.speakKKPhonetic('/m/');
+    expect(FakeAudio.instances.length).toBe(1);
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/m.mp3');
+    expect(app._kkAudioPlayer.play).toHaveBeenCalled();
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+
+  test('chains composite clips for diphthong aI (a.mp3 then i.mp3)', function() {
+    app.speakKKPhonetic('/aɪ/');
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/a.mp3');
+    app._kkAudioPlayer.onended(); // 第一段播完 → 接第二段
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/i.mp3');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+
+  test('chains composite clips for diphthong aU (a.mp3 then u.mp3)', function() {
+    app.speakKKPhonetic('/aʊ/');
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/a.mp3');
+    app._kkAudioPlayer.onended();
+    expect(decodeURIComponent(app._kkAudioPlayer.src)).toContain('/kk-audio/u.mp3');
+  });
+
+  test('falls back to TTS near-speech when clip fails to load', function() {
+    app.speakKKPhonetic('/m/');
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+
+    app._kkAudioPlayer.onerror(); // 模擬音檔載入失敗（離線/CDN 異常）
+    expect(global.speechSynthesis.speak).toHaveBeenCalled();
+    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(utterance.text).toBe('muh');
+  });
+
+  test('does not fall back to TTS when autoplay is rejected', function() {
+    FakeAudio.rejectNextPlay = true;
+    app.speakKKPhonetic('/θ/');
+    return Promise.resolve().then(function() {
+      expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+    });
   });
 });
 

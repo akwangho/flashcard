@@ -583,23 +583,67 @@
 
   /**
    * KK 音標發音：把 IPA 符號轉換成 TTS 引擎能「唸出近音」的文字，
-   * 用英文語音引擎播放。TTS 無法直接讀 IPA 符號（/æ/ /ʃ/ 會被跳過或亂唸），
-   * 因此採「近音拼法」策略：每個音標對應一個發音相近的英文拼法。
+   * 真人音檔優先：Wikimedia Commons 的 IPA 音素真人錄音（託管於
+   * akwangho.github.io/kk-audio/，41 個符號與 KK 音標閃卡一一對應），
+   * 音檔載入失敗才退回 TTS「近音拼法」。
    *
-   * 品質說明：這是「近似發音」而非精確 IPA 合成（瀏覽器 TTS 不支援 IPA 輸入），
-   * 目標是讓孩子聽到可辨識的近似音。長母音以 h 結尾（ee→eeh）拉長聽感。
+   * TTS 後備品質說明：瀏覽器 TTS 不支援 IPA 輸入，近音拼法為近似發音，
+   * 長母音以 h 結尾（ee→eeh）拉長聽感。
    * @param {string} text - KK 音標字串（/.../）
    */
+  /** KK 音標真人發音音檔 URL（與 data/kk-flashcards.json 的 41 個音標一致）。 */
+  var KK_AUDIO_BASE_URL = 'https://akwangho.github.io/kk-audio/';
+  /** 音檔未覆蓋的符號 → 用組成音檔拼接（<span> 陣列，順序即播放順序）。 */
+  var KK_AUDIO_COMPOSITE = {
+    'aɪ': ['a', 'i'],
+    'aʊ': ['a', 'u']
+  };
+
   FlashcardApp.prototype.speakKKPhonetic = function(text) {
     if (!this.voiceSettings.enabled) return;
     if (!text) return;
 
-    var inner = String(text).trim().replace(/^\/|\/$/g, '');
+    var inner = String(text).trim().replace(/^\/+/, '').replace(/\/+$/, '').trim();
+    if (!inner) return;
+
+    if (this._playKKAudioClips(inner)) return; // 真人音檔優先
+
+    // 後備：音檔無法播放（離線/CDN 異常/不支援）→ TTS 近音拼法
     var speakable = this._kkToSpeakableText(inner);
     if (!speakable) return;
 
-    console.log('播放 KK 音標（轉換後）:', text, '→', speakable);
+    console.log('播放 KK 音標（TTS 近音後備）:', text, '→', speakable);
     this.speakEnglishWordOnly(speakable);
+  };
+
+  /**
+   * 播放 KK 音標真人音檔（單音直接播；aɪ/aʊ 用組成音依序拼接）。
+   * @param {string} inner - 音標內容（不含斜線）
+   * @returns {boolean} 是否成功開始播放（false = 呼叫端退回 TTS）
+   */
+  FlashcardApp.prototype._playKKAudioClips = function(inner) {
+    var parts = KK_AUDIO_COMPOSITE[inner] || [inner];
+    var audio = this._kkAudioPlayer || (this._kkAudioPlayer = new Audio());
+    var self = this;
+
+    function playAt(idx) {
+      if (idx >= parts.length) return;
+      audio.src = KK_AUDIO_BASE_URL + encodeURIComponent(parts[idx]) + '.mp3';
+      audio.onended = function() { playAt(idx + 1); };
+      var p = audio.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(function() { audio.onerror = null; }); // 自動播放被攔：靜默放棄，不退回 TTS
+      }
+    }
+
+    audio.onerror = function() {
+      audio.onerror = null;
+      audio.onended = null;
+      var speakable = self._kkToSpeakableText(inner);
+      if (speakable) self.speakEnglishWordOnly(speakable);
+    };
+    playAt(0);
+    return true;
   };
 
   /**

@@ -28,9 +28,31 @@ The system SHALL read English words aloud using the Web Speech API (SpeechSynthe
 
 ### Requirement: KK Phonetic TTS
 
-When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL convert it to a speakable english approximation and play it through the english TTS voice instead of reading the raw symbols.
+When `speakWord` receives a KK phonetic string (`/.../`, as stored in the english column of KK phonetic flashcards), the system SHALL play a real human recording of the phoneme when available (hosted at `https://akwangho.github.io/kk-audio/`, 41 files matching the KK flashcard symbols, sourced from Wikimedia Commons IPA phoneme recordings), and fall back to a speakable english TTS approximation only when the audio clip cannot be played.
 
-#### Scenario: Single-symbol card speaks teacher-style sound
+#### Scenario: Real recorded clip plays instead of TTS
+
+- **WHEN** the english text is a single KK symbol wrapped in slashes (e.g. `/m/`, `/θ/`)
+- **THEN** `_playKKAudioClips` streams `https://akwangho.github.io/kk-audio/<symbol>.mp3` through a shared audio player
+- **AND** TTS is not invoked
+
+#### Scenario: Diphthongs without a dedicated recording play composite clips
+
+- **WHEN** the symbol has no single recording (`aɪ`, `aʊ`)
+- **THEN** the component phoneme clips play in sequence (`a.mp3` → `i.mp3`, `a.mp3` → `u.mp3`), chained on the `ended` event
+
+#### Scenario: Clip load failure falls back to TTS approximation
+
+- **WHEN** the audio clip errors (offline, CDN unavailable)
+- **THEN** `speakKKPhonetic` converts via `KK_SINGLE_SYMBOL_MAP` (teacher-style: `m` → "muh", `aɪ` → "eye", `θ` → "thuh")
+- **AND** the converted text is spoken through `speakEnglishWordOnly` with the user's english voice/rate settings
+
+#### Scenario: Autoplay rejection does not trigger TTS fallback
+
+- **WHEN** the browser rejects `audio.play()` (autoplay policy, e.g. before first user gesture on iOS)
+- **THEN** the failure is silent and TTS is not used, so enabling voice is a deliberate user action
+
+#### Scenario: Plain english is unaffected
 
 - **WHEN** the english text is a single KK symbol wrapped in slashes (e.g. `/m/`, `/aɪ/`, `/θ/`)
 - **THEN** `isKKPhoneticText` detects it (all 41 KK symbols are recognized)
