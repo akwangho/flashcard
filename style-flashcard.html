@@ -130,6 +130,15 @@
     }
   }
   
+  /* 多候選「待確認」特殊顏色：線上查到多個音標、第一候選僅為暫定值時標示。
+     正常音標為琥珀色（#ffd54f）→ 待確認改為亮藍＋深藍底（與正常色一眼可辨，
+     藍／黃軸在色弱下也可區分）。使用者於編輯單字（E）選定並儲存後，
+     I 欄有值 → 自動回復正常顏色。 */
+  .kk-phonetic-display.kk-needs-review {
+    color: #4fc3f7;
+    background: rgba(4, 44, 84, 0.72);
+  }
+  
   /* 與 .word 的響應式字級同步（style-base.html 的 768px 斷點） */
   @media (max-width: 768px) {
     .kk-phonetic-display {

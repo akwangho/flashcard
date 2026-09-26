@@ -85,6 +85,15 @@ The system SHALL display an associated image for words that have an image URL.
 
 - **WHEN** displaying a word
 - **THEN** the system preloads images for the current and the next 10 upcoming words (`preloadUpcomingImages`)
+- **AND** every in-progress preload keeps a reference to its image object until the load finishes, so the browser does not cancel the download (WebKit cancels downloads of garbage-collected image elements)
+- **AND** a URL that is already downloading does not trigger a duplicate download request (in-flight dedupe)
+
+#### Scenario: Preload completion and failure
+
+- **WHEN** a preloaded image finishes downloading
+- **THEN** its URL is remembered as preloaded for the session and the image object reference is released
+- **WHEN** a preloaded image fails to download
+- **THEN** its URL is not marked as preloaded, so it may be retried when it re-enters the preload window
 
 ### Requirement: Modal System
 

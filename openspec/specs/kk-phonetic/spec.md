@@ -46,12 +46,12 @@ The system SHALL provide a settings toggle (`showKKPhonetic`) that controls the 
 
 ### Requirement: Column I Storage
 
-The system SHALL use Google Sheet column I (`KK音標`) to store the user-selected KK phonetic for each word row.
+The system SHALL use Google Sheet column I (`KK音標`) to store the KK phonetic for each word row. A single value is a human-confirmed phonetic; multiple candidates from an automatic query are stored comma-joined (`KK_PHONETIC_DELIMITER`, half-width comma), where the first candidate is the tentative display value pending human confirmation.
 
 #### Scenario: Column I already has a phonetic
 
-- **WHEN** a word is displayed while the feature is enabled and column I already contains a phonetic
-- **THEN** the stored phonetic is displayed immediately
+- **WHEN** a word is displayed while the feature is enabled and column I already contains a value
+- **THEN** the stored phonetic is displayed immediately (for a multi-candidate cell, the first candidate)
 - **AND** no GAS phonetic API call is made
 
 #### Scenario: Column I is empty for a word
@@ -59,7 +59,13 @@ The system SHALL use Google Sheet column I (`KK音標`) to store the user-select
 - **WHEN** a word is displayed, column I is empty, and the content is a single word
 - **THEN** the phonetic is fetched from the GAS API
 - **AND** the first candidate is displayed as soon as it arrives
-- **AND** it is written back to column I via `updateWordProperties`
+- **AND** all found candidates are written back to column I comma-joined (a single candidate is stored as-is)
+
+#### Scenario: Multi-candidate cell is loaded
+
+- **WHEN** a word is loaded and its column I cell contains multiple comma-joined candidates
+- **THEN** the backend splits the cell into `kkPhonetic` (the first candidate, the display value) and `kkCandidates` (all candidates)
+- **AND** the frontend shows the first candidate in the needs-review colour until a selection is confirmed
 
 ### Requirement: Word-Type Only
 
@@ -113,6 +119,14 @@ The system SHALL display the KK phonetic in the centre of the flashcard while th
 - **WHEN** the phonetic becomes visible
 - **THEN** it fades in over 0.5s (matching the `.word` `--transition-slow` reveal) instead of appearing abruptly
 
+#### Scenario: Needs-review colour for multi-candidate results
+
+- **WHEN** the displayed phonetic is a tentative first candidate whose word still has multiple unconfirmed candidates (column I stores them comma-joined)
+- **THEN** it renders in a distinct needs-review colour (light blue on a deep-blue tint, vs. the normal amber) via the `kk-needs-review` class, signalling that the user should pick the pronunciation that matches their learning via the edit modal
+- **AND** the highlight persists across card revisits, reloads, and devices (candidates live in column I, not just the local cache)
+- **WHEN** column I holds a single confirmed phonetic (user-selected and saved, or pre-existing)
+- **THEN** the phonetic renders in the normal colour even if the local cache still has a stale candidate list
+
 ### Requirement: Fetch Behaviour
 
 The system SHALL fetch phonetics through a GAS endpoint without blocking or breaking the flashcard flow.
@@ -161,7 +175,7 @@ The system SHALL handle asynchronous responses that arrive after the user has mo
 #### Scenario: Stale response still writes back
 
 - **WHEN** a stale response arrives for the original word
-- **THEN** the phonetic is still written back to the original word's data (word object and column I), keyed by the original word, so the next visit shows it immediately
+- **THEN** the phonetic is still written back to the original word's data (word object, cache, and column I for unambiguous single-candidate results), keyed by the original word, so the next visit shows it immediately
 
 ### Requirement: REST API
 
@@ -208,13 +222,25 @@ The system SHALL expose a GAS function and HTTP endpoint for querying candidate 
 
 ### Requirement: Multiple Candidate Selection
 
-The system SHALL return all candidate phonetics and let the user choose which one to store.
+The system SHALL return all candidate phonetics and let the user choose which one to keep. Multi-candidate query results are tentative until a human confirms a choice.
 
-#### Scenario: Candidates returned and written back
+#### Scenario: Multiple candidates returned and marked for review
 
 - **WHEN** the API returns multiple candidates
-- **THEN** the display path shows the first candidate
-- **AND** column I only ever stores the phonetic the user selected (via the edit modal) or the first candidate when written back automatically
+- **THEN** all candidates are stored comma-joined in column I (so the edit modal can offer them without refetching), and the display shows the first candidate in the needs-review colour (`kk-needs-review`)
+- **AND** the needs-review highlight persists until the user confirms a selection
+
+#### Scenario: Single candidate returned
+
+- **WHEN** the API returns exactly one candidate
+- **THEN** the phonetic is displayed in the normal colour and column I stores it as a single confirmed-style value
+
+#### Scenario: User confirms a selection
+
+- **WHEN** the user opens the edit modal (E key), picks one candidate from the stored column-I candidates, and saves
+- **THEN** column I is replaced with the single selected phonetic, the in-memory candidate marker (`kkCandidates`) and the cached candidate list are cleared, and the display returns to the normal colour
+- **WHEN** the user saves the edit modal without picking any candidate while the word is still pending
+- **THEN** column I keeps the comma-joined candidate list unchanged (still pending, still highlighted)
 
 ### Requirement: Edit Modal Integration
 
@@ -224,6 +250,12 @@ The system SHALL show KK phonetic information in the edit-word modal and support
 
 - **WHEN** the edit-word modal opens
 - **THEN** the word's current column I phonetic is shown (or a "not set" placeholder)
+
+#### Scenario: Stored candidates offered without refetching
+
+- **WHEN** the edit-word modal opens for a word whose column I holds multiple comma-joined candidates
+- **THEN** the candidate chooser is rendered immediately from the stored candidates (no GAS API call, no refetch wait), with none pre-selected
+- **AND** the refetch button remains available for forcing a fresh query
 
 #### Scenario: Force refetch
 
@@ -236,7 +268,7 @@ The system SHALL show KK phonetic information in the edit-word modal and support
 - **WHEN** a refetch returns multiple candidates
 - **THEN** all candidates are shown as selectable buttons with the first pre-selected
 - **WHEN** the user selects a candidate and saves
-- **THEN** the selected phonetic is written to column I
+- **THEN** the selected phonetic is written to column I and the multi-candidate needs-review state is cleared
 
 #### Scenario: English change clears phonetic
 
@@ -257,3 +289,8 @@ The system SHALL keep the phonetic consistent across the word object, the in-mem
 
 - **WHEN** a phonetic is saved from the edit modal
 - **THEN** the word object, `words`/`currentWords` entries, the local cache, and column I all reflect the same value
+
+#### Scenario: Save without a selection keeps pending candidates
+
+- **WHEN** the edit modal is saved while the word still has unconfirmed multiple candidates and the user did not pick one (and did not change the English)
+- **THEN** column I keeps the comma-joined candidate list, `word.kkPhonetic` keeps the first candidate as the display value, `kkCandidates` and the cached candidate list are preserved, and the word stays needs-review highlighted

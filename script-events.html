@@ -687,7 +687,7 @@
         self._displayNormalWord(currentWord);
       }
 
-      self.preloadUpcomingImages(10);
+      self.preloadUpcomingImages(APP_CONSTANTS.IMAGE_PRELOAD_COUNT);
     }, APP_CONSTANTS.UI_ANIMATION_DELAY_MS);
     
     this.renderDifficultyLevel();

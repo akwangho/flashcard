@@ -15,7 +15,7 @@
    *   _rollbackReviewDateOnSheet, isRemovalUndoEligible,
    *   _clearRemovalUndoHalfExpireTimer, _revealSecondPart,
    *   showSecondPartAndScheduleNext, handleMarkVeryFamiliar, showNotification,
-   *   preloadImage, preloadUpcomingImages ...
+   *   preloadImage, preloadUpcomingImages, _finishPreloadImage ...
    */
 
   // 暫停計時器
@@ -502,42 +502,74 @@
   };
   
   // 預加載圖片方法
+  // 關鍵修正：所有「載入中」的 Image 物件都必須保留在 _preloadingImages，
+  // 否則 GC 回收尚未載完的 Image 時，WebKit（iPad 目標平台）會直接取消該下載，
+  // 預載形同失效（舊版只保留最後一張的 currentPreloadingImage，10 張預載有 9 張被取消）。
+  // 同一 URL 載入中不重複建立 Image（in-flight dedupe），callback 進入佇列統一觸發。
   FlashcardApp.prototype.preloadImage = function(imageUrl, callback) {
     if (!imageUrl || imageUrl === '') {
       if (callback) callback(false);
       return;
     }
     
-    // 如果已經預加載過，直接回調
+    // 如果已經預加載成功，直接回調
     if (this.preloadedImages[imageUrl]) {
       if (callback) callback(true);
       return;
     }
     
     var self = this;
+    if (!this._preloadingImages) this._preloadingImages = {};
+    
+    // In-flight dedupe：同一張圖正在預載中 → 不再建立新的 Image（避免重複下載與 GC churn），
+    // 僅把 callback 排入佇列，載入完成／失敗時統一觸發
+    var entry = this._preloadingImages[imageUrl];
+    if (entry) {
+      if (callback) entry.callbacks.push(callback);
+      return;
+    }
+    
     var img = new Image();
+    this._preloadingImages[imageUrl] = { img: img, callbacks: callback ? [callback] : [] };
     
     img.onload = function() {
       self.preloadedImages[imageUrl] = true;
-      if (callback) callback(true);
+      self._finishPreloadImage(imageUrl, true);
     };
     
     img.onerror = function() {
       console.warn('圖片預加載失敗:', imageUrl);
-      if (callback) callback(false);
+      // 失敗不標記 preloadedImages，之後該單字再進入預載窗口仍可重試
+      self._finishPreloadImage(imageUrl, false);
     };
     
     img.src = imageUrl;
-    this.currentPreloadingImage = img;
   };
 
   /**
-   * 批次預載即將輪到的單字圖片（預設 10 張），減少快速切換時的等待。
+   * 預載收尾：釋放 Image 參考（已載完的圖改由瀏覽器快取持有），統一觸發等待中的 callbacks。
+   * @param {string} imageUrl - 圖片 URL
+   * @param {boolean} success - 是否載入成功
+   */
+  FlashcardApp.prototype._finishPreloadImage = function(imageUrl, success) {
+    if (!this._preloadingImages) return;
+    var entry = this._preloadingImages[imageUrl];
+    if (!entry) return;
+    delete this._preloadingImages[imageUrl];
+    var callbacks = entry.callbacks || [];
+    for (var i = 0; i < callbacks.length; i++) {
+      try { callbacks[i](success); } catch (e) { /* 單一 callback 失敗不影響其他 */ }
+    }
+  };
+
+  /**
+   * 批次預載即將輪到的單字圖片（目前 + 接下來 N 張，預設 10 張），減少快速切換時的等待。
+   * 已載入完成（preloadedImages）或載入中（_preloadingImages）的圖由 preloadImage 內部去重。
    */
   FlashcardApp.prototype.preloadUpcomingImages = function(count) {
     if (!this.currentWords || this.currentWords.length === 0) return;
     var total = this.currentWords.length;
-    var n = count || 10;
+    var n = count || ((APP_CONSTANTS && APP_CONSTANTS.IMAGE_PRELOAD_COUNT) || 10);
     for (var i = 0; i < n && i < total; i++) {
       var idx = (this.currentIndex + i) % total;
       var w = this.currentWords[idx];

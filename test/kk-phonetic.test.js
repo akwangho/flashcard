@@ -811,6 +811,207 @@ describe('edit word KK phonetic', function() {
 });
 
 // ============================================================
+// 多候選待確認（kk-needs-review 特殊顏色）
+// v1.23.0：線上查到多個音標時，所有候選存入 I 欄（逗號分隔）、
+// 顯示只取第一候選為暫定值並以特殊顏色標示；
+// 按 E 編輯可直接從 I 欄候選選擇（免重新查詢），
+// 人為選定儲存後 I 欄改為單一確認值、回復正常顏色
+// ============================================================
+describe('KK phonetic needs-review colour', function() {
+
+  /** mock：查詢回傳兩個候選音標 */
+  function multiCandidateApi() {
+    google.script.run.queryKKPhonetic = function(word) {
+      app._kkApiCalls.push(word);
+      var successHandler = this._successHandler;
+      setTimeout(function() {
+        if (successHandler) {
+          successHandler({ success: true, word: word, candidates: ['əˈpɛl', 'ˈæpəl'], source: 'dict' });
+        }
+      }, 0);
+      return this;
+    };
+  }
+
+  test('multi-candidate query displays first candidate with needs-review colour', function(done) {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    multiCandidateApi();
+    var word = makeWord({ kkPhonetic: '' });
+    app.words = [word];
+    app.currentWords = [word];
+
+    app.updateKKPhoneticDisplay(word);
+    app._maybeShowKKPhonetic(); // 顯示時機已到
+
+    setTimeout(function() {
+      expect(el.style.display).toBe('flex');
+      expect(el.textContent).toBe('/əˈpɛl/'); // 第一候選為暫定值
+      expect(el.classList.contains('kk-needs-review')).toBe(true);
+      done();
+    }, 10);
+  });
+
+  test('multi-candidate query stores ALL candidates in column I (comma-joined)', function(done) {
+    app.settings.showKKPhonetic = true;
+    multiCandidateApi();
+    var word = makeWord({ kkPhonetic: '' });
+    app.words = [word];
+    app.currentWords = [word];
+
+    app.updateKKPhoneticDisplay(word);
+
+    setTimeout(function() {
+      // 記憶體：kkPhonetic = 第一候選（顯示值）、kkCandidates = 全部候選
+      expect(word.kkPhonetic).toBe('əˈpɛl');
+      expect(word.kkCandidates).toEqual(['əˈpɛl', 'ˈæpəl']);
+      // I 欄：所有候選一併存入（逗號分隔），編輯時可直接選擇、免重新查詢
+      expect(app._kkSheetWrites.length).toBe(1);
+      expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('əˈpɛl,ˈæpəl');
+      expect(app.kkPhoneticCache['apple'].c).toEqual(['əˈpɛl', 'ˈæpəl']);
+      done();
+    }, 10);
+  });
+
+  test('single-candidate query shows normal colour and still auto-writes column I', function(done) {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    // 預設 mock 即回傳單一候選 ['əˈpɛl']
+    var word = makeWord({ kkPhonetic: '' });
+
+    app.updateKKPhoneticDisplay(word);
+    app._maybeShowKKPhonetic();
+
+    setTimeout(function() {
+      expect(el.classList.contains('kk-needs-review')).toBe(false);
+      expect(app._kkSheetWrites.length).toBe(1);
+      done();
+    }, 10);
+  });
+
+  test('cache hit with multiple candidates shows needs-review colour on revisit', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    app.kkPhoneticCache['apple'] = { p: 'əˈpɛl', ts: Date.now(), c: ['əˈpɛl', 'ˈæpəl'] };
+
+    app.updateKKPhoneticDisplay(makeWord({ kkPhonetic: '' }));
+    app._maybeShowKKPhonetic();
+
+    expect(el.classList.contains('kk-needs-review')).toBe(true);
+  });
+
+  test('confirmed column I value shows normal colour even if cache still has candidates', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    app.kkPhoneticCache['apple'] = { p: 'əˈpɛl', ts: Date.now(), c: ['əˈpɛl', 'ˈæpəl'] };
+
+    // I 欄已有人為選定的音標（與快取第一候選不同）→ 正常顏色
+    app.updateKKPhoneticDisplay(makeWord({ kkPhonetic: 'ˈæpəl' }));
+    app._maybeShowKKPhonetic();
+
+    expect(el.textContent).toBe('/ˈæpəl/');
+    expect(el.classList.contains('kk-needs-review')).toBe(false);
+  });
+
+  test('hiding the phonetic clears needs-review state (no leak to next card)', function() {
+    app.settings.showKKPhonetic = true;
+    app.kkPhoneticCache['apple'] = { p: 'əˈpɛl', ts: Date.now(), c: ['əˈpɛl', 'ˈæpəl'] };
+    app.updateKKPhoneticDisplay(makeWord({ kkPhonetic: '' }));
+    app._maybeShowKKPhonetic();
+
+    app._hideKKPhonetic();
+
+    var el = document.getElementById('kk-phonetic-display');
+    expect(el.classList.contains('kk-needs-review')).toBe(false);
+    expect(app._kkPendingNeedsReview).toBe(false);
+  });
+
+  test('edit-modal selection + save clears needs-review state everywhere', function() {
+    jest.useFakeTimers();
+    // 1) 查詢得到多候選：自動寫回 I 欄（joined）、記憶體暫定第一候選
+    app.settings.showKKPhonetic = true;
+    multiCandidateApi();
+    var word = makeWord({ kkPhonetic: '' });
+    app.words = [word];
+    app.currentWords = [word];
+    app.currentIndex = 0;
+
+    app.updateKKPhoneticDisplay(word);
+    jest.runAllTimers();
+    expect(word.kkCandidates.length).toBe(2);
+    expect(app._resolveKKDisplayInfo(word).needsReview).toBe(true);
+    expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('əˈpɛl,ˈæpəl');
+
+    // 2) 按 E 編輯：候選選擇清單直接來自 I 欄（kkCandidates），不需重新抓取（零 API 呼叫）
+    app.openEditWordModal();
+    expect(app._kkApiCalls.length).toBe(1); // 僅步驟 1 的查詢，開啟編輯不再查詢
+    var container = document.getElementById('edit-word-kk-candidates');
+    expect(container.style.display).toBe('flex');
+    var btns = container.querySelectorAll('.edit-word-kk-candidate-btn');
+    expect(btns.length).toBe(2);
+    // 不預選：未點選而儲存 → 保留多候選（不悄悄確認第一候選）
+    expect(btns[0].classList.contains('kk-candidate-selected')).toBe(false);
+    expect(app._kkEditSelectedPhonetic).toBeUndefined();
+
+    // 3) 使用者點選第二候選並儲存 → I 欄改為單一確認值、清除待確認狀態
+    app.selectKKPhoneticForEdit('ˈæpəl');
+    app.saveEditWord();
+
+    expect(app._kkSheetWrites.length).toBe(2);
+    expect(app._kkSheetWrites[1].properties.kkPhonetic).toBe('ˈæpəl');
+    expect(word.kkPhonetic).toBe('ˈæpəl');
+    expect(word.kkCandidates).toBeFalsy();
+    expect(app.kkPhoneticCache['apple'].c).toBeUndefined();
+    expect(app._resolveKKDisplayInfo(word).needsReview).toBe(false);
+    jest.useRealTimers();
+  });
+
+  test('saving without touching KK keeps pending candidates in column I (still tentative)', function() {
+    // I 欄多候選（後端載入解析：kkPhonetic = 第一候選、kkCandidates = 全部）
+    var word = makeWord({ kkPhonetic: 'əˈpɛl', kkCandidates: ['əˈpɛl', 'ˈæpəl'] });
+    app.words = [word];
+    app.currentWords = [word];
+    app._editingWordId = word.id;
+    app._editingOriginalEnglish = 'apple';
+    app._kkEditSelectedPhonetic = undefined;
+    app._kkEditFetchedEnglish = undefined;
+
+    // 僅改中文（不動 KK、不點選候選）
+    document.getElementById('edit-word-english').value = 'apple';
+    document.getElementById('edit-word-chinese').value = '新的翻譯';
+    app.saveEditWord();
+
+    // I 欄寫回保留完整候選清單（joined）；記憶體顯示值仍為第一候選、仍待確認
+    expect(app._kkSheetWrites.length).toBe(1);
+    expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('əˈpɛl,ˈæpəl');
+    expect(word.kkPhonetic).toBe('əˈpɛl');
+    expect(word.kkCandidates).toEqual(['əˈpɛl', 'ˈæpəl']);
+    expect(app.kkPhoneticCache['apple'].c).toEqual(['əˈpɛl', 'ˈæpəl']);
+    expect(app._resolveKKDisplayInfo(word).needsReview).toBe(true);
+  });
+
+  test('sheet-loaded multi-candidates (cross-device/reload) show needs-review colour', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    // 模擬後端解析 I 欄 "əˈpɛl,ˈæpəl" 的載入結果（另一裝置查詢寫回後重新載入）
+    var word = makeWord({ kkPhonetic: 'əˈpɛl', kkCandidates: ['əˈpɛl', 'ˈæpəl'] });
+
+    app.updateKKPhoneticDisplay(word);
+    app._maybeShowKKPhonetic();
+
+    // 顯示第一候選 + 待確認顏色；且不需任何 API 呼叫
+    expect(el.textContent).toBe('/əˈpɛl/');
+    expect(el.classList.contains('kk-needs-review')).toBe(true);
+    expect(app._kkApiCalls.length).toBe(0);
+  });
+
+  test('_resolveKKDisplayInfo returns null when nothing resolved', function() {
+    expect(app._resolveKKDisplayInfo(makeWord({ kkPhonetic: '' }))).toBe(null);
+    expect(app._resolveKKDisplayInfo(null)).toBe(null);
+  });
+});
+
+// ============================================================
 // localStorage 快取
 // ============================================================
 describe('KK phonetic cache persistence', function() {

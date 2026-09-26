@@ -401,6 +401,14 @@
       newKKPhonetic = word.kkPhonetic || '';
     }
 
+    // I 欄寫入值：多候選（待確認、本次未選定）→ 保留完整候選清單（逗號分隔），
+    // 之後開啟編輯仍可直接選擇；其餘（已選定／已確認／清除）→ newKKPhonetic 原值
+    var kkKeepPending = !englishChanged && !kkSelectionValid &&
+      word.kkCandidates && word.kkCandidates.length > 1;
+    var kkSheetValue = kkKeepPending
+      ? word.kkCandidates.join(APP_CONSTANTS.KK_PHONETIC_DELIMITER)
+      : newKKPhonetic;
+
     // 準備更新的屬性
     var properties = {
       english: newEnglish,
@@ -409,7 +417,7 @@
       imageUrl: newImage,
       mustSpell: newMustSpell,
       tags: newTags,
-      kkPhonetic: newKKPhonetic
+      kkPhonetic: kkSheetValue
     };
 
     // 更新本地資料（主陣列）
@@ -420,8 +428,9 @@
       }
     }
     if (newKKPhonetic && newKKPhonetic !== '' && typeof this._setCachedKKPhonetic === 'function') {
-      // 選定/維持的音標同步進快取，顯示路徑即可直接使用（不需再呼叫 GAS）
-      this._setCachedKKPhonetic(newEnglish, newKKPhonetic);
+      // 選定/維持的音標同步進快取，顯示路徑即可直接使用（不需再呼叫 GAS）；
+      // 多候選待確認 → 候選清單一併保留（與 I 欄一致）
+      this._setCachedKKPhonetic(newEnglish, newKKPhonetic, kkKeepPending ? word.kkCandidates : null);
     }
 
     word.english = newEnglish;
@@ -431,6 +440,12 @@
     word.mustSpell = newMustSpell;
     word.tags = newTags;
     word.kkPhonetic = newKKPhonetic;
+    // KK 音標已由人為選定（kkSelectionValid）或英文變更重置 → 清除「多候選待確認」
+    // 標記（kkCandidates），顯示不再以特殊顏色標示；
+    // 維持原值（本次編輯未動 KK）→ 保留原標記狀態（暫定值仍待確認）
+    if (englishChanged || kkSelectionValid) {
+      word.kkCandidates = null;
+    }
 
     // 同步更新 currentWords 中的對應項目
     for (var j = 0; j < this.currentWords.length; j++) {
@@ -442,6 +457,9 @@
         this.currentWords[j].mustSpell = newMustSpell;
         this.currentWords[j].tags = newTags;
         this.currentWords[j].kkPhonetic = newKKPhonetic;
+        if (englishChanged || kkSelectionValid) {
+          this.currentWords[j].kkCandidates = null;
+        }
         break;
       }
     }

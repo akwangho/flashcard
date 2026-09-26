@@ -125,6 +125,34 @@ function countValidWords(sheet) {
   }
 }
 
+  /** I 欄多候選音標分隔符（與前端 APP_CONSTANTS.KK_PHONETIC_DELIMITER 一致） */
+  const KK_PHONETIC_DELIMITER = ',';
+
+  /**
+  * 解析 I 欄 KK 音標原始值。
+  * 多候選格式：查詢自動寫回時把所有候選以逗號存入（第一候選為暫定顯示值，待人為選定）。
+  * 同時容忍全形逗號／頓號（手動編輯試算表的常見輸入）。
+  * @param {*} rawValue - I 欄儲存格原始值
+  * @returns {Object} { phonetic: 第一候選（顯示值）, candidates: 全部候選陣列 }
+  */
+  function parseKKPhoneticCell(rawValue) {
+    const raw = (rawValue === undefined || rawValue === null) ? '' : rawValue.toString().trim();
+    if (!raw) return { phonetic: '', candidates: [] };
+    const parts = raw.split(/[,，、]/).map(s => s.trim()).filter(Boolean);
+    return { phonetic: parts[0] || '', candidates: parts };
+  }
+
+  /**
+  * 單字物件 → I 欄儲存值：多候選（待確認）保留完整候選清單（逗號分隔），
+  * 其餘回傳單一音標（已確認或僅單一候選）。
+  */
+  function kkPhoneticCellFromWord(w) {
+    if (w && w.kkCandidates && w.kkCandidates.length > 1) {
+      return w.kkCandidates.join(KK_PHONETIC_DELIMITER);
+    }
+    return (w && w.kkPhonetic) || '';
+  }
+
   /**
   * 建立單字物件
   * 格式：A=要會拼, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期（A1=總數）
@@ -180,12 +208,11 @@ function countValidWords(sheet) {
       }
     }
 
-    // 讀取 I 欄：KK 音標（可能不存在（舊資料列長度不足），需檢查長度）
-    var kkPhonetic = '';
-    if (rowData.length > COL.KK_PHONETIC && rowData[COL.KK_PHONETIC] !== undefined &&
-        rowData[COL.KK_PHONETIC] !== null) {
-      kkPhonetic = rowData[COL.KK_PHONETIC].toString().trim();
-    }
+    // 讀取 I 欄：KK 音標（可能不存在（舊資料列長度不足），需檢查長度）。
+    // 多候選以逗號分隔（查詢自動寫回的暫定值）：kkPhonetic = 第一候選（顯示值），
+    // kkCandidates = 全部候選（>1 筆 → 前端以待確認顏色標示，按 E 編輯可直接選擇）
+    var kkParsed = parseKKPhoneticCell(
+      rowData.length > COL.KK_PHONETIC ? rowData[COL.KK_PHONETIC] : '');
 
     return {
       id: id,
@@ -197,7 +224,8 @@ function countValidWords(sheet) {
       lastReviewDate: lastReviewDate,
       mustSpell: mustSpell,
       tags: tags,
-      kkPhonetic: kkPhonetic,
+      kkPhonetic: kkParsed.phonetic,
+      kkCandidates: kkParsed.candidates.length > 1 ? kkParsed.candidates : [],
       sheetName: sheetName,
       originalRowIndex: rowIndex
     };
@@ -654,7 +682,7 @@ function countValidWords(sheet) {
           '',                        // F 欄：圖片公式（略）
           '',                        // G 欄：複習日期（略）
           tagsStr,                   // H 欄：標籤
-          w.kkPhonetic || ''         // I 欄：KK 音標
+          kkPhoneticCellFromWord(w)  // I 欄：KK 音標（多候選待確認 → 保留完整候選清單）
         ]);
       }
       

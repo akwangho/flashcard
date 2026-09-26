@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.21.1',
+    APP_VERSION: '1.23.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-09-16 17:26',
+    APP_BUILD_TIME: '2026-09-26 05:58',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -115,6 +115,7 @@
     // 對齊 Google 字典喇叭「連點變慢」：約 1/10 速，方便逐音節聽清楚（預設 rate 0.8 → 約 0.08，下限 0.1）
     SLOW_SPEECH_RATE_FACTOR: 0.1,
     UI_ANIMATION_DELAY_MS: 100,        // 一般 UI 動畫延遲
+    IMAGE_PRELOAD_COUNT: 10,           // 單字圖片批次預載數量（目前 + 接下來 N 張）
     LISTENING_AUDIO_DELAY_MS: 300,     // 聽力練習播放音訊前延遲
     LISTENING_FEEDBACK_DELAY_MS: 1200, // 聽力練習回饋顯示時間
 
@@ -122,6 +123,7 @@
     KK_PHONETIC_PRECACHE_COUNT: 5,        // KK 音標 pre-cache 數量（目前 + 接下來 N 個單字）
     KK_PHONETIC_API_TIMEOUT_MS: 10000,    // 單次 KK 音標 API 查詢逾時（防呆，逾時仍保留等待回呼）
     KK_PHONETIC_CACHE_MAX: 500,           // localStorage 音標快取上限（超過時保留最新 N 筆）
+    KK_PHONETIC_DELIMITER: ',',           // I 欄多候選音標分隔符（與後端 KK_PHONETIC_DELIMITER 一致）
 
     // === 不熟程度 ===
     DIFFICULTY_VERY_FAMILIAR: -999,    // 「非常熟」門檻值
@@ -475,7 +477,8 @@
     this.currentDuplicateIndex = 0;
     this.duplicateProcessingResults = [];
     this.preloadedImages = {};
-    this.currentPreloadingImage = null;
+    // 載入中的預載 Image 物件（key: URL）。必須保留參考，避免 GC 取消下載。
+    this._preloadingImages = {};
   };
 
   /** 篩選相關狀態（難度、複習時間、SRS、要會拼、類型、標籤） */
@@ -1636,7 +1639,7 @@
     
     // 清理先前預加載的圖片缓存
     this.preloadedImages = {};
-    this.currentPreloadingImage = null;
+    this._preloadingImages = {};
     
     if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
       if (isInitialLoad) {
