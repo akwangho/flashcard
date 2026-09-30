@@ -775,10 +775,16 @@
             <span id="edit-word-kk-value" class="edit-word-kk-value">—</span>
             <button type="button" id="edit-word-kk-refetch" class="secondary-btn edit-word-kk-refetch-btn">重新抓取 KK 音標</button>
           </div>
+          <div class="setting-group edit-word-kk-input-group">
+            <label for="edit-word-kk-input">✍️ 手動輸入</label>
+            <div class="setting-control">
+              <input type="text" id="edit-word-kk-input" class="edit-word-kk-input" placeholder="可直接輸入 KK 音標（例：ˋæpḷ）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            </div>
+          </div>
           <div id="edit-word-kk-status" class="edit-word-kk-status" style="display: none;"></div>
           <div id="edit-word-kk-candidates" class="edit-word-kk-candidates" style="display: none;"></div>
           <div class="setting-help">
-            <small>查詢順序：單字檔「KK音標字庫」工作表（12.6 萬單字完整字庫）→ 線上字典（查到自動存入字庫）。修改單字本身時會自動清除舊音標，避免新單字錯誤沿用</small>
+            <small>查詢順序：單字檔「KK音標字庫」工作表（12.6 萬單字完整字庫）→ 線上字典（查到自動存入字庫）。找到多個候選時點選即可填入「手動輸入」欄位，也可以直接自行輸入音標；修改單字本身時會自動清除舊音標，避免新單字錯誤沿用</small>
           </div>
         </div>
       </div>

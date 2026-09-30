@@ -6,6 +6,7 @@
    *   畫面正中央音標顯示、GAS KK 音標 API 查詢（queryKKPhonetic）、
    *   即將輪到單字的 pre-cache、同一單字不重複發送 request（in-flight dedupe）、
    *   非同步回應 race condition 保護（顯示 token）、編輯單字的重新抓取與候選音標選擇、
+   *   編輯單字的「手動輸入」音標欄位（候選點選會一併填入；直接輸入優先於候選選擇）、
    *   多候選查詢結果全數存入 I 欄（顯示只取第一候選、以 kk-needs-review 顏色標示）、
    *   編輯畫面開啟時直接從 I 欄候選選擇（免重新查詢）。
    *
@@ -24,7 +25,8 @@
    * @provides FlashcardApp.prototype: updateKKPhoneticDisplay, fetchKKPhonetic,
    *   precacheUpcomingKKPhonetics, resolveKKPhonetic, _resolveKKDisplayInfo,
    *   writeKKPhoneticToSheet,
-   *   refetchKKPhoneticForEdit, selectKKPhoneticForEdit, _initKKPhoneticState ...
+   *   refetchKKPhoneticForEdit, selectKKPhoneticForEdit, setEditKKPhoneticManual,
+   *   _initKKPhoneticState ...
    */
 
   // ==========================================================================
@@ -51,6 +53,7 @@
     this._kkEditCandidates = null;      // 重新抓取得到的多筆候選
     this._kkEditSelectedPhonetic = undefined; // 使用者選定的音標（儲存時寫入 I 欄）
     this._kkEditFetchedEnglish = undefined;   // 候選音標所屬的英文（防止修改單字後沿用舊音標）
+    this._kkEditManualInput = false;    // 使用者是否在「手動輸入」欄位自行輸入（優先於候選選擇）
 
     this.loadKKPhoneticCache();
   };
@@ -623,7 +626,8 @@
 
   /** 編輯 modal 開啟時：重設 KK 音標區塊並顯示目前音標（word.kkPhonetic = I 欄第一候選）。
    *  I 欄已存多候選（先前查詢自動寫回的暫定值）→ 直接顯示候選選擇清單，
-   *  使用者免重新抓取即可點選（省 API 呼叫與等待）；未點選即儲存 → I 欄保留原多候選值（仍待確認）。 */
+   *  使用者免重新抓取即可點選（省 API 呼叫與等待）；未點選即儲存 → I 欄保留原多候選值（仍待確認）。
+   *  「手動輸入」欄位同步帶入目前 I 欄值（多候選時為第一候選），使用者可直接改寫。 */
   FlashcardApp.prototype._renderEditKKPhonetic = function(word) {
     this._kkEditCandidates = null;
     this._kkEditSelectedPhonetic = undefined;
@@ -642,6 +646,8 @@
     }
 
     this._renderEditKKValue(word ? (word.kkPhonetic || '') : '');
+    // 「手動輸入」欄位帶入目前值（程式填入 → 尚未被使用者改寫）
+    this._setEditKKInput(word ? (word.kkPhonetic || '') : '');
 
     // I 欄已存多候選 → 直接渲染選擇清單（不預選：未點選而儲存 = 保留多候選待確認）
     var storedCandidates = (word && word.kkCandidates && word.kkCandidates.length > 1)
@@ -665,6 +671,46 @@
     } else {
       valueEl.textContent = '（尚未設定）';
       valueEl.classList.add('kk-empty');
+    }
+  };
+
+  /** 設定編輯 modal 的「手動輸入」欄位（程式填入：開啟編輯 / 候選點選 / 重新抓取）。
+   *  一律重設「使用者已自行輸入」旗標：這些來源的值都視為尚未被使用者改寫。 */
+  FlashcardApp.prototype._setEditKKInput = function(phonetic) {
+    this._kkEditManualInput = false;
+    var inputEl = document.getElementById('edit-word-kk-input');
+    if (inputEl) inputEl.value = (phonetic === undefined || phonetic === null) ? '' : phonetic;
+  };
+
+  /**
+   * 編輯 modal：使用者在「手動輸入」欄位自行輸入音標。
+   * 儲存時此值優先於候選選擇（使用者明確指定，不受「候選須屬於本次英文」的驗證限制）；
+   * 輸入內容與某筆候選相同時同步高亮該候選，否則清除候選選取狀態。
+   * @param {string} value - 輸入框原始值（未 trim）
+   */
+  FlashcardApp.prototype.setEditKKPhoneticManual = function(value) {
+    var text = (value === undefined || value === null) ? '' : String(value).trim();
+    this._kkEditManualInput = true;
+    this._kkEditSelectedPhonetic = undefined;
+    this._renderEditKKValue(text);
+    this._syncEditKKCandidateSelection(text);
+    this._setEditKKStatus(
+      text ? '已輸入音標（儲存後寫入 I 欄）' : '已清空輸入（儲存後清除 I 欄）',
+      false
+    );
+  };
+
+  /** 依音標字串同步候選按鈕的選取樣式（值相符者高亮） */
+  FlashcardApp.prototype._syncEditKKCandidateSelection = function(phonetic) {
+    var container = document.getElementById('edit-word-kk-candidates');
+    if (!container) return;
+    var btns = container.querySelectorAll('.edit-word-kk-candidate-btn');
+    for (var i = 0; i < btns.length; i++) {
+      if (btns[i].textContent === phonetic) {
+        btns[i].classList.add('kk-candidate-selected');
+      } else {
+        btns[i].classList.remove('kk-candidate-selected');
+      }
     }
   };
 
@@ -745,7 +791,8 @@
         self._kkEditCandidates = null;
         self._kkEditSelectedPhonetic = '';
         self._renderEditKKValue('');
-        self._setEditKKStatus('查無 KK 音標（儲存後將清除 I 欄）', false);
+        self._setEditKKInput('');
+        self._setEditKKStatus('查無 KK 音標（可自行輸入，儲存後將寫入 I 欄）', false);
         return;
       }
 
@@ -753,6 +800,7 @@
         self._kkEditCandidates = null;
         self._kkEditSelectedPhonetic = candidates[0];
         self._renderEditKKValue(candidates[0]);
+        self._setEditKKInput(candidates[0]);
         self._setEditKKStatus('已取得 KK 音標（儲存後寫入 I 欄）', false);
         return;
       }
@@ -761,8 +809,9 @@
       self._kkEditCandidates = candidates;
       self._kkEditSelectedPhonetic = candidates[0];
       self._renderEditKKValue(candidates[0]);
+      self._setEditKKInput(candidates[0]);
       self._renderEditKKCandidates(candidates, candidates[0]);
-      self._setEditKKStatus('找到 ' + candidates.length + ' 筆候選音標，請點選要使用的音標', false);
+      self._setEditKKStatus('找到 ' + candidates.length + ' 筆候選音標，請點選要使用的音標（或自行輸入）', false);
     });
   };
 
@@ -790,25 +839,15 @@
   };
 
   /**
-   * 編輯 modal：使用者選定候選音標（更新顯示與選取狀態）。
+   * 編輯 modal：使用者選定候選音標（更新顯示、選取狀態與「手動輸入」欄位）。
    * 實際寫入 I 欄在「儲存」時進行（saveEditWord → updateWordProperties）。
    * @param {string} phonetic - 選定的音標
    */
   FlashcardApp.prototype.selectKKPhoneticForEdit = function(phonetic) {
     this._kkEditSelectedPhonetic = phonetic;
     this._renderEditKKValue(phonetic);
-
-    var container = document.getElementById('edit-word-kk-candidates');
-    if (container) {
-      var btns = container.querySelectorAll('.edit-word-kk-candidate-btn');
-      for (var i = 0; i < btns.length; i++) {
-        if (btns[i].textContent === phonetic) {
-          btns[i].classList.add('kk-candidate-selected');
-        } else {
-          btns[i].classList.remove('kk-candidate-selected');
-        }
-      }
-    }
+    this._setEditKKInput(phonetic);
+    this._syncEditKKCandidateSelection(phonetic);
     this._setEditKKStatus('已選定音標（儲存後寫入 I 欄）', false);
   };
 

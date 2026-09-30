@@ -190,6 +190,14 @@
       });
     }
 
+    // 「手動輸入」KK 音標欄位：逐字輸入即更新顯示與候選選取狀態，儲存時以此值為準
+    var kkInput = document.getElementById('edit-word-kk-input');
+    if (kkInput && typeof self.setEditKKPhoneticManual === 'function') {
+      kkInput.addEventListener('input', function() {
+        self.setEditKKPhoneticManual(kkInput.value);
+      });
+    }
+
     // Enter 鍵觸發儲存（在文字/數字輸入框按下時直接儲存，免用滑鼠點確定）
     // 但中文等 IME 選字過程中按下的 Enter 不應該觸發儲存：
     //   1. e.isComposing === true（現代瀏覽器在 composition 進行中設定為 true）
@@ -198,6 +206,7 @@
     var inputIds = [
       'edit-word-english', 'edit-word-chinese',
       'edit-word-image', 'edit-word-tags',
+      'edit-word-kk-input',
       'edit-word-difficulty-number'
     ];
     for (var k = 0; k < inputIds.length; k++) {
@@ -381,10 +390,12 @@
       return;
     }
 
-    // KK 音標處理：
-    //  - 英文單字本身被修改 → 清除欄位 I（避免新單字錯誤沿用舊音標）。
-    //  - 使用者在編輯畫面重新抓取並選定音標 → 寫入選定音標
+    // KK 音標處理（優先順序由上到下）：
+    //  - 使用者在編輯畫面「手動輸入」欄位自行輸入 → 以輸入值為準（視為人為選定；
+    //    空字串 = 清除 I 欄；不受「候選須屬於本次英文」驗證限制，英文同時改寫也可直接輸入）。
+    //  - 使用者選定候選（或重新抓取單一結果）→ 寫入選定音標
     //    （選定音標必須是本次查詢所屬英文的結果，防止先選音標再改單字的錯誤沿用）。
+    //  - 英文單字本身被修改 → 清除欄位 I（避免新單字錯誤沿用舊音標）。
     //  - 其餘情況 → 維持原值。
     var originalEnglish = this._editingOriginalEnglish;
     var englishChanged = originalEnglish !== undefined && originalEnglish !== null &&
@@ -392,22 +403,29 @@
     var kkSelection = this._kkEditSelectedPhonetic;
     var kkSelectionValid = kkSelection !== undefined && kkSelection !== null &&
       this._kkEditFetchedEnglish === newEnglish.trim();
+    var kkInputEl = document.getElementById('edit-word-kk-input');
+    var kkManual = !!this._kkEditManualInput;
+    var kkManualValue = (kkInputEl && kkManual) ? (kkInputEl.value || '').trim() : '';
     var newKKPhonetic;
-    if (englishChanged) {
-      newKKPhonetic = kkSelectionValid ? kkSelection : '';
+    if (kkManual) {
+      newKKPhonetic = kkManualValue;
     } else if (kkSelectionValid) {
       newKKPhonetic = kkSelection;
+    } else if (englishChanged) {
+      newKKPhonetic = '';
     } else {
       newKKPhonetic = word.kkPhonetic || '';
     }
 
     // I 欄寫入值：多候選（待確認、本次未選定）→ 保留完整候選清單（逗號分隔），
-    // 之後開啟編輯仍可直接選擇；其餘（已選定／已確認／清除）→ newKKPhonetic 原值
-    var kkKeepPending = !englishChanged && !kkSelectionValid &&
+    // 之後開啟編輯仍可直接選擇；其餘（手動輸入／已選定／已確認／清除）→ newKKPhonetic 原值
+    var kkKeepPending = !kkManual && !kkSelectionValid && !englishChanged &&
       word.kkCandidates && word.kkCandidates.length > 1;
     var kkSheetValue = kkKeepPending
       ? word.kkCandidates.join(APP_CONSTANTS.KK_PHONETIC_DELIMITER)
       : newKKPhonetic;
+    // 音標已由人為確定（手動輸入／候選選定）或英文變更重置 → 視為已確認
+    var kkConfirmed = kkManual || kkSelectionValid || englishChanged;
 
     // 準備更新的屬性
     var properties = {
@@ -440,10 +458,10 @@
     word.mustSpell = newMustSpell;
     word.tags = newTags;
     word.kkPhonetic = newKKPhonetic;
-    // KK 音標已由人為選定（kkSelectionValid）或英文變更重置 → 清除「多候選待確認」
+    // KK 音標已由人為確定（kkConfirmed）或英文變更重置 → 清除「多候選待確認」
     // 標記（kkCandidates），顯示不再以特殊顏色標示；
     // 維持原值（本次編輯未動 KK）→ 保留原標記狀態（暫定值仍待確認）
-    if (englishChanged || kkSelectionValid) {
+    if (kkConfirmed) {
       word.kkCandidates = null;
     }
 
@@ -457,7 +475,7 @@
         this.currentWords[j].mustSpell = newMustSpell;
         this.currentWords[j].tags = newTags;
         this.currentWords[j].kkPhonetic = newKKPhonetic;
-        if (englishChanged || kkSelectionValid) {
+        if (kkConfirmed) {
           this.currentWords[j].kkCandidates = null;
         }
         break;

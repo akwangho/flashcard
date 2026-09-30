@@ -811,6 +811,176 @@ describe('edit word KK phonetic', function() {
 });
 
 // ============================================================
+// 編輯單字：手動輸入 KK 音標
+// v1.24.0：除了從找到的候選中點選，也可直接在「手動輸入」欄位
+// 輸入音標；候選點選會一併填入該欄位，輸入值在儲存時優先
+// ============================================================
+describe('edit word manual KK phonetic input', function() {
+
+  /** 模擬使用者在「手動輸入」欄位逐字輸入 */
+  function typeKK(value) {
+    var input = document.getElementById('edit-word-kk-input');
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    return input;
+  }
+
+  beforeEach(function() {
+    jest.useFakeTimers();
+    app.pauseTimer = jest.fn();
+    app.resumeTimer = jest.fn();
+    app.updatePauseButtonState = jest.fn();
+  });
+
+  afterEach(function() {
+    jest.useRealTimers();
+  });
+
+  test('openEditWordModal fills the input with the current column I value', function() {
+    app.words = [makeWord({ kkPhonetic: 'ˋæpḷ' })];
+    app.currentWords = app.words.slice();
+
+    app.openEditWordModal();
+
+    expect(document.getElementById('edit-word-kk-input').value).toBe('ˋæpḷ');
+  });
+
+  test('openEditWordModal fills the input with the first stored candidate', function() {
+    app.words = [makeWord({ kkPhonetic: 'əˈpɛl', kkCandidates: ['əˈpɛl', 'ˈæpəl'] })];
+    app.currentWords = app.words.slice();
+
+    app.openEditWordModal();
+
+    expect(document.getElementById('edit-word-kk-input').value).toBe('əˈpɛl');
+  });
+
+  test('selecting a candidate also fills the input', function() {
+    app.words = [makeWord({ kkPhonetic: 'əˈpɛl', kkCandidates: ['əˈpɛl', 'ˈæpəl'] })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    app.selectKKPhoneticForEdit('ˈæpəl');
+
+    expect(document.getElementById('edit-word-kk-input').value).toBe('ˈæpəl');
+    expect(app._kkEditManualInput).toBe(false);
+  });
+
+  test('refetch fills the input with the fetched result', function() {
+    app.words = [makeWord({ kkPhonetic: 'old' })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    app.refetchKKPhoneticForEdit();
+    jest.runAllTimers();
+
+    expect(document.getElementById('edit-word-kk-input').value).toBe('əˈpɛl');
+  });
+
+  test('typing a phonetic updates the value display', function() {
+    app.words = [makeWord({ kkPhonetic: '' })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    typeKK('ˋæpḷ');
+
+    expect(document.getElementById('edit-word-kk-value').textContent).toBe('ˋæpḷ');
+    expect(app._kkEditManualInput).toBe(true);
+  });
+
+  test('typing over a candidate clears the candidate selection', function() {
+    app.words = [makeWord({ kkPhonetic: 'əˈpɛl', kkCandidates: ['əˈpɛl', 'ˈæpəl'] })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    typeKK('ˋæpḷ');
+    var btns = document.getElementById('edit-word-kk-candidates')
+      .querySelectorAll('.edit-word-kk-candidate-btn');
+    expect(btns[0].classList.contains('kk-candidate-selected')).toBe(false);
+    expect(btns[1].classList.contains('kk-candidate-selected')).toBe(false);
+  });
+
+  test('typing a value equal to a candidate highlights that candidate', function() {
+    app.words = [makeWord({ kkPhonetic: 'əˈpɛl', kkCandidates: ['əˈpɛl', 'ˈæpəl'] })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    typeKK('ˈæpəl');
+    var btns = document.getElementById('edit-word-kk-candidates')
+      .querySelectorAll('.edit-word-kk-candidate-btn');
+    expect(btns[0].classList.contains('kk-candidate-selected')).toBe(false);
+    expect(btns[1].classList.contains('kk-candidate-selected')).toBe(true);
+  });
+
+  test('saving a manually typed phonetic writes it to column I', function() {
+    app.words = [makeWord({ kkPhonetic: '' })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    typeKK(' ˋæpḷ ');
+    app.saveEditWord();
+
+    expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('ˋæpḷ');
+    expect(app.words[0].kkPhonetic).toBe('ˋæpḷ');
+    expect(app.kkPhoneticCache['apple'].p).toBe('ˋæpḷ');
+  });
+
+  test('a manually typed phonetic wins over a pending candidate list', function() {
+    app.words = [makeWord({ kkPhonetic: 'əˈpɛl', kkCandidates: ['əˈpɛl', 'ˈæpəl'] })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    typeKK('ˋæpḷ');
+    app.saveEditWord();
+
+    expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('ˋæpḷ');
+    expect(app.words[0].kkPhonetic).toBe('ˋæpḷ');
+    expect(app.words[0].kkCandidates).toBeFalsy();
+    expect(app._resolveKKDisplayInfo(app.words[0]).needsReview).toBe(false);
+  });
+
+  test('a manually typed phonetic is kept when the English word also changed', function() {
+    app.words = [makeWord({ kkPhonetic: 'əˈpɛl' })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    document.getElementById('edit-word-english').value = 'banana';
+    typeKK('ˈbænənə');
+    app.saveEditWord();
+
+    expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('ˈbænənə');
+    expect(app.words[0].english).toBe('banana');
+    expect(app.words[0].kkPhonetic).toBe('ˈbænənə');
+    expect(app.kkPhoneticCache['banana'].p).toBe('ˈbænənə');
+  });
+
+  test('clearing the input clears column I on save', function() {
+    app.words = [makeWord({ kkPhonetic: 'əˈpɛl' })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    typeKK('');
+    app.saveEditWord();
+
+    expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('');
+    expect(app.words[0].kkPhonetic).toBe('');
+    expect(document.getElementById('edit-word-kk-value').textContent).toContain('尚未設定');
+  });
+
+  test('refetch after typing replaces the typed value (refetch wins on the input)', function() {
+    app.words = [makeWord({ kkPhonetic: '' })];
+    app.currentWords = app.words.slice();
+    app.openEditWordModal();
+
+    typeKK('ˋæpḷ');
+    app.refetchKKPhoneticForEdit();
+    jest.runAllTimers();
+
+    expect(document.getElementById('edit-word-kk-input').value).toBe('əˈpɛl');
+    expect(app._kkEditManualInput).toBe(false);
+  });
+});
+
+// ============================================================
 // 多候選待確認（kk-needs-review 特殊顏色）
 // v1.23.0：線上查到多個音標時，所有候選存入 I 欄（逗號分隔）、
 // 顯示只取第一候選為暫定值並以特殊顏色標示；

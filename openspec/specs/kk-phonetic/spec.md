@@ -244,12 +244,13 @@ The system SHALL return all candidate phonetics and let the user choose which on
 
 ### Requirement: Edit Modal Integration
 
-The system SHALL show KK phonetic information in the edit-word modal and support refetching.
+The system SHALL show KK phonetic information in the edit-word modal, allow choosing among the candidates found, and allow the user to type a phonetic directly.
 
 #### Scenario: Current phonetic shown
 
 - **WHEN** the edit-word modal opens
 - **THEN** the word's current column I phonetic is shown (or a "not set" placeholder)
+- **AND** the manual-entry field is pre-filled with the same value (the first candidate for a multi-candidate cell)
 
 #### Scenario: Stored candidates offered without refetching
 
@@ -262,17 +263,33 @@ The system SHALL show KK phonetic information in the edit-word modal and support
 - **WHEN** the user clicks "重新抓取 KK 音標"
 - **THEN** the GAS API is queried even if column I or the cache already has a value
 - **AND** the result is not written to column I immediately; it is stored only when the user saves
+- **AND** the manual-entry field is filled with the result (cleared when nothing is found, replacing any value the user had typed)
 
 #### Scenario: Candidate chooser
 
 - **WHEN** a refetch returns multiple candidates
 - **THEN** all candidates are shown as selectable buttons with the first pre-selected
+- **WHEN** the user selects a candidate
+- **THEN** the selected phonetic is written to the manual-entry field, so it can be further edited before saving
 - **WHEN** the user selects a candidate and saves
 - **THEN** the selected phonetic is written to column I and the multi-candidate needs-review state is cleared
 
+#### Scenario: Manual phonetic entry
+
+- **WHEN** the user types a phonetic in the manual-entry field of the edit modal
+- **THEN** the value display shows the typed text and a candidate is highlighted only if it matches a listed candidate
+- **AND** on save the typed value is written to column I (trimmed), the in-memory candidate marker and cached candidate list are cleared, and the display returns to the normal colour
+- **WHEN** the user types a phonetic for a word that was just re-queried, or for a word whose English text was changed in the same edit
+- **THEN** the typed value still wins (it is not discarded by the candidate-validity or English-change rules)
+
+#### Scenario: Manual clearing
+
+- **WHEN** the user empties the manual-entry field and saves
+- **THEN** column I is written as an empty string (the phonetic is removed)
+
 #### Scenario: English change clears phonetic
 
-- **WHEN** the user edits the English word and saves without a valid refetch for the new word
+- **WHEN** the user edits the English word and saves without a valid refetch for the new word and without typing a phonetic
 - **THEN** column I is cleared to an empty string
 - **AND** the old word's cached phonetic is removed so the new word cannot inherit it
 

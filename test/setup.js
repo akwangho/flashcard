@@ -93,7 +93,7 @@ function createDOMElements() {
     'edit-word-image-preview-img', 'edit-word-image-preview-error',
     'edit-word-tags',
     'edit-word-kk-group', 'edit-word-kk-value', 'edit-word-kk-refetch',
-    'edit-word-kk-status', 'edit-word-kk-candidates',
+    'edit-word-kk-input', 'edit-word-kk-status', 'edit-word-kk-candidates',
     'cancel-edit-word', 'save-edit-word',
     // KK phonetic display (centre of screen, inside anchor container)
     'kk-phonetic-anchor',
@@ -211,7 +211,7 @@ function createDOMElements() {
         el.appendChild(opt);
       });
     }
-    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'edit-word-tags' || id === 'listening-spell-input' || id === 'search-word-input') {
+    if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'edit-word-tags' || id === 'edit-word-kk-input' || id === 'listening-spell-input' || id === 'search-word-input') {
       el = document.createElement('input');
       el.id = id;
       el.type = 'text';
