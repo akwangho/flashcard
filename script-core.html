@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.24.0',
+    APP_VERSION: '1.24.1',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-09-30 21:23',
+    APP_BUILD_TIME: '2026-10-01 14:05',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -453,7 +453,7 @@
       smartTimerEnabled: false,
       listeningMode: false,
       carouselMemoryMode: false,
-      showKKPhonetic: false            // KK 音標顯示開關（預設關閉）
+      showKKPhonetic: true             // KK 音標顯示開關（預設開啟；K 鍵可切換）
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",

@@ -21,6 +21,8 @@ beforeEach(function() {
   app = new FlashcardApp();
   FlashcardApp.prototype.init = origInit;
 
+  // 未改動前的預設值（供預設行為測試斷言）
+  app.defaultShowKKPhonetic = app.settings.showKKPhonetic;
   app.settings.showKKPhonetic = false;
   app.kkPhoneticCache = {};
   app._kkPendingFetches = {};
@@ -72,8 +74,8 @@ function makeWord(overrides) {
 // ============================================================
 describe('KK phonetic eligibility', function() {
 
-  test('defaults to disabled', function() {
-    expect(app.settings.showKKPhonetic).toBe(false);
+  test('defaults to enabled', function() {
+    expect(app.defaultShowKKPhonetic).toBe(true);
   });
 
   test('hides display when setting is off', function() {

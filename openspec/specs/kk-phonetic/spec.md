@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the KK phonetic (KK 音標) feature: an opt-in display in the centre of the flashcard, a GAS REST API for querying candidate phonetics backed by a sheet dictionary, pre-fetching of upcoming words, and the edit-modal workflow for refetching and selecting among multiple candidates. Column I of each word sheet stores the user-selected phonetic.
+Defines the KK phonetic (KK 音標) feature: an on-by-default display in the centre of the flashcard, a GAS REST API for querying candidate phonetics backed by a sheet dictionary, pre-fetching of upcoming words, and the edit-modal workflow for refetching and selecting among multiple candidates. Column I of each word sheet stores the user-selected phonetic.
 
 ## Requirements
 
@@ -25,11 +25,13 @@ The system SHALL provide a curated 41-phoneme KK phonetic learning deck (one pho
 
 The system SHALL provide a settings toggle (`showKKPhonetic`) that controls the entire KK phonetic feature.
 
-#### Scenario: Disabled by default
+#### Scenario: Enabled by default
 
-- **WHEN** the app is used with default settings
-- **THEN** `showKKPhonetic` is `false`
-- **AND** no KK phonetic is displayed and no GAS phonetic API calls are made
+- **WHEN** the app is used with default settings (or after 重置設定)
+- **THEN** `showKKPhonetic` is `true`
+- **AND** KK phonetics are displayed and fetched without any opt-in step
+- **WHEN** the user presses K (or unchecks the settings-modal toggle) and saves
+- **THEN** the choice persists to localStorage and overrides the default
 
 #### Scenario: Enabled via settings
 
@@ -190,9 +192,18 @@ The system SHALL expose a GAS function and HTTP endpoint for querying candidate 
 
 - **WHEN** a query is made
 - **THEN** the `KK音標字庫` dictionary worksheet is consulted first via `TextFinder` (searched in order: the spreadsheet registered via `setKKDictSpreadsheet` → the word-file spreadsheet → the bound spreadsheet; columns: A = 單字, B = KK音標; multiple rows per word allowed; case-insensitive match)
-- **AND** no phonetics are hard-coded in source; the full dictionary (~126k words converted from `open-dict-data/ipa-dict` en_US by `scripts/build-kk-dictionary.mjs`) lives only in the worksheet and `data/kk-phonetics.json`
+- **AND** no phonetics are hard-coded in source; the dictionary data lives only in the worksheet and in the data files under `data/`
+- **AND** the dictionary worksheet content is authoritative over earlier imported data: the WordGo.apk built-in dictionary (77,620 single words, converted by `scripts/wordgo-kk-build-data.mjs`) was merged in so WordGo's phonetics are the first candidate for every word it covers (WordGo's own entries that the worksheet did not have were appended)
 - **AND** if not found, external dictionary REST APIs are queried server-side in order: Free Dictionary API (dictionaryapi.dev, IPA converted to KK via `ipaToKK`), then moedict English API
 - **AND** if neither yields a result, an empty candidate list with `source: 'none'` is returned
+
+#### Scenario: WordGo keyboard codes converted to KK symbols
+
+- **WHEN** `scripts/wordgo-kk-build-data.mjs` converts WordGo.apk's `res/raw/words.sqlite` (whose `kk` column stores keyboard codes rendered through the bundled `KKPhonetic.ttf`, e.g. apple → `1BbEkEs`)
+- **THEN** codes map to this project's KK symbols: `1→ˋ` `0→ˏ` `2→ɚ` `3→ɝ` `6→ð` `7→ŋ` `8→θ` `A→ɑ` `B→æ` `C→ɔ` `E→ə` `W→ɛ` `I→ɪ` `V→ʌ` `U→ʊ` `L→ḷ` `M→m` `N→n` `S→ʃ` `G→ʒ`, other consonants/vowels pass through unchanged
+- **AND** `t+ʃ→tʃ`, `d+ʒ→dʒ`, `ə+l→ḷ` are applied so the result matches the worksheet format used elsewhere
+- **AND** phrase entries (containing spaces) and entries with unparsable characters are skipped
+- **AND** conversion is faithful by default (`--no-refine`); `--refine` (opt-in, requires `data/kk-phonetics.json`) may align `ɪ/i` and `ɔ/o` with the CMU-derived reference where every other symbol matches
 
 #### Scenario: KK conversion rules
 
