@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.24.1',
+    APP_VERSION: '1.24.2',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-01 14:05',
+    APP_BUILD_TIME: '2026-10-03 21:20',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -114,6 +114,11 @@
     // P 鍵第二次按下時的慢速倍率（相對 voiceSettings.rate）
     // 對齊 Google 字典喇叭「連點變慢」：約 1/10 速，方便逐音節聽清楚（預設 rate 0.8 → 約 0.08，下限 0.1）
     SLOW_SPEECH_RATE_FACTOR: 0.1,
+    // P 鍵重播前等待 speechSynthesis.cancel() 生效的輪詢間隔與上限：
+    // iOS Safari 的 cancel() 是非同步的，同一個 tick 內立刻 speak() 會被一起清掉（完全無聲），
+    // 因此發音中重播必須等 speaking/pending 歸零後再播。
+    SPEECH_RESTART_POLL_MS: 20,
+    SPEECH_RESTART_MAX_WAIT_MS: 300,
     UI_ANIMATION_DELAY_MS: 100,        // 一般 UI 動畫延遲
     IMAGE_PRELOAD_COUNT: 10,           // 單字圖片批次預載數量（目前 + 接下來 N 張）
     LISTENING_AUDIO_DELAY_MS: 300,     // 聽力練習播放音訊前延遲
@@ -386,6 +391,8 @@
     this.removalUndoEntry = null;
     this._pKeyPressCount = 0;
     this._speechRateOverride = null;
+    this._speechRestartTimer = null;
+    this._speechRestartPoll = null;
     this.pendingRemoval = null;
     this.isPaused = false;
     this.userPaused = false;
@@ -591,9 +598,52 @@
       clearInterval(this.chineseWaitInterval);
       this.chineseWaitInterval = null;
     }
+    this.cancelPendingSpeechRestart();
     this._speechSequenceActive = false;
     this._speechPlayId = (this._speechPlayId || 0) + 1;
     this.speechSynthesis.cancel();
+  };
+
+  /** 語音合成佇列是否忙碌（正在播放或仍有待播項目） */
+  FlashcardApp.prototype._isSpeechBusy = function() {
+    try {
+      return !!(this.speechSynthesis.speaking || this.speechSynthesis.pending);
+    } catch (e) {
+      return false;
+    }
+  };
+
+  /** 取消尚未執行的「等語音停下再重播」排程 */
+  FlashcardApp.prototype.cancelPendingSpeechRestart = function() {
+    if (this._speechRestartTimer) {
+      clearTimeout(this._speechRestartTimer);
+      this._speechRestartTimer = null;
+    }
+    if (this._speechRestartPoll) {
+      clearInterval(this._speechRestartPoll);
+      this._speechRestartPoll = null;
+    }
+  };
+
+  /**
+   * 等語音引擎真的停下來（speaking/pending 歸零）後才執行 fn。
+   *
+   * 背景：iOS Safari 的 speechSynthesis.cancel() 是非同步的，若在同一個 tick 內
+   * 緊接著 speak()，新加入的 utterance 會被 cancel 一起清掉 → 發音中再按 P 變成「完全無聲」。
+   * 因此發音中重播必須等引擎清空後再播，並以逾時保底避免卡住。
+   * @param {Function} fn - 語音停下後要執行的播放函式
+   */
+  FlashcardApp.prototype._speakWhenSpeechIdle = function(fn) {
+    var self = this;
+    this.cancelPendingSpeechRestart();
+    var done = function() {
+      self.cancelPendingSpeechRestart();
+      if (typeof fn === 'function') fn();
+    };
+    this._speechRestartPoll = setInterval(function() {
+      if (!self._isSpeechBusy()) done();
+    }, APP_CONSTANTS.SPEECH_RESTART_POLL_MS);
+    this._speechRestartTimer = setTimeout(done, APP_CONSTANTS.SPEECH_RESTART_MAX_WAIT_MS);
   };
 
   /** 清除所有計時器與語音（常用於切換單字、取消操作等場景） */

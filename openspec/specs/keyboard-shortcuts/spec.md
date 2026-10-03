@@ -44,6 +44,19 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 - **THEN** only `B` (pause/resume), `E` (edit word), and `P` (replay pronunciation) are active (all marked `allowWhenPaused: true`)
 - **AND** all other shortcuts have no effect
 
+#### Scenario: P pressed while audio is still playing
+
+- **WHEN** the user presses `P` while the previous `P` replay is still speaking
+- **THEN** the in-flight utterance is cancelled and the replay starts again (never left silent)
+- **AND** because `speechSynthesis.cancel()` is asynchronous on iOS Safari, the new playback SHALL wait until `speaking`/`pending` reports idle (polled every `SPEECH_RESTART_POLL_MS`, forced after `SPEECH_RESTART_MAX_WAIT_MS`) instead of calling `speak()` in the same tick
+- **WHEN** `P` is pressed several times in rapid succession
+- **THEN** only the last press plays, using the rate implied by the total press count
+
+#### Scenario: Pending replay is dropped on navigation
+
+- **WHEN** a deferred `P` replay is still waiting for the speech engine to go idle and the word is switched (or voice is muted)
+- **THEN** `cancelPendingSpeechRestart` drops the pending playback so it never fires on the new card
+
 ### Requirement: Touch Swipe Gestures
 
 The system SHALL support horizontal swipe gestures on touch devices for word navigation.

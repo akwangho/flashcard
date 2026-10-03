@@ -100,6 +100,11 @@ When `speakWord` receives a KK phonetic string (`/.../`, as stored in the englis
 - **WHEN** `voiceSettings.enabled` is false
 - **THEN** `speakKKPhonetic` does nothing
 
+#### Scenario: Environment without the Audio constructor
+
+- **WHEN** `Audio` is not available (unsupported environment)
+- **THEN** `_playKKAudioClips` returns `false` so the caller falls back to the TTS approximation instead of throwing
+
 ### Requirement: Japanese TTS
 
 The system SHALL automatically detect Japanese content and use a Japanese voice.

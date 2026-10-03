@@ -570,6 +570,7 @@
    * P 鍵：重新播放當前單字發音（略過字母拼讀）；奇數次正常、偶數次慢速；
    * 切換單字時重置；暫停時也可用。
    * KK 音標卡（english 為 /.../）：直接播對應的真人發音檔，不是 TTS 唸上面的文字。
+   * 發音中再按 P 為「重播」（不是停止）：cancel() 後等語音引擎真的停下來才重新播。
    */
   FlashcardApp.prototype.replayCurrentWordAudio = function() {
     var w = this.currentWords && this.currentWords[this.currentIndex];
@@ -578,20 +579,35 @@
     var isSlow = (this._pKeyPressCount % 2 === 0);
     // 使進行中的字母拼讀 callback 失效，避免稍後又插播/打斷本次發音
     this._speechPlayId = (this._speechPlayId || 0) + 1;
+    var playId = this._speechPlayId;
     this._speechSequenceActive = false;
+    // 記下重播前是否真的有語音在播：只有真的被打斷時才需要等 cancel 生效
+    var wasSpeaking = this._isSpeechBusy();
     try { this.speechSynthesis.cancel(); } catch (e) {}
     var baseRate = (this.voiceSettings && this.voiceSettings.rate) ? this.voiceSettings.rate : 1;
     var slowRate = Math.max(0.1, baseRate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
     this._speechRateOverride = isSlow ? slowRate : null;
-    // 略過逐字母拼讀，直接唸整個單字（或日文/KK 音標）
-    if (this.isKKPhoneticText && this.isKKPhoneticText(w.english)) {
-      // KK 音標卡：直接播對應的真人發音檔；
-      // 慢速重播的 rate override 對音檔無效（長度固定），僅影響 TTS 後備路徑
-      this.speakKKPhonetic(w.english);
-    } else if (this.isJapaneseText(w.english)) {
-      this.speakJapaneseWord(w.english);
+    var self = this;
+    var text = w.english;
+    var play = function() {
+      // 連按多次時只播最後一次（前面的排程已過期）
+      if ((self._speechPlayId || 0) !== playId) return;
+      // 略過逐字母拼讀，直接唸整個單字（或日文/KK 音標）
+      if (self.isKKPhoneticText && self.isKKPhoneticText(text)) {
+        // KK 音標卡：直接播對應的真人發音檔；
+        // 慢速重播的 rate override 對音檔無效（長度固定），僅影響 TTS 後備路徑
+        self.speakKKPhonetic(text);
+      } else if (self.isJapaneseText(text)) {
+        self.speakJapaneseWord(text);
+      } else {
+        self.speakEnglishWordOnly(text);
+      }
+    };
+    // iOS Safari：cancel() 非同步，同一 tick 直接 speak() 會被一起清掉 → 等引擎停下來再播
+    if (wasSpeaking) {
+      this._speakWhenSpeechIdle(play);
     } else {
-      this.speakEnglishWordOnly(w.english);
+      play();
     }
   };
 

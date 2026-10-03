@@ -634,6 +634,8 @@
    * @returns {boolean} 是否成功開始播放（false = 呼叫端退回 TTS）
    */
   FlashcardApp.prototype._playKKAudioClips = function(inner) {
+    // 環境不支援 Audio 構造子 → 交由呼叫端退回 TTS 近音拼法
+    if (typeof Audio === 'undefined') return false;
     var audio = this._kkAudioPlayer || (this._kkAudioPlayer = new Audio());
     var self = this;
 

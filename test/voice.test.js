@@ -779,6 +779,95 @@ describe('replayCurrentWordAudio (P key)', function() {
 
     expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
   });
+
+  test('replays after cancel takes effect instead of falling silent', function() {
+    // iOS Safari 的 cancel() 是非同步的：同一 tick 直接 speak() 會被一起清掉
+    jest.useFakeTimers();
+    app.currentWords = [{ english: 'apple', chinese: '' }];
+    app.currentIndex = 0;
+    app.voiceSettings.enabled = true;
+    global.speechSynthesis.speaking = true;
+
+    app.replayCurrentWordAudio();
+
+    // cancel 後尚未確定停下來 → 先不播
+    expect(global.speechSynthesis.cancel).toHaveBeenCalled();
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+
+    // 引擎回報不再播放 → 才真正重播（此時為第 1 次 → 正常速度）
+    global.speechSynthesis.speaking = false;
+    jest.advanceTimersByTime(APP_CONSTANTS.SPEECH_RESTART_POLL_MS);
+    expect(global.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+    expect(global.speechSynthesis.speak.mock.calls[0][0].rate).toBe(app.voiceSettings.rate);
+
+    app.cancelPendingSpeechRestart();
+    global.speechSynthesis.speaking = false;
+    jest.useRealTimers();
+  });
+
+  test('rapid double press while speaking ends up playing once at normal rate', function() {
+    jest.useFakeTimers();
+    app.currentWords = [{ english: 'apple', chinese: '' }];
+    app.currentIndex = 0;
+    app.voiceSettings.enabled = true;
+    global.speechSynthesis.speaking = true;
+
+    // 第一次：發音中
+    app.replayCurrentWordAudio();
+    global.speechSynthesis.speaking = false;
+    jest.advanceTimersByTime(APP_CONSTANTS.SPEECH_RESTART_POLL_MS);
+    expect(global.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+
+    // 連按兩下（第 2 下排程、第 3 下立即）：只應播最後一次，且是正常速度
+    global.speechSynthesis.speaking = true;
+    app.replayCurrentWordAudio();          // 第 2 下 → 慢速（排程中）
+    global.speechSynthesis.speaking = false;
+    app.replayCurrentWordAudio();          // 第 3 下 → 正常速度
+    jest.advanceTimersByTime(APP_CONSTANTS.SPEECH_RESTART_POLL_MS * 5);
+
+    expect(global.speechSynthesis.speak).toHaveBeenCalledTimes(2);
+    expect(global.speechSynthesis.speak.mock.calls[1][0].rate).toBe(app.voiceSettings.rate);
+
+    app.cancelPendingSpeechRestart();
+    global.speechSynthesis.speaking = false;
+    jest.useRealTimers();
+  });
+
+  test('falls back to timeout when the engine never reports idle', function() {
+    jest.useFakeTimers();
+    app.currentWords = [{ english: 'apple', chinese: '' }];
+    app.currentIndex = 0;
+    app.voiceSettings.enabled = true;
+    global.speechSynthesis.speaking = true;
+
+    app.replayCurrentWordAudio();
+    // speaking 一直為 true → 輪詢不結束，但逾時保底一定要播
+    jest.advanceTimersByTime(APP_CONSTANTS.SPEECH_RESTART_MAX_WAIT_MS + APP_CONSTANTS.SPEECH_RESTART_POLL_MS);
+
+    expect(global.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+
+    app.cancelPendingSpeechRestart();
+    global.speechSynthesis.speaking = false;
+    jest.useRealTimers();
+  });
+
+  test('switching word drops a pending replay', function() {
+    jest.useFakeTimers();
+    app.currentWords = [{ english: 'apple', chinese: '' }];
+    app.currentIndex = 0;
+    app.voiceSettings.enabled = true;
+    global.speechSynthesis.speaking = true;
+
+    app.replayCurrentWordAudio();
+    app.cancelAllSpeech();                 // 切換單字 → _speechPlayId 失效
+    global.speechSynthesis.speaking = false;
+    jest.advanceTimersByTime(APP_CONSTANTS.SPEECH_RESTART_MAX_WAIT_MS + APP_CONSTANTS.SPEECH_RESTART_POLL_MS);
+
+    expect(global.speechSynthesis.speak).not.toHaveBeenCalled();
+
+    global.speechSynthesis.speaking = false;
+    jest.useRealTimers();
+  });
 });
 
 describe('updateMutedIndicator', function() {
