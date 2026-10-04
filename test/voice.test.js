@@ -771,6 +771,23 @@ describe('replayCurrentWordAudio (P key)', function() {
     expect(secondRate).toBe(Math.max(0.1, app.voiceSettings.rate * 0.1)); // 第 2 次：慢速
   });
 
+  test('always uses normal rate for sentences, never the slow replay', function() {
+    app.currentWords = [{ english: 'He is running to the store.', chinese: '' }];
+    app.currentIndex = 0;
+
+    app.replayCurrentWordAudio();
+    expect(global.speechSynthesis.speak.mock.calls[0][0].rate).toBe(app.voiceSettings.rate);
+
+    // 第 2、3、4 次都維持正常速度（例句放慢沒學習價值）
+    app.replayCurrentWordAudio();
+    app.replayCurrentWordAudio();
+    app.replayCurrentWordAudio();
+    expect(global.speechSynthesis.speak).toHaveBeenCalledTimes(4);
+    for (var i = 1; i < 4; i++) {
+      expect(global.speechSynthesis.speak.mock.calls[i][0].rate).toBe(app.voiceSettings.rate);
+    }
+  });
+
   test('does nothing when there is no current word', function() {
     app.currentWords = [];
     app.currentIndex = 0;

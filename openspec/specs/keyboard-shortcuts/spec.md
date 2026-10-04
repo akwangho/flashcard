@@ -25,7 +25,7 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 | `D` | Mark as very familiar (-999); requires two presses within 3 s | — |
 | `R` | Restore word (cancel pending removal) | — |
 | `E` | Open edit-word modal | Works even while paused |
-| `P` | Replay the **whole word only** (EN / JA auto-detected); MUST skip letter spell-out even when spell-out is enabled. Odd press uses normal rate, even press uses slow rate (`SLOW_SPEECH_RATE_FACTOR` × `voiceSettings.rate`, default factor `0.1` ≈ Google Dictionary slow / syllable-clear speed; floored at `0.1`). Increments `_speechPlayId` and cancels in-flight speech so stale spell-out callbacks cannot interrupt. Counter resets when the displayed word changes | Works even while paused |
+| `P` | Replay the **whole word only** (EN / JA auto-detected); MUST skip letter spell-out even when spell-out is enabled. Odd press uses normal rate, even press uses slow rate (`SLOW_SPEECH_RATE_FACTOR` × `voiceSettings.rate`, default factor `0.1` ≈ Google Dictionary slow / syllable-clear speed; floored at `0.1`). Sentences (`getWordType === 'sentence'`) always use normal rate. Increments `_speechPlayId` and cancels in-flight speech so stale spell-out callbacks cannot interrupt. Counter resets when the displayed word changes | Works even while paused |
 | Escape | Close menu / exit fullscreen / cancel D-key pending state | — |
 
 #### Scenario: Matching strategy
@@ -43,6 +43,12 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 - **WHEN** the carousel is paused
 - **THEN** only `B` (pause/resume), `E` (edit word), and `P` (replay pronunciation) are active (all marked `allowWhenPaused: true`)
 - **AND** all other shortcuts have no effect
+
+#### Scenario: Sentences always replay at normal rate
+
+- **WHEN** the current card's english is a sentence (`getWordType` returns `sentence`)
+- **THEN** every `P` press plays at the user's normal `voiceSettings.rate`
+- **AND** the slow replay is reserved for single words / phrases, where syllable-by-syllable listening is the learning goal
 
 #### Scenario: P pressed while audio is still playing
 

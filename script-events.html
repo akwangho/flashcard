@@ -569,6 +569,8 @@
   /**
    * P 鍵：重新播放當前單字發音（略過字母拼讀）；奇數次正常、偶數次慢速；
    * 切換單字時重置；暫停時也可用。
+   * 例句（getWordType === 'sentence'）一律正常速度：整句刻意放慢沒有學習價值，
+   * 慢速只留給單字/片語，用來仔細聽每個音節。
    * KK 音標卡（english 為 /.../）：直接播對應的真人發音檔，不是 TTS 唸上面的文字。
    * 發音中再按 P 為「重播」（不是停止）：cancel() 後等語音引擎真的停下來才重新播。
    */
@@ -577,6 +579,8 @@
     if (!w || !w.english) return;
     this._pKeyPressCount = (this._pKeyPressCount || 0) + 1;
     var isSlow = (this._pKeyPressCount % 2 === 0);
+    // 例句永遠正常速度（不論連按第幾下）
+    if (getWordType(w.english) === 'sentence') isSlow = false;
     // 使進行中的字母拼讀 callback 失效，避免稍後又插播/打斷本次發音
     this._speechPlayId = (this._speechPlayId || 0) + 1;
     var playId = this._speechPlayId;
