@@ -29,6 +29,7 @@ This project uses **OpenSpec v1.3.1** for spec-driven development.
 | `review-filter/` | Review-time filter, difficulty filter, must-spell filter, type filter, tag filter |
 | `word-edit/` | Inline word edit modal, save validation, image preview |
 | `srs/` | Leitner Box SRS, 8-level intervals, due detection, quick-review UI |
+| `app-update/` | Automatic new-version detection, cache-busting reload, trigger narrowing/throttling |
 | `screen-awake/` | Prevent screen sleep: Wake Lock, NoSleep video, silent audio, Keep-Alive |
 
 ## OpenSpec Conventions

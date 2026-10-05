@@ -396,7 +396,8 @@ function setupMocks() {
     'batchUpdateReviewDates', 'exportWordsToSheet',
     'detectDuplicateWords', 'handleDuplicateWordKeepOne', 'handleDuplicateWordMerge',
     'autoHandleSkippedDuplicatesInMemory', 'autoHandleSkippedDuplicates',
-    'queryKKPhonetic'
+    'queryKKPhonetic',
+    'getServerVersion'
   ];
   gasFunctions.forEach(function(fn) {
     mockRunner[fn] = function() { return mockRunner; };
@@ -479,6 +480,7 @@ function loadAllScripts() {
     'script-kk-phonetic.html',
     'script-search-word.html',
     'script-srs.html',
+    'script-app-update.html',
     'script-screen-awake.html',
     'script-quiz.html',
     'script-listening.html',

@@ -1,0 +1,271 @@
+<!-- script-app-update.html -->
+<script>
+  /**
+   * @module script-app-update
+   * @description 自動檢查是否有新版本：閒置／喚醒／手動重載時向後端比對
+   *   SERVER_VERSION（code.gs 的 getServerVersion），不一致就自動重新整理頁面。
+   *   解決「長時間不關機、網頁一直開著，部署了新功能卻仍在跑舊版」的問題。
+   *
+   *   ⚠️ 為什麼需要這段：「🔄 重新載入單字」只會重新抓 Sheet 的單字
+   *   （FlashcardApp.prototype.restart → loadWords），不會重新載入頁面本身，
+   *   所以舊的 JS 會一直留在記憶體裡，部署的新功能永遠看不到。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
+   * @provides FlashcardApp.prototype: setupAppUpdateWatcher,
+   *   checkForAppUpdate, applyServerVersion, _appUpdateReloadUrl,
+   *   _navigateToAppVersion, getLastAppUpdateCheckTime,
+   *   markAppUpdateChecked, _onAppUpdateVisibilityChange
+   */
+
+  /** sessionStorage 鍵：本次 page session 已經為了哪個版本重載過（避免無限重載迴圈） */
+  var APP_UPDATE_RELOAD_GUARD_KEY = 'flashcard-app-update-reloaded-for';
+
+  // =====================================================================
+  // localStorage：上次檢查時間（跨 page session 保存，讓「每次重載都檢查」變成節流）
+  // =====================================================================
+
+  /**
+   * 讀取上次檢查新版的時間戳（ms）。
+   * @returns {number} 上次檢查時間；從未檢查過回傳 0
+   */
+  FlashcardApp.prototype.getLastAppUpdateCheckTime = function() {
+    try {
+      var raw = localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.APP_UPDATE_CHECK);
+      var ts = parseInt(raw, 10);
+      return isNaN(ts) || ts <= 0 ? 0 : ts;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  /**
+   * 記錄「本次檢查時間」，用於節流。
+   * 刻意不記錄「檢查結果」：無論成功與否都算已檢查，避免連續失敗時反覆打後端。
+   * @param {number} [timestamp] - 時間戳（ms），預設為現在
+   */
+  FlashcardApp.prototype.markAppUpdateChecked = function(timestamp) {
+    try {
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.APP_UPDATE_CHECK,
+        String(timestamp || Date.now()));
+    } catch (e) {
+      // localStorage 不可用（無痕模式）→ 只失去節流能力，功能本身仍可用
+    }
+  };
+
+  // =====================================================================
+  // 節流判定
+  // =====================================================================
+
+  /**
+   * 判斷現在是否「該」檢查新版本（距離上次檢查是否已超過間隔）。
+   * @param {boolean} [force] - true 則忽略間隔強制檢查
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._shouldCheckAppUpdate = function(force) {
+    if (this._appUpdateChecking) return false; // 已有檢查在進行
+    if (this._appUpdateReloading) return false; // 正在重新整理
+    if (force) return true;
+    var last = this.getLastAppUpdateCheckTime();
+    // 從未檢查過：以頁面載入時間當基準，避免一開頁就立刻打後端
+    var baseline = last || this._appUpdateMountedAt || Date.now();
+    return (Date.now() - baseline) >= APP_CONSTANTS.APP_UPDATE_CHECK_INTERVAL_MS;
+  };
+
+  // =====================================================================
+  // 套用後端版本
+  // =====================================================================
+
+  /**
+   * 比對後端回報的版本，必要時自動重新整理頁面。
+   *
+   * 重新整理方式刻意不用 location.reload()（會重用同一個 URL，可能命中瀏覽器
+   * 快取而再次載入舊版），而是附加 ?v=<serverVersion>&ts=<now> 產生新 URL，
+   * 確保一定拿到線上最新的一份程式碼。
+   *
+   * @param {string} serverVersion - 後端 SERVER_VERSION
+   * @param {string} [reason] - 觸發原因（顯示於 console／toast）
+   * @returns {boolean} 是否執行了重新整理
+   */
+  FlashcardApp.prototype.applyServerVersion = function(serverVersion, reason) {
+    if (!serverVersion) return false;
+    var localVersion = APP_CONSTANTS.APP_VERSION;
+    if (serverVersion === localVersion) {
+      console.log('版本檢查：已是最新 v' + localVersion + '（' + (reason || '') + '）');
+      return false;
+    }
+
+    // 本次 page session 已為該版本重載過 → 不再重載（避免無限迴圈）
+    try {
+      if (sessionStorage.getItem(APP_UPDATE_RELOAD_GUARD_KEY) === serverVersion) {
+        console.warn('版本檢查：偵測到 v' + serverVersion +
+          '，但本 session 已重載過，放棄再次重新整理');
+        return false;
+      }
+      sessionStorage.setItem(APP_UPDATE_RELOAD_GUARD_KEY, serverVersion);
+    } catch (e) {
+      // sessionStorage 不可用時不做保護（仍可能重載一次）
+    }
+
+    console.log('版本檢查：偵測到新版本 v' + localVersion + ' → v' + serverVersion +
+      '（' + (reason || '') + '），重新整理頁面');
+    if (typeof this.showNotification === 'function') {
+      this.showNotification('發現新版本 v' + serverVersion + '，正在重新載入…', 'info');
+    }
+
+    if (!APP_CONSTANTS.APP_UPDATE_FORCE_RELOAD) return false;
+
+    this._appUpdateReloading = true;
+    this._navigateToAppVersion(this._appUpdateReloadUrl(serverVersion));
+    return true;
+  };
+
+  /**
+   * 組出帶版本參數的網址（附加 query 讓瀏覽器繞過快取，確保載入線上新版）。
+   * @param {string} serverVersion
+   * @returns {string}
+   */
+  FlashcardApp.prototype._appUpdateReloadUrl = function(serverVersion) {
+    return window.location.pathname +
+      '?v=' + encodeURIComponent(serverVersion) +
+      '&ts=' + Date.now();
+  };
+
+  /**
+   * 實際導頁（抽成獨立方法方便測試攔截）。
+   * @param {string} url
+   */
+  FlashcardApp.prototype._navigateToAppVersion = function(url) {
+    window.location.assign(url);
+  };
+
+  // =====================================================================
+  // 檢查新版本
+  // =====================================================================
+
+  /**
+   * 向後端查詢版本並在需要時重新整理頁面。
+   *
+   * - 節流：距上次檢查未滿 APP_UPDATE_CHECK_INTERVAL_MS（預設 6 小時）時直接略過，
+   *   所以「每次按重新載入」不會每次都打後端。
+   * - 閒置限定（automatic = true 時）：只在「已暫停」時執行，
+   *   避免使用者正在練習單字時被重新整理。
+   * - 轉場中／正在唸單字／計時器仍在跑：略過，留到下一個時機。
+   *
+   * @param {Object} [options]
+   * @param {boolean} [options.force] - 忽略節流間隔
+   * @param {boolean} [options.automatic] - true = 背景自動檢查（需已暫停）；false = 使用者主動觸發
+   * @param {string} [options.reason] - 觸發原因，僅供紀錄
+   * @returns {boolean} 是否真的發出查詢（false = 被略過）
+   */
+  FlashcardApp.prototype.checkForAppUpdate = function(options) {
+    var opts = options || {};
+    var automatic = opts.automatic === true;
+
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      console.log('版本檢查：非 GAS 環境，略過');
+      return false;
+    }
+    if (!this._shouldCheckAppUpdate(opts.force)) {
+      console.log('版本檢查：距上次檢查未滿間隔，略過（' + (opts.reason || '') + '）');
+      return false;
+    }
+    // 自動檢查只在閒置（已暫停）時做；使用者主動按重載則不受此限
+    if (automatic && !this.isPaused) {
+      console.log('版本檢查：非閒置狀態（未暫停），略過（' + (opts.reason || '') + '）');
+      return false;
+    }
+    // 避免打斷進行中的操作
+    if (this.isTransitioning || this._isSpeechBusy() || this._activeTimerInfo) {
+      console.log('版本檢查：正在進行其他操作，略過（' + (opts.reason || '') + '）');
+      return false;
+    }
+
+    this._appUpdateChecking = true;
+    var self = this;
+    var settled = false;
+    var timeoutTimer = setTimeout(function() {
+      finish(false, '逾時 ' + APP_CONSTANTS.APP_UPDATE_TIMEOUT_MS + 'ms');
+    }, APP_CONSTANTS.APP_UPDATE_TIMEOUT_MS);
+
+    function finish(ok, detail) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutTimer);
+      self._appUpdateChecking = false;
+      self.markAppUpdateChecked();
+      if (!ok) console.log('版本檢查未完成（' + detail + '），下次再試');
+    }
+
+    try {
+      google.script.run
+        .withSuccessHandler(function(serverVersion) {
+          self.applyServerVersion(serverVersion, opts.reason);
+          finish(true);
+        })
+        .withFailureHandler(function(error) {
+          console.warn('版本檢查失敗:', error);
+          finish(false, '後端錯誤');
+        })
+        .getServerVersion();
+    } catch (e) {
+      console.warn('版本檢查呼叫失敗:', e);
+      finish(false, '呼叫例外');
+    }
+    return true;
+  };
+
+  // =====================================================================
+  // 背景監聽
+  // =====================================================================
+
+  /**
+   * 頁面由隱藏轉為可見：隱藏夠久（預設 30 分鐘）視為「開蓋喚醒」→ 檢查一次。
+   * 對應使用情境：按暫停 → 蓋上螢幕睡 12~24 小時 → 開蓋時自動檢查。
+   */
+  FlashcardApp.prototype._onAppUpdateVisibilityChange = function() {
+    if (document.visibilityState !== 'visible') {
+      this._appUpdateHiddenAt = Date.now();
+      return;
+    }
+    var hiddenAt = this._appUpdateHiddenAt;
+    if (!hiddenAt) return;
+    this._appUpdateHiddenAt = 0;
+    var hiddenMs = Date.now() - hiddenAt;
+    if (hiddenMs < APP_CONSTANTS.APP_UPDATE_WAKE_HIDDEN_MIN_MS) return;
+    console.log('喚醒檢查：頁面隱藏了 ' + Math.round(hiddenMs / 60000) + ' 分鐘');
+    // 使用者主動操作（暫停鍵等）先搶先觸發；interval 是後備，兩者共用節流
+    this.checkForAppUpdate({ automatic: true, reason: '喚醒（隱藏 ' + Math.round(hiddenMs / 60000) + ' 分鐘）' });
+  };
+
+  /**
+   * 啟動自動檢查新版的背景機制（載入完成後呼叫一次，內部冪等）。
+   *
+   * 觸發點刻意收斂成三個，對應「一天只做一兩次決策」的使用型態：
+   *   1. 載入完成後 APP_UPDATE_STARTUP_DELAY_MS：補上睡前的那一次檢查
+   *   2. 喚醒（隱藏 ≥ APP_UPDATE_WAKE_HIDDEN_MIN_MS 後回到可見）
+   *   3. 使用者按「🔄 重新載入單字」時（restart 內部呼叫，忽略間隔）
+   * 另外每 APP_UPDATE_CHECK_INTERVAL_MS 輪詢一次作為安全網，
+   * 但仍需「已暫停」才會真的查詢，且與前兩者共用 6 小時節流。
+   */
+  FlashcardApp.prototype.setupAppUpdateWatcher = function() {
+    if (this._appUpdateWatcherReady) return;
+    this._appUpdateWatcherReady = true;
+    this._appUpdateMountedAt = Date.now();
+    var self = this;
+
+    document.addEventListener('visibilitychange', function() {
+      self._onAppUpdateVisibilityChange();
+    });
+
+    this._appUpdateInterval = setInterval(function() {
+      self.checkForAppUpdate({ automatic: true, reason: '背景輪詢' });
+    }, APP_CONSTANTS.APP_UPDATE_CHECK_INTERVAL_MS);
+
+    setTimeout(function() {
+      self.checkForAppUpdate({ automatic: true, reason: '載入後延遲檢查' });
+    }, APP_CONSTANTS.APP_UPDATE_STARTUP_DELAY_MS);
+
+    console.log('自動檢查新版本：已啟用（檢查間隔 ' +
+      Math.round(APP_CONSTANTS.APP_UPDATE_CHECK_INTERVAL_MS / 60000) + ' 分鐘）');
+  };
+</script>

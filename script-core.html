@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.24.3',
+    APP_VERSION: '1.25.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-03 21:38',
+    APP_BUILD_TIME: '2026-10-03 21:55',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -136,6 +136,16 @@
     // === 時間單位 ===
     MS_PER_DAY: 86400000,             // 一天的毫秒數 (24*60*60*1000)
 
+    // === 自動檢查新版本（P 鍵/暫停/喚醒後） ===
+    // 使用情境：電腦不關機、刪到剩一個單字後暫停、蓋上螢幕睡 12~24 小時、
+    // 開蓋後按「重新載入單字」。因此檢查間隔必須長於一個學習回合，
+    // 且只在閒置（已暫停）或使用者主動要求重載時才進行，避免每次操作都打後端。
+    APP_UPDATE_CHECK_INTERVAL_MS: 6 * 60 * 60 * 1000,  // 兩次檢查的最小間隔（6 小時）
+    APP_UPDATE_WAKE_HIDDEN_MIN_MS: 30 * 60 * 1000,     // 隱藏超過 30 分鐘視為「開蓋喚醒」
+    APP_UPDATE_STARTUP_DELAY_MS: 10000,                // 載入完成後延遲多久開始背景檢查
+    APP_UPDATE_TIMEOUT_MS: 15000,                     // 後端 getServerVersion 回應逾時
+    APP_UPDATE_FORCE_RELOAD: true,                    // 找到新版是否自動重新整理（false = 只提示）
+
     // === localStorage 鍵名 ===
     STORAGE_KEYS: {
       SETTINGS: 'flashcard-settings',
@@ -147,6 +157,7 @@
       FILTER_SETTINGS: 'flashcard-filter-settings',
       NO_AUTO_MERGE: 'flashcard-no-auto-merge',
       KK_PHONETIC_CACHE: 'flashcard-kk-phonetic-cache-v2', // v2： IPA→KK 轉換規則修正（əˈpɛl→ˋæpḷ），棄用 v1 舊資料
+      APP_UPDATE_CHECK: 'flashcard-app-update-check'      // 上次檢查新版的時間戳（ms）
     }
   };
 
@@ -718,6 +729,11 @@
   
   // 處理載入完成
   FlashcardApp.prototype.handleLoadingComplete = function(hasDuplicates, shouldOpenSettings) {
+    // 載入完成後啟動「自動檢查新版本」背景機制（冪等；見 script-app-update.html）
+    if (typeof this.setupAppUpdateWatcher === 'function') {
+      try { this.setupAppUpdateWatcher(); } catch (e) { /* 不影響載入 */ }
+    }
+
     if (this.isLegacyBrowser && !this.speechActivated) {
       // 舊版瀏覽器顯示語音啟用按鈕
       this._hideTapToStartOverlay();

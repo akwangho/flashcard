@@ -2,6 +2,20 @@
   // HTML 服務和基本設定
   // ===========================================
 
+  /**
+   * 已部署版本號（單一版本來源）。
+   * 每次發版必須與 script-core.html 的 APP_CONSTANTS.APP_VERSION 保持一致，
+   * test/app-update.test.js 會驗證兩者相同，避免前端與後端版本漂移。
+   * 前端「自動檢查新版本」流程會呼叫 getServerVersion() 比對，
+   * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
+   */
+  var SERVER_VERSION = '1.25.0';
+
+  /** 前端自動檢查新版本用：回傳目前線上部署的版本號 */
+  function getServerVersion() {
+    return SERVER_VERSION;
+  }
+
   function doGet() {
     return HtmlService.createTemplateFromFile('index')
       .evaluate()

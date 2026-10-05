@@ -1141,6 +1141,15 @@
   };
 
   FlashcardApp.prototype.restart = function() {
+    // 「重新載入單字」只會重抓 Sheet，不會換掉頁面上的舊 JS。
+    // 使用者預期這次操作能拿到最新狀態，所以順手檢查一次有沒有新版
+    // （找到就整頁重新載入；忽略 6 小時節流，因為這是使用者主動要求的操作）。
+    if (typeof this.checkForAppUpdate === 'function') {
+      try {
+        this.checkForAppUpdate({ automatic: false, force: true, reason: '使用者按下重新載入單字' });
+      } catch (e) { /* 不影響重新載入單字 */ }
+    }
+
     this.clearAllTimersAndSpeech();
     this.pendingRemoval = null;
     this.closeMenu();
