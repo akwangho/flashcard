@@ -30,7 +30,7 @@ beforeEach(function() {
   app.speechSynthesis = global.speechSynthesis;
 
   // 預設：後端回報與前端相同版本（= 已是最新）
-  google.script.run.getServerVersion = function() { return this; };
+  google.script.run.getAppDeployInfo = function() { return this; };
 });
 
 afterEach(function() {
@@ -44,13 +44,18 @@ afterEach(function() {
 describe('SERVER_VERSION sync (code.gs ↔ script-core.html)', function() {
 
   var backendVersion;
+  var backendBuildTime;
   var frontendVersion;
+  var frontendBuildTime;
 
   beforeAll(function() {
     var gs = fs.readFileSync(path.join(__dirname, '..', 'code.gs'), 'utf8');
-    var m = gs.match(/var\s+SERVER_VERSION\s*=\s*'([^']+)'/);
-    backendVersion = m ? m[1] : null;
+    var mv = gs.match(/var\s+SERVER_VERSION\s*=\s*'([^']+)'/);
+    var mb = gs.match(/var\s+SERVER_BUILD_TIME\s*=\s*'([^']+)'/);
+    backendVersion = mv ? mv[1] : null;
+    backendBuildTime = mb ? mb[1] : null;
     frontendVersion = APP_CONSTANTS.APP_VERSION;
+    frontendBuildTime = APP_CONSTANTS.APP_BUILD_TIME;
   });
 
   test('code.gs declares a SERVER_VERSION', function() {
@@ -62,9 +67,121 @@ describe('SERVER_VERSION sync (code.gs ↔ script-core.html)', function() {
     expect(backendVersion).toBe(frontendVersion);
   });
 
+  test('code.gs SERVER_BUILD_TIME matches APP_CONSTANTS.APP_BUILD_TIME', function() {
+    expect(backendBuildTime).toBeTruthy();
+    expect(backendBuildTime).toBe(frontendBuildTime);
+  });
+
   test('getServerVersion() returns SERVER_VERSION', function() {
     var gs = fs.readFileSync(path.join(__dirname, '..', 'code.gs'), 'utf8');
     expect(gs).toMatch(/function getServerVersion\(\)\s*\{\s*return SERVER_VERSION;/);
+  });
+
+  test('getAppDeployInfo() exposes version, buildTime and deployTime', function() {
+    var gs = fs.readFileSync(path.join(__dirname, '..', 'code.gs'), 'utf8');
+    expect(gs).toMatch(/version:\s*SERVER_VERSION/);
+    expect(gs).toMatch(/buildTime:\s*SERVER_BUILD_TIME/);
+    expect(gs).toMatch(/deployTime:\s*recordDeployTime\(SERVER_VERSION\)/);
+  });
+
+  test('deploy time is recorded server-side, never hand-maintained', function() {
+    var gs = fs.readFileSync(path.join(__dirname, '..', 'code.gs'), 'utf8');
+    // 部署時間必須由 Script Properties 自動寫入，不是另一個手動維護的常數
+    expect(gs).toMatch(/PropertiesService\.getScriptProperties\(\)/);
+    expect(gs).toMatch(/Utilities\.formatDate\(new Date\(\), Session\.getScriptTimeZone\(\)/);
+  });
+});
+
+// ============================================================
+// 載入畫面：版本 / 建置時間 / 部署時間
+// ============================================================
+describe('renderLoadingVersion', function() {
+
+  beforeEach(function() {
+    app._appUpdateDeployTime = null;
+    document.getElementById('loading-version').textContent = '';
+  });
+
+  test('shows version and build time immediately', function() {
+    app.renderLoadingVersion(null);
+    var text = document.getElementById('loading-version').textContent;
+    expect(text).toContain('v' + APP_CONSTANTS.APP_VERSION);
+    expect(text).toContain('建置 ' + APP_CONSTANTS.APP_BUILD_TIME);
+  });
+
+  test('marks the deploy time as pending before the backend answers', function() {
+    app.renderLoadingVersion(null);
+    expect(document.getElementById('loading-version').textContent).toContain('部署 載入中…');
+  });
+
+  test('shows the deploy time once known', function() {
+    app.renderLoadingVersion('2026-10-05 16:20');
+    var text = document.getElementById('loading-version').textContent;
+    expect(text).toContain('部署 2026-10-05 16:20');
+    expect(text).not.toContain('載入中…');
+  });
+
+  test('falls back to the deploy time already known by the instance', function() {
+    app._appUpdateDeployTime = '2026-10-05 09:00';
+    app.renderLoadingVersion();
+    expect(document.getElementById('loading-version').textContent).toContain('部署 2026-10-05 09:00');
+  });
+
+  test('is called at parse time so the loading screen is never blank', function() {
+    // 頁面一載入就渲染（部署時間尚未取得時顯示「載入中…」）
+    document.getElementById('loading-version').textContent = '';
+    renderLoadingVersionText(null);
+    expect(document.getElementById('loading-version').textContent).toContain('v' + APP_CONSTANTS.APP_VERSION);
+  });
+});
+
+describe('fetchAppDeployInfo', function() {
+
+  beforeEach(function() {
+    jest.useFakeTimers();
+    app._appUpdateDeployTime = null;
+  });
+
+  afterEach(function() {
+    jest.useRealTimers();
+  });
+
+  test('renders the deploy time reported by the backend', function() {
+    google.script.run.getAppDeployInfo = function() {
+      var self = this;
+      setTimeout(function() {
+        if (self._successHandler) {
+          self._successHandler({ version: '99.0.0', buildTime: 'x', deployTime: '2026-10-05 16:20' });
+        }
+      }, 0);
+      return this;
+    };
+    app.fetchAppDeployInfo();
+    jest.advanceTimersByTime(1);
+    expect(document.getElementById('loading-version').textContent).toContain('部署 2026-10-05 16:20');
+  });
+
+  test('keeps the pending label when the backend has no deploy time', function() {
+    google.script.run.getAppDeployInfo = function() {
+      var self = this;
+      setTimeout(function() {
+        if (self._successHandler) self._successHandler({ version: '99.0.0', buildTime: 'x', deployTime: '' });
+      }, 0);
+      return this;
+    };
+    app.fetchAppDeployInfo();
+    jest.advanceTimersByTime(1);
+    expect(document.getElementById('loading-version').textContent).toContain('部署 載入中…');
+  });
+
+  test('does not throw outside GAS', function() {
+    var savedGoogle = global.google;
+    global.google = undefined;
+    try {
+      expect(function() { app.fetchAppDeployInfo(); }).not.toThrow();
+    } finally {
+      global.google = savedGoogle;
+    }
   });
 });
 
@@ -190,15 +307,19 @@ describe('applyServerVersion', function() {
 describe('checkForAppUpdate', function() {
 
   function respondWith(version) {
-    google.script.run.getServerVersion = function() {
+    google.script.run.getAppDeployInfo = function() {
       var self = this;
-      setTimeout(function() { if (self._successHandler) self._successHandler(version); }, 0);
+      setTimeout(function() {
+        if (self._successHandler) {
+          self._successHandler({ version: version, buildTime: 'b', deployTime: 'd' });
+        }
+      }, 0);
       return this;
     };
   }
 
   function respondWithError() {
-    google.script.run.getServerVersion = function() {
+    google.script.run.getAppDeployInfo = function() {
       var self = this;
       setTimeout(function() { if (self._failureHandler) self._failureHandler(new Error('network down')); }, 0);
       return this;
@@ -286,7 +407,7 @@ describe('checkForAppUpdate', function() {
 
   test('gives up after the timeout so it retries later', function() {
     // 後端完全沒有回應
-    google.script.run.getServerVersion = function() { return this; };
+    google.script.run.getAppDeployInfo = function() { return this; };
     app.checkForAppUpdate({ automatic: true });
     expect(app._appUpdateChecking).toBe(true);
     jest.advanceTimersByTime(APP_CONSTANTS.APP_UPDATE_TIMEOUT_MS + 10);
@@ -314,7 +435,7 @@ describe('_onAppUpdateVisibilityChange', function() {
     jest.useFakeTimers();
     app._appUpdateMountedAt = Date.now() - (APP_CONSTANTS.APP_UPDATE_CHECK_INTERVAL_MS + 1000);
     app.isPaused = true;
-    google.script.run.getServerVersion = function() { return this; };
+    google.script.run.getAppDeployInfo = function() { return this; };
   });
 
   afterEach(function() {

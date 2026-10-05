@@ -46,7 +46,8 @@ Current deployed behavior is documented in `openspec/specs/<capability>/spec.md`
 ## Versioning
 
 Each code change should update:
-- `APP_CONSTANTS.APP_VERSION` and `APP_CONSTANTS.APP_BUILD_TIME` in `script-core.html`
+- `APP_CONSTANTS.APP_VERSION` **and** `APP_CONSTANTS.APP_BUILD_TIME` in `script-core.html` (the build time is how the user tells builds apart on the loading screen — never leave it stale)
+- `SERVER_VERSION` and `SERVER_BUILD_TIME` in `code.gs` — both must stay identical to their `script-core.html` counterparts. The frontend's automatic new-version check (see `openspec/specs/app-update/spec.md`) reloads the page whenever the versions differ, and `test/app-update.test.js` fails the build if they drift. The **deploy time needs no manual update**: `recordDeployTime()` in `code.gs` stamps it automatically into Script Properties the first time a version is requested.
 - Corresponding `openspec/specs/` spec file(s) if behavior or docs changed
 
 ## Test Setup

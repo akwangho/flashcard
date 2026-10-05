@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.25.0',
+    APP_VERSION: '1.25.2',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-03 21:55',
+    APP_BUILD_TIME: '2026-10-05 16:20',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -161,16 +161,8 @@
     }
   };
 
-  // 載入畫面版本號與建置時間同步（從 APP_CONSTANTS 取得，避免硬編碼不同步）
-  (function() {
-    var vEl = document.getElementById('loading-version');
-    if (!vEl) return;
-    var ver = APP_CONSTANTS.APP_VERSION;
-    var bt = APP_CONSTANTS.APP_BUILD_TIME;
-    var lines = ['v' + ver];
-    if (bt) lines.push('建置 ' + bt);
-    vEl.textContent = lines.join('\n');
-  })();
+  // 載入畫面的版本／建置／部署時間由 script-app-update.html 負責渲染
+  //（版本相關邏輯集中在同一個模組：renderLoadingVersion / fetchAppDeployInfo）
 
   // =====================================================================
   // 共用工具函式（消除跨檔案重複程式碼）
@@ -565,6 +557,11 @@
       
       console.log('Sheet 設定:', this.sheetSettings);
       
+      // 趁載入畫面還看得到時，先補上「部署時間」（後端自動記錄，不需手動維護）
+      if (typeof this.fetchAppDeployInfo === 'function') {
+        try { this.fetchAppDeployInfo(); } catch (e) { /* 不影響載入 */ }
+      }
+
       // 檢測瀏覽器是否需要語音交互
       this.detectLegacyBrowser();
       

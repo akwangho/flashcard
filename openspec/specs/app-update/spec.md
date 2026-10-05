@@ -21,6 +21,31 @@ The backend SHALL expose the currently deployed version so the frontend can comp
 - **THEN** the backend value wins (it is what is actually deployed)
 - **AND** this holds in both directions, including a rollback to an older build
 
+### Requirement: Build Time and Deploy Time
+
+The loading screen SHALL show the version, the build time, and the deploy time, so the user can tell builds apart without relying solely on a hand-maintained timestamp.
+
+#### Scenario: Loading screen contents
+
+- **WHEN** the loading screen is visible
+- **THEN** it renders three lines: `v<version>`, `建置 <buildTime>`, `部署 <deployTime>`
+- **AND** `buildTime` comes from `APP_CONSTANTS.APP_BUILD_TIME` and MUST equal `SERVER_BUILD_TIME` in `code.gs`
+- **AND** rendering happens at script-parse time so the version is visible before any network call
+
+#### Scenario: Deploy time is recorded automatically
+
+- **WHEN** `getAppDeployInfo()` is called for a version that has never been recorded
+- **THEN** the backend writes the current script-timezone timestamp to a Script Property keyed `DEPLOY_TIME_<version>` and returns it
+- **AND** subsequent calls return the stored value, so the deploy time cannot drift or be forgotten
+- **AND** Script Properties belonging to other versions are pruned so they do not accumulate
+- **AND** if `PropertiesService` is unavailable the call returns an empty string instead of failing
+
+#### Scenario: Deploy time is pending until the backend answers
+
+- **WHEN** the backend has not responded yet
+- **THEN** the loading screen shows `部署 載入中…`
+- **AND** `fetchAppDeployInfo` is called early in `init()` (while the loading screen is still visible) and refreshes the line on success
+
 ### Requirement: Cache-Busting Reload
 
 The system SHALL reload in a way that cannot be served from the browser cache.
@@ -41,6 +66,12 @@ The system SHALL reload in a way that cannot be served from the browser cache.
 - **WHEN** the same non-matching version is reported again within the same page session
 - **THEN** the system logs a warning and does not reload again (guarded via `sessionStorage`)
 - **AND** this guard is cleared by the reload itself, since a new page load gets a new session
+
+#### Scenario: Backwards compatibility with stale frontends
+
+- **WHEN** a page loaded before the deploy calls `getServerVersion()`
+- **THEN** the function still exists and still returns the version string
+- **AND** the version comparison uses `getAppDeployInfo()`'s `version` field
 
 #### Scenario: Reload can be downgraded to notify-only
 

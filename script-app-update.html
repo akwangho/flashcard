@@ -11,14 +11,69 @@
    *   所以舊的 JS 會一直留在記憶體裡，部署的新功能永遠看不到。
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
-   * @provides FlashcardApp.prototype: setupAppUpdateWatcher,
-   *   checkForAppUpdate, applyServerVersion, _appUpdateReloadUrl,
-   *   _navigateToAppVersion, getLastAppUpdateCheckTime,
+   * @provides FlashcardApp.prototype: renderLoadingVersion, fetchAppDeployInfo,
+   *   setupAppUpdateWatcher, checkForAppUpdate, applyServerVersion,
+   *   _appUpdateReloadUrl, _navigateToAppVersion, getLastAppUpdateCheckTime,
    *   markAppUpdateChecked, _onAppUpdateVisibilityChange
    */
 
   /** sessionStorage 鍵：本次 page session 已經為了哪個版本重載過（避免無限重載迴圈） */
   var APP_UPDATE_RELOAD_GUARD_KEY = 'flashcard-app-update-reloaded-for';
+
+  // =====================================================================
+  // 載入畫面：版本 / 建置時間 / 部署時間
+  // =====================================================================
+
+  /**
+   * 把版本資訊寫進載入畫面（純函式，不依賴 app 實例，讓 parse 階段就能呼叫）。
+   *
+   * 同時顯示三個時間是刻意的：
+   *   - 版本：確認功能版本
+   *   - 建置：寫程式時的時間（靠人工維護，會忘記更新）
+   *   - 部署：這個版本第一次被線上請求到的時間，由伺服器自動記錄，不會漏掉
+   *
+   * @param {string} [deployTime] - 部署時間文字；空值顯示「載入中…」
+   */
+  function renderLoadingVersionText(deployTime) {
+    var el = document.getElementById('loading-version');
+    if (!el) return;
+    var lines = ['v' + APP_CONSTANTS.APP_VERSION];
+    if (APP_CONSTANTS.APP_BUILD_TIME) lines.push('建置 ' + APP_CONSTANTS.APP_BUILD_TIME);
+    lines.push('部署 ' + (deployTime || '載入中…'));
+    el.textContent = lines.join('\n');
+  }
+
+  /**
+   * FlashcardApp.renderLoadingVersion：部署時間未指定時沿用實例上已知的值。
+   * @param {string} [deployTime]
+   */
+  FlashcardApp.prototype.renderLoadingVersion = function(deployTime) {
+    if (deployTime === undefined) deployTime = this._appUpdateDeployTime;
+    renderLoadingVersionText(deployTime);
+  };
+
+  /**
+   * 向後端索取版本／建置／部署資訊，更新載入畫面。
+   * 在載入畫面還看得到的期間呼叫（app init 早期），失敗不影響任何功能。
+   */
+  FlashcardApp.prototype.fetchAppDeployInfo = function() {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+    var self = this;
+    try {
+      google.script.run
+        .withSuccessHandler(function(info) {
+          if (!info) return;
+          self._appUpdateDeployTime = info.deployTime || null;
+          self.renderLoadingVersion();
+        })
+        .withFailureHandler(function(error) {
+          console.warn('取得部署資訊失敗:', error);
+        })
+        .getAppDeployInfo();
+    } catch (e) {
+      console.warn('取得部署資訊呼叫失敗:', e);
+    }
+  };
 
   // =====================================================================
   // localStorage：上次檢查時間（跨 page session 保存，讓「每次重載都檢查」變成節流）
@@ -198,15 +253,21 @@
 
     try {
       google.script.run
-        .withSuccessHandler(function(serverVersion) {
-          self.applyServerVersion(serverVersion, opts.reason);
+        .withSuccessHandler(function(info) {
+          if (info) {
+            self._appUpdateDeployTime = info.deployTime || self._appUpdateDeployTime;
+            self.renderLoadingVersion();
+            self.applyServerVersion(info.version, opts.reason);
+          } else {
+            self.applyServerVersion(null, opts.reason);
+          }
           finish(true);
         })
         .withFailureHandler(function(error) {
           console.warn('版本檢查失敗:', error);
           finish(false, '後端錯誤');
         })
-        .getServerVersion();
+        .getAppDeployInfo();
     } catch (e) {
       console.warn('版本檢查呼叫失敗:', e);
       finish(false, '呼叫例外');
@@ -268,4 +329,9 @@
     console.log('自動檢查新版本：已啟用（檢查間隔 ' +
       Math.round(APP_CONSTANTS.APP_UPDATE_CHECK_INTERVAL_MS / 60000) + ' 分鐘）');
   };
+
+  // =====================================================================
+  // 頁面載入時立刻把版本／建置時間畫到載入畫面（部署時間等後端回應後補上）
+  // =====================================================================
+  renderLoadingVersionText(null);
 </script>

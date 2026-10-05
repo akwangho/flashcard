@@ -6,14 +6,78 @@
    * 已部署版本號（單一版本來源）。
    * 每次發版必須與 script-core.html 的 APP_CONSTANTS.APP_VERSION 保持一致，
    * test/app-update.test.js 會驗證兩者相同，避免前端與後端版本漂移。
-   * 前端「自動檢查新版本」流程會呼叫 getServerVersion() 比對，
+   * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.25.0';
+  var SERVER_VERSION = '1.25.2';
 
-  /** 前端自動檢查新版本用：回傳目前線上部署的版本號 */
+  /**
+   * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
+   * 必須與 script-core.html 的 APP_CONSTANTS.APP_BUILD_TIME 相同；
+   * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
+   * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
+   */
+  var SERVER_BUILD_TIME = '2026-10-05 16:20';
+
+  /** Script Properties 中記錄各版本部署時間的 key 前綴 */
+  var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
+
+  /** 舊版前端（部署前已載入頁面的舊 JS）仍會呼叫此函式 → 保留相容性 */
   function getServerVersion() {
     return SERVER_VERSION;
+  }
+
+  /**
+   * 版面資訊：版本 + 建置時間 + 部署時間。
+   * 前端用 version 做自動更新比對，並在載入畫面同時顯示後兩者。
+   * @returns {{version: string, buildTime: string, deployTime: string}}
+   */
+  function getAppDeployInfo() {
+    return {
+      version: SERVER_VERSION,
+      buildTime: SERVER_BUILD_TIME,
+      deployTime: recordDeployTime(SERVER_VERSION)
+    };
+  }
+
+  /**
+   * 取得（並在第一次看到該版本時記錄）此版本的部署時間。
+   *
+   * 「部署時間」＝ 這個版本第一次被線上請求到的時間 ≈ clasp push 之後幾秒內，
+   * 由伺服器自動寫入 Script Properties，所以不可能忘記更新；
+   * 使用者只要看載入畫面的「部署」時間，就能確認線上跑的是哪一次推送。
+   *
+   * @param {string} version - 版本號
+   * @returns {string} 部署時間（YYYY-MM-DD HH:mm，script timezone）；無法記錄時回傳空字串
+   */
+  function recordDeployTime(version) {
+    var props;
+    try {
+      props = PropertiesService.getScriptProperties();
+    } catch (e) {
+      return '';
+    }
+
+    var key = DEPLOY_TIME_PROP_PREFIX + version;
+    try {
+      var existing = props.getProperty(key);
+      if (existing) return existing;
+
+      var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+      props.setProperties({ key: now }, true);
+
+      // 只保留最新版本的部署時間，避免 Script Properties 逐版累積
+      var keys = props.getKeys();
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i].indexOf(DEPLOY_TIME_PROP_PREFIX) === 0 && keys[i] !== key) {
+          props.deleteProperty(keys[i]);
+        }
+      }
+      return now;
+    } catch (e) {
+      // 無寫入權限等情況：功能本身不應因此失敗
+      return '';
+    }
   }
 
   function doGet() {

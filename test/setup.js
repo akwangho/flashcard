@@ -25,6 +25,7 @@ function createDOMElements() {
     'app', 'loading', 'error', 'flashcard',
     // Loading progress
     'loading-progress-fill', 'loading-progress-bar', 'loading-status-text',
+    'loading-version',
     // Speech activation
     'speech-activation-container', 'activate-speech-btn',
     // Flashcard display
@@ -397,7 +398,8 @@ function setupMocks() {
     'detectDuplicateWords', 'handleDuplicateWordKeepOne', 'handleDuplicateWordMerge',
     'autoHandleSkippedDuplicatesInMemory', 'autoHandleSkippedDuplicates',
     'queryKKPhonetic',
-    'getServerVersion'
+    'getServerVersion',
+    'getAppDeployInfo'
   ];
   gasFunctions.forEach(function(fn) {
     mockRunner[fn] = function() { return mockRunner; };
@@ -536,7 +538,8 @@ function bootstrapApp() {
     'if (typeof formatDateYYYYMMDD !== "undefined") { global.formatDateYYYYMMDD = formatDateYYYYMMDD; }\n' +
     'if (typeof isModalBackgroundClick !== "undefined") { global.isModalBackgroundClick = isModalBackgroundClick; }\n' +
     'if (typeof getWordType !== "undefined") { global.getWordType = getWordType; }\n' +
-    'if (typeof isWordFormList !== "undefined") { global.isWordFormList = isWordFormList; }\n';
+    'if (typeof isWordFormList !== "undefined") { global.isWordFormList = isWordFormList; }\n' +
+    'if (typeof renderLoadingVersionText !== "undefined") { global.renderLoadingVersionText = renderLoadingVersionText; }\n';
   var script = new Function(exportCode);
   script.call(global);
 }
