@@ -588,9 +588,8 @@
     // 記下重播前是否真的有語音在播：只有真的被打斷時才需要等 cancel 生效
     var wasSpeaking = this._isSpeechBusy();
     try { this.speechSynthesis.cancel(); } catch (e) {}
-    var baseRate = (this.voiceSettings && this.voiceSettings.rate) ? this.voiceSettings.rate : 1;
-    var slowRate = Math.max(0.1, baseRate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
-    this._speechRateOverride = isSlow ? slowRate : null;
+    // 慢速為固定 0.1（不隨語音速率設定縮放），與早期版本體感一致
+    this._speechRateOverride = isSlow ? APP_CONSTANTS.SLOW_SPEECH_RATE : null;
     var self = this;
     var text = w.english;
     var play = function() {

@@ -438,7 +438,7 @@ describe('speakEnglishWord', function() {
 
     var spacedSpy = jest.spyOn(app, 'speakEnglishLettersSpaced');
     var lettersSpy = jest.spyOn(app, 'speakEnglishLetters');
-    var slowRate = Math.max(0.1, app.voiceSettings.rate * APP_CONSTANTS.SLOW_SPEECH_RATE_FACTOR);
+    var slowRate = APP_CONSTANTS.SLOW_SPEECH_RATE;
 
     // Simulate P-key even press: bump playId, set slow override, speak whole word only
     app._speechPlayId = (app._speechPlayId || 0) + 1;
@@ -767,8 +767,8 @@ describe('replayCurrentWordAudio (P key)', function() {
 
     app.replayCurrentWordAudio();
     var secondRate = global.speechSynthesis.speak.mock.calls[1][0].rate;
-    // 慢速 = max(0.1, rate × SLOW_SPEECH_RATE_FACTOR)，與實作同式
-    expect(secondRate).toBe(Math.max(0.1, app.voiceSettings.rate * 0.1)); // 第 2 次：慢速
+    // 慢速 = 固定 0.1（不隨語音速率縮放）
+    expect(secondRate).toBe(APP_CONSTANTS.SLOW_SPEECH_RATE); // 第 2 次：慢速
   });
 
   test('always uses normal rate for sentences, never the slow replay', function() {

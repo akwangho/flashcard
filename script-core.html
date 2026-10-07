@@ -111,9 +111,9 @@
     SWIPE_TIME_LIMIT_MS: 500,          // 最大滑動時間（ms）
     TOAST_CONFIRM_DURATION_MS: 1500,   // Toast 確認訊息顯示時間
     SPELL_LETTER_GAP_MS: 100,          // 拼讀字母與單字之間的間隔
-    // P 鍵第二次按下時的慢速倍率（相對 voiceSettings.rate）
-    // 對齊 Google 字典喇叭「連點變慢」：約 1/10 速，方便逐音節聽清楚（預設 rate 0.8 → 約 0.08，下限 0.1）
-    SLOW_SPEECH_RATE_FACTOR: 0.1,
+    // P 鍵第二次（偶數次）按下時的慢速速率（固定值，不受語音速率設定影響）
+    // 對齊 Google 字典喇叭「連點變慢」的體感：0.1 速最慢，方便逐音節聽清楚
+    SLOW_SPEECH_RATE: 0.1,
     // P 鍵重播前等待 speechSynthesis.cancel() 生效的輪詢間隔與上限：
     // iOS Safari 的 cancel() 是非同步的，同一個 tick 內立刻 speak() 會被一起清掉（完全無聲），
     // 因此發音中重播必須等 speaking/pending 歸零後再播。
