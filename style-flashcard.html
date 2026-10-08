@@ -139,9 +139,20 @@
     background: rgba(4, 44, 84, 0.72);
   }
   
-  /* 與 .word 的響應式字級同步（style-base.html 的 768px 斷點） */
+  /* 片語組合音標較長（如 /ðə ˋnɛðɚlændz/、多字型態列組合）→ 字級減半，
+     單行（white-space: nowrap）不超出畫面寬度；閾值由 APP_CONSTANTS.KK_PHONETIC_LONG_LENGTH 控制 */
+  .kk-phonetic-display.kk-phonetic-long {
+    font-size: 48px;
+  }
+  
+  /* 與 .word 的響應式字級同步（style-base.html 的 768px 斷點）；
+     手機版基準已是 36px（夠容納長音標），長音標 class 不再另外縮小 */
   @media (max-width: 768px) {
     .kk-phonetic-display {
+      font-size: 36px;
+      font-size: var(--font-3xl);
+    }
+    .kk-phonetic-display.kk-phonetic-long {
       font-size: 36px;
       font-size: var(--font-3xl);
     }

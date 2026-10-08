@@ -4,7 +4,8 @@
  *
  * 涵蓋：
  *  - 顯示開關（預設關閉；開啟時才顯示/查詢/pre-cache）
- *  - 只針對「單字」（phrase / sentence 不顯示、不查詢、不 pre-cache）
+ *  - 只針對「單字與片語」（sentence 不顯示、不查詢、不 pre-cache；
+ *    片語如 the Netherlands 由後端拆成各單字組合音標）
  *  - I 欄（word.kkPhonetic）已有音標 → 直接顯示，不呼叫 GAS
  *  - I 欄沒有 → 從 GAS 查詢、顯示、寫回 Sheet I 欄與記憶體
  *  - pre-cache（目前 + 接下來 N 個單字）
@@ -91,11 +92,12 @@ describe('KK phonetic eligibility', function() {
     expect(app._isKKPhoneticEligible(null)).toBe(false);
   });
 
-  test('eligible only for word type', function() {
+  test('eligible for word and phrase types, not sentence', function() {
     app.settings.showKKPhonetic = true;
     expect(app._isKKPhoneticEligible(makeWord({ english: 'apple' }))).toBe(true);
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'hot dog' }))).toBe(false);   // phrase
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'I am a boy.' }))).toBe(false); // sentence
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'the Netherlands' }))).toBe(true); // phrase
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'hot dog' }))).toBe(true);        // phrase
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'I am a boy.' }))).toBe(false);    // sentence
   });
 
   test('eligible for word form lists and hyphenated compounds', function() {
@@ -104,7 +106,8 @@ describe('KK phonetic eligibility', function() {
     expect(app._isKKPhoneticEligible(makeWord({ english: 'woman / women' }))).toBe(true);
     expect(app._isKKPhoneticEligible(makeWord({ english: 'twenty-five' }))).toBe(true);
     expect(app._isKKPhoneticEligible(makeWord({ english: 'mother-in-law' }))).toBe(true);
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'take off / take out' }))).toBe(false); // phrase
+    // 「take off / take out」各段含空格 → phrase（可查詢；後端無法拆解 → 空結果）
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'take off / take out' }))).toBe(true);
   });
 });
 
@@ -299,12 +302,66 @@ describe('KK phonetic display', function() {
     }, 10);
   });
 
-  test('hides display for phrase/sentence even when setting on', function() {
+  test('hides display for sentence even when setting on', function() {
     var el = document.getElementById('kk-phonetic-display');
     app.settings.showKKPhonetic = true;
-    app.updateKKPhoneticDisplay(makeWord({ english: 'hot dog' }));
+    app.updateKKPhoneticDisplay(makeWord({ english: 'I am ok.' }));
     expect(el.style.display).toBe('none');
     expect(app._kkApiCalls.length).toBe(0);
+  });
+
+  test('queries and displays combined phonetic for phrases (the Netherlands)', function(done) {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    google.script.run.queryKKPhonetic = function(word) {
+      app._kkApiCalls.push(word);
+      var successHandler = this._successHandler;
+      setTimeout(function() {
+        if (successHandler) {
+          // 後端拆字組合的片語音標（the + Netherlands，單字間以空白連接）
+          successHandler({ success: true, word: word, candidates: ['ðə ˋnɛðɚlændz'], source: 'dict' });
+        }
+      }, 0);
+      return this;
+    };
+    var word = makeWord({ english: 'the Netherlands', kkPhonetic: '' });
+
+    app.updateKKPhoneticDisplay(word);
+    expect(app._kkApiCalls.length).toBe(1);
+    expect(app._kkApiCalls[0]).toBe('the Netherlands');
+
+    setTimeout(function() {
+      app._maybeShowKKPhonetic(); // 顯示時機已到
+      expect(el.textContent).toBe('/ðə ˋnɛðɚlændz/');
+      expect(el.style.display).toBe('flex');
+      expect(el.classList.contains('kk-phonetic-long')).toBe(false); // 14 字內不縮小字級
+      // 組合音標寫回原本單字資料（之後同片語直接命中、不再查詢）
+      expect(word.kkPhonetic).toBe('ðə ˋnɛðɚlændz');
+      done();
+    }, 10);
+  });
+
+  test('applies kk-phonetic-long class for long combined phrase phonetics', function(done) {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    google.script.run.queryKKPhonetic = function(word) {
+      app._kkApiCalls.push(word);
+      var successHandler = this._successHandler;
+      setTimeout(function() {
+        if (successHandler) {
+          successHandler({ success: true, word: word, candidates: ['ðə juˋnaɪtəd ˋstets əv əˋmɛrəkə'], source: 'dict' });
+        }
+      }, 0);
+      return this;
+    };
+
+    app.updateKKPhoneticDisplay(makeWord({ english: 'the United States of America', kkPhonetic: '' }));
+
+    setTimeout(function() {
+      app._maybeShowKKPhonetic();
+      expect(el.classList.contains('kk-phonetic-long')).toBe(true);
+      done();
+    }, 10);
   });
 
   test('stale response does not display after word switch (race condition)', function(done) {
@@ -402,7 +459,7 @@ describe('KK phonetic precache', function() {
     expect(app._kkApiCalls.length).toBe(0);
   });
 
-  test('precache upcoming words only (word type)', function() {
+  test('precache upcoming words only (word and phrase types)', function() {
     app.settings.showKKPhonetic = true;
     app.currentWords = [
       makeWord({ id: 1, english: 'cat', kkPhonetic: 'kæt', originalRowIndex: 1 }),
@@ -415,8 +472,8 @@ describe('KK phonetic precache', function() {
 
     app.precacheUpcomingKKPhonetics(5);
 
-    // cat 已有音標（I 欄）→ 不查；hot dog / I am ok. 非單字 → 不查；dog、sun → 查
-    expect(app._kkApiCalls.sort()).toEqual(['dog', 'sun']);
+    // cat 已有音標（I 欄）→ 不查；I am ok. 為 sentence → 不查；dog、hot dog、sun → 查
+    expect(app._kkApiCalls.sort()).toEqual(['dog', 'hot dog', 'sun']);
   });
 
   test('wraps around circular list', function() {
@@ -581,10 +638,32 @@ describe('fetchKKPhonetic', function() {
     });
   });
 
-  test('returns null for non-word content', function(done) {
-    app.fetchKKPhonetic(makeWord({ english: 'hot dog' }), {}, function(r) {
+  test('returns null for sentence content', function(done) {
+    app.fetchKKPhonetic(makeWord({ english: 'I am ok.' }), {}, function(r) {
       expect(r).toBe(null);
       expect(app._kkApiCalls.length).toBe(0);
+      done();
+    });
+  });
+
+  test('queries phrase content and caches empty result when backend cannot combine', function(done) {
+    // 片語（the Netherlands 等）會發查詢；後端任一字查無 → 空結果一樣進快取，避免反覆查詢
+    google.script.run.queryKKPhonetic = function(word) {
+      app._kkApiCalls.push(word);
+      var successHandler = this._successHandler;
+      setTimeout(function() {
+        if (successHandler) {
+          successHandler({ success: true, word: word, candidates: [], source: 'none' });
+        }
+      }, 0);
+      return this;
+    };
+    var word = makeWord({ english: 'take off / take out', kkPhonetic: '' });
+
+    app.fetchKKPhonetic(word, {}, function(r) {
+      expect(r).not.toBe(null);
+      expect(r.phonetic).toBe('');
+      expect(app._kkApiCalls).toEqual(['take off / take out']);
       done();
     });
   });

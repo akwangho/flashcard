@@ -12,12 +12,14 @@
    *
    * 資料流：
    *   - Google Sheet I 欄（word.kkPhonetic）已有音標 → 直接顯示，不再呼叫 GAS。
-   *   - I 欄沒有且內容為「單字」（getWordType === 'word'）→ 從 GAS 查詢；
+   *   - I 欄沒有且內容為「單字或片語」（getWordType === 'word' / 'phrase'）→ 從 GAS 查詢；
    *     後端查找順序：字庫工作表（使用者指定 → 單字檔 → 綁定；12.6 萬單字）
    *     → 外部字典 API；線上查到後自動存入字庫工作表，
    *     之後同單字直接命中字庫。取得後立即顯示，並寫回 I 欄
    *     （updateWordProperties { kkPhonetic }）。
-   *   - phrase / sentence 不顯示、不查詢、不 pre-cache。
+   *   - 片語（the Netherlands、hot dog 等以空白分隔的多字內容）由後端拆成
+   *     各單字逐字查詢後以空白組合（如 ðə ˋnɛðɚlændz）；任一字查無 → 不顯示。
+   *   - sentence 不顯示、不查詢、不 pre-cache。
    *   - API 失敗只記錄 console，不影響 Flashcard 原本功能。
    *   - 晚回來的回應可寫回原本單字資料（依列寫入），但不會顯示到目前卡片（token 比對）。
    *
@@ -174,15 +176,17 @@
   };
 
   /**
-   * 該單字是否適用 KK 音標：功能開啟 + 有英文 + 類型為「單字」。
-   * phrase / sentence 一律不適用（不顯示、不查詢、不 pre-cache）。
+   * 該單字是否適用 KK 音標：功能開啟 + 有英文 + 類型為「單字」或「片語」。
+   * 片語（the Netherlands、hot dog）由後端拆成各單字組合音標；
+   * sentence 一律不適用（不顯示、不查詢、不 pre-cache）。
    * @param {Object} word - 單字物件
    * @returns {boolean}
    */
   FlashcardApp.prototype._isKKPhoneticEligible = function(word) {
     if (!this.settings.showKKPhonetic) return false;
     if (!word || !word.english || word.english.trim() === '') return false;
-    return getWordType(word.english) === 'word';
+    var type = getWordType(word.english);
+    return type === 'word' || type === 'phrase';
   };
 
   /**
@@ -191,7 +195,7 @@
    * 此處只做查詢與隱藏重置；實際顯示時機為 Phase 2（第二語言出現時），
    * 由 _revealSecondPart（一般/先中文/聽力）與 _displayCarouselWord（輪播）
    * 呼叫 _maybeShowKKPhonetic 觸發，以 0.5s 淡入與 .word 動畫一致。
-   *  - 功能關閉 / 非單字 → 隱藏。
+   *  - 功能關閉 / 非單字與片語（sentence）→ 隱藏。
    *  - I 欄或快取已有音標 → 暫存結果，等顯示時機（不呼叫 GAS）。
    *  - 否則從 GAS 查詢；回應時比對顯示 token，僅在仍停留在同一單字時暫存/顯示。
    * @param {Object} word - 當前單字物件
@@ -249,6 +253,7 @@
       el.textContent = '';
       el.classList.remove('show');
       el.classList.remove('kk-needs-review');
+      el.classList.remove('kk-phonetic-long');
     }
     this._kkPendingResult = null;
     this._kkPendingNeedsReview = false;
@@ -276,6 +281,8 @@
    * 實際將音標文字顯示在畫面正中央（以斜線包團，如 /faɪr/）。
    * needsReview = true（多候選查詢的暫定第一候選、尚未人為選定）→ 套用
    * kk-needs-review 特殊顏色，提示使用者開啟編輯單字選定符合學習發音的音標。
+   * 片語組合音標較長（如 /ðə ˋnɛðɚlændz/）→ 套用 kk-phonetic-long 縮小字級，
+   * 單行不超出畫面寬度（與既有 white-space: nowrap 策略一致）。
    * @param {string} phonetic - 音標字串（不含斜線）
    * @param {boolean} [needsReview] - 是否為多候選待確認
    */
@@ -283,6 +290,12 @@
     var el = document.getElementById('kk-phonetic-display');
     if (!el) return;
     el.textContent = '/' + phonetic + '/';
+    var longThreshold = (APP_CONSTANTS && APP_CONSTANTS.KK_PHONETIC_LONG_LENGTH) || 14;
+    if (phonetic.length > longThreshold) {
+      el.classList.add('kk-phonetic-long');
+    } else {
+      el.classList.remove('kk-phonetic-long');
+    }
     if (needsReview) {
       el.classList.add('kk-needs-review');
     } else {
@@ -351,7 +364,8 @@
     if (typeof callback !== 'function') callback = null;
 
     var english = word ? (word.english || '').toString().trim() : '';
-    if (!english || getWordType(english) !== 'word') {
+    // sentence 不查詢；word / phrase 皆可（片語由後端拆字組合音標）
+    if (!english || getWordType(english) === 'sentence') {
       if (callback) callback(null);
       return;
     }
@@ -535,7 +549,7 @@
   /**
    * 預先抓取即將輪到的單字 KK 音標（預設包含目前 + 接下來 N 個），
    * 避免輪到該單字時因網路延遲造成音標晚出現。
-   *  - 僅處理「單字」（phrase / sentence 跳過）。
+   *  - 僅處理「單字與片語」（sentence 跳過；片語由後端拆字組合音標）。
    *  - 已有音標（I 欄/快取）或正在查詢中的單字不重複發送 request。
    *  - 完全非同步，不阻塞目前單字顯示；失敗靜默。
    * @param {number} [count] - 預抓數量，預設 APP_CONSTANTS.KK_PHONETIC_PRECACHE_COUNT
@@ -550,7 +564,7 @@
       var idx = (this.currentIndex + i) % total;
       var w = this.currentWords[idx];
       if (!w || !w.english) continue;
-      if (getWordType(w.english) !== 'word') continue;   // 只針對單字
+      if (getWordType(w.english) === 'sentence') continue;  // sentence 不預抓（word / phrase 皆預抓）
       if (this.resolveKKPhonetic(w)) continue;           // I 欄或快取已有 → 不打 API
       // fetchKKPhonetic 內建 in-flight dedupe，重複呼叫不會重複發送 request
       this.fetchKKPhonetic(w, {}, null);
@@ -613,7 +627,7 @@
       // 一般單字卡：只處理即將輪到的範圍
       var offset = ((i - this.currentIndex) % total + total) % total;
       if (offset > windowSize) continue;
-      if (this.settings.showKKPhonetic && getWordType(w.english) === 'word') {
+      if (this.settings.showKKPhonetic && getWordType(w.english) !== 'sentence') {
         var phonetic = this.resolveKKPhonetic(w);
         if (phonetic) this.preloadKKAudio(phonetic);
       }

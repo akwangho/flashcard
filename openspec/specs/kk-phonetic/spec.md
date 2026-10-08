@@ -58,7 +58,7 @@ The system SHALL use Google Sheet column I (`KK音標`) to store the KK phonetic
 
 #### Scenario: Column I is empty for a word
 
-- **WHEN** a word is displayed, column I is empty, and the content is a single word
+- **WHEN** a word or phrase is displayed, column I is empty, and the content is a word or phrase (not a sentence)
 - **THEN** the phonetic is fetched from the GAS API
 - **AND** the first candidate is displayed as soon as it arrives
 - **AND** all found candidates are written back to column I comma-joined (a single candidate is stored as-is)
@@ -69,16 +69,26 @@ The system SHALL use Google Sheet column I (`KK音標`) to store the KK phonetic
 - **THEN** the backend splits the cell into `kkPhonetic` (the first candidate, the display value) and `kkCandidates` (all candidates)
 - **AND** the frontend shows the first candidate in the needs-review colour until a selection is confirmed
 
-### Requirement: Word-Type Only
+### Requirement: Word and Phrase Content
 
-The system SHALL restrict KK phonetic display, fetching, and pre-caching to content classified as a single word.
+The system SHALL restrict KK phonetic display, fetching, and pre-caching to content classified as a word or a phrase.
 A "word" also covers semicolon- or slash-separated word-form lists (e.g. `swing; swung; swung`, `woman / women`) where every segment is a single English token, and hyphenated compounds (e.g. `twenty-five`, `mother-in-law`).
+A "phrase" is space-separated multi-word content (e.g. `the Netherlands`, `hot dog`) — the backend resolves it per word, so phrases whose tokens contain punctuation or other separators yield no phonetic.
 
-#### Scenario: Phrase or sentence content
+#### Scenario: Sentence content
 
-- **WHEN** the displayed content is a phrase or sentence (multi-word content)
+- **WHEN** the displayed content is a sentence
 - **THEN** no phonetic is displayed
 - **AND** no phonetic is fetched or pre-cached for that content
+
+#### Scenario: Phrase content (per-word combination)
+
+- **WHEN** the content is a phrase of single English word tokens (e.g. `the Netherlands`, `hot dog`, `don't stop`)
+- **THEN** it is treated like a word: the phonetic is displayed, fetched, and pre-cached
+- **AND** the backend resolves each word against the dictionary (falling back to the external APIs per word, caching each word found online) and combines the per-word candidates space-joined (e.g. `the Netherlands` → `ðə ˋnɛðɚlændz`)
+- **AND** every word must resolve: if any word has no phonetic, the phrase yields no candidates (no partial phonetic is shown)
+- **AND** multiple combined candidates follow the normal multi-candidate flow (first candidate displayed in the needs-review colour, all candidates comma-joined in column I)
+- **AND** a long combined phonetic (over `KK_PHONETIC_LONG_LENGTH` characters) renders at a reduced font size via the `kk-phonetic-long` class so it stays on one line within the screen width
 
 #### Scenario: Word-form list content
 
@@ -104,7 +114,7 @@ The system SHALL display the KK phonetic in the centre of the flashcard while th
 
 #### Scenario: Setting turned off
 
-- **WHEN** the feature is disabled (or content is not a word)
+- **WHEN** the feature is disabled (or content is a sentence)
 - **THEN** the phonetic element is hidden and cleared
 
 #### Scenario: Timing matches the second-language reveal (phase 2)
@@ -158,7 +168,7 @@ The system SHALL pre-fetch phonetics for the current and upcoming words while th
 #### Scenario: Pre-cache upcoming words
 
 - **WHEN** a card is displayed
-- **THEN** phonetics for the next several words (including the current one) are fetched in the background, skipping words that already have a phonetic (column I or cache) or a fetch in flight, and skipping non-word content
+- **THEN** phonetics for the next several words (including the current one) are fetched in the background, skipping content that already has a phonetic (column I or cache) or a fetch in flight, and skipping sentence content
 
 #### Scenario: No blocking
 
@@ -194,6 +204,7 @@ The system SHALL expose a GAS function and HTTP endpoint for querying candidate 
 - **THEN** the `KK音標字庫` dictionary worksheet is consulted first via `TextFinder` (searched in order: the spreadsheet registered via `setKKDictSpreadsheet` → the word-file spreadsheet → the bound spreadsheet; columns: A = 單字, B = KK音標; multiple rows per word allowed; case-insensitive match)
 - **AND** no phonetics are hard-coded in source; the dictionary data lives only in the worksheet and in the data files under `data/`
 - **AND** the dictionary worksheet content is authoritative over earlier imported data: the WordGo.apk built-in dictionary (77,620 single words, converted by `scripts/wordgo-kk-build-data.mjs`) was merged in so WordGo's phonetics are the first candidate for every word it covers (WordGo's own entries that the worksheet did not have were appended)
+- **AND** word-form lists (semicolon- or slash-separated single-word segments) and phrases (space-separated single-word tokens) that are not in the dictionary as a whole are resolved per segment/word against the dictionary and external APIs, and the per-word candidates are combined space-joined, requiring every segment/word to resolve
 - **AND** if not found, external dictionary REST APIs are queried server-side in order: Free Dictionary API (dictionaryapi.dev, IPA converted to KK via `ipaToKK`), then moedict English API
 - **AND** if neither yields a result, an empty candidate list with `source: 'none'` is returned
 

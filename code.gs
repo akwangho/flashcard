@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.25.3';
+  var SERVER_VERSION = '1.25.4';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-07 17:11';
+  var SERVER_BUILD_TIME = '2026-10-08 19:44';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -1647,7 +1647,9 @@ function countValidWords(sheet) {
   /**
   * 查詢單字的所有候選 KK 音標（前端主要進入點，google.script.run 呼叫）。
   * 查找順序：
-  *   1. KK 音標字庫工作表（使用者指定 → 單字檔 → 綁定試算表）+ 內建字庫
+  *   1. KK 音標字庫工作表（使用者指定 → 單字檔 → 綁定試算表）整串查找
+  *   1.5 單字型態列（swing; swung; swung）→ 拆段逐段查找後組合
+  *   1.75 片語（the Netherlands、hot dog）→ 拆成各單字逐字查找後以空白組合
   *   2. 外部字典 REST API（Free Dictionary → moedict）；
   *      查到後自動存入字庫工作表，之後同單字直接命中字庫、不再打外部 API
   * @param {string} word - 英文單字
@@ -1698,6 +1700,36 @@ function countValidWords(sheet) {
         }
       }
 
+      // 1.75) 片語（the Netherlands、hot dog 等以空白分隔的多字內容）：
+      //       整串在字庫查不到，拆成各單字逐字查詢後組合（單字間以空白連接）。
+      //       每個單字都查得到才回傳組合結果；任一字查無 → 空結果（不顯示錯誤的部分音標）。
+      var phraseWords = splitPhraseIntoWords_(trimmed);
+      if (phraseWords) {
+        var phraseCandidates = [];
+        var allPhraseFound = true;
+        var anyPhraseWeb = false;
+        for (var pw = 0; pw < phraseWords.length; pw++) {
+          var pwKey = phraseWords[pw].toLowerCase();
+          var pwDict = lookupKKPhoneticAnywhere(pwKey, wordsSheetId);
+          if (pwDict.length === 0) {
+            var pwWeb = fetchKKPhoneticFromWeb(phraseWords[pw]);
+            if (pwWeb.candidates.length > 0) {
+              pwDict = pwWeb.candidates;
+              anyPhraseWeb = true;
+              // 各單字查到的結果存入字庫，之後直接命中
+              saveKKPhoneticToDictionary(pwKey, pwDict, wordsSheetId);
+            }
+          }
+          if (pwDict.length === 0) { allPhraseFound = false; break; }
+          phraseCandidates.push(pwDict);
+        }
+        if (allPhraseFound) {
+          var phraseCombined = combineWordFormPhonetics_(phraseCandidates);
+          console.log('KK 音標（片語組合）:', trimmed, phraseCombined);
+          return { success: true, word: trimmed, candidates: phraseCombined, source: anyPhraseWeb ? 'web' : 'dict' };
+        }
+      }
+
       // 2) 外部字典 REST API
       var web = fetchKKPhoneticFromWeb(trimmed);
       if (web.candidates.length > 0) {
@@ -1741,6 +1773,29 @@ function countValidWords(sheet) {
       var seg = segments[i].trim();
       if (!seg || !wordToken.test(seg)) return null;
       out.push(seg);
+    }
+    return out;
+  }
+
+  /**
+  * 將片語（the Netherlands、hot dog 等以空白分隔的多字內容）拆成各單字。
+  * 每個字皆須為單一英文詞（可含 hyphen/撇號，如 mother-in-law、don't）才成立；
+  * 含標點或其他符號（含「;」「/」分隔的型態列、句子片段）回 null，交由一般流程。
+  * 與 script-core.html 的 getWordType（phrase 分類）保持同步。
+  * @param {string} word - 英文字串
+  * @returns {Array<string>|null}
+  */
+  function splitPhraseIntoWords_(word) {
+    var trimmed = (word || '').toString().trim();
+    if (!trimmed) return null;
+    if (!/\s/.test(trimmed)) return null;
+    var tokens = trimmed.split(/\s+/);
+    if (tokens.length < 2) return null;
+    var wordToken = /^[A-Za-z][A-Za-z'-]*$/;
+    var out = [];
+    for (var i = 0; i < tokens.length; i++) {
+      if (!wordToken.test(tokens[i])) return null;
+      out.push(tokens[i]);
     }
     return out;
   }
