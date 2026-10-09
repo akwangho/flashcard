@@ -2,275 +2,99 @@
 
 ## Purpose
 
-Defines the application shell: loading screen, visual theme, fullscreen mode, image display, modal system, menu system, toast notifications, word search, and CSS design tokens.
+Application shell: loading screen, dark theme, fullscreen, image display, modal system, menu, quick-settings presets, active-filter indicator, toasts, and word search.
 
 ## Requirements
 
 ### Requirement: Loading Screen
 
-The system SHALL display a loading screen during startup and word reload.
+The system SHALL show a loading screen during startup and word reload.
 
-#### Scenario: Last-viewed word display
+#### Scenario: Content
 
-- **WHEN** the loading screen appears (on startup or "Reload words")
-- **THEN** the last-viewed word is read from LocalStorage (`flashcard-last-word`) and shown
-- **AND** if no saved word exists, "Ready / 準備好的；有準備的" is shown
+- **WHEN** the loading screen appears
+- **THEN** it shows the last-viewed word from localStorage (`flashcard-last-word`; fallback "Ready / 準備好的；有準備的"), a progress bar (indeterminate → determinate "loading sheet N of M" → completion), and small grey version + build date/time text
 
-#### Scenario: Real progress bar
+### Requirement: Visual Theme and Responsive Layout
 
-- **WHEN** sheets are being loaded
-- **THEN** the progress bar passes through three phases:
-  1. Indeterminate animation (connecting to Google Sheet)
-  2. Determinate percentage (loading sheet N of M)
-  3. Completion (processing → done)
+The system SHALL use a dark theme with CSS variables and hard-coded fallbacks: `--primary-color` #FFFF00, `--bg-color` #000000, `--text-color` #FFFFFF, `--gray-color` #888888, `--success-color` #00FF00, `--error-color` #FF6B6B, `--warning-color` #FFA500. The viewport uses `user-scalable=no` and `maximum-scale=1.0`, with sufficiently large touch targets on touch devices.
 
-#### Scenario: Version display
+#### Scenario: Palette and viewport
 
-- **WHEN** the loading screen is shown
-- **THEN** the application version number is displayed in small grey text below the progress bar
-- **AND** the build date and time for that version are shown on the line below the version string
-
-### Requirement: Visual Theme
-
-The system SHALL use a dark colour theme with yellow primary text.
-
-#### Scenario: Colour palette
-
-- **WHEN** the UI is rendered
-- **THEN** the following CSS variable-based colours are used (with hard-coded fallbacks for legacy browsers):
-
-| Variable | Value | Usage |
-|----------|-------|-------|
-| `--primary-color` | `#FFFF00` | Primary text (yellow) |
-| `--bg-color` | `#000000` | Background (black) |
-| `--text-color` | `#FFFFFF` | General text (white) |
-| `--gray-color` | `#888888` | Secondary text |
-| `--success-color` | `#00FF00` | Success (green) |
-| `--error-color` | `#FF6B6B` | Error (red) |
-| `--warning-color` | `#FFA500` | Warning (orange) |
+- **WHEN** the UI renders on a touch device
+- **THEN** the variables above apply (yellow primary text on black, white general text) with legacy fallbacks, and interactive buttons keep large tap targets
 
 ### Requirement: Fullscreen Mode
 
-The system SHALL support entering and exiting fullscreen.
+#### Scenario: Toggle and iOS fallback
 
-#### Scenario: Enter fullscreen
-
-- **WHEN** the user triggers fullscreen (F key or menu button)
-- **THEN** the system calls the appropriate fullscreen API (`requestFullscreen`, `webkitRequestFullscreen`, `mozRequestFullScreen`, or `msRequestFullscreen`)
-- **AND** the button label changes to "Exit fullscreen"
-
-#### Scenario: iOS fallback
-
-- **WHEN** an iOS device is detected (Safari/Chrome on iOS does not support fullscreen API)
-- **THEN** a "Add to Home Screen" guidance message is shown
-- **WHEN** the app is already running standalone (`navigator.standalone`)
-- **THEN** a message indicates that fullscreen mode is already active
+- **WHEN** the user presses F or the menu button
+- **THEN** fullscreen toggles via the vendor-prefixed APIs (`requestFullscreen`/`webkit…`/`moz…`/`ms…`) and the label switches to Exit fullscreen
+- **WHEN** on iOS (no fullscreen API)
+- **THEN** an "Add to Home Screen" hint shows — or an already-standalone message when `navigator.standalone`
 
 ### Requirement: Image Display
 
-The system SHALL display an associated image for words that have an image URL.
+The system SHALL show a word's image (when it has a URL) as the card background when the translation appears in phase 2, scaled `contain` (no cropping), with a semi-transparent black text backdrop for legibility.
 
-#### Scenario: Image shown with translation
+#### Scenario: Preloading
 
-- **WHEN** the Chinese translation is revealed in phase 2
-- **AND** the current word has an image URL
-- **THEN** the image is shown as the background of the flashcard container, scaled with `contain` (no cropping)
-
-#### Scenario: Text legibility on image
-
-- **WHEN** an image is displayed as background
-- **THEN** the word text has a semi-transparent black background to ensure readability
-
-#### Scenario: Image preloading
-
-- **WHEN** displaying a word
-- **THEN** the system preloads images for the current and the next 10 upcoming words (`preloadUpcomingImages`)
-- **AND** every in-progress preload keeps a reference to its image object until the load finishes, so the browser does not cancel the download (WebKit cancels downloads of garbage-collected image elements)
-- **AND** a URL that is already downloading does not trigger a duplicate download request (in-flight dedupe)
-
-#### Scenario: Preload completion and failure
-
-- **WHEN** a preloaded image finishes downloading
-- **THEN** its URL is remembered as preloaded for the session and the image object reference is released
-- **WHEN** a preloaded image fails to download
-- **THEN** its URL is not marked as preloaded, so it may be retried when it re-enters the preload window
+- **WHEN** a word is displayed
+- **THEN** images for the current + next 10 words are preloaded (`preloadUpcomingImages`): in-progress loads keep their image-object reference until done (WebKit cancels GC'd downloads), duplicate in-flight URLs are deduplicated, successful URLs are remembered for the session, and failed URLs are retried when they re-enter the window
 
 ### Requirement: Modal System
 
-The system SHALL present all secondary interfaces as modals with consistent open/close behaviour.
-
-#### Scenario: Common modal behaviour
-
-- **WHEN** any modal is opened
-- **THEN** the carousel is automatically paused
-- **WHEN** any modal is closed
-- **THEN** the carousel resumes (unless it was already paused before opening)
-- **AND** clicking outside the modal (on the backdrop) closes it
-
-#### Scenario: Custom confirm dialog
-
-- **WHEN** a confirmation is needed (e.g., reload words, overwrite sheet)
-- **THEN** a custom HTML modal replaces the browser's native `confirm()` to avoid exiting fullscreen
-- **AND** the dialog supports: title, message (with line breaks), optional warning text, custom button labels
+The system SHALL present secondary interfaces as modals: opening any modal pauses the carousel, closing resumes it unless it was already paused, and backdrop click closes. Confirmations use a custom HTML dialog (title, message with line breaks, optional warning, custom button labels) instead of native `confirm()` so fullscreen is not exited.
 
 #### Scenario: Modal IDs
 
-The following modal element IDs exist in the application:
-
-| Modal ID | Purpose |
-|----------|---------|
-| `sheet-settings-modal` | Sheet selection |
-| `settings-modal` | General settings |
-| `voice-settings-modal` | Voice settings |
-| `export-modal` | Word export |
-| `overwrite-confirm-modal` | Export overwrite confirmation |
-| `duplicate-words-modal` | Duplicate word handling |
-| `quiz-modal` | Quiz system |
-| `edit-word-modal` | Edit current word |
-| `difficulty-filter-modal` | Difficulty filter |
-| `review-filter-modal` | Review time filter |
-| `srs-review-modal` | SRS quick review |
-| `custom-confirm-modal` | Custom confirm dialog |
-| `type-filter-modal` | Word type filter |
-| `tag-filter-modal` | Tag filter |
+- Element IDs: `sheet-settings-modal`, `settings-modal`, `voice-settings-modal`, `export-modal`, `overwrite-confirm-modal`, `duplicate-words-modal`, `quiz-modal`, `edit-word-modal`, `difficulty-filter-modal`, `review-filter-modal`, `srs-review-modal`, `custom-confirm-modal`, `type-filter-modal`, `tag-filter-modal`
 
 ### Requirement: Menu System
 
-The system SHALL provide a main dropdown menu with flyout submenus.
+#### Scenario: Structure and behaviour
 
-#### Scenario: Menu structure
-
-- **WHEN** the user opens the menu (▼ button)
-- **THEN** the following items are available (with flyout submenus for ◂ items):
-  - **◂ 篩選** (flyout): ⭐ Difficulty, 📅 Review time, ✍️ Must-spell, 📝 Type, 🏷️ Tags
-  - 📖 Quick review (with due-badge count)
-  - **◂ 測驗** (flyout): 🎯 Quick quiz (10 Q), 📝 Full quiz
-  - ✏️ Edit current word
-  - 🔍 Search words
-  - 📤 Export words
-  - 🔄 Reload words
-  - **◂ 快速設定** (flyout): 5 preset learning modes
-  - 📋 Sheet settings
-  - **◂ 設定** (flyout): 🔊 Voice settings, ⚙️ General settings
-  - 📺 Fullscreen
-
-#### Scenario: Flyout submenu behaviour
-
-- **WHEN** the user hovers over a flyout item (desktop) or taps it (touch)
-- **THEN** the submenu appears on the left side
-- **AND** only one submenu is open at a time
-- **WHEN** the menu closes
-- **THEN** all submenus are also closed
-
-#### Scenario: Auto-pause on menu open
-
-- **WHEN** the menu opens
-- **THEN** the carousel is paused
-- **WHEN** the menu closes
-- **THEN** the carousel resumes (unless already paused)
-
-#### Scenario: Toolbar hide on menu close
-
-- **WHEN** the menu closes
-- **THEN** the entire toolbar (prev, next, voice, pause, menu buttons) is hidden
-- **AND** it reappears when the user moves the cursor into the toolbar zone (desktop) or taps the zone (touch)
-
-#### Scenario: Overflow scroll
-
-- **WHEN** the screen height is insufficient to show the full menu
-- **THEN** a vertical scrollbar appears (`max-height: 70vh`); horizontal scrollbar is never shown
+- **WHEN** the user opens the ▼ menu
+- **THEN** the items are: **◂ 篩選** (⭐ Difficulty, 📅 Review time, ✍️ Must-spell, 📝 Type, 🏷️ Tags) · 📖 Quick review (due-badge count) · **◂ 測驗** (🎯 Quick quiz 10 Q, 📝 Full quiz) · ✏️ Edit current word · 🔍 Search words · 📤 Export words · 🔄 Reload words · **◂ 快速設定** (presets) · 📋 Sheet settings · **◂ 設定** (🔊 Voice, ⚙️ General) · 📺 Fullscreen
+- **AND** flyout submenus open on the left (one at a time); menu open pauses the carousel, close resumes it (unless already paused) and hides the whole toolbar until the cursor/tap re-enters the toolbar zone; a too-tall menu scrolls vertically (`max-height: 70vh`, never horizontally)
 
 ### Requirement: Quick Settings Presets
 
-The system SHALL provide one-click preset modes in the menu's quick-settings submenu.
+The system SHALL apply one-click preset learning modes — applied immediately, saved to localStorage, menu closes, multi-line toast, current word re-displayed with reset timer; leaving carousel-memory mode auto-disables `carouselMemoryMode`:
 
-#### Scenario: Available presets
+| Preset | Applied settings |
+|--------|------------------|
+| 🎧 用聽的背單字 | `chinese-first`, `spellOutLetters=true` scope `all`, `chineseEnabled=true`, `delayTime=9`, smart timer + progress bar |
+| 👂 用聽的認識單字 | `english-first`, spell-out off, `chineseEnabled=true`, `delayTime=4.5`, smart timer, no delayed speech |
+| 📝 日常複習 | `mixed`, delayed speech, `spellOutLetters=true` scope `must-spell-all`, `chineseEnabled=false`, `delayTime=10`, smart timer + progress bar |
+| 🎧 聽力訓練 | `listeningMode=true`, spell-out off, `chineseEnabled=false`, smart timer |
+| 🔄 輪播記憶 | `carouselMemoryMode=true`, `english-first`, spell-out off, `chineseEnabled=false`, `delayTime=5`, no smart timer, no progress bar, no delayed speech |
 
-| Preset | Settings applied |
-|--------|-----------------|
-| 🎧 用聽的背單字 | `displayMode='chinese-first'`, `spellOutLetters=true`, `spellOutScope='all'`, `chineseEnabled=true`, `delayTime=9`, `smartTimerEnabled=true`, `showTimerProgressBar=true` |
-| 👂 用聽的認識單字 | `displayMode='english-first'`, `spellOutLetters=false`, `chineseEnabled=true`, `delayTime=4.5`, `smartTimerEnabled=true`, `delaySpeechInNormalMode=false` |
-| 📝 日常複習 | `displayMode='mixed'`, `delaySpeechInNormalMode=true`, `spellOutLetters=true`, `spellOutScope='must-spell-all'`, `chineseEnabled=false`, `delayTime=10`, `smartTimerEnabled=true`, `showTimerProgressBar=true` |
-| 🎧 聽力訓練 | `listeningMode=true`, `spellOutLetters=false`, `chineseEnabled=false`, `smartTimerEnabled=true` |
-| 🔄 輪播記憶 | `carouselMemoryMode=true`, `displayMode='english-first'`, `spellOutLetters=false`, `chineseEnabled=false`, `delayTime=5`, `smartTimerEnabled=false`, `showTimerProgressBar=false`, `delaySpeechInNormalMode=false` |
+#### Scenario: Apply a preset
 
-#### Scenario: Preset application
-
-- **WHEN** the user selects a preset
-- **THEN** the settings are applied immediately, saved to LocalStorage, and the menu closes
-- **AND** a multi-line toast shows the specific settings applied
-- **AND** the current word is re-displayed with reset timer and recalculated display order
-- **AND** switching away from carousel-memory mode automatically disables `carouselMemoryMode`
+- **WHEN** the user picks a preset from the 快速設定 flyout
+- **THEN** its settings apply immediately, save to localStorage, the menu closes with a multi-line toast, and the current word re-displays with a reset timer
 
 ### Requirement: Active Filters Indicator
 
-The system SHALL show a summary of active filters above the progress area.
+#### Scenario: Display and clear
 
-#### Scenario: Indicator content
-
-- **WHEN** one or more filters are active
-- **THEN** the indicator shows a condensed description, e.g.:
-  - `篩選: ⭐ ★5+ | 📅 >2週 | ✍️ 要會拼 | 📖 快速複習 (42個)`
-  - Or `篩選: ⭐ 非常熟 (10個)` for negative-difficulty filter
-
-#### Scenario: Clear all filters
-
-- **WHEN** the user clicks "✕ 清除" in the indicator
-- **THEN** all active filters are cleared, including exiting SRS review mode
+- **WHEN** filters are active
+- **THEN** a condensed summary shows above the progress area, e.g. `篩選: ⭐ ★5+ | 📅 >2週 | ✍️ 要會拼 | 📖 快速複習 (42個)`
+- **WHEN** the user clicks ✕ 清除
+- **THEN** all filters clear, including exiting SRS review mode
 
 ### Requirement: Toast Notifications
 
-The system SHALL display brief notifications for operation results.
+#### Scenario: Display
 
-#### Scenario: Toast display
-
-- **WHEN** a notification is triggered
-- **THEN** a centred semi-transparent toast appears with rounded corners
-- **AND** it auto-dismisses after 3 seconds with a fade-out
-- **AND** a new notification replaces the current one
-
-#### Scenario: Toast types
-
-- **WHEN** a success notification fires
-- **THEN** a green border is shown
-- **WHEN** an info notification fires
-- **THEN** a blue border is shown
+- **WHEN** a notification fires
+- **THEN** a centred semi-transparent rounded toast appears, auto-dismisses after 3 s with fade-out, and is replaced by any newer notification (success = green border, info = blue)
 
 ### Requirement: Word Search
 
-The system SHALL allow searching through all loaded words by keyword.
+#### Scenario: Behaviour
 
-#### Scenario: Search behaviour
-
-- **WHEN** the user opens the search modal and enters a query
-- **THEN** the system searches the English field (case-insensitive substring) and Chinese field (substring) across all loaded words
-- **AND** results show: sheet name, spreadsheet row number, English/Chinese preview, and an "Edit" button
-
-#### Scenario: Exact-match option
-
-- **WHEN** the user enables "Complete match"
-- **THEN** only the English field is searched, and the query must exactly match (case-insensitive)
-
-#### Scenario: Search-to-edit
-
-- **WHEN** the user clicks "Edit" on a search result
-- **THEN** the search modal closes and the edit-word modal opens pre-filled with that word's data
-
-#### Scenario: Pause maintenance
-
-- **WHEN** the search modal is opened from the menu
-- **THEN** the carousel remains paused (the menu's pause is carried through; the timer is not resumed on menu close)
-
-### Requirement: Responsive Design
-
-The system SHALL adapt to different screen sizes and prevent unwanted zoom.
-
-#### Scenario: Viewport configuration
-
-- **WHEN** the page loads
-- **THEN** the viewport is configured with `user-scalable=no` and `maximum-scale=1.0`
-
-#### Scenario: Touch target sizes
-
-- **WHEN** rendered on touch devices
-- **THEN** all interactive buttons have sufficient tap target size
+- **WHEN** the user searches loaded words
+- **THEN** English matches case-insensitively by substring and Chinese by substring; "Complete match" restricts to exact case-insensitive English; results show sheet name, row number, preview, and an Edit button that closes search and opens the edit modal pre-filled
+- **AND** opening search from the menu keeps the carousel paused

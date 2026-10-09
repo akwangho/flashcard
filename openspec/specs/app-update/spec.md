@@ -2,123 +2,49 @@
 
 ## Purpose
 
-Defines how a long-lived browser tab discovers that a newer build of the app has been deployed to Google Apps Script, and reloads itself so the user actually gets the new code.
+Defines how a long-lived browser tab detects that a newer build was deployed to Google Apps Script and reloads itself without serving from the browser cache.
 
 ## Requirements
 
-### Requirement: Deployed Version Reporting
+### Requirement: Deployed Version and Build Reporting
 
-The backend SHALL expose the currently deployed version so the frontend can compare it against the code it is running.
+The backend SHALL expose the deployed version and build time, and the frontend SHALL treat the backend values as the source of truth.
 
-#### Scenario: Version source of truth
-
-- **THEN** `code.gs` declares `var SERVER_VERSION = '<x.y.z>'` and `getServerVersion()` returns it
-- **AND** `SERVER_VERSION` MUST equal `APP_CONSTANTS.APP_VERSION` in `script-core.html`; `test/app-update.test.js` asserts this so the two cannot drift (drift would make every page reload itself forever)
-
-#### Scenario: Frontend comparison
+#### Scenario: Version comparison
 
 - **WHEN** the backend version differs from `APP_CONSTANTS.APP_VERSION`
-- **THEN** the backend value wins (it is what is actually deployed)
-- **AND** this holds in both directions, including a rollback to an older build
-
-### Requirement: Build Time and Deploy Time
-
-The loading screen SHALL show the version, the build time, and the deploy time, so the user can tell builds apart without relying solely on a hand-maintained timestamp.
+- **THEN** the backend value wins in both directions (including rollbacks)
+- **AND** `SERVER_VERSION` in `code.gs` MUST equal `APP_CONSTANTS.APP_VERSION`, and `SERVER_BUILD_TIME` MUST equal `APP_BUILD_TIME` (drift would reload the page forever; enforced by `test/app-update.test.js`)
 
 #### Scenario: Loading screen contents
 
 - **WHEN** the loading screen is visible
-- **THEN** it renders three lines: `v<version>`, `建置 <buildTime>`, `部署 <deployTime>`
-- **AND** `buildTime` comes from `APP_CONSTANTS.APP_BUILD_TIME` and MUST equal `SERVER_BUILD_TIME` in `code.gs`
-- **AND** rendering happens at script-parse time so the version is visible before any network call
-
-#### Scenario: Deploy time is recorded automatically
-
-- **WHEN** `getAppDeployInfo()` is called for a version that has never been recorded
-- **THEN** the backend writes the current script-timezone timestamp to a Script Property keyed `DEPLOY_TIME_<version>` and returns it
-- **AND** subsequent calls return the stored value, so the deploy time cannot drift or be forgotten
-- **AND** Script Properties belonging to other versions are pruned so they do not accumulate
-- **AND** if `PropertiesService` is unavailable the call returns an empty string instead of failing
-
-#### Scenario: Deploy time is pending until the backend answers
-
-- **WHEN** the backend has not responded yet
-- **THEN** the loading screen shows `部署 載入中…`
-- **AND** `fetchAppDeployInfo` is called early in `init()` (while the loading screen is still visible) and refreshes the line on success
+- **THEN** it renders `v<version>`, `建置 <buildTime>`, and `部署 <deployTime>` at script-parse time, before any network call (`部署 載入中…` until the backend answers)
+- **AND** the backend records the deploy time automatically on the first request per version (Script Property `DEPLOY_TIME_<version>`) and returns the stored value afterwards
 
 ### Requirement: Cache-Busting Reload
 
 The system SHALL reload in a way that cannot be served from the browser cache.
 
-#### Scenario: Reload URL
+#### Scenario: Reload on mismatch
 
 - **WHEN** a version mismatch is detected
-- **THEN** the page navigates to `location.pathname + '?v=<serverVersion>&ts=<now>'` via `location.assign`
-- **AND** it SHALL NOT use `location.reload()`, which reuses the same URL and can re-serve cached (stale) HTML
+- **THEN** a toast shows `發現新版本 v<version>，正在重新載入…` and the page navigates via `location.assign` to `location.pathname + '?v=<serverVersion>&ts=<now>'`
+- **AND** `location.reload()` SHALL NOT be used (it reuses the same URL and can re-serve cached HTML)
+- **AND** the same non-matching version triggers at most one reload per page session (sessionStorage guard, preventing reload loops)
+- **AND** with `APP_CONSTANTS.APP_UPDATE_FORCE_RELOAD` `false`, a mismatch only shows the toast and does not navigate
 
-#### Scenario: User feedback before reloading
+### Requirement: Trigger Narrowing and Failure Tolerance
 
-- **WHEN** a reload is about to happen
-- **THEN** a toast shows `發現新版本 v<version>，正在重新載入…`
+The version check SHALL be rare, SHALL never interrupt active study, and SHALL never break normal usage; automatic checks are throttled by `APP_UPDATE_CHECK_INTERVAL_MS` (default 6 h, persisted in localStorage).
 
-#### Scenario: No reload loop
+#### Scenario: Automatic check conditions
 
-- **WHEN** the same non-matching version is reported again within the same page session
-- **THEN** the system logs a warning and does not reload again (guarded via `sessionStorage`)
-- **AND** this guard is cleared by the reload itself, since a new page load gets a new session
+- **WHEN** a check is automatic
+- **THEN** it runs only while the carousel is paused, and is skipped (retried at the next opportunity) during card transitions, while speech is playing, or while a carousel timer is live
+- **AND** if `getServerVersion()` fails, throws, or does not respond within `APP_UPDATE_TIMEOUT_MS` (15 s), no navigation occurs and the check time is still recorded (a broken backend is not re-hammered)
 
-#### Scenario: Backwards compatibility with stale frontends
+#### Scenario: Triggers
 
-- **WHEN** a page loaded before the deploy calls `getServerVersion()`
-- **THEN** the function still exists and still returns the version string
-- **AND** the version comparison uses `getAppDeployInfo()`'s `version` field
-
-#### Scenario: Reload can be downgraded to notify-only
-
-- **WHEN** `APP_CONSTANTS.APP_UPDATE_FORCE_RELOAD` is `false`
-- **THEN** a mismatch only shows the toast and no navigation occurs
-
-### Requirement: Trigger Narrowing
-
-The version check SHALL be rare and SHALL never interrupt active study. Checks are throttled by `APP_UPDATE_CHECK_INTERVAL_MS` (default 6 hours) persisted in `localStorage` under `STORAGE_KEYS.APP_UPDATE_CHECK`.
-
-#### Scenario: Idle-only for automatic checks
-
-- **WHEN** a check is automatic (`automatic: true`)
-- **THEN** it only runs while the app is paused (`isPaused === true`), so a user drilling flashcards is never interrupted
-
-#### Scenario: Skip conditions
-
-- **WHEN** a check is requested while a card transition is in progress, speech is playing, or the carousel timer is live
-- **THEN** the check is skipped and retried at the next opportunity
-- **AND** it is skipped entirely outside a Google Apps Script environment
-
-#### Scenario: Trigger points
-
-| Trigger | Options | Rationale |
-|---------|---------|-----------|
-| Page becomes visible again after being hidden ≥ `APP_UPDATE_WAKE_HIDDEN_MIN_MS` (30 min) | `automatic: true` | Laptop lid closed for 12–24 h → opening the lid checks once |
-| `APP_UPDATE_STARTUP_DELAY_MS` (10 s) after `handleLoadingComplete` | `automatic: true` | Catches a deploy that landed while the tab was closed |
-| Every `APP_UPDATE_CHECK_INTERVAL_MS` (6 h) | `automatic: true` | Safety net; still requires the app to be paused |
-| User presses 「🔄 重新載入單字」 | `automatic: false, force: true` | Explicit user intent to get the latest state; ignores the throttle |
-
-#### Scenario: Reload-words is not a page reload
-
-- **WHEN** the user chooses 「🔄 重新載入單字」
-- **THEN** the action itself only re-fetches words from the Sheet (`restart()` → `loadWords`)
-- **AND** this is exactly why the version check is needed there: the old JavaScript would otherwise stay in memory forever
-
-### Requirement: Failure Tolerance
-
-The check SHALL never break normal app usage.
-
-#### Scenario: Backend failure or timeout
-
-- **WHEN** `getServerVersion()` fails, throws, or does not respond within `APP_UPDATE_TIMEOUT_MS` (15 s)
-- **THEN** the in-flight flag is cleared and the check time is still recorded (so a broken backend is not hammered on every trigger)
-- **AND** no navigation occurs
-
-#### Scenario: First run
-
-- **WHEN** no check has ever been recorded
-- **THEN** the page-load time is used as the throttle baseline, so opening a fresh page never immediately hits the backend
+- **WHEN** the page becomes visible again after ≥ 30 min hidden (`APP_UPDATE_WAKE_HIDDEN_MIN_MS`), `APP_UPDATE_STARTUP_DELAY_MS` (10 s) after loading completes, every `APP_UPDATE_CHECK_INTERVAL_MS` (6 h), or the user presses 「🔄 重新載入單字」
+- **THEN** a version check runs — the 重新載入單字 trigger is `force: true` and ignores the throttle, and that action itself only re-fetches words (the old JavaScript would otherwise stay in memory)

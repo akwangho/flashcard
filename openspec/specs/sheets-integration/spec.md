@@ -2,25 +2,25 @@
 
 ## Purpose
 
-Defines how the application loads vocabulary from Google Sheets, manages sheet selection, detects and validates sheet IDs, and exposes backend API functions for reading and writing word data.
+Defines how words are loaded from Google Sheets, how the sheet and worksheets are selected, and the backend API for reading and writing word data.
 
 ## Data Model
 
 ### Google Sheet Column Layout
 
-Each sheet's first row is a header row; data starts from row 2.
+Row 1 is a header row; data starts from row 2.
 
-| Column | Header row (row 1) | Data rows | Required |
-|--------|-------------------|-----------|----------|
-| A (col 1) | Valid word count (number in A1) | Must-spell flag (`1` = 衝刺要會拼單字 / sprint must-spell, forced Chinese-first in mixed mode; `0.5` = 隨機要會拼單字 / random must-spell for beginner or already-mastered words, stays random order; `-1` = 看懂就好 / understand-only, forced English-first in mixed mode and treated as non-must-spell; empty/`0` = no). Any other non-empty legacy value reads as `1` | No |
-| B (col 2) | `單字` | English word | Yes |
-| C (col 3) | `翻譯` | Chinese translation | Yes |
-| D (col 4) | `不熟程度` | Difficulty -999~10 (negative = very familiar; empty = 0). Reads legacy `*` format; writes numbers | No |
-| E (col 5) | `圖片URL` | Image URL | No |
-| F (col 6) | `圖片` | Image display formula | No |
-| G (col 7) | `最後複習日期` | Last review date `YYYY-MM-DD` (empty = never reviewed) | No |
-| H (col 8) | `標籤` | Tags separated by half-width `,` or full-width `，` | No |
-| I (col 9) | `KK音標` | KK phonetic selected by the user (written by the app; see `kk-phonetic` spec) | No |
+| Column | Header (row 1) | Data rows | Required |
+|--------|----------------|-----------|----------|
+| A | (A1 = valid word count) | Must-spell flag: `1` = 衝刺要會拼單字 (sprint), `0.5` = 隨機要會拼單字 (random), `-1` = 看懂就好 (understand-only), empty/`0` = none; other legacy values read as `1` (see `flashcard-core/spec.md`) | No |
+| B | `單字` | English word | Yes |
+| C | `翻譯` | Chinese translation | Yes |
+| D | `不熟程度` | Difficulty -999~10 (empty = 0; reads legacy `*`, writes numbers) | No |
+| E | `圖片URL` | Image URL | No |
+| F | `圖片` | Image display formula | No |
+| G | `最後複習日期` | Last review date `YYYY-MM-DD` (empty = never reviewed) | No |
+| H | `標籤` | Tags separated by half-width `,` or full-width `，` | No |
+| I | `KK音標` | User-selected KK phonetic (written by the app; see `kk-phonetic` spec) | No |
 
 ## Requirements
 
@@ -28,22 +28,11 @@ Each sheet's first row is a header row; data starts from row 2.
 
 The system SHALL provide a modal for selecting the Google Sheet and individual worksheets to load.
 
-#### Scenario: Interface elements
+#### Scenario: Interface and quick-select collapse
 
 - **WHEN** the user opens the sheet-settings modal
-- **THEN** the modal shows:
-  - A list of built-in default sheets
-  - A list of recently used non-default sheets (up to 10)
-  - A text field for entering a Sheet ID or full Google Sheets URL
-  - A "Load sheet list" button
-  - A worksheet multi-select list (shown after a sheet is loaded)
-
-#### Scenario: Quick-select collapse
-
-- **WHEN** the user selects a default sheet, a recent entry, or clicks "Load sheet list"
-- **THEN** the default list, recent list, ID field, and load button are hidden
-- **AND** only the worksheet selection area and bottom action buttons are shown
-- **AND** reopening the modal restores the full interface
+- **THEN** it shows a list of built-in default sheets, a list of recently used non-default sheets (up to 10), a text field for a Sheet ID or full Google Sheets URL with a "Load sheet list" button, and — once a sheet is loaded — a worksheet multi-select list
+- **AND** selecting a default/recent sheet or loading a sheet list hides the lists, field, and button, leaving only the worksheet selection and bottom action buttons; reopening the modal restores the full interface
 
 ### Requirement: Built-In Default Sheets
 
@@ -52,24 +41,17 @@ The system SHALL include pre-configured default sheets accessible without enteri
 #### Scenario: Default sheet entries
 
 - **WHEN** the sheet-settings modal is opened
-- **THEN** the following built-in sheets are listed:
-  1. `WordGo Data Sheet` (ID: `1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM`)
-  2. `小學生教育部規定1200單字` (ID: `1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg`)
+- **THEN** the built-in sheets listed are: `WordGo Data Sheet` (ID `1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM`) and `小學生教育部規定1200單字` (ID `1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg`)
 
 ### Requirement: Recent Sheet History
 
 The system SHALL automatically record recently used non-default sheets.
 
-#### Scenario: History persistence
+#### Scenario: History persistence and quick access
 
 - **WHEN** the user loads a non-default sheet
-- **THEN** it is saved to LocalStorage key `flashcard-sheet-history` (up to 10 entries)
-- **AND** each entry contains: `id`, `name`, `isDefault` (always false), `lastUsed` (ISO timestamp)
-
-#### Scenario: Quick access and deletion
-
-- **WHEN** viewing the recent history list
-- **THEN** the user can click an entry to load it or delete individual entries
+- **THEN** it is saved to LocalStorage key `flashcard-sheet-history` (up to 10 entries; each has `id`, `name`, `isDefault` always false, `lastUsed` ISO timestamp)
+- **AND** clicking a history entry loads it; individual entries can be deleted
 
 ### Requirement: Sheet ID Extraction
 
@@ -77,47 +59,19 @@ The system SHALL automatically extract the Sheet ID from a full Google Sheets UR
 
 #### Scenario: URL parsing
 
-- **GIVEN** the user pastes a full URL like `https://docs.google.com/spreadsheets/d/SHEET_ID/edit`
-- **WHEN** the input is processed
+- **WHEN** the user pastes a URL like `https://docs.google.com/spreadsheets/d/SHEET_ID/edit`
 - **THEN** the Sheet ID is extracted using the pattern `/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/`
 
 ### Requirement: Worksheet Selection
 
-The system SHALL allow the user to select one or more worksheets to load simultaneously.
+The system SHALL allow selecting one or more worksheets to load simultaneously.
 
-#### Scenario: Worksheet list display
+#### Scenario: Multi-select, bulk buttons, and exclusions
 
 - **WHEN** a Google Sheet is loaded
-- **THEN** each worksheet is listed with its name and word count (read from cell A1)
-
-#### Scenario: Multi-select and merge
-
-- **WHEN** the user selects multiple worksheets
-- **THEN** words from all selected sheets are merged into a single word pool
-
-#### Scenario: Shift+Click range selection
-
-- **WHEN** the user holds Shift and clicks a worksheet item
-- **THEN** all items between the last clicked item and the current item are batch-selected or deselected
-
-#### Scenario: Select-all / deselect-all
-
-- **WHEN** the user clicks the "Select all" button
-- **THEN** all worksheets are selected
-- **WHEN** the user clicks "Deselect all"
-- **THEN** all worksheets are deselected
-- **AND** the button label updates automatically based on current selection state
-
-#### Scenario: Clear selection
-
-- **WHEN** the user clicks the "Clear" button
-- **THEN** all selected worksheets are deselected
-- **AND** the "Clear" button is hidden when no worksheets are selected
-
-#### Scenario: Excluded worksheets
-
-- **WHEN** building the worksheet list
-- **THEN** the sheet named `記事` is automatically hidden and never loaded
+- **THEN** each worksheet is listed with its name and word count (read from cell A1); selecting multiple worksheets merges their words into a single pool, and Shift+Click batch-selects/deselects the range between the last click and the current one
+- **AND** "Select all" / "Deselect all" selects or clears every worksheet (label updates automatically), and "Clear" deselects all (hidden when nothing is selected)
+- **AND** the worksheet named `記事` is always hidden and never loaded
 
 ### Requirement: Load Progress Bar
 
@@ -126,69 +80,15 @@ The system SHALL show a real progress bar during sheet loading.
 #### Scenario: Two-phase progress
 
 - **WHEN** loading sheets
-- **THEN** Phase 1 shows an indeterminate animation (connecting to Google Sheet)
-- **AND** Phase 2 shows a determinate percentage as each worksheet's word count is retrieved
+- **THEN** Phase 1 shows an indeterminate animation (connecting to the Google Sheet) and Phase 2 shows a determinate percentage as each worksheet's word count is retrieved
 
-### Requirement: Backend Word Loading API
+### Requirement: Backend API
 
-The backend SHALL expose functions for loading words from sheets.
+The backend SHALL expose the following functions to the frontend (via `google.script.run`).
 
-#### Scenario: Available backend functions
+#### Scenario: Available functions
 
-- **WHEN** the frontend requests words
-- **THEN** the backend provides:
-
-| Function | Parameters | Returns | Description |
-|----------|-----------|---------|-------------|
-| `getWordsFromSheet()` | — | `Array<Word>` | Load from default sheet (backward-compatible) |
-| `getWordsFromSheets(sheetId, sheetNames)` | Sheet ID, sheet name array | `Array<Word>` | Load from multiple named sheets |
-| `getWordsFromSingleSheet(sheetId, sheetName)` | Sheet ID, sheet name | `{success, words, sheetName, wordCount}` | Load single sheet (used for progressive loading) |
-| `getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle)` | Sheet ID, sheet names, auto-handle flag | `Object` | Load with duplicate detection/handling (non-initial reload) |
-| `getDemoWords()` | — | `Array<Word>` | Demo data (fallback when load fails) |
-
-### Requirement: Backend Sheet Management API
-
-The backend SHALL expose functions for listing and validating worksheets.
-
-#### Scenario: Available sheet management functions
-
-| Function | Parameters | Returns | Description |
-|----------|-----------|---------|-------------|
-| `getSheetsList(sheetId)` | Sheet ID | `{spreadsheetName, sheets: [{name, wordCount}]}` | All sheets with word counts (one-shot) |
-| `getSheetNamesOnly(sheetId)` | Sheet ID | `{spreadsheetName, sheetNames, sheetCount}` | Sheet names only (fast, for quick list display) |
-| `getSheetWordCount(sheetId, sheetName)` | Sheet ID, sheet name | `{name, wordCount}` | Word count for one sheet (used with progress bar) |
-| `checkSheetExists(sheetName, targetSheetId)` | Sheet name, Sheet ID | `Boolean` | Check if a worksheet exists |
-
-### Requirement: Backend Word Operations API
-
-The backend SHALL expose functions for reading and writing individual word properties.
-
-#### Scenario: Available word operation functions
-
-| Function | Parameters | Returns | Description |
-|----------|-----------|---------|-------------|
-| `updateWordProperties(sheetId, sheetName, rowIndex, properties)` | Sheet ID, sheet name, row index, `{english, chinese, difficultyLevel, imageUrl, mustSpell}` | `Object` | Update multiple word properties (columns A/B/C/D/E) |
-| `updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel)` | Sheet ID, sheet name, row index, -999~10 | `Boolean` | Update difficulty in column D (integer; 0 written as empty string) |
-| `markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult)` | Sheet ID, sheet name, row index, boolean | `Boolean` | Backward-compat wrapper → calls `updateWordDifficulty` |
-| `batchUpdateReviewDates(sheetId, updates)` | Sheet ID, `[{sheetName, rowIndex, date}]` | `Object` | Batch-write review dates to column G |
-| `exportWordsToSheet(words, sheetName, targetSheetId, overwrite, isFirstBatch)` | Word array, sheet name, Sheet ID, overwrite flag, first-batch flag | `Object` | Export words to a new worksheet |
-
-### Requirement: Backend Utility Functions and Constants
-
-The backend SHALL provide utility functions and column-index constants.
-
-#### Scenario: Column constants
-
-- **WHEN** accessing sheet data
-- **THEN** `COL` provides 0-based indices: `MUST_SPELL=0, ENGLISH=1, CHINESE=2, DIFFICULTY=3, IMAGE_URL=4, IMAGE_FORMULA=5, LAST_REVIEW=6, TAGS=7, KK_PHONETIC=8`
-- **AND** `COL_NUM` provides 1-based column numbers for `getRange(row, col)` calls
-
-#### Scenario: Utility functions
-
-| Function | Description |
-|----------|-------------|
-| `validateAndCleanSheetId(sheetId)` | Validate and sanitise a Sheet ID |
-| `openSpreadsheetSafely(sheetId)` | Open a Google Spreadsheet with error handling |
-| `countValidWords(sheet)` | Read A1 value as the valid word count |
-| `createWordObject(rowData, id, sheetName, rowIndex)` | Build a Word object from row data using `COL` constants |
-| `findWordRowIndex(sheet, englishWord, chineseWord)` | Find the row index for a word by English and Chinese text |
+- **WHEN** the frontend requests words or sheet data
+- **THEN** word loading is provided by `getWordsFromSheet() → Array<Word>` (default sheet), `getWordsFromSheets(sheetId, sheetNames) → Array<Word>`, `getWordsFromSingleSheet(sheetId, sheetName) → {success, words, sheetName, wordCount}` (progressive loading), `getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle) → Object` (non-initial reload; see `duplicate-handling/spec.md`), and `getDemoWords() → Array<Word>` (fallback)
+- **AND** sheet management by `getSheetsList(sheetId) → {spreadsheetName, sheets: [{name, wordCount}]}`, `getSheetNamesOnly(sheetId) → {spreadsheetName, sheetNames, sheetCount}`, `getSheetWordCount(sheetId, sheetName) → {name, wordCount}`, and `checkSheetExists(sheetName, targetSheetId) → Boolean`
+- **AND** word operations by `updateWordProperties(sheetId, sheetName, rowIndex, properties) → Object` (columns A–E), `updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel) → Boolean` (column D; 0 written as empty), `batchUpdateReviewDates(sheetId, updates) → Object` (batch-write `[{sheetName, rowIndex, date}]` to column G), and `exportWordsToSheet(words, sheetName, targetSheetId, overwrite, isFirstBatch) → Object` (see `word-export/spec.md`)

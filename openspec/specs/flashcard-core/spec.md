@@ -2,320 +2,120 @@
 
 ## Purpose
 
-Defines the auto-carousel flashcard loop, display modes, word-card interaction (click to reveal/remove), navigation (previous/next), and the pending-removal undo mechanism. This capability is the primary learning loop of the application.
+The primary learning loop: auto-carousel, display modes, smart timer, word-card interaction (click to reveal/remove), pending-removal undo, navigation, and progress indicators.
 
 ## Data Model
 
-### Word Object
+### Word Object (referenced by all other specs)
 
-```javascript
-{
-  id: Number,                // Unique identifier (assigned sequentially on load)
-  english: String,           // English word (from column B)
-  chinese: String,           // Chinese translation (from column C)
-  difficultyLevel: Number,   // Difficulty level -999~10 (column D; negative = very familiar)
-  image: String,             // Image URL (column E)
-  imageFormula: String,      // Image display formula (column F)
-  lastReviewDate: String,    // Last review date 'YYYY-MM-DD' (column G; empty = never reviewed)
-  mustSpell: Number,         // Must-spell level (column A): 0 = no, 1 = 衝刺要會拼單字 (sprint), 0.5 = 隨機要會拼單字 (random, beginner or already-mastered), -1 = 看懂就好 (understand-only; forces English-first in mixed mode, treated as non-must-spell)
-  tags: Array,               // Tags array (column H; comma-separated)
-  sheetName: String,         // Source sheet name
-  originalRowIndex: Number   // 1-based row index in source sheet
-}
-```
+| Field | Column | Meaning |
+|-------|--------|---------|
+| `id` | — | Unique id, assigned sequentially on load |
+| `english` | B | English word |
+| `chinese` | C | Chinese translation |
+| `difficultyLevel` | D | Difficulty -999~10 (negative = very familiar) |
+| `image` / `imageFormula` | E / F | Image URL / image display formula |
+| `lastReviewDate` | G | 'YYYY-MM-DD'; empty = never reviewed |
+| `mustSpell` | A | 0 none · 1 衝刺要會拼單字 (sprint) · 0.5 隨機要會拼單字 (random) · -1 看懂就好 (understand-only) |
+| `tags` | H | Comma-separated tags array |
+| `sheetName` / `originalRowIndex` | — | Source sheet name / 1-based row index |
 
 ## Requirements
 
 ### Requirement: Auto-Carousel Word Display
 
-The system SHALL automatically cycle through word cards, displaying the first language, then the second language after a configurable delay, then advancing to the next word.
+The system SHALL display the first language (0.1 s fade-in), then the second language together with its image after the configured delay (1–10 s, default 4.5 s, step 0.5 s), then advance automatically.
 
-#### Scenario: Standard carousel cycle
+#### Scenario: Reordering and failure fallback
 
-- **WHEN** the carousel is running
-- **THEN** the system displays the first language (100 ms fade-in animation)
-- **AND** waits the configured delay time (1–10 s, default 4.5 s, step 0.5 s)
-- **AND** displays the second language (fade-in) simultaneously with any associated image
-- **AND** waits the delay time again
-- **AND** automatically advances to the next word
-
-#### Scenario: Round completion and reordering
-
-- **WHEN** the last word in the current round is displayed
-- **THEN** the system reorders all qualifying words by the review-priority score (see `srs/spec.md` → Word Priority Ordering), so the most unfamiliar / longest-unreviewed words lead the next round
-- **AND** starts a new round from the beginning
-
-#### Scenario: Post-filter reordering
-
-- **WHEN** words are loaded from multiple sheets or filters are applied
-- **THEN** the system orders the filtered result by the review-priority score, with equal-score words randomised so words from different sheets are mixed evenly
-
-#### Scenario: Word load failure fallback
-
-- **WHEN** all selected sheets fail to load (error, timeout, or zero words)
-- **THEN** the system does not show an error screen
-- **AND** automatically opens the sheet-settings modal so the user can reselect sheets
+- **WHEN** a round completes, words load from multiple sheets, or filters change
+- **THEN** the pool is reordered by the review-priority score (see `srs/spec.md`), equal scores randomised so words mix evenly, and a new round starts
+- **WHEN** all selected sheets fail (error, timeout, or zero words)
+- **THEN** no error screen is shown; the sheet-settings modal opens for reselection
 
 ### Requirement: Display Modes
 
-The system SHALL support three display modes controlling which language appears first on each card.
+The system SHALL support `english-first` (default), `chinese-first`, and `mixed` (each card independently 50/50, consistent for its whole display cycle). With `mustSpellChineseFirst` enabled in mixed mode: `mustSpell` = 1 → always Chinese-first; 0.5 → stays random; -1 → always English-first, overriding the sprint rule.
 
-#### Scenario: English-first mode (default)
+#### Scenario: Mixed-mode rules
 
-- **WHEN** display mode is `english-first`
-- **THEN** English is shown in phase 1, Chinese translation in phase 2
-
-#### Scenario: Chinese-first mode
-
-- **WHEN** display mode is `chinese-first`
-- **THEN** Chinese translation is shown in phase 1, English in phase 2
-
-#### Scenario: Mixed mode
-
-- **WHEN** display mode is `mixed`
-- **THEN** each card independently decides its order with 50% probability
-- **AND** the chosen order remains consistent for the full display cycle of that card
-
-#### Scenario: Sprint must-spell forced Chinese first
-
-- **GIVEN** display mode is `mixed`
-- **AND** the general setting `mustSpellChineseFirst` is `true`
-- **WHEN** a word has `mustSpell` equal to `1` (衝刺要會拼單字 / sprint must-spell, for exam-time cramming)
-- **THEN** that word is always shown Chinese-first (to prompt the learner to recall the spelling)
-
-#### Scenario: Random must-spell stays random
-
-- **GIVEN** display mode is `mixed`
-- **AND** the general setting `mustSpellChineseFirst` is `true`
-- **WHEN** a word has `mustSpell` equal to `0.5` (隨機要會拼單字 / random must-spell, for beginner or already-mastered words)
-- **THEN** that word is NOT forced Chinese-first; its order is decided randomly (50%) like a normal mixed-mode card, so the learner does not always see Chinese first and can still react to the English meaning
-
-#### Scenario: Understand-only word forced English first
-
-- **GIVEN** display mode is `mixed`
-- **WHEN** a word has `mustSpell` equal to `-1` (看懂就好 / understand-only)
-- **THEN** that word is always shown English-first, regardless of the `mustSpellChineseFirst` setting, because only comprehension is required (no Chinese-to-English recall)
-- **AND** this rule takes priority over the sprint (`1`) forced Chinese-first rule
+- **WHEN** display mode is `mixed` with `mustSpellChineseFirst` enabled
+- **THEN** `mustSpell` 1 → Chinese-first · 0.5 → random · -1 → English-first (overrides the sprint rule)
 
 ### Requirement: Smart Timer
 
-The system SHALL optionally adjust the phase-2 wait time based on text length when smart timer is enabled.
+The system SHALL, when smart timer is enabled, replace the phase-2 delay with `smartDelay` for Chinese `max(1.2, 1.0 + chars × 0.15)` and for English `min(delayTime, max(1.2, 0.5 + letters × 0.3))` (only a–z/A–Z count), and SHALL use the full `delayTime` regardless of length when (`mustSpell` is 1 or 0.5 AND `difficultyLevel > 0`) or `difficultyLevel ≥ 3` (`mustSpell` = -1 does not count as must-spell here).
 
-#### Scenario: Smart timer for Chinese as second language
+#### Scenario: Example
 
-- **WHEN** smart timer is enabled and the second language is Chinese
-- **THEN** `smartDelay = max(1.2, 1.0 + charCount × 0.15)` seconds, capped at `delayTime`
-  - Constants: `SMART_TIMER_BASE_TIME` (1.0), `SMART_TIMER_PER_CHAR_TIME` (0.15), `SMART_TIMER_MIN_TIME` (1.2)
-
-#### Scenario: Smart timer for English as second language
-
-- **WHEN** smart timer is enabled and the second language is English
-- **THEN** `smartDelay = min(delayTime, max(1.2, 0.5 + letterCount × 0.3))` seconds
-  - Only a–z / A–Z count as letters (spaces and hyphens excluded)
-
-#### Scenario: Smart timer suppression
-
-- **WHEN** the word has a must-spell level (`mustSpell` is `1` or `0.5`) AND `difficultyLevel > 0` (both conditions simultaneously)
-- **OR WHEN** `difficultyLevel ≥ 3`
-- **THEN** the full `delayTime` is used regardless of text length
-- **AND** `mustSpell` equal to `-1` (看懂就好) does NOT count as must-spell here, so it does not suppress the smart timer
+- **WHEN** smart timer is enabled with delay 4.5 s and a 4-char Chinese translation in phase 2
+- **THEN** phase 2 waits max(1.2, 1.0 + 4 × 0.15) = 1.6 s; a word with `difficultyLevel ≥ 3` waits the full 4.5 s
 
 ### Requirement: Display Text Normalization
 
-All on-card text rendering SHALL pass through `displayTextFor(word, lang)`, which trims surrounding whitespace and normalizes full-width spaces (U+3000) to half-width before display. This is display-layer only — the word object and Google Sheet data are never modified.
+All on-card text rendering SHALL pass through `displayTextFor(word, lang)`: trims surrounding whitespace and normalizes full-width spaces (U+3000) to half-width. Display-layer only — the word object and sheet data are never modified.
 
-#### Scenario: Whitespace-only translation renders as empty
+#### Scenario: Whitespace-only translation
 
-- **WHEN** a word's translation is deliberately a single space (e.g. user leaves the translation blank to learn with a custom-made image)
-- **THEN** the text element's `textContent` is set to `''` (trimmed), so no whitespace character is rendered inside the word's semi-transparent background box
-
-#### Scenario: Meaningful content is preserved
-
-- **WHEN** a word's english or chinese has real content (with or without surrounding spaces)
-- **THEN** the trimmed content is displayed unchanged; full-width spaces (U+3000) within the content are rendered as half-width spaces
-
-#### Scenario: Whitespace-only translation hides the background box
-
-- **WHEN** a word's translation is whitespace-only AND the element's text is set via `setCardText`
-- **THEN** the element gets the `word-empty` class
-- **AND** the chinese section's semi-transparent background box, blur, padding and border-radius are removed (`.word-empty`), so a custom image is displayed with no overlay at all
-- **AND** the element is NOT `display: none`, so the 0.5s fade-in still plays when the next card has a real translation
-- **AND** the class is removed as soon as the element displays non-empty text again
+- **WHEN** a word's translation is whitespace-only (e.g. blank translation used to learn with a custom image)
+- **THEN** the element text is set to `''` and gets the `word-empty` class, removing the background box/blur/padding/radius (the element is not `display:none`, so the 0.5 s fade-in still plays for the next real translation)
+- **AND** the class is removed as soon as non-empty text displays again
 
 ### Requirement: Timer Progress Bar
 
-The system SHALL display a horizontal progress bar at the top of the screen that visually indicates time remaining in each phase.
+The system SHALL show a top progress bar (toggleable in general settings) growing 0%→50% over phase 1, then 50%→100% over phase 2.
 
-#### Scenario: Two-phase animation
+#### Scenario: Interactions
 
-- **WHEN** phase 1 begins (first language shown)
-- **THEN** the progress bar grows from 0% to 50% over `delayTime` seconds
-- **WHEN** 50% is reached
-- **THEN** the second language appears and phase 2 begins
-- **THEN** the bar grows from 50% to 100% over the phase-2 delay duration
-- **WHEN** 100% is reached
-- **THEN** the system advances to the next word
-
-#### Scenario: Progress bar interactions
-
-- **WHEN** the user clicks the word card (pending removal)
+- **WHEN** the card is clicked early (pending removal)
 - **THEN** the bar jumps to 50% and phase 2 starts immediately
-- **WHEN** the user triggers prev/next navigation
-- **THEN** the bar resets to 0% for the new word's phase 1
-
-#### Scenario: Pause/resume accuracy
-
-- **WHEN** the carousel is paused
-- **THEN** the bar freezes at its current position
-- **WHEN** the carousel resumes
-- **THEN** the bar continues from the frozen position using the remaining time, with no speed drift from repeated pause/resume cycles
-
-#### Scenario: Visibility toggle
-
-- **WHEN** the user disables "show timer progress bar" in general settings
-- **THEN** the progress bar is hidden
+- **WHEN** prev/next navigation happens, the bar resets to 0% for the new word
+- **WHEN** paused, the bar freezes at its position; on resume it continues with the remaining time, with no drift from repeated pause/resume cycles
 
 ### Requirement: Word Card Click Interaction
 
-The system SHALL treat a tap/click on the word card as a "pending removal" action.
+The system SHALL treat a tap on the word card as a pending-removal action.
 
-#### Scenario: Reveal and mark for removal
+#### Scenario: Reveal, confirm, or cancel
 
 - **GIVEN** the second language has not yet been shown
-- **WHEN** the user clicks the word card
-- **THEN** the second language and image are shown immediately
-- **AND** the word text is styled as pending removal (greyed with visible outline)
-- **AND** a "Restore word" button appears
-
-#### Scenario: Confirm removal on timer expiry
-
-- **WHEN** the delay timer expires while the word is in pending-removal state
-- **THEN** the word is removed from the current round (added to `removedWords`)
-- **AND** the carousel advances to the next word
-
-#### Scenario: Cancel pending removal
-
-- **WHEN** the user clicks the "Restore word" button before the timer expires
-- **THEN** the pending removal is cancelled
-- **AND** normal playback resumes
-
-#### Scenario: Single-word guard
-
-- **WHEN** only 1 word remains in the current round
-- **AND** the user clicks the word card
-- **THEN** the card flashes red to indicate removal is not possible
-- **AND** no removal is queued
-
-### Requirement: Word Removal and Round Restoration
-
-The system SHALL manage a removed-words pool that resets each round.
-
-#### Scenario: Removal tracking
-
-- **WHEN** a word is confirmed removed
-- **THEN** it is stored in `removedWords` and excluded from the current round
-
-#### Scenario: Round restoration
-
-- **WHEN** a new round begins
-- **THEN** all previously removed words are restored to the word pool
-
-### Requirement: Confirmed-Removal Undo (Single-Use)
-
-The system SHALL allow a one-time undo of the most recently confirmed removal via the previous-word action, under strict conditions.
-
-#### Scenario: Eligible undo
-
-- **GIVEN** the most recent word was removed via confirmed pending-removal (snapshot stored in `removalUndoEntry`)
-- **WHEN** the user presses ← / ↑ or the "Previous" button
-- **THEN** the confirmed removal is undone (word restored with original difficulty, last review date, review mark, SRS data, and round position)
-- **AND** the previous `lastReviewDate` value is also written back to Google Sheet column G via `batchUpdateReviewDates()` (empty string when the word was never reviewed) so that any in-flight or already-flushed sync from `confirmRemoval` is fully rolled back
-- **AND** the `removalUndoEntry` snapshot is cleared (undo is available only once)
-
-#### Scenario: Undo ineligibility
-
-- **WHEN** the user navigates to a further word without removing the current one
-- **THEN** the undo snapshot is cleared
-- **AND** the previous-word action falls back to normal history navigation
+- **WHEN** the user clicks the card
+- **THEN** the second language and image show immediately, the text greys out with a visible outline, and a Restore word button appears
+- **WHEN** the delay timer expires in this state, the word is removed from the round (added to `removedWords`, excluded from the current round) and the carousel advances; clicking Restore before expiry cancels the removal and resumes normal playback
+- **AND** all removed words are restored when the next round begins
+- **AND** when only 1 word remains in the round, the card flashes red and no removal is queued
 
 ### Requirement: Previous / Next Navigation
 
-The system SHALL allow the user to manually navigate to the previous or next word.
+The system SHALL support manual navigation. Next stops the timer and advances immediately (wrapping past the last word). Previous checks in order: cancel pending removal → single-use removal undo → pop the navigation history stack (word index and word sequence at that step).
 
-#### Scenario: Previous word (priority order)
+#### Scenario: Single-use removal undo
 
-- **WHEN** the user triggers the "previous" action
-- **THEN** the system checks in order:
-  1. If current word is in pending-removal state → cancel the removal
-  2. Else if `removalUndoEntry` exists and `isRemovalUndoEligible()` is true → undo confirmed removal
-  3. Otherwise → pop the previous state from the navigation history stack (includes word index and the word sequence at that step)
+- **GIVEN** the most recent word was confirmed-removed (snapshot stored in `removalUndoEntry`)
+- **WHEN** the user presses ← / ↑ or the Previous button
+- **THEN** the word is restored with original difficulty, last review date, review mark, SRS data, and round position; the previous `lastReviewDate` is written back to column G via `batchUpdateReviewDates()` (empty string when never reviewed) so in-flight or already-flushed syncs are rolled back; the snapshot is cleared (undo available only once)
+- **WHEN** the user navigates to a further word without removing the current one
+- **THEN** the snapshot clears and Previous falls back to normal history navigation
 
-#### Scenario: Next word
+#### Scenario: Priority order
 
-- **WHEN** the user triggers the "next" action
-- **THEN** the current timer is stopped and the carousel advances immediately
+- **WHEN** the user triggers Previous while the current word is pending-removal
+- **THEN** the removal is cancelled first; the undo and history-stack paths apply only when no removal is pending
 
-#### Scenario: Auto-wrap
+### Requirement: Progress Indicators
 
-- **WHEN** the user navigates past the last word
-- **THEN** the carousel wraps to the first word
+The system SHALL display `<current>/<total>` (e.g. `3/25`) in the progress area, plus a ✍️要會拼 badge (sky-blue) for `mustSpell` 1/0.5 and a 👁英翻中 badge (amber) for -1 (never both; neither for 0/empty).
 
-### Requirement: Progress Indicator
+#### Scenario: Position and badges
 
-The system SHALL display a word count indicator showing current position within the round.
-
-#### Scenario: Progress text format
-
-- **WHEN** a word is displayed
-- **THEN** a progress indicator shows `<current>/<total>` (e.g., `3/25`)
-
-### Requirement: Must-Spell Indicator
-
-The system SHALL display a visual indicator in the progress area for must-spell and understand-only words.
-
-#### Scenario: Must-spell indicator visibility
-
-- **WHEN** the current word has a must-spell level (`mustSpell` is `1` or `0.5`)
-- **THEN** a "✍️要會拼" indicator (sky-blue style) is shown in the progress area regardless of display mode
-
-#### Scenario: Understand-only (英翻中) indicator visibility
-
-- **WHEN** the current word has `mustSpell` equal to `-1` (看懂就好 / understand-only)
-- **THEN** a "👁英翻中" indicator is shown in the progress area (amber/orange style, visually distinct from the sky-blue must-spell badge)
-- **AND** the "✍️要會拼" indicator is NOT shown for that word
-
-#### Scenario: No indicator
-
-- **WHEN** the current word has `mustSpell` equal to `0` (or empty)
-- **THEN** neither the must-spell nor the 英翻中 indicator is shown
+- **WHEN** word 3 of 25 is displayed with `mustSpell` 0.5
+- **THEN** the progress area shows `3/25` and a ✍️要會拼 badge (👁英翻中 instead when `mustSpell` is -1; no badge when 0/empty)
 
 ### Requirement: Quick Timer Dock
 
-The system SHALL provide a collapsible panel on the main screen for adjusting delay time and smart timer without opening the full settings modal.
+The system SHALL provide a collapsible left-edge panel adjusting delay time and smart timer without the full settings modal: a ~26 px hover hot zone expands it on pointer devices (collapsing ~320 ms after the cursor leaves); a ⏱ button toggles it on touch devices (tap outside collapses). Changes sync bidirectionally with `flashcard-settings` in localStorage and the settings modal, and dock interactions never trigger the word-card pending-removal click.
 
-#### Scenario: Desktop hover expand
+#### Scenario: Expand and sync
 
-- **WHEN** the user hovers over the left-edge hot zone (~26 px wide) on a pointer/hover device
-- **THEN** the quick timer panel expands
-- **WHEN** the cursor leaves both the hot zone and the panel
-- **THEN** the panel collapses after ~320 ms delay
-
-#### Scenario: Touch expand/collapse
-
-- **WHEN** the device has no hover capability (touch/coarse pointer)
-- **THEN** a small "⏱" button is shown at the left edge
-- **WHEN** the user taps the button
-- **THEN** the panel toggles open/closed
-- **WHEN** the panel is open and the user taps outside
-- **THEN** the panel collapses
-
-#### Scenario: Settings sync
-
-- **WHEN** the user changes delay time or smart timer in the quick timer dock
-- **THEN** the change is written to `flashcard-settings` in LocalStorage
-- **AND** the general settings modal reflects the updated value (bidirectional sync)
-
-#### Scenario: Click exclusion
-
-- **WHEN** the user interacts with the quick timer dock area
-- **THEN** the word-card click (pending removal) is NOT triggered
+- **WHEN** the user hovers the left-edge hot zone (pointer device) or taps ⏱ (touch device)
+- **THEN** the dock expands and adjusts delay time / smart timer with live sync to localStorage and the settings modal

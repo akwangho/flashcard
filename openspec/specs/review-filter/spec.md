@@ -2,134 +2,64 @@
 
 ## Purpose
 
-Defines the set of filters that restrict which words appear in the carousel and quiz, including review-time filter, difficulty filter, must-spell filter, word-type filter, and tag filter. All filters are combinable (intersection logic).
+Defines the filters restricting which words appear in the carousel and quiz: review-time, difficulty, must-spell, word-type, and tag. All active filters combine via intersection logic.
 
 ## Requirements
 
 ### Requirement: Review Time Filter
 
-The system SHALL allow filtering words by how long ago they were last reviewed.
+The system SHALL allow filtering words by how long ago they were last reviewed (Sheet column G; empty = never reviewed).
 
-#### Scenario: Filter options
+#### Scenario: Filter options and review dates
 
 - **WHEN** the user opens the review-time filter modal
-- **THEN** the following options are available (each showing the matching word count):
-  - All (no filter)
-  - Never reviewed (column G is empty)
-  - Not reviewed in 2+ weeks (G empty or date > 14 days ago)
-  - Not reviewed in 1+ month (G empty or date > 30 days ago)
-  - Not reviewed in 3+ months (G empty or date > 90 days ago)
-  - Not reviewed in 6+ months (G empty or date > 180 days ago)
-
-#### Scenario: Review date definition
-
-- **WHEN** a word is confirmed removed (pending removal confirmed, including the "mark as very familiar" flow)
-- **THEN** today's date is recorded as its last review date (column G, format `YYYY-MM-DD`)
-- **AND** words that are revealed but NOT removed are not counted as reviewed
-
-#### Scenario: Review date sync
-
-- **WHEN** any of these events occurs:
-  - User leaves the page (`beforeunload`)
-  - User opens the menu
-  - User opens any modal
-  - 20 words have been reviewed since the last sync
-- **THEN** accumulated review dates are batch-written to Google Sheet column G via `batchUpdateReviewDates()`
+- **THEN** these options are available, each showing its matching word count: All / Never reviewed (column G empty) / Not reviewed in 2+ weeks / 1+ month / 3+ months / 6+ months (G empty or date > 14 / 30 / 90 / 180 days ago)
+- **AND** a word counts as reviewed only when its removal is confirmed (including the mark-as-very-familiar flow): today's date is written to column G as `YYYY-MM-DD`, batch-synced on page unload, menu/modal open, or every 20 reviewed words; revealed-but-not-removed words never count
 
 ### Requirement: Difficulty Filter
 
 The system SHALL allow filtering words by difficulty range.
 
-#### Scenario: Difficulty filter options
+#### Scenario: Filter options and default exclusion
 
 - **WHEN** the user opens the difficulty filter modal
-- **THEN** options are: All / ✓ Very familiar (mastered, -999) / ★1+ / ★3+ / ★5+ / ★7+ / ★10
-- **AND** each option shows the matching word count
-
-#### Scenario: Default difficulty exclusion
-
-- **WHEN** no difficulty filter is active
-- **THEN** words with `difficultyLevel = -999` are excluded from the carousel and quiz
-- **AND** words with `difficultyLevel` between -1 and -998 are included normally
+- **THEN** the options are All / ✓ Very familiar (mastered, -999) / ★1+ / ★3+ / ★5+ / ★7+ / ★10, each showing its matching word count; with no filter active, -999 words are excluded from the carousel and quiz while words from -1 to -998 are included normally
 
 ### Requirement: Must-Spell Filter
 
-The system SHALL allow filtering to show only words marked as "must spell."
+The system SHALL allow filtering to only words with a must-spell level (`mustSpell` semantics: see `flashcard-core/spec.md`).
 
-#### Scenario: Toggle behaviour
+#### Scenario: Toggle
 
 - **WHEN** the user clicks the must-spell filter button in the menu
-- **THEN** the filter toggles on or off (no separate modal)
-- **WHEN** enabled
-- **THEN** only words with a must-spell level (`mustSpell` is `1` 衝刺要會拼單字 or `0.5` 隨機要會拼單字) are included in the carousel
-- **AND** words with `mustSpell` equal to `-1` (看懂就好 / understand-only) or `0` (不需) are excluded (normalized `mustSpell > 0`)
+- **THEN** the filter toggles on or off with no separate modal; when enabled, only words with `mustSpell > 0` are included in the carousel
 
 ### Requirement: Word Type Filter
 
-The system SHALL allow filtering words by their grammatical/structural type.
+The system SHALL allow filtering words by grammatical type: word, phrase, or sentence.
 
-#### Scenario: Type classification
+#### Scenario: Classification and options
 
-- **WHEN** classifying a word's type
-- **THEN** the English field is examined:
-  - **Sentence**: ends with `.`, `?`, or `!` (after trimming whitespace; also handles quote-ending sentences)
-  - **Phrase**: contains spaces but does not end with sentence-ending punctuation
-  - **Word**: no spaces and does not end with sentence-ending punctuation
-
-#### Scenario: Type filter options
-
-- **WHEN** the user opens the type filter modal
-- **THEN** three checkboxes are shown: word / phrase / sentence, each with a count
-- **AND** all three are selected by default (no filtering)
-- **AND** the user must select at least one type
-
-#### Scenario: Filter with no matches
-
-- **WHEN** the applied type filter yields zero words
-- **THEN** a toast notification is shown and the filter is reset to "All"
+- **WHEN** the type filter modal is opened
+- **THEN** each word is classified from its English field as sentence (ends `.`/`?`/`!` after trimming), phrase (has spaces, no sentence-ending punctuation), or word (otherwise), shown as three checkboxes — word / phrase / sentence, each with a count — all selected by default
+- **AND** at least one type must remain selected
 
 ### Requirement: Tag Filter
 
-The system SHALL allow filtering words by their tags.
+The system SHALL allow filtering words by tags (column H, split by `,` or `，`).
 
-#### Scenario: Tag source
-
-- **WHEN** displaying tag options
-- **THEN** all unique tags from all loaded words (column H; split by `,` or `，`) are collected and sorted
-- **AND** each tag shows its word count
-
-#### Scenario: OR filter logic
+#### Scenario: OR logic and empty state
 
 - **WHEN** the user selects one or more tags
-- **THEN** a word is included if it has ANY of the selected tags
-
-#### Scenario: Empty state
-
-- **WHEN** no loaded words have any tags
-- **THEN** the tag filter modal displays "目前沒有任何標籤"
-
-#### Scenario: No selection equals no filter
-
-- **WHEN** no tags are selected
-- **THEN** the tag filter is inactive (all words shown)
+- **THEN** a word is included if it has ANY selected tag; all unique tags from loaded words are listed sorted, each with its word count
+- **AND** with no tags selected the filter is inactive (all words shown); when no loaded words have tags, the modal displays "目前沒有任何標籤"
 
 ### Requirement: Filter Combination
 
 The system SHALL apply all active filters simultaneously using intersection logic.
 
-#### Scenario: Multiple filters active
+#### Scenario: Combination, reordering, and no matches
 
 - **WHEN** two or more filters are active
-- **THEN** only words satisfying ALL active filter conditions are included in the carousel
-
-#### Scenario: Filter application triggers reordering
-
-- **WHEN** any filter is applied or changed
-- **THEN** the filtered word pool is reordered by the review-priority score (see `srs/spec.md` → Word Priority Ordering) so that unfamiliar and long-unreviewed words appear first, and the carousel restarts from the beginning of a new round
-- **AND** words with equal scores are randomised (light mixing) so multi-sheet words stay shuffled and the daily order is not identical
-
-#### Scenario: Filter with no matches
-
-- **WHEN** the combined filters yield zero words
-- **THEN** a toast notification is shown
-- **AND** the most recently changed filter is reset
+- **THEN** only words satisfying ALL conditions are included, reordered by review-priority score with equal scores randomised (see `srs/spec.md`), and the carousel restarts from the beginning
+- **AND** if the filters yield zero words, a toast notification is shown and the most recently changed filter is reset

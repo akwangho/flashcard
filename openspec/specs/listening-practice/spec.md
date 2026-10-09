@@ -2,89 +2,36 @@
 
 ## Purpose
 
-Defines the listening practice mode, which trains learners to identify or spell a word by hearing it, without seeing the text. Two sub-modes are supported: hear-and-identify (multiple choice) and hear-and-spell (free text entry).
+Defines the listening practice mode, which trains identifying or spelling a word by hearing it without seeing the text: hear-and-identify (multiple choice) and hear-and-spell (free text).
 
 ## Requirements
 
 ### Requirement: Listening Mode Activation
 
-The system SHALL allow the user to enter listening practice mode.
+The system SHALL provide a listening mode entered from the quick-settings menu; smart-timer and removal-undo rules are unchanged from normal carousel mode (see `flashcard-core/spec.md`).
 
-#### Scenario: Activate via quick settings
+#### Scenario: Activate and exit
 
-- **WHEN** the user selects "🎧 聽力訓練" from the quick-settings submenu
-- **THEN** listening mode is enabled
-- **AND** the carousel restarts with listening mode behaviour
+- **WHEN** the user selects 「🎧 聽力訓練」 from the quick-settings submenu
+- **THEN** listening mode is enabled and the carousel restarts with listening behaviour; exiting it (via menu or switching to another mode) resumes normal carousel behaviour
 
-#### Scenario: Deactivation
+### Requirement: Audio-First Exercises
 
-- **WHEN** the user exits listening mode (via menu or switching to another mode)
-- **THEN** normal carousel behaviour resumes
+The system SHALL hide the English word text, read the word aloud automatically, and allow replaying the audio before answering.
 
-### Requirement: Hear-and-Identify Mode
+#### Scenario: Exercise flow
 
-The system SHALL present an audio-first multiple-choice exercise.
-
-#### Scenario: Question presentation
-
-- **WHEN** a word is displayed in hear-and-identify mode
-- **THEN** the English word text is hidden initially
-- **AND** the word is read aloud automatically
-- **AND** multiple-choice options are displayed for the user to choose the word they heard
-
-#### Scenario: Answer feedback
-
-- **WHEN** the user selects an option
-- **THEN** immediate correct/wrong feedback is shown
-- **AND** the word text is revealed
-
-#### Scenario: Replay audio
-
-- **WHEN** the word is being displayed in this mode
-- **THEN** the user can replay the audio to hear the word again before answering
-
-### Requirement: Hear-and-Spell Mode
-
-The system SHALL present an audio-first free-text entry exercise.
-
-#### Scenario: Question presentation
-
-- **WHEN** a word is displayed in hear-and-spell mode
-- **THEN** the English word text is hidden initially
-- **AND** the word is read aloud automatically
-- **AND** a text input field is shown for the user to type the word they heard
-
-#### Scenario: Answer submission
-
-- **WHEN** the user types their answer and submits (Enter key or submit button)
-- **THEN** the answer is compared to the correct word (case-insensitive)
-- **AND** correct/wrong feedback is shown
-- **AND** the correct spelling is revealed
-
-#### Scenario: Phrase and sentence support
-
-- **WHEN** the target word is a phrase or sentence (contains spaces or ends with punctuation)
-- **THEN** the hear-and-spell mode accepts full phrase/sentence input
+- **WHEN** a word is displayed in hear-and-identify or hear-and-spell mode
+- **THEN** multiple-choice options (identify) or a text input (spell) are shown; phrases and sentences accept full-phrase input in spell mode
+- **WHEN** the user answers (selects an option, or submits typed text via Enter or the submit button)
+- **THEN** immediate correct/wrong feedback is shown and the word text / correct spelling is revealed; typed answers are compared case-insensitively
 
 ### Requirement: Wrong-Word Review
 
-The system SHALL track incorrectly identified/spelled words for focused review.
+The system SHALL track incorrectly answered words for focused review.
 
-#### Scenario: Wrong-word accumulation
+#### Scenario: Focused review round
 
-- **WHEN** a word is answered incorrectly in either listening mode
-- **THEN** it is added to a wrong-review list for the current session
-
-#### Scenario: Review round
-
-- **WHEN** the initial listening session completes
-- **THEN** the system offers a focused review round containing only the words that were answered incorrectly
-
-### Requirement: Smart Timer Integration
-
-The system SHALL apply smart-timer suppression rules consistently in listening mode.
-
-#### Scenario: Smart timer midpoint for carousel
-
-- **WHEN** the carousel is running in listening mode
-- **THEN** the progress-bar midpoint (50%) is used as the "in-progress" boundary for removal-undo eligibility (same as normal mode)
+- **WHEN** a word is answered incorrectly in either sub-mode
+- **THEN** it is added to the session's wrong-review list
+- **AND** when the listening session completes, a focused review round containing only those words is offered

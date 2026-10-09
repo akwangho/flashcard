@@ -6,79 +6,29 @@ Defines detection of duplicate English words across sheets, automatic in-memory 
 
 ## Requirements
 
-### Requirement: Duplicate Detection
+### Requirement: Duplicate Detection and Auto-Merge
 
-The system SHALL automatically detect words with the same English text when loading from multiple sheets.
+The system SHALL detect duplicate English words (case-sensitive) on every load, auto-merge them in memory without modifying the Google Sheet, and preserve metadata from every entry.
 
-#### Scenario: Detection on every load
+#### Scenario: In-memory auto-merge
 
-- **WHEN** words are loaded from one or more sheets
-- **THEN** duplicates are detected based on the English field (case-sensitive; `May` and `may` are treated as different words)
+- **WHEN** two or more loaded words share the same English text (case-sensitive; `May` and `may` are different words)
+- **THEN** the first occurrence is kept and the others removed from memory; differing Chinese translations are combined into the first occurrence as `1. TranslationA\n2. TranslationB`
+- **AND** an upper-right notification shows the word counts before/after merging with a 「下次不自動合併」 link; clicking it saves LocalStorage key `flashcard-no-auto-merge`, and the next load shows the manual modal instead of auto-merging
 
-### Requirement: Auto-Merge (In-Memory)
+#### Scenario: Metadata preservation on merge
 
-The system SHALL automatically resolve duplicates in memory during initial load, without modifying the Google Sheet.
-
-#### Scenario: Identical Chinese translation
-
-- **WHEN** two or more words share the same English text AND the same Chinese translation
-- **THEN** the first occurrence is kept and the others are removed from memory
-- **AND** metadata from the removed duplicates is merged into the kept word per the Metadata Preservation rules
-
-#### Scenario: Different Chinese translations
-
-- **WHEN** two or more words share the same English text but have different Chinese translations
-- **THEN** all translations are merged into the first occurrence using the format `1. TranslationA\n2. TranslationB`
-- **AND** the other duplicates are removed from memory
-- **AND** metadata from all duplicates is merged into the kept word per the Metadata Preservation rules
-
-### Requirement: Metadata Preservation On Merge
-
-When resolving duplicates (auto, skip/in-memory, or manual keep/merge), the system SHALL preserve metadata fields from all duplicates in the group so they are not lost when the other entries are removed.
-
-#### Scenario: Combining metadata fields
-
-- **WHEN** a duplicate group is resolved by keeping one entry and removing the others
-- **THEN** the kept entry's `不熟程度` (difficultyLevel) is set to the **maximum** value across the group (the least-familiar wins, so it is still reviewed)
-- **AND** its `圖片URL` (image) and image formula are set to the **first non-empty** value in group order (the kept entry's own value takes precedence)
-- **AND** its `標籤` (tags) is the **union** of all tags in the group, de-duplicated and in first-seen order
-- **AND** its `要會拼` (mustSpell) takes the strictest level in the group: `1` if any entry is `1`; otherwise `0.5` if any entry is `0.5`; otherwise `-1` (看懂就好) if any entry is `-1` and no stricter level is present; otherwise `0`
-- **AND** the `複習日期` (lastReviewDate) of the kept entry is left unchanged to avoid affecting SRS scheduling
-
-#### Scenario: Manual resolution writes merged metadata to the sheet
-
-- **WHEN** the user resolves a duplicate group via the manual modal's "Keep first, delete others" or "Merge definitions" option (which modify the Google Sheet)
-- **THEN** the merged metadata (difficulty, image URL, tags, must-spell) is written to the kept row before the other rows are deleted
-
-#### Scenario: Auto-merge notification
-
-- **WHEN** auto-merge is completed
-- **THEN** a notification appears in the upper-right corner showing the word count before and after merging
-- **AND** the notification pauses auto-dismiss while the mouse hovers over it
-
-#### Scenario: "Don't auto-merge next time" option
-
-- **WHEN** the auto-merge notification is shown
-- **THEN** it includes a "下次不自動合併" link
-- **WHEN** the user clicks that link
-- **THEN** the preference is saved to LocalStorage key `flashcard-no-auto-merge`
-- **AND** on the next load, if duplicates are still present, the manual merge modal is shown instead of auto-merging
+- **WHEN** a duplicate group is resolved by keeping one entry and removing the others (auto-merge, skip, or manual keep/merge)
+- **THEN** the kept entry takes: 不熟程度 (difficulty) = maximum across the group; 圖片URL (image + formula) = first non-empty in group order; 標籤 (tags) = de-duplicated union in first-seen order
+- **AND** 要會拼 (must-spell) = the strictest level present: `1` > `0.5` > `-1` (看懂就好) > `0`
+- **AND** the kept entry's 複習日期 (lastReviewDate) is unchanged, so SRS scheduling is unaffected; manual keep/merge resolutions write the merged metadata to the kept sheet row before deleting the other rows
 
 ### Requirement: Manual Resolution Modal
 
-The system SHALL provide a modal for resolving duplicates one group at a time.
+The system SHALL let the user resolve duplicate groups one at a time.
 
 #### Scenario: Per-group options
 
-- **WHEN** the duplicate modal is open and a group of duplicates is shown
-- **THEN** the user can choose one of:
-  1. **Keep one, delete others** — retains the selected sheet's version and deletes the rest (modifies Google Sheet)
-  2. **Merge definitions** — combines all translations into the selected destination sheet (modifies Google Sheet; only offered when the group has different Chinese translations)
-  3. **Skip, handle later** — applies in-memory auto-handling without modifying Google Sheet
-
-#### Scenario: Selecting a destination sheet also selects its action
-
-- **WHEN** the user clicks a destination option under "Keep one, delete others" or "Merge definitions" (either the radio or its label)
-- **THEN** the matching action (keep or merge) is automatically selected together with that destination
-- **AND** confirming applies that action to the chosen destination sheet, so the result is written to the selected sheet and (for merge) the Chinese translations are combined there
-- **AND** the user is not required to separately click the action radio before picking a destination
+- **WHEN** a duplicate group is shown in the manual modal
+- **THEN** the user chooses **Keep one, delete others** (modifies Google Sheet), **Merge definitions** (combines all translations into the selected sheet; only offered when translations differ), or **Skip, handle later** (in-memory handling only)
+- **AND** clicking a destination option (radio or label) auto-selects the matching action, and confirming writes the result to the selected sheet

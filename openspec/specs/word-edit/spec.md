@@ -2,36 +2,18 @@
 
 ## Purpose
 
-Defines the inline word-edit modal that lets users modify any loaded word during an active session without switching to Google Sheets, accessible from the menu, the E key, or via the search-word results.
+Defines the inline word-edit modal for modifying any loaded word during a session, opened from the menu, the `E` key, or word-search results.
 
 ## Requirements
 
 ### Requirement: Edit Word Modal Activation
 
-The system SHALL allow opening the edit-word modal for the current word or a specific word.
+The system SHALL open the edit-word modal pre-filled with the target word's data; opening it pauses the carousel (auto-pause/resume rules per `pause-control/spec.md`).
 
-#### Scenario: Open for current word
+#### Scenario: Opening the modal
 
-- **WHEN** the user selects "✏️ Edit current word" from the menu or presses E
-- **THEN** the edit-word modal opens pre-filled with the currently displayed word's data
-- **AND** the carousel is paused
-
-#### Scenario: Open from search results
-
-- **WHEN** the user clicks "Edit" on a word search result
-- **THEN** the search modal closes and the edit-word modal opens with that specific word's data
-
-#### Scenario: Auto-pause and resume
-
-- **WHEN** the edit modal opens
-- **THEN** the carousel is paused and a "Paused" indicator is shown
-- **WHEN** the edit modal is closed via Cancel/close (without saving)
-- **THEN** the carousel resumes if it was not already paused before opening (otherwise it remains paused)
-
-#### Scenario: Save auto-resumes
-
-- **WHEN** the user saves the edit (Save button or Enter)
-- **THEN** the current card is re-displayed and the carousel always resumes, automatically clearing the "Paused" indicator, even if it was paused before the edit modal opened
+- **WHEN** the user selects "✏️ Edit current word" from the menu, presses `E`, or clicks "Edit" on a word-search result
+- **THEN** the modal opens pre-filled with that word's data (for search results, the search modal closes first)
 
 ### Requirement: Editable Fields
 
@@ -39,66 +21,28 @@ The system SHALL allow editing the following word properties.
 
 #### Scenario: Available fields
 
-| Field | Source column | Input type | Notes |
-|-------|--------------|------------|-------|
-| English word | B | Text input | Required; cannot be empty |
-| Chinese translation | C | Text input | Required; cannot be empty |
-| Difficulty level | D | Slider (-1~10) + number input (-999~10) | Bidirectional sync; ≤-999 shows "✓ 已掌握" (green); -1~-998 shows ★0 (grey); 0–10 shows ★N with colour |
-| Must-spell | A | Four-option select | `0` 不需 / `1` 衝刺要會拼單字 / `0.5` 隨機要會拼單字 / `-1` 看懂就好（先英文，不用中翻英）; level `0.5` is still must-spell but not forced Chinese-first in mixed mode; level `-1` is understand-only (forced English-first in mixed mode, treated as non-must-spell) |
-| Image URL | E | Text input (may be empty) | With live image preview |
-| KK phonetic | I | Value display + text input (manual entry) + 重新抓取 button | Fetched via GAS `queryKKPhonetic`; refetch forces re-query even when column I is filled; multiple candidates selectable (selection fills the input, which can then be edited further before saving) |
-| Tags | H | Text input (comma-separated; `,` or `，`) | — |
+| Field | Input | Constraints / notes |
+|-------|-------|--------------------|
+| English word / Chinese translation | Text input | Required; cannot be empty |
+| Difficulty level | Slider (-1~10) + number input (-999~10) | Bidirectional sync; ≤ -999 shows "✓ 已掌握" (green), -1~-998 shows ★0 (grey), 0–10 shows ★N with colour |
+| Must-spell | Four-option select | `0` 不需 / `1` 衝刺要會拼單字 / `0.5` 隨機要會拼單字 / `-1` 看懂就好（先英文，不用中翻英）; mixed-mode ordering per `flashcard-core/spec.md` |
+| Image URL | Text input | May be empty; live preview (below) |
+| KK phonetic | Display + manual text input + 重新抓取 refetch | Chooser and refetch rules per `kk-phonetic/spec.md` |
+| Tags | Text input | Comma-separated (`,` or `，`) |
+| Source sheet name | Read-only display | — |
 
-#### Scenario: Read-only info
-
-- **WHEN** the edit modal is open
-- **THEN** the source sheet name is shown as read-only information
-
-### Requirement: Image Preview
-
-The system SHALL show a live preview of the image URL entered in the edit modal.
-
-#### Scenario: Preview on input
+#### Scenario: Image preview
 
 - **WHEN** the user types or pastes an image URL
-- **THEN** the preview updates after 500 ms debounce
-
-#### Scenario: Load error
-
-- **WHEN** the image URL fails to load
-- **THEN** "圖片載入失敗" is shown in the preview area
-
-#### Scenario: Empty URL
-
-- **WHEN** the image URL field is empty
-- **THEN** the preview area is hidden
+- **THEN** the preview updates after a 500 ms debounce
+- **AND** a failed load shows "圖片載入失敗" in the preview area; an empty URL hides the preview
 
 ### Requirement: Save Behaviour
 
-The system SHALL validate and save changes both in-memory and to the Google Sheet backend.
+The system SHALL validate and save changes both in-memory and to the Google Sheet.
 
-#### Scenario: Validation
+#### Scenario: Validation and save
 
-- **WHEN** the user attempts to save
-- **AND** the English word or Chinese translation field is empty
-- **THEN** saving is blocked and an error indication is shown
-
-#### Scenario: In-memory sync
-
-- **WHEN** the save succeeds
-- **THEN** the corresponding entry in `words` and `currentWords` arrays is updated immediately
-- **AND** the flashcard display is re-rendered to reflect the change
-
-#### Scenario: Backend sync
-
-- **WHEN** the save succeeds
-- **THEN** `google.script.run.updateWordProperties()` is called asynchronously to write the change to Google Sheet columns A/B/C/D/E
-
-### Requirement: Enter Key Save
-
-The system SHALL support saving via the Enter key in text inputs.
-
-#### Scenario: Enter to save
-
-- **WHEN** the user presses Enter while focus is in any text input inside the edit modal
-- **THEN** the form is saved (same as clicking the save button)
+- **WHEN** the user saves (Save button or Enter in any text input)
+- **THEN** saving is blocked with an error indication if the English word or Chinese translation is empty
+- **AND** otherwise the word is updated in `words`/`currentWords`, the card is re-displayed (always auto-resuming the carousel — see `pause-control/spec.md`), and `google.script.run.updateWordProperties()` writes columns A/B/C/D/E asynchronously
