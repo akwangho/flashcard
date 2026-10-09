@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.25.4';
+  var SERVER_VERSION = '1.25.5';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-08 19:44';
+  var SERVER_BUILD_TIME = '2026-10-09 02:41';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
