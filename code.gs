@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.25.5';
+  var SERVER_VERSION = '1.25.6';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-09 02:41';
+  var SERVER_BUILD_TIME = '2026-10-11 00:26';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -64,7 +64,9 @@
       if (existing) return existing;
 
       var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-      props.setProperties({ key: now }, true);
+      var entry = {};
+      entry[key] = now;
+      props.setProperties(entry, true);
 
       // 只保留最新版本的部署時間，避免 Script Properties 逐版累積
       var keys = props.getKeys();
@@ -78,12 +80,6 @@
       // 無寫入權限等情況：功能本身不應因此失敗
       return '';
     }
-  }
-
-  function doGet() {
-    return HtmlService.createTemplateFromFile('index')
-      .evaluate()
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
 
   function include(filename) {
