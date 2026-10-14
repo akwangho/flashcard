@@ -736,7 +736,12 @@
       this.setFlashcardImage(currentWord.image);
     }
 
-    setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+    // 發音前先換卡（clearAllTimersAndSpeech 會遞增 _speechPlayId）→ 丟棄舊卡發音，避免蓋到新卡
+    var revealPlayId = this._speechPlayId || 0;
+    setTimeout(function() {
+      if ((self._speechPlayId || 0) !== revealPlayId) return;
+      self.speakWord(currentWord.english);
+    }, APP_CONSTANTS.SPEECH_DELAY_MS);
 
     var carouselDelay = this.settings.smartTimerEnabled ? this.getPhase2Delay() : this.settings.delayTime;
     var totalDelay = this.settings.delayTime + carouselDelay;
@@ -770,11 +775,14 @@
   FlashcardApp.prototype._displayNormalWord = function(currentWord) {
     var firstElement = document.getElementById('english-word');
     var self = this;
+    // 換卡會遞增 _speechPlayId；發音計時器觸發時比對，不一致代表已換卡 → 丟棄舊卡發音
+    var phase1PlayId = this._speechPlayId || 0;
 
     var isReversed = this.isReversedForCurrentWord();
     if (isReversed) {
       this.setCardText(firstElement, this.displayTextFor(currentWord, 'chinese'));
       setTimeout(function() {
+        if ((self._speechPlayId || 0) !== phase1PlayId) return;
         self.speakChineseWord(currentWord.chinese);
       }, APP_CONSTANTS.SPEECH_DELAY_MS);
     } else {
@@ -782,6 +790,7 @@
       if (!this.settings.delaySpeechInNormalMode) {
         var speechDelay = this._shouldSpellOutCurrentWord() ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
         setTimeout(function() {
+          if ((self._speechPlayId || 0) !== phase1PlayId) return;
           self.speakWord(currentWord.english);
         }, speechDelay);
       }
@@ -1551,7 +1560,8 @@
     var confirmBtn = document.getElementById('custom-confirm-ok');
     var cancelBtn = document.getElementById('custom-confirm-cancel');
 
-    if (!modal) return;
+    // 任何一個元素不存在就整組視為無法顯示，避免單一 null 讓整個確認流程掛掉
+    if (!modal || !titleEl || !messageEl || !warningEl || !confirmBtn || !cancelBtn) return;
 
     // 設定內容
     titleEl.textContent = options.title || '確認';
@@ -1567,15 +1577,21 @@
     confirmBtn.textContent = options.confirmText || '確定';
     cancelBtn.textContent = options.cancelText || '取消';
 
+    // 與其他 modal 一致：確認視窗開啟時暫停輪播，
+    // 否則背景的單字卡會在「重新載入單字」確認框後面繼續自動換卡
+    if (typeof this.pauseTimer === 'function') this.pauseTimer();
+
     // 顯示對話框
     modal.style.display = 'flex';
 
     // 清理函式
+    var self = this;
     var cleanup = function() {
       modal.style.display = 'none';
       confirmBtn.onclick = null;
       cancelBtn.onclick = null;
       modal.onclick = null;
+      if (typeof self.resumeTimer === 'function') self.resumeTimer();
     };
 
     // 確認按鈕

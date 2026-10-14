@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.25.6',
+    APP_VERSION: '1.26.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-11 00:26',
+    APP_BUILD_TIME: '2026-10-14 10:41',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -34,6 +34,7 @@
     NOTIFICATION_DURATION_MS: 5000,  // 通知自動消失時間
     NOTIFICATION_FADE_MS: 300,       // 通知淡出動畫時間
     CHINESE_SPEECH_POLL_MS: 100,     // 中文語音輪詢間隔
+    CHINESE_SPEECH_MAX_WAIT_MS: 10000, // 等英文/日文播完再播中文的最長等待（防 speaking 卡死）
     SPEECH_WAIT_POLL_MS: 100,        // 語音等待輪詢間隔
     AUDIO_WATCHDOG_INTERVAL_MS: 10000, // 音頻監控間隔
     KEEP_ALIVE_INTERVAL_MS: 30000,   // Keep-alive 間隔
@@ -578,6 +579,8 @@
         });
         } else {
         console.log('沒有找到 Google Sheet 設定，顯示設定畫面');
+        // 先啟用防止螢幕關閉功能再返回：初次設定/私密模式的使用者也要保持螢幕常亮
+        this.enableKeepScreenAwake();
         this.handleLoadingComplete(false, true);
         return;
       }
@@ -607,10 +610,20 @@
       clearInterval(this.chineseWaitInterval);
       this.chineseWaitInterval = null;
     }
+    if (this._chineseWaitTimeout) {
+      clearTimeout(this._chineseWaitTimeout);
+      this._chineseWaitTimeout = null;
+    }
     this.cancelPendingSpeechRestart();
     this._speechSequenceActive = false;
     this._speechPlayId = (this._speechPlayId || 0) + 1;
-    this.speechSynthesis.cancel();
+    if (this.speechSynthesis && typeof this.speechSynthesis.cancel === 'function') {
+      try {
+        this.speechSynthesis.cancel();
+      } catch (e) {
+        console.warn('取消語音合成失敗:', e);
+      }
+    }
   };
 
   /** 語音合成佇列是否忙碌（正在播放或仍有待播項目） */
@@ -659,6 +672,15 @@
   FlashcardApp.prototype.clearAllTimersAndSpeech = function() {
     this._clearDisplayTimer();
     this.cancelAllSpeech();
+    // 一併取消暫待處理的「標為非常熟」計時器：不清掉的話，換卡後舊字的
+    // 逾時回呼會把舊字存下的剩餘倒數套到新卡片上（提前翻面、進度條錯位）
+    if (this._pendingVeryFamiliar) {
+      if (this._pendingVeryFamiliar.timer) {
+        clearTimeout(this._pendingVeryFamiliar.timer);
+      }
+      this._pendingVeryFamiliar = null;
+    }
+    this._vfSavedTimer = null;
   };
 
   /** 清除閃卡背景圖片 */
@@ -834,13 +856,22 @@
    * 將目前的設定與語音設定儲存到 localStorage。
    */
   FlashcardApp.prototype.saveSettings = function() {
-    localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
-    localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.VOICE_SETTINGS, JSON.stringify(this.voiceSettings));
+    // Safari 私密模式（目標平台）localStorage 會丟 QuotaExceededError，不能讓它炸掉呼叫端
+    try {
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.VOICE_SETTINGS, JSON.stringify(this.voiceSettings));
+    } catch (e) {
+      console.warn('儲存設定失敗（localStorage 不可用）:', e);
+    }
   };
   
   // 儲存Sheet設定
   FlashcardApp.prototype.saveSheetSettings = function() {
-    localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SHEET_SETTINGS, JSON.stringify(this.sheetSettings));
+    try {
+      localStorage.setItem(APP_CONSTANTS.STORAGE_KEYS.SHEET_SETTINGS, JSON.stringify(this.sheetSettings));
+    } catch (e) {
+      console.warn('儲存 Sheet 設定失敗（localStorage 不可用）:', e);
+    }
   };
   
   // 獲取預設Sheet列表
@@ -1577,14 +1608,21 @@
     this.updateLoadingProgress(0, total, '正在連接 Google Sheet...');
     this.updateLoadingSheetList(selectedSheets, sheetStatus, sheetWordCounts);
     
-    // 整體超時
-    var loadTimeout = setTimeout(function() {
-      console.error('載入單字超時 (' + APP_CONSTANTS.LOAD_TIMEOUT_MS + 'ms)');
-      if (allWords.length > 0) {
+    // 整體超時；finished 防護避免逾時後晚到的成功/失敗回呼再次觸發完成流程
+    // （否則 callback/handleLoadingComplete 會跑兩次 → startNewRound/重複視窗重複出現）
+    var finished = false;
+    var finishOnce = function(hadWords) {
+      if (finished) return;
+      finished = true;
+      if (hadWords) {
         self.finishProgressiveLoading(allWords, callback);
       } else {
         self.handleLoadingComplete(false, true);
       }
+    };
+    var loadTimeout = setTimeout(function() {
+      console.error('載入單字超時 (' + APP_CONSTANTS.LOAD_TIMEOUT_MS + 'ms)');
+      finishOnce(allWords.length > 0);
     }, APP_CONSTANTS.LOAD_TIMEOUT_MS);
     
     // 並行載入各工作表
@@ -1612,7 +1650,7 @@
             
             if (completed >= total) {
               clearTimeout(loadTimeout);
-              self.finishProgressiveLoading(allWords, callback);
+              finishOnce(true);
             }
           })
           .withFailureHandler(function(error) {
@@ -1626,11 +1664,7 @@
             
             if (completed >= total) {
               clearTimeout(loadTimeout);
-              if (allWords.length > 0) {
-                self.finishProgressiveLoading(allWords, callback);
-              } else {
-                self.handleLoadingComplete(false, true);
-              }
+              finishOnce(allWords.length > 0);
             }
           })
           .getWordsFromSingleSheet(sheetId, sheetName);

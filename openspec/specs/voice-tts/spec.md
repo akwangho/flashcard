@@ -75,6 +75,12 @@ The system SHALL hold the carousel at timer expiry while any voice (EN/JA/ZH/spe
 - **WHEN** the phase timer expires while a voice is playing
 - **THEN** advancement waits (max 60 s) for the voice to finish; manual next/previous advances immediately and cancels the voice
 
+#### Scenario: Interrupt-safe restart on iOS
+
+- **WHEN** a voice is triggered while another is still playing (Japanese card TTS, manual replay, or voice preview in settings)
+- **THEN** the new utterance waits for the engine to actually stop (iOS `cancel()` is asynchronous; a same-tick `speak()` gets swallowed) with a bounded max wait, instead of playing silence
+- **AND** the EN→ZH hand-off polls for completion with a bounded deadline (10 s), so a stuck `speaking` state cannot block the Chinese voice or card navigation forever
+
 ### Requirement: Mute / Unmute
 
 The system SHALL toggle voice with the voice button or M key, showing 🔊 (active) or 🔇 (muted) plus a Muted indicator.

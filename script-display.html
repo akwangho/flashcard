@@ -447,16 +447,30 @@
     }
 
     var self = this;
+    // 換卡會遞增 _speechPlayId；發音計時器觸發時比對，不一致代表已換卡 → 丟棄舊卡發音
+    var phase2PlayId = this._speechPlayId || 0;
     if (this.settings.listeningMode) {
       // 聽力模式：Phase 2 出現文字時再次發音，強化聽覺記憶（忽略延遲發音設定）
-      setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+      setTimeout(function() {
+        if ((self._speechPlayId || 0) !== phase2PlayId) return;
+        self.speakWord(currentWord.english);
+      }, APP_CONSTANTS.SPEECH_DELAY_MS);
     } else {
       if (isReversed) {
-        setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        setTimeout(function() {
+          if ((self._speechPlayId || 0) !== phase2PlayId) return;
+          self.speakWord(currentWord.english);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
       } else {
-        setTimeout(function() { self.speakChineseWord(currentWord.chinese); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+        setTimeout(function() {
+          if ((self._speechPlayId || 0) !== phase2PlayId) return;
+          self.speakChineseWord(currentWord.chinese);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
         if (this.settings.delaySpeechInNormalMode) {
-          setTimeout(function() { self.speakWord(currentWord.english); }, APP_CONSTANTS.SPEECH_DELAY_MS);
+          setTimeout(function() {
+            if ((self._speechPlayId || 0) !== phase2PlayId) return;
+            self.speakWord(currentWord.english);
+          }, APP_CONSTANTS.SPEECH_DELAY_MS);
         }
       }
     }

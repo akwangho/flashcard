@@ -55,7 +55,8 @@
 
   FlashcardApp.prototype._filterListeningWords = function() {
     if (!this.words || this.words.length === 0) return [];
-    return this.applyAllFilters(this.words);
+    // 與測驗共用：排除使用者已「暫時移除」的單字
+    return this.getFilteredWordsExcludingRemoved();
   };
 
   FlashcardApp.prototype._generateListeningQuestions = function() {
@@ -267,12 +268,21 @@
       this._renderListeningSpellInput(q);
     }
 
-    // 播放語音
+    // 播放語音：記錄計時器 id，快速跳題或關閉視窗時清掉，避免補播上一題
     var self = this;
-    setTimeout(function() { self._playListeningAudio(); }, APP_CONSTANTS.LISTENING_AUDIO_DELAY_MS);
+    if (this._listeningAudioTimer) {
+      clearTimeout(this._listeningAudioTimer);
+      this._listeningAudioTimer = null;
+    }
+    this._listeningAudioTimer = setTimeout(function() {
+      self._listeningAudioTimer = null;
+      self._playListeningAudio();
+    }, APP_CONSTANTS.LISTENING_AUDIO_DELAY_MS);
   };
 
   FlashcardApp.prototype._playListeningAudio = function() {
+    // 視窗已關閉時不再發音（300ms 內關閉的殘留計時器）
+    if (!this.listeningState || !this.listeningState.isActive) return;
     var q = this.listeningState.questions[this.listeningState.currentQuestionIndex];
     if (!q) return;
 
@@ -519,6 +529,10 @@
 
   FlashcardApp.prototype.closeListeningModal = function() {
     closeModalById(this, 'listening-modal');
+    if (this._listeningAudioTimer) {
+      clearTimeout(this._listeningAudioTimer);
+      this._listeningAudioTimer = null;
+    }
     if (this.listeningState) {
       this.listeningState.isActive = false;
     }

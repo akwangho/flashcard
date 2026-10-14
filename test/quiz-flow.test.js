@@ -279,6 +279,22 @@ describe('Quiz UI flow', function() {
       expect(result.length).toBe(1);
       expect(result[0].english).toBe('apple');
     });
+
+    test('excludes words the user temporarily removed', function() {
+      // 暫時移除的單字只從 currentWords 拿掉，this.words 仍保留全量；
+      // 測驗字池不得包含使用者明確移除的單字（順序由篩選決定，只比對集合）
+      app.removedWords = [{ id: 1 }, { id: 3 }];
+      var result = app.getCurrentAvailableWords();
+      expect(result.length).toBe(3);
+      var ids = result.map(function(w) { return w.id; }).sort(function(a, b) { return a - b; });
+      expect(ids).toEqual([0, 2, 4]);
+    });
+
+    test('handles removedWords being null/undefined', function() {
+      app.removedWords = null;
+      var result = app.getCurrentAvailableWords();
+      expect(result.length).toBe(app.words.length);
+    });
   });
 
   // ===========================================

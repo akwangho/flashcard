@@ -23,6 +23,12 @@ The system SHALL detect duplicate English words (case-sensitive) on every load, 
 - **AND** 要會拼 (must-spell) = the strictest level present: `1` > `0.5` > `-1` (看懂就好) > `0`
 - **AND** the kept entry's 複習日期 (lastReviewDate) is unchanged, so SRS scheduling is unaffected; manual keep/merge resolutions write the merged metadata to the kept sheet row before deleting the other rows
 
+#### Scenario: Deleting the right rows
+
+- **WHEN** the same word exists multiple times in the SAME sheet (identical English + Chinese)
+- **THEN** each deleted duplicate resolves to a distinct physical row — never the row that just received the merged metadata — and rows are deleted bottom-up so earlier deletions cannot shift later row numbers
+- **AND** if the target/kept worksheet no longer exists (renamed or deleted since load), the resolution fails with an error BEFORE any source row is deleted, so no definition is lost
+
 ### Requirement: Manual Resolution Modal
 
 The system SHALL let the user resolve duplicate groups one at a time.

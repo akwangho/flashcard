@@ -3,7 +3,26 @@
   // ES5兼容版本 FlashcardApp for iPad4
   (function() {
     'use strict';
-    
+
+    // 上線環境靜音 console.log（250 處除錯訊息不輸出到使用者瀏覽器）。
+    // - console.warn / console.error 保留：出問題時瀏覽器主控台仍有線索
+    // - 在 Web App 網址加上 ?debug=1（或 &debug=1）可重新開啟全部 log
+    // - Jest 測試環境不靜音，避免測試輸出被吃掉
+    (function() {
+      var isTestEnv = false;
+      try {
+        isTestEnv = (typeof jest !== 'undefined') ||
+                   (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test');
+      } catch (envError) {}
+      var debugMode = false;
+      try {
+        debugMode = /[?&]debug(=1|=true|&|$)/.test(window.location.search || '');
+      } catch (debugError) {}
+      if (!isTestEnv && !debugMode && window.console && typeof window.console.log === 'function') {
+        window.console.log = function() {};
+      }
+    })();
+
     // ES5 Polyfills
     if (!Array.prototype.forEach) {
       Array.prototype.forEach = function(callback, thisArg) {

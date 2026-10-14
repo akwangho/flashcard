@@ -237,8 +237,8 @@
         <div class="controls">
           <button id="prev-btn">上一個</button>
           <button id="next-btn">下一個</button>
-          <button id="voice-toggle-btn" title="切換語音播放">🔊</button>
-          <button id="pause-btn" title="暫停/恢復">⏸️</button>
+          <button id="voice-toggle-btn" title="切換語音播放" aria-label="切換語音播放">🔊</button>
+          <button id="pause-btn" title="暫停/恢復" aria-label="暫停或恢復播放">⏸️</button>
           
           <!-- 選單系統（分類整理） -->
           <div class="menu-container">
@@ -301,7 +301,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2>單字檔設定</h2>
-          <button id="close-sheet-settings" class="close-btn">×</button>
+          <button id="close-sheet-settings" class="close-btn" aria-label="關閉視窗">×</button>
         </div>
         
         <div class="modal-body">
@@ -341,7 +341,10 @@
           </div>
           
           <div class="setting-group" id="sheets-selection-group" style="display: none;">
-            <label>選擇工作表 <span id="selected-count">(已選 0 個)</span> <button type="button" id="toggle-select-all-btn" class="toggle-select-all-btn">全選</button> <button type="button" id="clear-all-btn" class="toggle-select-all-btn" style="display: none;">清除</button></label>
+            <!-- label 內不可放 button（隱式控制項會綁到第一個按鈕，點文字會誤觸全選），
+                 全選/清除按鈕移到 label 外 -->
+            <label>選擇工作表 <span id="selected-count">(已選 0 個)</span></label>
+            <button type="button" id="toggle-select-all-btn" class="toggle-select-all-btn">全選</button> <button type="button" id="clear-all-btn" class="toggle-select-all-btn" style="display: none;">清除</button>
             <div class="sheets-list" id="sheets-list">
               <!-- 工作表清單將在這裡動態生成 -->
             </div>
@@ -360,7 +363,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2>設定</h2>
-          <button id="close-settings" class="close-btn">×</button>
+          <button id="close-settings" class="close-btn" aria-label="關閉視窗">×</button>
         </div>
         
         <div class="modal-body">
@@ -492,7 +495,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2>語音設定</h2>
-          <button id="close-voice-settings" class="close-btn">×</button>
+          <button id="close-voice-settings" class="close-btn" aria-label="關閉視窗">×</button>
         </div>
         <div class="modal-body">
           <div class="setting-group">
@@ -604,7 +607,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2>匯出單字</h2>
-          <button id="close-export-modal" class="close-btn">×</button>
+          <button id="close-export-modal" class="close-btn" aria-label="關閉視窗">×</button>
         </div>
         <div class="modal-body">
           <div class="setting-group">
@@ -650,7 +653,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h2>⚠️ 工作表已存在</h2>
-          <button id="close-overwrite-confirm" class="close-btn">×</button>
+          <button id="close-overwrite-confirm" class="close-btn" aria-label="關閉視窗">×</button>
         </div>
         <div class="modal-body">
           <div class="overwrite-warning">
@@ -673,7 +676,7 @@
       <div class="modal-content" style="max-width: 700px;">
         <div class="modal-header">
           <h2>發現重複單字</h2>
-          <button id="close-duplicate-modal" class="close-btn">×</button>
+          <button id="close-duplicate-modal" class="close-btn" aria-label="關閉視窗">×</button>
         </div>
         
         <div class="modal-body">
@@ -710,7 +713,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>✏️ 編輯單字</h2>
-        <button id="close-edit-word" class="close-btn">&times;</button>
+        <button id="close-edit-word" class="close-btn" aria-label="關閉視窗">&times;</button>
       </div>
       <div class="modal-body">
         <div class="setting-group edit-word-sheet-info">
@@ -754,7 +757,8 @@
             <input type="text" id="edit-word-image" placeholder="圖片網址（可留空）" autocomplete="off">
           </div>
           <div id="edit-word-image-preview" class="edit-word-image-preview" style="display: none;">
-            <img id="edit-word-image-preview-img" src="" alt="圖片預覽">
+            <!-- 不寫靜態 src=""：空 src 會被解析成頁面網址發出多餘請求，src 由 JS 在預覽時設定 -->
+            <img id="edit-word-image-preview-img" alt="圖片預覽">
             <div id="edit-word-image-preview-error" class="edit-word-image-preview-error" style="display: none;">圖片載入失敗</div>
           </div>
         </div>
@@ -795,7 +799,7 @@
     <div class="modal-content search-word-modal-content">
       <div class="modal-header">
         <h2>🔍 搜尋單字</h2>
-        <button id="close-search-word" class="close-btn" type="button">&times;</button>
+        <button id="close-search-word" class="close-btn" aria-label="關閉視窗" type="button">&times;</button>
       </div>
       <div class="modal-body">
         <div class="setting-group search-word-input-row">
@@ -825,7 +829,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>⭐ 不熟程度篩選</h2>
-        <button id="close-difficulty-filter" class="close-btn">&times;</button>
+        <button id="close-difficulty-filter" class="close-btn" aria-label="關閉視窗">&times;</button>
       </div>
       <div class="modal-body">
         <div class="setting-group">
@@ -880,7 +884,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>📝 類型篩選</h2>
-        <button id="close-type-filter" class="close-btn">&times;</button>
+        <button id="close-type-filter" class="close-btn" aria-label="關閉視窗">&times;</button>
       </div>
       <div class="modal-body">
         <div class="setting-group">
@@ -915,7 +919,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>🏷️ 標籤篩選</h2>
-        <button id="close-tag-filter" class="close-btn">&times;</button>
+        <button id="close-tag-filter" class="close-btn" aria-label="關閉視窗">&times;</button>
       </div>
       <div class="modal-body">
         <div class="setting-group">
@@ -938,7 +942,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>📅 複習時間篩選</h2>
-        <button id="close-review-filter" class="close-btn">×</button>
+        <button id="close-review-filter" class="close-btn" aria-label="關閉視窗">×</button>
       </div>
       <div class="modal-body">
         <div class="setting-group">
@@ -988,7 +992,7 @@
     <div class="modal-content srs-modal-content">
       <div class="modal-header">
         <h2>📖 快速複習</h2>
-        <button id="close-srs-modal" class="close-btn">×</button>
+        <button id="close-srs-modal" class="close-btn" aria-label="關閉視窗">×</button>
       </div>
       <div class="modal-body" style="padding: 20px;">
         <div id="srs-stats" style="display: none;"></div>
@@ -1010,7 +1014,7 @@
     <div class="modal-content quiz-modal-content">
       <div class="modal-header">
         <h2 id="quiz-title">🎯 快速測驗</h2>
-        <button id="close-quiz" class="close-btn">×</button>
+        <button id="close-quiz" class="close-btn" aria-label="關閉視窗">×</button>
       </div>
       
       <div class="modal-body">
@@ -1118,7 +1122,7 @@
     <div class="modal-content quiz-modal-content">
       <div class="modal-header">
         <h2 id="listening-title">👂 聽音辨字</h2>
-        <button id="close-listening" class="close-btn">&times;</button>
+        <button id="close-listening" class="close-btn" aria-label="關閉視窗">&times;</button>
       </div>
       
       <div class="modal-body">

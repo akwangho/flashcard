@@ -129,10 +129,29 @@
     this.showQuizModal(type);
   };
   
+  // 排除「暫時移除」單字後的篩選結果（測驗/聽力/SRS 共用）：
+  // 移除單字只會從 currentWords 拿掉，this.words 仍保留全量，
+  // 若不排除，測驗與複習還是會出現使用者明確移除的單字
+  FlashcardApp.prototype.getFilteredWordsExcludingRemoved = function() {
+    var pool = this.applyAllFilters(this.words || []);
+    if (this.removedWords && this.removedWords.length > 0) {
+      var removedIds = {};
+      for (var i = 0; i < this.removedWords.length; i++) {
+        removedIds[this.removedWords[i].id] = true;
+      }
+      var filtered = [];
+      for (var j = 0; j < pool.length; j++) {
+        if (!removedIds[pool[j].id]) filtered.push(pool[j]);
+      }
+      pool = filtered;
+    }
+    return pool;
+  };
+
   // 獲取當前可用的單字（啟動時重新套用篩選，確保與篩選條件一致）
   FlashcardApp.prototype.getCurrentAvailableWords = function() {
     if (!this.words || this.words.length === 0) return [];
-    return this.applyAllFilters(this.words);
+    return this.getFilteredWordsExcludingRemoved();
   };
   
   // 獲取沒有可用單字時的提示信息
@@ -345,7 +364,6 @@
     } else if (screenType === 'progress') {
       var nextBtn = document.getElementById('quiz-next');
       if (nextBtn) {
-        nextBtn.style.display = 'inline-block';
         nextBtn.style.display = 'none'; // 初始隱藏，答題後顯示
       }
     } else if (screenType === 'result') {
@@ -535,7 +553,11 @@
     // 播放語音（如果是英文單字）
     if (this.voiceSettings.enabled) {
       var self = this;
+      // 測驗已關閉或已跳下一題時不再補播音（clearAllTimersAndSpeech 會遞增 _speechPlayId）
+      var feedbackPlayId = this._speechPlayId || 0;
       setTimeout(function() {
+        if (!self.quizState || !self.quizState.isActive) return;
+        if ((self._speechPlayId || 0) !== feedbackPlayId) return;
         self.speakWord(question.word.english);
       }, APP_CONSTANTS.SPEECH_DELAY_MS);
     }

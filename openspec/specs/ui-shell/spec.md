@@ -91,6 +91,16 @@ The system SHALL apply one-click preset learning modes — applied immediately, 
 - **WHEN** a notification fires
 - **THEN** a centred semi-transparent rounded toast appears, auto-dismisses after 3 s with fade-out, and is replaced by any newer notification (success = green border, info = blue)
 
+### Requirement: Diagnostics Logging
+
+The system SHALL suppress verbose `console.log` output in the deployed app while keeping warnings and errors visible.
+
+#### Scenario: Debug flag
+
+- **WHEN** the web app loads normally
+- **THEN** `console.log` calls are silenced (no-op) while `console.warn`/`console.error` remain visible for troubleshooting
+- **AND** appending `?debug=1` to the web app URL re-enables full `console.log` output
+
 ### Requirement: Word Search
 
 #### Scenario: Behaviour

@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.25.6';
+  var SERVER_VERSION = '1.26.0';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-11 00:26';
+  var SERVER_BUILD_TIME = '2026-10-14 10:41';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -306,21 +306,6 @@ function countValidWords(sheet) {
   }
 
   /**
-  * 取得示例資料（測試用）
-  */
-  function getDemoWords() {
-    return [
-      {id: 0, english: 'Hello', chinese: '你好', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 2},
-      {id: 1, english: 'World', chinese: '世界', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 3},
-      {id: 2, english: 'Apple', chinese: '蘋果', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 4},
-      {id: 3, english: 'Book', chinese: '書', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 5},
-      {id: 4, english: 'Computer', chinese: '電腦', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 6},
-      {id: 5, english: 'Friend', chinese: '朋友', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 7},
-      {id: 6, english: 'Happy', chinese: '快樂', difficultyLevel: 0, image: '', imageFormula: '', lastReviewDate: '', sheetName: 'Demo', originalRowIndex: 8}
-    ];
-  }
-
-  /**
   * 根據英文和中文內容尋找工作表中的行索引
   */
   function findWordRowIndex(sheet, englishWord, chineseWord) {
@@ -540,8 +525,9 @@ function countValidWords(sheet) {
       return allWords;
     } catch (error) {
       console.error('載入單字時發生錯誤:', error);
-      console.log('返回示例資料進行測試');
-      return getDemoWords();
+      // 不再回退示範資料：失敗時往上拋出，讓前端 withFailureHandler
+      // 顯示真正的錯誤（示範資料會被當成真字庫，掩蓋連線/權限問題）
+      throw error;
     }
   }
 
@@ -566,7 +552,7 @@ function countValidWords(sheet) {
       
       if (!sheetId || !sheetName) {
         console.error('缺少必要參數：sheetId 或 sheetName');
-        return false;
+        return { success: false, error: '缺少必要參數：sheetId 或 sheetName' };
       }
       
       const spreadsheet = openSpreadsheetSafely(sheetId.trim());
@@ -574,7 +560,7 @@ function countValidWords(sheet) {
       
       if (!sheet) {
         console.error('找不到工作表：' + sheetName);
-        return false;
+        return { success: false, error: '找不到工作表：' + sheetName };
       }
       
       const row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
@@ -584,10 +570,10 @@ function countValidWords(sheet) {
       sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
       
       console.log('成功更新不熟程度為', level);
-      return true;
+      return { success: true };
     } catch (error) {
       console.error('更新不熟程度失敗:', error);
-      return false;
+      return { success: false, error: error.message };
     }
   }
 
@@ -616,49 +602,60 @@ function countValidWords(sheet) {
       
       var row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
       
-      // 更新 B 欄：單字
+      // 收集要更新的欄位，依欄號排序後把「連續欄位」合併成一次 setValues 寫入，
+      // 把多次 API 呼叫壓到最少。F 欄（圖片顯示公式）不在更新範圍，
+      // 合併區段不得跨越 F 欄，避免把公式蓋成取回的運算值。
+      var patches = [];
+      
       if (properties.english !== undefined && properties.english !== null) {
-        sheet.getRange(row, COL_NUM.ENGLISH).setValue(properties.english.toString().trim());
-        console.log('已更新單字:', properties.english);
+        patches.push({ col: COL_NUM.ENGLISH, val: properties.english.toString().trim() });
       }
-      
-      // 更新 C 欄：翻譯
       if (properties.chinese !== undefined && properties.chinese !== null) {
-        sheet.getRange(row, COL_NUM.CHINESE).setValue(properties.chinese.toString().trim());
-        console.log('已更新翻譯:', properties.chinese);
+        patches.push({ col: COL_NUM.CHINESE, val: properties.chinese.toString().trim() });
       }
-      
-      // 更新 D 欄：不熟程度（以數字格式寫入，0 寫空字串）
       if (properties.difficultyLevel !== undefined && properties.difficultyLevel !== null) {
         var level = Math.max(-999, Math.min(10, parseInt(properties.difficultyLevel) || 0));
-        sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
-        console.log('已更新不熟程度:', level);
+        patches.push({ col: COL_NUM.DIFFICULTY, val: level === 0 ? '' : level });
       }
-      
-      // 更新 E 欄：圖片URL
       if (properties.imageUrl !== undefined && properties.imageUrl !== null) {
-        sheet.getRange(row, COL_NUM.IMAGE_URL).setValue(properties.imageUrl.toString().trim());
-        console.log('已更新圖片URL:', properties.imageUrl);
+        patches.push({ col: COL_NUM.IMAGE_URL, val: properties.imageUrl.toString().trim() });
       }
-      
-      // 更新 A 欄：要會拼（1 = 衝刺要會拼單字；0.5 = 隨機要會拼單字；空字串 = 不需要）
       if (properties.mustSpell !== undefined && properties.mustSpell !== null) {
         var mustSpellVal = normalizeMustSpell(properties.mustSpell);
-        sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(mustSpellVal === 0 ? '' : mustSpellVal);
-        console.log('已更新要會拼:', mustSpellVal);
+        patches.push({ col: COL_NUM.MUST_SPELL, val: mustSpellVal === 0 ? '' : mustSpellVal });
       }
-
-      // 更新 H 欄：標籤（以半形逗號分隔的字串）
       if (properties.tags !== undefined && properties.tags !== null) {
-        var tagsStr = Array.isArray(properties.tags) ? properties.tags.join(',') : properties.tags.toString();
-        sheet.getRange(row, COL_NUM.TAGS).setValue(tagsStr);
-        console.log('已更新標籤:', tagsStr);
+        patches.push({ col: COL_NUM.TAGS, val: Array.isArray(properties.tags) ? properties.tags.join(',') : properties.tags.toString() });
       }
-
-      // 更新 I 欄：KK 音標（空字串 = 清除）
       if (properties.kkPhonetic !== undefined && properties.kkPhonetic !== null) {
-        sheet.getRange(row, COL_NUM.KK_PHONETIC).setValue(properties.kkPhonetic.toString().trim());
-        console.log('已更新 KK 音標:', properties.kkPhonetic);
+        patches.push({ col: COL_NUM.KK_PHONETIC, val: properties.kkPhonetic.toString().trim() });
+      }
+      
+      patches.sort(function(a, b) { return a.col - b.col; });
+      
+      var p = 0;
+      while (p < patches.length) {
+        var groupStart = p;
+        var spanCol = patches[p].col;
+        var spanEnd = spanCol;
+        // 下一欄與目前區段相鄰，且合併後不會包含 F 欄（圖片公式）才擴展區段
+        while (p + 1 < patches.length &&
+               patches[p + 1].col === spanEnd + 1 &&
+               !(spanCol <= COL_NUM.IMAGE_FORMULA && COL_NUM.IMAGE_FORMULA <= spanEnd + 1)) {
+          p++;
+          spanEnd = patches[p].col;
+        }
+        
+        if (spanEnd === spanCol) {
+          sheet.getRange(row, spanCol).setValue(patches[groupStart].val);
+        } else {
+          var spanVals = [];
+          for (var g = groupStart; g <= p; g++) {
+            spanVals.push(patches[g].val);
+          }
+          sheet.getRange(row, spanCol, 1, spanEnd - spanCol + 1).setValues([spanVals]);
+        }
+        p++;
       }
       
       console.log('成功更新單字屬性');
@@ -675,21 +672,6 @@ function countValidWords(sheet) {
   function markWordAsDifficult(sheetId, sheetName, rowIndex, isDifficult) {
     const level = isDifficult ? 1 : 0;
     return updateWordDifficulty(sheetId, sheetName, rowIndex, level);
-  }
-
-  /**
-  * 檢查工作表是否存在
-  */
-  function checkSheetExists(sheetName, targetSheetId) {
-    try {
-      const SHEET_ID = targetSheetId || '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
-      const ss = SpreadsheetApp.openById(SHEET_ID);
-      const existingSheet = ss.getSheetByName(sheetName);
-      return existingSheet !== null;
-    } catch (error) {
-      console.error('檢查工作表是否存在時發生錯誤:', error);
-      return false;
-    }
   }
 
   /**
@@ -716,7 +698,9 @@ function countValidWords(sheet) {
         };
       }
       
-      if (sheetExists && overwrite) {
+      // 覆寫模式只有第一批次能刪除重建；後續批次一律附加，
+      // 否則批次匯出會把前面批次的資料清掉
+      if (sheetExists && overwrite && isFirstBatch) {
         // 覆寫模式：刪除現有工作表並重新創建
         console.log('覆寫模式：刪除現有工作表');
         ss.deleteSheet(targetSheet);
@@ -736,8 +720,9 @@ function countValidWords(sheet) {
         targetSheet.appendRow([words.length, '單字', '翻譯', '不熟程度', '圖片URL', '', '', '標籤', 'KK音標']);
       }
       
-      // 寫入資料
+      // 寫入資料：組成二維陣列後一次 setValues，取代逐列 appendRow（N 次 API 呼叫 → 1 次）
       console.log('開始寫入', words.length, '個單字');
+      var rowsToWrite = [];
       for (let i = 0; i < words.length; i++) {
         const w = words[i];
         const imageUrl = w.image || '';
@@ -747,17 +732,26 @@ function countValidWords(sheet) {
         
         var tagsStr = (w.tags && w.tags.length > 0) ? w.tags.join(',') : '';
         var mustSpellVal = normalizeMustSpell(w.mustSpell);
-        targetSheet.appendRow([
+        rowsToWrite.push([
           mustSpellVal === 0 ? '' : mustSpellVal,  // A 欄：要會拼標記（1/0.5/空）
           w.english || '',           // B 欄：單字
           w.chinese || '',           // C 欄：翻譯
           level === 0 ? '' : level,  // D 欄：不熟程度（數字格式）
-          imageUrl,                  // E 欄：圖片URL
-          '',                        // F 欄：圖片公式（略）
-          '',                        // G 欄：複習日期（略）
-          tagsStr,                   // H 欄：標籤
-          kkPhoneticCellFromWord(w)  // I 欄：KK 音標（多候選待確認 → 保留完整候選清單）
+          imageUrl,                   // E 欄：圖片URL
+          '',                         // F 欄：圖片公式（略）
+          '',                         // G 欄：複習日期（略）
+          tagsStr,                    // H 欄：標籤
+          kkPhoneticCellFromWord(w)   // I 欄：KK 音標（多候選待確認 → 保留完整候選清單）
         ]);
+      }
+      if (rowsToWrite.length > 0) {
+        targetSheet.getRange(targetSheet.getLastRow() + 1, 1, rowsToWrite.length, 9).setValues(rowsToWrite);
+      }
+      
+      // A1 總數修正：本批附加後重新計算實際資料列數，
+      // 多批匯出時 A1 才不會只停在第一批的數量
+      if (isFirstBatch || overwrite || !sheetExists) {
+        targetSheet.getRange(1, 1).setValue(Math.max(targetSheet.getLastRow() - 1, 0));
       }
       
       let actionText;
@@ -818,6 +812,7 @@ function countValidWords(sheet) {
       }
 
       let updatedCount = 0;
+      const failedUpdates = [];
 
       for (const sheetName in groupedBySheet) {
         const sheetUpdates = groupedBySheet[sheetName];
@@ -825,23 +820,40 @@ function countValidWords(sheet) {
 
         if (!sheet) {
           console.error('找不到工作表:', sheetName);
+          for (let i = 0; i < sheetUpdates.length; i++) {
+            failedUpdates.push({ update: sheetUpdates[i], error: '找不到工作表：' + sheetName });
+          }
           continue;
         }
 
+        const lastRow = sheet.getLastRow();
+        if (lastRow < 1) continue;
+
+        // 一次讀取 G 欄 → 記憶體中修改 → 一次寫回（N 次 setValue → 2 次呼叫）
+        const gValues = sheet.getRange(1, COL_NUM.LAST_REVIEW, lastRow, 1).getValues();
+
         for (let i = 0; i < sheetUpdates.length; i++) {
-          try {
-            const update = sheetUpdates[i];
-            const row = update.rowIndex + 1; // 轉換為 1-based
-            sheet.getRange(row, COL_NUM.LAST_REVIEW).setValue(update.date);
-            updatedCount++;
-          } catch (cellError) {
-            console.error('更新單一複習日期失敗:', sheetUpdates[i], cellError);
+          const update = sheetUpdates[i];
+          const row = update.rowIndex + 1; // 轉換為 1-based
+          if (row < 2 || row > lastRow) {
+            failedUpdates.push({ update: update, error: '列號超出範圍：' + row });
+            continue;
           }
+          gValues[row - 1][0] = update.date;
+          updatedCount++;
         }
+
+        sheet.getRange(1, COL_NUM.LAST_REVIEW, lastRow, 1).setValues(gValues);
       }
 
       console.log('成功更新', updatedCount, '個複習日期');
-      return { success: true, updatedCount: updatedCount };
+      // 部分失敗時回報 success:false 與失敗清單，前端會保留待同步項目下次重試
+      return {
+        success: failedUpdates.length === 0,
+        updatedCount: updatedCount,
+        failedCount: failedUpdates.length,
+        failed: failedUpdates
+      };
     } catch (error) {
       console.error('批次更新複習日期失敗:', error);
       return { success: false, error: error.message, updatedCount: 0 };
@@ -971,31 +983,108 @@ function countValidWords(sheet) {
   }
 
   /**
-  * 刪除一組重複單字所在的列，回傳成功刪除的數量。
-  */
-  function deleteDuplicateRows(spreadsheet, deleteWords) {
+   * 刪除一組重複單字所在的列，回傳成功刪除的數量。
+   *
+   * 修正重點：
+   *   1. 同一工作表內可能有多列內容完全相同的單字（重複單字的常見形態），
+   *      舊版對每個待刪單字都用 findWordRowIndex() 找「第一個」符合列；
+   *      當保留列也是相同內容時，會刪到剛寫入合併中繼資料的保留列，讓重複列反而留下。
+   *      新版每個工作表只讀取一次，把所有符合列建成 pool，
+   *      為每個待刪單字分配「互不重複」的實體列，並保護保留列不被刪除。
+   *   2. 刪除時由下而上（列號遞減），避免前面的刪除讓後面的列號位移。
+   *   3. 每個工作表只做一次全表讀取（舊版每個單字重讀一次，N+1 API 呼叫）。
+   *
+   * @param {Spreadsheet} spreadsheet - 已開啟的試算表
+   * @param {Array<Object>} deleteWords - 待刪單字（sheetName/english/chinese/originalRowIndex）
+   * @param {Object} [protectWord] - 保留列單字（keep/merge 目標）；同表同內容的第一個符合列不刪
+   * @returns {number} 實際刪除的列數
+   */
+  function deleteDuplicateRows(spreadsheet, deleteWords, protectWord) {
     var deletedCount = 0;
+    if (!deleteWords || deleteWords.length === 0) return 0;
+
+    // 依工作表分組
+    var bySheet = {};
+    var sheetOrder = [];
     for (var i = 0; i < deleteWords.length; i++) {
-      var word = deleteWords[i];
+      var name = deleteWords[i].sheetName;
+      if (!bySheet[name]) {
+        bySheet[name] = [];
+        sheetOrder.push(name);
+      }
+      bySheet[name].push(deleteWords[i]);
+    }
+
+    var wordKey = function(w) {
+      return (w.english || '').toString().trim().toLowerCase() + '\u0000' +
+             (w.chinese || '').toString().trim().toLowerCase();
+    };
+
+    for (var s = 0; s < sheetOrder.length; s++) {
+      var sheetName = sheetOrder[s];
       try {
-        var sheet = spreadsheet.getSheetByName(word.sheetName);
+        var sheet = spreadsheet.getSheetByName(sheetName);
         if (!sheet) {
-          console.error('找不到工作表:', word.sheetName);
+          console.error('找不到工作表:', sheetName);
           continue;
         }
 
-        var foundRowIndex = findWordRowIndex(sheet, word.english, word.chinese);
+        var data = sheet.getDataRange().getValues();
 
-        if (foundRowIndex !== -1) {
-          var actualRow = foundRowIndex + 1; // 轉換為1-based索引
+        // 保護列：protectWord 在此工作表中同內容的第一個符合列
+        // （與 handleDuplicateWordKeepOne/handleDuplicateWordMerge 寫入合併資料的列一致）
+        var protectRow = -1;
+        if (protectWord && protectWord.sheetName === sheetName) {
+          var protectKey = wordKey(protectWord);
+          for (var pr = 1; pr < data.length; pr++) {
+            var prE = data[pr][COL.ENGLISH] ? data[pr][COL.ENGLISH].toString().trim().toLowerCase() : '';
+            var prC = data[pr][COL.CHINESE] ? data[pr][COL.CHINESE].toString().trim().toLowerCase() : '';
+            if (prE + '\u0000' + prC === protectKey) {
+              protectRow = pr;
+              break;
+            }
+          }
+        }
+
+        // 收集每個 key 的所有符合列（0-based 資料索引，跳過標題列，排除保護列）
+        var pools = {};
+        for (var r = 1; r < data.length; r++) {
+          if (r === protectRow) continue;
+          var rE = data[r][COL.ENGLISH] ? data[r][COL.ENGLISH].toString().trim().toLowerCase() : '';
+          if (!rE) continue;
+          var rC = data[r][COL.CHINESE] ? data[r][COL.CHINESE].toString().trim().toLowerCase() : '';
+          var rKey = rE + '\u0000' + rC;
+          if (!pools[rKey]) pools[rKey] = [];
+          pools[rKey].push(r);
+        }
+
+        // 為每個待刪單字分配互不重複的列（內容相同時任一列皆可，優先接近原始列號）
+        var rowsToDelete = [];
+        for (var d = 0; d < bySheet[sheetName].length; d++) {
+          var word = bySheet[sheetName][d];
+          var pool = pools[wordKey(word)];
+          if (!pool || pool.length === 0) {
+            console.warn('找不到要刪除的行:', word.english, '-', word.chinese, '在工作表:', sheetName);
+            continue;
+          }
+          var wanted = (typeof word.originalRowIndex === 'number') ? word.originalRowIndex : pool[0];
+          pool.sort(function(a, b) {
+            return Math.abs(a - wanted) - Math.abs(b - wanted);
+          });
+          rowsToDelete.push({ row: pool.shift(), word: word });
+        }
+
+        // 由下而上刪除，避免列號位移
+        rowsToDelete.sort(function(a, b) { return b.row - a.row; });
+        for (var t = 0; t < rowsToDelete.length; t++) {
+          var actualRow = rowsToDelete[t].row + 1; // 轉換為 1-based
           sheet.deleteRow(actualRow);
           deletedCount++;
-          console.log('已刪除:', word.sheetName, '第', actualRow, '行', '內容:', word.english, '-', word.chinese);
-        } else {
-          console.warn('找不到要刪除的行:', word.english, '-', word.chinese, '在工作表:', word.sheetName);
+          console.log('已刪除:', sheetName, '第', actualRow, '行', '內容:',
+            rowsToDelete[t].word.english, '-', rowsToDelete[t].word.chinese);
         }
       } catch (deleteError) {
-        console.error('刪除單字失敗:', word, deleteError);
+        console.error('刪除單字失敗:', sheetName, deleteError);
       }
     }
     return deletedCount;
@@ -1028,8 +1117,8 @@ function countValidWords(sheet) {
         console.error('合併保留單字中繼資料失敗:', metaError);
       }
 
-      // 為每個要刪除的單字找到當前的實際行位置並刪除
-      const deletedCount = deleteDuplicateRows(spreadsheet, deleteWords);
+      // 為每個要刪除的單字找到當前的實際行位置並刪除（保護剛寫入合併資料的保留列）
+      const deletedCount = deleteDuplicateRows(spreadsheet, deleteWords, keepWord);
       
       console.log('成功刪除', deletedCount, '個重複單字');
       return { success: true, deletedCount: deletedCount };
@@ -1058,23 +1147,27 @@ function countValidWords(sheet) {
       
       // 更新目標單字的定義與合併中繼資料（不熟程度、圖片、標籤、要會拼）
       const targetSheet = spreadsheet.getSheetByName(targetWord.sheetName);
-      if (targetSheet) {
-        const foundRowIndex = findWordRowIndex(targetSheet, targetWord.english, targetWord.chinese);
-        
-        if (foundRowIndex !== -1) {
-          const targetRow = foundRowIndex + 1; // 轉換為1-based索引
-          // 合併其餘重複項目的中繼資料到目標列（不熟程度、圖片、要會拼、標籤）
-          writeMergedMetadataToRow(targetSheet, targetRow, [targetWord].concat(mergeWords));
-          targetSheet.getRange(targetRow, COL_NUM.CHINESE).setValue(mergedDefinition);
-          console.log('已更新目標定義與中繼資料:', targetWord.sheetName, '第', targetRow, '行');
-        } else {
-          console.error('找不到目標單字:', targetWord.english, '-', targetWord.chinese);
-          return { success: false, error: '找不到目標單字位置' };
-        }
+      if (!targetSheet) {
+        // 找不到目標工作表（可能已被改名/刪除）時直接中止，
+        // 否則定義沒寫入卻仍刪除來源列，會永久遺失那些定義
+        console.error('找不到目標工作表:', targetWord.sheetName);
+        return { success: false, error: '找不到目標工作表：' + targetWord.sheetName };
+      }
+      const foundRowIndex = findWordRowIndex(targetSheet, targetWord.english, targetWord.chinese);
+      
+      if (foundRowIndex !== -1) {
+        const targetRow = foundRowIndex + 1; // 轉換為1-based索引
+        // 合併其餘重複項目的中繼資料到目標列（不熟程度、圖片、要會拼、標籤）
+        writeMergedMetadataToRow(targetSheet, targetRow, [targetWord].concat(mergeWords));
+        targetSheet.getRange(targetRow, COL_NUM.CHINESE).setValue(mergedDefinition);
+        console.log('已更新目標定義與中繼資料:', targetWord.sheetName, '第', targetRow, '行');
+      } else {
+        console.error('找不到目標單字:', targetWord.english, '-', targetWord.chinese);
+        return { success: false, error: '找不到目標單字位置' };
       }
       
-      // 刪除其他重複項目（直接刪列，中繼資料已於上方合併寫入目標列）
-      const deletedCount = deleteDuplicateRows(spreadsheet, mergeWords);
+      // 刪除其他重複項目（直接刪列，中繼資料已於上方合併寫入目標列；保護剛寫入的目標列）
+      const deletedCount = deleteDuplicateRows(spreadsheet, mergeWords, targetWord);
       
       return { 
         success: true, 
@@ -1459,7 +1552,7 @@ function countValidWords(sheet) {
   function saveKKPhoneticToDictionary(word, phonetics, wordsSheetId) {
     try {
       var ss = null;
-      var savedId = getKKDictSpreadsheetCandidates('');[0];
+      var savedId = getKKDictSpreadsheetCandidates('')[0];
       if (savedId) {
         try { ss = SpreadsheetApp.openById(savedId); } catch (e) { ss = null; }
       }
@@ -1886,7 +1979,10 @@ function countValidWords(sheet) {
           .setMimeType(ContentService.MimeType.JSON);
       }
     } catch (kkError) {
+      // REST 查詢失敗時回 JSON 錯誤（而不是 200 HTML），外部腳本才不會誤判
       console.error('KK 音標 REST 查詢失敗:', kkError);
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: kkError.message }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     return HtmlService.createTemplateFromFile('index')

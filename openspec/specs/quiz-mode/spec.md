@@ -75,3 +75,9 @@ The system SHALL display which words the current quiz covers.
 
 - **WHEN** the quiz screen is shown
 - **THEN** the scope line reads "📗 測驗範圍：所有單字" by default; "⭐ 測驗範圍：★N 以上的不熟單字" with a difficulty filter ("⭐ 測驗範圍：非常熟的單字" for the very-familiar filter); or "📗 測驗範圍：剩餘單字（已排除 X 個已移除單字）" when words were removed from the round
+
+#### Scenario: Removed words stay out of the pool
+
+- **WHEN** words have been temporarily removed this round and the user starts a quiz
+- **THEN** the question pool applies all filters and additionally excludes every temporarily-removed word, so removed words are never asked (the listening and SRS quick-review pools share the same exclusion)
+- **AND** when every word is removed, starting a quiz shows the "所有單字都已被暫時移除" message instead of an empty quiz

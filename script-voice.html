@@ -402,53 +402,62 @@
 
     try {
       console.log('播放日文語音:', text);
-      this.speechSynthesis.cancel();
-      
-      var utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = (this._speechRateOverride !== null && this._speechRateOverride !== undefined)
-        ? this._speechRateOverride
-        : this.voiceSettings.rate;
-      // 一次性覆寫：套用到 utterance 後立刻清除（與英文路徑相同）
-      this._speechRateOverride = null;
-      utterance.pitch = this.voiceSettings.pitch;
-      utterance.volume = this.voiceSettings.volume;
-      utterance.lang = this.voiceSettings.japaneseLang;
-      
-      var voices = this.speechSynthesis.getVoices();
-      var selectedVoice = null;
-      if (this.voiceSettings.japaneseVoiceURI) {
-        for (var i = 0; i < voices.length; i++) {
-          if (voices[i].voiceURI === this.voiceSettings.japaneseVoiceURI) {
-            selectedVoice = voices[i];
-            break;
+      var self = this;
+      var play = function() {
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = (self._speechRateOverride !== null && self._speechRateOverride !== undefined)
+          ? self._speechRateOverride
+          : self.voiceSettings.rate;
+        // 一次性覆寫：套用到 utterance 後立刻清除（與英文路徑相同）
+        self._speechRateOverride = null;
+        utterance.pitch = self.voiceSettings.pitch;
+        utterance.volume = self.voiceSettings.volume;
+        utterance.lang = self.voiceSettings.japaneseLang;
+        
+        var voices = self.speechSynthesis.getVoices();
+        var selectedVoice = null;
+        if (self.voiceSettings.japaneseVoiceURI) {
+          for (var i = 0; i < voices.length; i++) {
+            if (voices[i].voiceURI === self.voiceSettings.japaneseVoiceURI) {
+              selectedVoice = voices[i];
+              break;
+            }
           }
         }
-      }
-      
-      if (!selectedVoice) {
-        for (var i = 0; i < voices.length; i++) {
-          if (voices[i].lang.indexOf('ja-') === 0 || 
-              voices[i].name.toLowerCase().indexOf('japanese') !== -1) {
-            selectedVoice = voices[i];
-            break;
+        
+        if (!selectedVoice) {
+          for (var j = 0; j < voices.length; j++) {
+            if (voices[j].lang.indexOf('ja-') === 0 || 
+                voices[j].name.toLowerCase().indexOf('japanese') !== -1) {
+              selectedVoice = voices[j];
+              break;
+            }
           }
         }
-      }
-      
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
-      
-      // 為舊版瀏覽器添加錯誤處理
-      utterance.onerror = function(event) {
-        console.log('日文語音播放錯誤:', event.error);
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+        
+        // 為舊版瀏覽器添加錯誤處理
+        utterance.onerror = function(event) {
+          console.log('日文語音播放錯誤:', event.error);
+        };
+        
+        utterance.onstart = function() {
+          console.log('日文語音開始播放:', text);
+        };
+        
+        self.speechSynthesis.speak(utterance);
       };
-      
-      utterance.onstart = function() {
-        console.log('日文語音開始播放:', text);
-      };
-      
-      this.speechSynthesis.speak(utterance);
+      // iOS Safari：cancel() 非同步，同一 tick 直接 speak() 會被一起清掉 → 發音中
+      // 先等引擎停下來再播（與 P 鍵重播路徑相同的作法），避免「完全無聲」
+      if (self._isSpeechBusy && self._isSpeechBusy()) {
+        try { self.speechSynthesis.cancel(); } catch (cancelError) {}
+        self._speakWhenSpeechIdle(play);
+      } else {
+        play();
+      }
     } catch (error) {
       console.log('日文語音播放失敗:', error);
     }
@@ -488,10 +497,25 @@
         if (!self.speechSynthesis.speaking) {
           clearInterval(self.chineseWaitInterval);
           self.chineseWaitInterval = null;
+          if (self._chineseWaitTimeout) {
+            clearTimeout(self._chineseWaitTimeout);
+            self._chineseWaitTimeout = null;
+          }
           console.log('英文/日文語音播放完成，現在播放中文');
           self.speakChineseWordNow(text);
         }
       }, APP_CONSTANTS.CHINESE_SPEECH_POLL_MS);
+      
+      // 逾時保底：iOS 在 utterance 掉落後 speaking 可能永遠卡 true，
+      // 沒有期限會讓中文永遠不播、waitForSpeechThenExecute 把導覽卡住
+      this._chineseWaitTimeout = setTimeout(function() {
+        if (self.chineseWaitInterval) {
+          clearInterval(self.chineseWaitInterval);
+          self.chineseWaitInterval = null;
+          console.warn('等待英文/日文語音逾時，直接播放中文');
+          self.speakChineseWordNow(text);
+        }
+      }, APP_CONSTANTS.CHINESE_SPEECH_MAX_WAIT_MS);
       
       return;
     }
@@ -914,48 +938,55 @@
         this.chineseWaitInterval = null;
       }
       
-      // 停止當前正在播放的語音
-      this.speechSynthesis.cancel();
-      
-      // 獲取當前設定的語音速度
-      var voiceRateSetting = document.getElementById('voice-rate-setting');
-      var rate = voiceRateSetting ? parseFloat(voiceRateSetting.value) : this.voiceSettings.rate;
-      
-      console.log('預覽語音:', voiceURI, '示例文字:', sampleText, '速度:', rate);
-      
-      // 創建語音utterance
-      var utterance = new SpeechSynthesisUtterance(sampleText);
-      utterance.rate = rate;
-      utterance.pitch = this.voiceSettings.pitch || 1;
-      utterance.volume = this.voiceSettings.volume || 1;
-      
-      // 尋找指定的語音
-      var voices = this.speechSynthesis.getVoices();
-      var selectedVoice = null;
-      
-      for (var i = 0; i < voices.length; i++) {
-        if (voices[i].voiceURI === voiceURI) {
-          selectedVoice = voices[i];
-          break;
+      var self = this;
+      var play = function() {
+        // 獲取當前設定的語音速度
+        var voiceRateSetting = document.getElementById('voice-rate-setting');
+        var rate = voiceRateSetting ? parseFloat(voiceRateSetting.value) : self.voiceSettings.rate;
+        
+        console.log('預覽語音:', voiceURI, '示例文字:', sampleText, '速度:', rate);
+        
+        // 創建語音utterance
+        var utterance = new SpeechSynthesisUtterance(sampleText);
+        utterance.rate = rate;
+        utterance.pitch = self.voiceSettings.pitch || 1;
+        utterance.volume = self.voiceSettings.volume || 1;
+        
+        // 尋找指定的語音
+        var voices = self.speechSynthesis.getVoices();
+        var selectedVoice = null;
+        
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === voiceURI) {
+            selectedVoice = voices[i];
+            break;
+          }
         }
-      }
-      
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        utterance.lang = selectedVoice.lang;
-        console.log('使用語音:', selectedVoice.name, '語言:', selectedVoice.lang);
-      } else {
-        console.warn('找不到指定的語音:', voiceURI);
-      }
-      
-      // 播放語音
-      this.speechSynthesis.speak(utterance);
-      
-      // 添加錯誤處理
-      utterance.onerror = function(event) {
-        console.error('語音播放錯誤:', event.error);
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          utterance.lang = selectedVoice.lang;
+          console.log('使用語音:', selectedVoice.name, '語言:', selectedVoice.lang);
+        } else {
+          console.warn('找不到指定的語音:', voiceURI);
+        }
+        
+        // 添加錯誤處理
+        utterance.onerror = function(event) {
+          console.error('語音播放錯誤:', event.error);
+        };
+        
+        // 播放語音
+        self.speechSynthesis.speak(utterance);
       };
-      
+      // iOS Safari：cancel() 非同步，同一 tick 直接 speak() 會被一起清掉；
+      // 開設定視窗時卡片語音可能還在播 → 等引擎停下來再預覽，避免預覽無聲
+      if (self._isSpeechBusy && self._isSpeechBusy()) {
+        try { self.speechSynthesis.cancel(); } catch (cancelError) {}
+        self._speakWhenSpeechIdle(play);
+      } else {
+        play();
+      }
     } catch (error) {
       console.error('預覽語音時發生錯誤:', error);
     }
@@ -1028,6 +1059,29 @@
     var japaneseVoiceSelect = document.getElementById('japanese-voice-select-setting');
     var voices = this.speechSynthesis.getVoices();
     var self = this;
+    var chineseVoiceSelect = document.getElementById('chinese-voice-select-setting');
+    
+    // change 監聽器只需註冊一次：這三個 select 是持久元素，而 populateVoiceSelect
+    // 會在每次開啟設定視窗與每次 voiceschanged 時被呼叫，重複 addEventListener
+    // 會讓監聽器累積 → 一次選擇觸發多次 previewVoice（發音互相打斷）
+    if (!this._voiceSelectListenersSetup) {
+      this._voiceSelectListenersSetup = true;
+      if (voiceSelect) {
+        voiceSelect.addEventListener('change', function() {
+          self.previewVoice(voiceSelect.value, 'Hello, this is a sample voice for English pronunciation.');
+        });
+      }
+      if (japaneseVoiceSelect) {
+        japaneseVoiceSelect.addEventListener('change', function() {
+          self.previewVoice(japaneseVoiceSelect.value, 'こんにちは、これは日本語の音声サンプルです。');
+        });
+      }
+      if (chineseVoiceSelect) {
+        chineseVoiceSelect.addEventListener('change', function() {
+          self.previewVoice(chineseVoiceSelect.value, '你好，這是中文語音範例。');
+        });
+      }
+    }
     
     // 填充英文語音選項
     if (voiceSelect) {
@@ -1053,12 +1107,6 @@
       if (!voiceSelect.value && englishVoices.length > 0) {
         voiceSelect.value = englishVoices[0].voiceURI;
       }
-      
-      // 添加change事件監聽器 - 切換時播放示例語音
-      voiceSelect.addEventListener('change', function() {
-        var selectedVoiceURI = voiceSelect.value;
-        self.previewVoice(selectedVoiceURI, 'Hello, this is a sample voice for English pronunciation.');
-      });
     }
     
     // 填充日文語音選項
@@ -1085,16 +1133,9 @@
       if (!japaneseVoiceSelect.value && japaneseVoices.length > 0) {
         japaneseVoiceSelect.value = japaneseVoices[0].voiceURI;
       }
-      
-      // 添加change事件監聽器 - 切換時播放示例語音
-      japaneseVoiceSelect.addEventListener('change', function() {
-        var selectedVoiceURI = japaneseVoiceSelect.value;
-        self.previewVoice(selectedVoiceURI, 'こんにちは、これは日本語の音声サンプルです。');
-      });
     }
     
     // 填充中文語音選項
-    var chineseVoiceSelect = document.getElementById('chinese-voice-select-setting');
     if (chineseVoiceSelect) {
       // 保護select元素
       this.protectSelectElement(chineseVoiceSelect);
@@ -1118,12 +1159,6 @@
       if (!chineseVoiceSelect.value && chineseVoices.length > 0) {
         chineseVoiceSelect.value = chineseVoices[0].voiceURI;
       }
-      
-      // 添加change事件監聽器 - 切換時播放示例語音
-      chineseVoiceSelect.addEventListener('change', function() {
-        var selectedVoiceURI = chineseVoiceSelect.value;
-        self.previewVoice(selectedVoiceURI, '你好，這是中文語音範例。');
-      });
     }
   };
 </script>

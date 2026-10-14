@@ -100,8 +100,12 @@
   .setting-control {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    /* iOS 10 無 flexbox gap：以子項 margin-left 等效模擬 */
     position: relative;
+  }
+  
+  .setting-control > * + * {
+    margin-left: var(--spacing-md);
   }
   
   .setting-control input[type="range"] {
@@ -372,7 +376,6 @@
   .modal-footer {
     display: flex;
     justify-content: center;
-    gap: var(--spacing-md);
     padding: var(--spacing-lg);
     border-top: 2px solid var(--primary-color);
     background-color: #1a1a1a;
@@ -380,6 +383,11 @@
     -webkit-flex-shrink: 0;
     flex-shrink: 0;
     z-index: 10;
+  }
+  
+  /* iOS 10 無 flexbox gap：以子項 margin-left 等效模擬 */
+  .modal-footer > * + * {
+    margin-left: var(--spacing-md);
   }
   
   .secondary-btn {
@@ -628,6 +636,7 @@
     object-fit: contain;
     border-radius: 4px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    -webkit-user-select: none;
     user-select: none;
     -webkit-user-drag: none;
   }

@@ -271,7 +271,8 @@
   // 開始快速複習模式（依優先度排序，取前 N 個）
   // 與其他篩選條件為 AND 關係：先套用所有篩選，再從結果中依 SRS 優先度排序
   FlashcardApp.prototype.startSrsReview = function(count) {
-    var filteredWords = this.applyAllFilters(this.words);
+    // 排除使用者已「暫時移除」的單字（與測驗/聽力一致），避免複習到已移除的字
+    var filteredWords = this.getFilteredWordsExcludingRemoved();
     var recommendedWords = this.getRecommendedWords(filteredWords);
 
     if (recommendedWords.length === 0) {
@@ -308,7 +309,8 @@
 
   // 開啟快速複習模態框（統計與數量基於篩選後的單字）
   FlashcardApp.prototype.openSrsReviewModal = function() {
-    var filteredWords = this.applyAllFilters(this.words);
+    // 與 startSrsReview 相同基準：排除「暫時移除」單字，統計與實際複習的數字才會一致
+    var filteredWords = this.getFilteredWordsExcludingRemoved();
     var filteredCount = filteredWords.length;
     var modal = document.getElementById('srs-review-modal');
     var statsEl = document.getElementById('srs-stats');
@@ -394,6 +396,12 @@
       allBtn.className = 'srs-count-btn';
       allBtn.textContent = '全部 (' + totalAvailable + ')';
       allBtn.setAttribute('data-count', totalAvailable);
+      // 上次儲存的數量就是全部時，預選「全部」按鈕；
+      // 沒有這個比對的話會落進「預設選第一個」分支，把使用者選的「全部」改掉
+      if (savedCount === totalAvailable) {
+        allBtn.classList.add('selected');
+        matchedSaved = true;
+      }
       allBtn.onclick = function() {
         var allBtns = container.querySelectorAll('.srs-count-btn');
         for (var j = 0; j < allBtns.length; j++) {

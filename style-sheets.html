@@ -147,11 +147,15 @@
   .sheet-item {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
     padding: 12px var(--spacing-md);
     border-bottom: 1px solid rgba(255, 255, 0, 0.2);
     cursor: pointer;
     transition: background-color var(--transition-normal);
+  }
+
+  /* iOS 10 無 flexbox gap：以子項 margin-left 等效模擬（不用負邊距容器，避免 border 變短） */
+  .sheet-item > * + * {
+    margin-left: var(--spacing-sm);
   }
   
   .sheet-item:last-child {
@@ -469,55 +473,26 @@
     margin-bottom: var(--spacing-sm);
   }
   
-  .duplicate-word-english {
-    font-size: var(--font-lg);
-    font-weight: bold;
-    color: var(--text-color);
-  }
-  
-  .duplicate-word-status {
-    font-size: var(--font-xs);
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    font-weight: bold;
-  }
-  
-  .status-same {
-    background-color: rgba(0, 255, 0, 0.2);
-    color: var(--success-color);
-  }
-  
-  .status-different {
-    background-color: rgba(255, 165, 0, 0.2);
-    color: var(--warning-color);
-  }
-  
-  .duplicate-sources {
+  /* 來源清單：class 名與 script-duplicates.html 實際產生的
+     duplicate-word-sources / duplicate-source-item / source-sheet 對齊
+     （原 .duplicate-sources/.duplicate-source/.duplicate-word-english 等
+      沒有任何人使用，是改名前留下的舊 class） */
+  .duplicate-word-sources {
     margin-top: var(--spacing-sm);
   }
   
-  .duplicate-source {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+  .duplicate-source-item {
     padding: 8px 12px;
     margin: var(--spacing-xs) 0;
     background-color: rgba(255, 255, 255, 0.05);
     border-radius: 4px;
-    gap: var(--spacing-md);
+    color: #CCCCCC;
+    line-height: 1.4;
   }
   
   .source-sheet {
     font-weight: bold;
     color: var(--primary-color);
-    min-width: 100px;
-    flex-shrink: 0;
-  }
-  
-  .source-definition {
-    color: #CCCCCC;
-    flex: 1;
-    line-height: 1.4;
   }
   
   .duplicate-actions {
@@ -545,6 +520,7 @@
     background-color: rgba(0, 0, 0, 0.3);
     cursor: pointer;
     transition: all 0.3s ease;
+    -webkit-user-select: none; /* 防止文字選擇 */
     user-select: none; /* 防止文字選擇 */
   }
   
@@ -604,6 +580,7 @@
     cursor: pointer;
     transition: background-color 0.3s ease;
     min-height: 40px;
+    -webkit-user-select: none;
     user-select: none;
   }
   
@@ -720,30 +697,7 @@
     margin: 0 0 var(--spacing-md) 0;
     font-size: var(--font-sm);
   }
-  
-  .notification-details {
-    max-height: 150px;
-    overflow-y: auto;
-  }
-  
-  .notification-item {
-    padding: var(--spacing-xs) 0;
-    font-size: var(--font-xs);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  
-  .notification-item:last-child {
-    border-bottom: none;
-  }
-  
-  .notification-item.success {
-    color: #CCCCCC;
-  }
-  
-  .notification-item.error {
-    color: var(--error-color);
-  }
-  
+
   .notification-close {
     position: absolute;
     top: var(--spacing-sm);
@@ -764,33 +718,7 @@
   .notification-close:hover {
     color: var(--error-color);
   }
-  
-  .auto-processing-indicator {
-    text-align: center;
-    padding: var(--spacing-xl);
-  }
-  
-  .auto-processing-indicator h3 {
-    color: var(--primary-color);
-    margin-bottom: var(--spacing-lg);
-  }
-  
-  .auto-processing-indicator p {
-    color: #CCCCCC;
-    margin-bottom: var(--spacing-md);
-  }
-  
-  .auto-processing-indicator ul {
-    text-align: left;
-    color: #CCCCCC;
-    margin: var(--spacing-md) 0;
-    padding-left: var(--spacing-lg);
-  }
-  
-  .auto-processing-indicator li {
-    margin-bottom: 8px;
-  }
-  
+
   .auto-processing-result {
     text-align: center;
     padding: var(--spacing-lg);
@@ -801,31 +729,6 @@
   }
   
   .auto-processing-result.error h3 {
-    color: var(--error-color);
-  }
-  
-  .processing-details {
-    text-align: left;
-    margin: var(--spacing-lg) 0;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-  
-  .result-item {
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    font-size: var(--font-sm);
-  }
-  
-  .result-item:last-child {
-    border-bottom: none;
-  }
-  
-  .result-item.success {
-    color: #CCCCCC;
-  }
-  
-  .result-item.error {
     color: var(--error-color);
   }
 

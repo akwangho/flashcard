@@ -506,7 +506,9 @@
   // 定期監控：每 10 秒檢查音頻是否仍在運行，嘗試恢復
   FlashcardApp.prototype._startAudioWatchdog = function() {
     var self = this;
-    setInterval(function() {
+    // 記錄 interval id：重複啟動時不疊加，停用時也可清除
+    if (this._audioWatchdogInterval) return;
+    this._audioWatchdogInterval = setInterval(function() {
       if (!self.keepScreenAwake) return;
       if (!self._persistentAudioRunning) return;
       // ★ 使用者主動暫停時，watchdog 不可恢復音訊，否則會搶回 iOS
@@ -542,18 +544,29 @@
   FlashcardApp.prototype._startKeepAlive = function() {
     var self = this;
     
-    setInterval(function() {
+    // 記錄 interval id：重複啟動時不疊加，停用時也可清除
+    if (this._keepAliveInterval) return;
+    this._keepAliveInterval = setInterval(function() {
       if (!self.keepScreenAwake) return;
       // ★ 使用者主動暫停時，不再產生 oscillator 脈衝，避免占用 iOS 音訊焦點
       if (self.userPaused) {
         return;
       }
 
-      // 創建極短的高頻無聲音頻
+      // 創建極短的高頻無聲音頻（重用同一個 AudioContext，避免每 30 秒建立/關閉一次的 churn）
       try {
         var AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) {
-          var audioContext = new AudioCtx();
+          if (!self._keepAliveAudioContext || self._keepAliveAudioContext.state === 'closed') {
+            self._keepAliveAudioContext = new AudioCtx();
+          }
+          var audioContext = self._keepAliveAudioContext;
+          if (audioContext.state === 'suspended') {
+            var resumePromise = audioContext.resume();
+            if (resumePromise !== undefined && typeof resumePromise.catch === 'function') {
+              resumePromise.catch(function() {});
+            }
+          }
           var oscillator = audioContext.createOscillator();
           var gainNode = audioContext.createGain();
           
@@ -563,10 +576,6 @@
           oscillator.frequency.value = 20000; // 人耳聽不到
           oscillator.start();
           oscillator.stop(audioContext.currentTime + 0.001);
-          
-          setTimeout(function() {
-            try { audioContext.close(); } catch (e) {}
-          }, 10);
         }
       } catch (error) {
         // 靜默忽略
@@ -601,6 +610,20 @@
     this._wakeLockAcquired = false;
     this._noSleepVideoPlaying = false;
     this._persistentAudioRunning = false;
+    
+    // 清除 watchdog / keep-alive interval（不再讓無作用的計時器常駐）
+    if (this._audioWatchdogInterval) {
+      clearInterval(this._audioWatchdogInterval);
+      this._audioWatchdogInterval = null;
+    }
+    if (this._keepAliveInterval) {
+      clearInterval(this._keepAliveInterval);
+      this._keepAliveInterval = null;
+    }
+    if (this._keepAliveAudioContext) {
+      try { this._keepAliveAudioContext.close(); } catch (e) {}
+      this._keepAliveAudioContext = null;
+    }
     
     // 釋放 Wake Lock
     if (this.wakeLock) {

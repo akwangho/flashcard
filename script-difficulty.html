@@ -58,7 +58,16 @@
       if (rowIndex !== undefined && rowIndex !== -1) {
         var sheetId = this.sheetSettings.sheetId;
         var sheetName = word.sheetName || 'Sheet1';
-        google.script.run.updateWordDifficulty(sheetId, sheetName, rowIndex, word.difficultyLevel);
+        var self = this;
+        google.script.run
+          .withFailureHandler(function(error) {
+            // 同步失敗至少留下線索；畫面數字已更新，下次載入會以 Sheet 為準
+            console.error('同步不熟程度到 Sheet 失敗:', word.english, error);
+            if (typeof self.showNotification === 'function') {
+              self.showNotification('不熟程度同步失敗：' + word.english, 'info');
+            }
+          })
+          .updateWordDifficulty(sheetId, sheetName, rowIndex, word.difficultyLevel);
       }
     }
   };
