@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.26.0',
+    APP_VERSION: '1.26.1',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-14 10:41',
+    APP_BUILD_TIME: '2026-10-16 09:46',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -130,6 +130,7 @@
     KK_PHONETIC_API_TIMEOUT_MS: 10000,    // 單次 KK 音標 API 查詢逾時（防呆，逾時仍保留等待回呼）
     KK_PHONETIC_CACHE_MAX: 500,           // localStorage 音標快取上限（超過時保留最新 N 筆）
     KK_PHONETIC_DELIMITER: ',',           // I 欄多候選音標分隔符（與後端 KK_PHONETIC_DELIMITER 一致）
+    KK_PHONETIC_MAX_UNITS: 2,            // 音標「可發音單元」數上限：≤2 個單字/段才顯示（三個以上太雜亂）
     KK_PHONETIC_LONG_LENGTH: 14,         // 音標超過此字數（片語組合音標）→ 縮小字級顯示
 
     // === 不熟程度 ===

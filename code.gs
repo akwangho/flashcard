@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.26.0';
+  var SERVER_VERSION = '1.26.1';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-14 10:41';
+  var SERVER_BUILD_TIME = '2026-10-16 09:46';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -201,6 +201,13 @@ function countValidWords(sheet) {
 
   /** I 欄多候選音標分隔符（與前端 APP_CONSTANTS.KK_PHONETIC_DELIMITER 一致） */
   const KK_PHONETIC_DELIMITER = ',';
+
+  /**
+  * 組合音標的「可發音單元」數上限（與前端 APP_CONSTANTS.KK_PHONETIC_MAX_UNITS 一致）：
+  * 只組合兩個單字/段（一個空格、hyphen 複合字算一個）；三個單字以上
+  * （如 steamed pear with rock sugar）音標太長、畫面太雜亂 → 不查詢不顯示。
+  */
+  const KK_PHONETIC_MAX_COMBINE_UNITS = 2;
 
   /**
   * 解析 I 欄 KK 音標原始值。
@@ -1737,8 +1744,8 @@ function countValidWords(sheet) {
   * 查詢單字的所有候選 KK 音標（前端主要進入點，google.script.run 呼叫）。
   * 查找順序：
   *   1. KK 音標字庫工作表（使用者指定 → 單字檔 → 綁定試算表）整串查找
-  *   1.5 單字型態列（swing; swung; swung）→ 拆段逐段查找後組合
-  *   1.75 片語（the Netherlands、hot dog）→ 拆成各單字逐字查找後以空白組合
+  *   1.5 單字型態列 → 拆段逐段查找後組合（上限 KK_PHONETIC_MAX_COMBINE_UNITS 段）
+  *   1.75 片語 → 拆成各單字逐字查找後以空白組合（同上限；超過即不組合）
   *   2. 外部字典 REST API（Free Dictionary → moedict）；
   *      查到後自動存入字庫工作表，之後同單字直接命中字庫、不再打外部 API
   * @param {string} word - 英文單字
@@ -1761,9 +1768,10 @@ function countValidWords(sheet) {
       }
 
       // 1.5) 單字型態列（swing; swung; swung / woman / women）：
-      //      整串在字庫查不到，拆成各段逐段查詢後組合
+      //      整串在字庫查不到，拆成各段逐段查詢後組合。
+      //      段數超過 KK_PHONETIC_MAX_COMBINE_UNITS 不組合（與前端顯示上限一致）
       var segments = splitWordFormList_(trimmed);
-      if (segments) {
+      if (segments && segments.length <= KK_PHONETIC_MAX_COMBINE_UNITS) {
         var segCandidates = [];
         var allFound = true;
         var anyWeb = false;
@@ -1792,8 +1800,9 @@ function countValidWords(sheet) {
       // 1.75) 片語（the Netherlands、hot dog 等以空白分隔的多字內容）：
       //       整串在字庫查不到，拆成各單字逐字查詢後組合（單字間以空白連接）。
       //       每個單字都查得到才回傳組合結果；任一字查無 → 空結果（不顯示錯誤的部分音標）。
+      //       超過 KK_PHONETIC_MAX_COMBINE_UNITS 個單字不組合（太長太雜亂；前端同樣不顯示）
       var phraseWords = splitPhraseIntoWords_(trimmed);
-      if (phraseWords) {
+      if (phraseWords && phraseWords.length <= KK_PHONETIC_MAX_COMBINE_UNITS) {
         var phraseCandidates = [];
         var allPhraseFound = true;
         var anyPhraseWeb = false;

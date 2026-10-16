@@ -5,7 +5,9 @@
  * 涵蓋：
  *  - 顯示開關（預設關閉；開啟時才顯示/查詢/pre-cache）
  *  - 只針對「單字與片語」（sentence 不顯示、不查詢、不 pre-cache；
- *    片語如 the Netherlands 由後端拆成各單字組合音標）
+ *    片語如 the Netherlands 由後端拆成各單字組合音標），
+ *    且「可發音單元」上限 2 個（兩個單字：一個空格或 hyphen 複合字）；
+ *    三個單字以上（兩個空格，如 steamed pear with rock sugar）太雜亂 → 不顯示
  *  - I 欄（word.kkPhonetic）已有音標 → 直接顯示，不呼叫 GAS
  *  - I 欄沒有 → 從 GAS 查詢、顯示、寫回 Sheet I 欄與記憶體
  *  - pre-cache（目前 + 接下來 N 個單字）
@@ -92,22 +94,34 @@ describe('KK phonetic eligibility', function() {
     expect(app._isKKPhoneticEligible(null)).toBe(false);
   });
 
-  test('eligible for word and phrase types, not sentence', function() {
+  test('eligible for word and two-word phrases, not sentences or 3+ word phrases', function() {
     app.settings.showKKPhonetic = true;
     expect(app._isKKPhoneticEligible(makeWord({ english: 'apple' }))).toBe(true);
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'the Netherlands' }))).toBe(true); // phrase
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'hot dog' }))).toBe(true);        // phrase
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'I am a boy.' }))).toBe(false);    // sentence
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'the Netherlands' }))).toBe(true);   // 2 個單字
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'hot dog' }))).toBe(true);          // 2 個單字
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'I am a boy.' }))).toBe(false);       // sentence
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'the United States' }))).toBe(false); // 3 個單字（兩個空格）
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'steamed pear with rock sugar' }))).toBe(false); // 4 個單字
   });
 
-  test('eligible for word form lists and hyphenated compounds', function() {
+  test('eligible for word form lists up to two segments and hyphenated compounds', function() {
     app.settings.showKKPhonetic = true;
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'swing; swung; swung' }))).toBe(true);
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'woman / women' }))).toBe(true);
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'twenty-five' }))).toBe(true);
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'mother-in-law' }))).toBe(true);
-    // 「take off / take out」各段含空格 → phrase（可查詢；後端無法拆解 → 空結果）
-    expect(app._isKKPhoneticEligible(makeWord({ english: 'take off / take out' }))).toBe(true);
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'woman / women' }))).toBe(true);   // 2 段
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'twenty-five' }))).toBe(true);    // hyphen 複合字 = 1 單元
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'mother-in-law' }))).toBe(true);   // hyphen 複合字 = 1 單元
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'swing; swung; swung' }))).toBe(false); // 3 段 → 太長
+    expect(app._isKKPhoneticEligible(makeWord({ english: 'take off / take out' }))).toBe(false);  // 4 單元 → 太長
+  });
+
+  test('unit count: hyphens are one unit, segments and spaces both count', function() {
+    expect(app._kkPhoneticUnitCount('apple')).toBe(1);
+    expect(app._kkPhoneticUnitCount('hot dog')).toBe(2);
+    expect(app._kkPhoneticUnitCount('mother-in-law')).toBe(1);
+    expect(app._kkPhoneticUnitCount('woman / women')).toBe(2);
+    expect(app._kkPhoneticUnitCount('swing; swung; swung')).toBe(3);
+    expect(app._kkPhoneticUnitCount('take off / take out')).toBe(4);
+    expect(app._kkPhoneticUnitCount('steamed pear with rock sugar')).toBe(5);
+    expect(app._kkPhoneticUnitCount('')).toBe(0);
   });
 });
 
@@ -349,19 +363,33 @@ describe('KK phonetic display', function() {
       var successHandler = this._successHandler;
       setTimeout(function() {
         if (successHandler) {
-          successHandler({ success: true, word: word, candidates: ['ðə juˋnaɪtəd ˋstets əv əˋmɛrəkə'], source: 'dict' });
+          // 兩個長單字組合（2 個單元仍在上限內）
+          successHandler({ success: true, word: word, candidates: ['ɪkˋstrɔrdnɛrəli ˋbjutəfəl'], source: 'dict' });
         }
       }, 0);
       return this;
     };
 
-    app.updateKKPhoneticDisplay(makeWord({ english: 'the United States of America', kkPhonetic: '' }));
+    app.updateKKPhoneticDisplay(makeWord({ english: 'extraordinarily beautiful', kkPhonetic: '' }));
 
     setTimeout(function() {
       app._maybeShowKKPhonetic();
       expect(el.classList.contains('kk-phonetic-long')).toBe(true);
       done();
     }, 10);
+  });
+
+  test('hides display and never queries for phrases longer than two words', function() {
+    var el = document.getElementById('kk-phonetic-display');
+    app.settings.showKKPhonetic = true;
+    app.updateKKPhoneticDisplay(makeWord({ english: 'steamed pear with rock sugar', kkPhonetic: 'stimd pɪr' }));
+    expect(el.style.display).toBe('none');   // 即使 I 欄已有音標也不顯示（太雜亂）
+    expect(app._kkApiCalls.length).toBe(0);
+    // fetch / pre-cache 同樣跳過
+    app.fetchKKPhonetic(makeWord({ english: 'the United States' }), {}, null);
+    app.currentWords = [makeWord({ english: 'once upon a time', kkPhonetic: '' })];
+    app.precacheUpcomingKKPhonetics(5);
+    expect(app._kkApiCalls.length).toBe(0);
   });
 
   test('stale response does not display after word switch (race condition)', function(done) {
@@ -658,12 +686,20 @@ describe('fetchKKPhonetic', function() {
       }, 0);
       return this;
     };
-    var word = makeWord({ english: 'take off / take out', kkPhonetic: '' });
+    var word = makeWord({ english: 'hot dog', kkPhonetic: '' });
 
     app.fetchKKPhonetic(word, {}, function(r) {
       expect(r).not.toBe(null);
       expect(r.phonetic).toBe('');
-      expect(app._kkApiCalls).toEqual(['take off / take out']);
+      expect(app._kkApiCalls).toEqual(['hot dog']);
+      done();
+    });
+  });
+
+  test('returns null for phrases longer than two words without calling GAS', function(done) {
+    app.fetchKKPhonetic(makeWord({ english: 'steamed pear with rock sugar' }), {}, function(r) {
+      expect(r).toBe(null);
+      expect(app._kkApiCalls.length).toBe(0);
       done();
     });
   });

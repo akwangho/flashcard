@@ -19,6 +19,9 @@
    *     （updateWordProperties { kkPhonetic }）。
    *   - 片語（the Netherlands、hot dog 等以空白分隔的多字內容）由後端拆成
    *     各單字逐字查詢後以空白組合（如 ðə ˋnɛðɚlændz）；任一字查無 → 不顯示。
+   *   - 「可發音單元」數上限 KK_PHONETIC_MAX_UNITS = 2：兩個單字（一個空格，
+   *     hyphen 複合字算一個）才顯示；三個單字以上（兩個空格，如
+   *     steamed pear with rock sugar）畫面太雜亂 → 不顯示、不查詢。
    *   - sentence 不顯示、不查詢、不 pre-cache。
    *   - API 失敗只記錄 console，不影響 Flashcard 原本功能。
    *   - 晚回來的回應可寫回原本單字資料（依列寫入），但不會顯示到目前卡片（token 比對）。
@@ -176,7 +179,46 @@
   };
 
   /**
-   * 該單字是否適用 KK 音標：功能開啟 + 有英文 + 類型為「單字」或「片語」。
+   * 計算內容的「可發音單元」數：型態列先以「;」「/」拆段、各段再以空白拆字；
+   * 含 hyphen 的複合字（mother-in-law）算一個單元。
+   * 例：'hot dog' → 2；'mother-in-law' → 1；'woman / women' → 2；
+   *     'swing; swung; swung' → 3；'steamed pear with rock sugar' → 4。
+   * @param {string} english - 英文內容
+   * @returns {number} 單元數（空字串回 0）
+   */
+  FlashcardApp.prototype._kkPhoneticUnitCount = function(english) {
+    var trimmed = (english || '').toString().trim();
+    if (!trimmed) return 0;
+    var sections = /[;\/]/.test(trimmed) ? trimmed.split(/[;\/]/) : [trimmed];
+    var count = 0;
+    for (var i = 0; i < sections.length; i++) {
+      var parts = sections[i].trim().split(/\s+/);
+      for (var j = 0; j < parts.length; j++) {
+        if (parts[j]) count++;
+      }
+    }
+    return count;
+  };
+
+  /**
+   * 內容本身是否適用 KK 音標（不看功能開關）：
+   * word / phrase 皆可，但「可發音單元」數不得超過 KK_PHONETIC_MAX_UNITS（預設 2）
+   * —— 兩個單字（中間一個空格，或 hyphen 複合字）可以有音標；
+   * 三個單字以上（兩個空格）畫面太雜亂、不顯示（例：steamed pear with rock sugar）。
+   * sentence 一律不適用。
+   * @param {string} english - 英文內容
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._isKKPhoneticContentEligible = function(english) {
+    var trimmed = (english || '').toString().trim();
+    if (!trimmed) return false;
+    if (getWordType(trimmed) === 'sentence') return false;
+    var maxUnits = (APP_CONSTANTS && APP_CONSTANTS.KK_PHONETIC_MAX_UNITS) || 2;
+    return this._kkPhoneticUnitCount(trimmed) <= maxUnits;
+  };
+
+  /**
+   * 該單字是否適用 KK 音標：功能開啟 + 內容適用（word/phrase 且 ≤ 2 個可發音單元）。
    * 片語（the Netherlands、hot dog）由後端拆成各單字組合音標；
    * sentence 一律不適用（不顯示、不查詢、不 pre-cache）。
    * @param {Object} word - 單字物件
@@ -184,9 +226,8 @@
    */
   FlashcardApp.prototype._isKKPhoneticEligible = function(word) {
     if (!this.settings.showKKPhonetic) return false;
-    if (!word || !word.english || word.english.trim() === '') return false;
-    var type = getWordType(word.english);
-    return type === 'word' || type === 'phrase';
+    if (!word || !word.english) return false;
+    return this._isKKPhoneticContentEligible(word.english);
   };
 
   /**
@@ -364,8 +405,8 @@
     if (typeof callback !== 'function') callback = null;
 
     var english = word ? (word.english || '').toString().trim() : '';
-    // sentence 不查詢；word / phrase 皆可（片語由後端拆字組合音標）
-    if (!english || getWordType(english) === 'sentence') {
+    // sentence 不查詢；超過兩個可發音單元的內容也不查詢（顯示端同樣不顯示）
+    if (!english || !this._isKKPhoneticContentEligible(english)) {
       if (callback) callback(null);
       return;
     }
@@ -563,8 +604,7 @@
     for (var i = 0; i < n && i < total; i++) {
       var idx = (this.currentIndex + i) % total;
       var w = this.currentWords[idx];
-      if (!w || !w.english) continue;
-      if (getWordType(w.english) === 'sentence') continue;  // sentence 不預抓（word / phrase 皆預抓）
+      if (!this._isKKPhoneticEligible(w)) continue;  // sentence／超過兩個單元 → 不預抓
       if (this.resolveKKPhonetic(w)) continue;           // I 欄或快取已有 → 不打 API
       // fetchKKPhonetic 內建 in-flight dedupe，重複呼叫不會重複發送 request
       this.fetchKKPhonetic(w, {}, null);
@@ -627,7 +667,7 @@
       // 一般單字卡：只處理即將輪到的範圍
       var offset = ((i - this.currentIndex) % total + total) % total;
       if (offset > windowSize) continue;
-      if (this.settings.showKKPhonetic && getWordType(w.english) !== 'sentence') {
+      if (this._isKKPhoneticEligible(w)) {
         var phonetic = this.resolveKKPhonetic(w);
         if (phonetic) this.preloadKKAudio(phonetic);
       }
@@ -768,6 +808,11 @@
     var english = englishInput ? englishInput.value.trim() : (word.english || '');
     if (!english) {
       this._setEditKKStatus('請先輸入英文單字', true);
+      return;
+    }
+    // sentence 或超過兩個可發音單元的內容不提供音標（顯示端也不顯示）；仍可手動輸入
+    if (!this._isKKPhoneticContentEligible(english)) {
+      this._setEditKKStatus('句子或三個以上單字的內容不提供 KK 音標（可自行輸入，儲存後將寫入 I 欄）', false);
       return;
     }
 

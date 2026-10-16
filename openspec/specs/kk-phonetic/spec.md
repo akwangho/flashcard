@@ -27,17 +27,23 @@ The system SHALL store each word's phonetic in column I (`KK音標`): a single v
 
 #### Scenario: Column I is empty
 
-- **WHEN** a word or phrase is displayed (content is not a sentence) and column I is empty
+- **WHEN** a word or phrase (not a sentence, at most two pronounceable units) is displayed and column I is empty
 - **THEN** the phonetic is fetched from the GAS API, the first candidate is displayed, and all found candidates are written back comma-joined (a single candidate stored as-is)
 
 ### Requirement: Word and Phrase Content
 
-The system SHALL restrict display, fetching, and pre-caching to words and phrases, never sentences. Word-form lists (`swing; swung; swung`, `woman / women`) and hyphenated compounds (`twenty-five`) count as words. Phrases (space-separated single-word tokens) are resolved per token and yield a phonetic only if **every** token resolves (combined space-joined; no partial phonetics).
+The system SHALL restrict display, fetching, and pre-caching to words and phrases, never sentences, and SHALL cap content at **two pronounceable units** (`KK_PHONETIC_MAX_UNITS` = 2; a unit = one word, where a hyphenated compound such as `mother-in-law` is one unit, and `;`/`/` word-form lists count one unit per segment). Word-form lists (`woman / women`) and hyphenated compounds (`twenty-five`) count as words. Phrases (space-separated single-word tokens) are resolved per token and yield a phonetic only if **every** token resolves (combined space-joined; no partial phonetics). Content with three or more units (two or more spaces, e.g. `steamed pear with rock sugar`, `swing; swung; swung`) is never displayed or queried — the phonetic would be too long and clutter the card; a stored column-I value for such content is ignored for display, and the backend's combination step enforces the same cap.
 
 #### Scenario: Sentence excluded
 
 - **WHEN** the displayed content is a sentence
 - **THEN** no phonetic is displayed, fetched, or pre-cached
+
+#### Scenario: Three or more units excluded
+
+- **WHEN** the displayed content has more than two pronounceable units (e.g. `steamed pear with rock sugar`)
+- **THEN** no phonetic is displayed, fetched, or pre-cached, even if column I or the cache already holds a value
+- **AND** the edit-modal refetch explains the content does not get a phonetic (manual entry remains available)
 
 ### Requirement: Centre Display
 
@@ -72,7 +78,7 @@ The system SHALL expose `queryKKPhonetic(word)` (and `doGet` with `?action=kk&wo
 
 - **WHEN** a query is made
 - **THEN** the `KK音標字庫` dictionary worksheet is searched first (columns A=單字, B=KK音標; case-insensitive; multiple rows per word), in order: the registered dictionary spreadsheet → the word-file spreadsheet → the bound spreadsheet
-- **AND** word-form lists and phrases missing from the dictionary are resolved per segment/token, requiring every part to resolve
+- **AND** word-form lists and phrases missing from the dictionary are resolved per segment/token (capped at two units, matching the display rule), requiring every part to resolve
 - **AND** misses query external APIs server-side in order: Free Dictionary API (IPA converted to KK), then moedict; web results are appended to the dictionary worksheet so repeat queries hit the dictionary
 
 ### Requirement: Candidate Confirmation
