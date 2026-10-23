@@ -502,16 +502,15 @@
     if (restoreSrs) {
       // 從 localStorage 恢復快速複習模式
       var filteredWords = this.applyAllFilters(this.words);
-      var recommendedWords = this.getRecommendedWords(filteredWords);
+      var reviewWords = this._selectSrsReviewWords(filteredWords, this._srsSelectedCount);
 
-      if (recommendedWords.length > 0) {
-        var reviewCount = Math.min(this._srsSelectedCount, recommendedWords.length);
-        this.currentWords = recommendedWords.slice(0, reviewCount);
+      if (reviewWords.length > 0) {
+        this.currentWords = reviewWords;
         this.shuffleArray(this.currentWords);
         this.currentIndex = 0;
         this.removedWords = [];
         this.srsReviewActive = true;
-        console.log('已從 localStorage 恢復快速複習模式，共', reviewCount, '個單字');
+        console.log('已從 localStorage 恢復快速複習模式，共', reviewWords.length, '個單字');
       } else {
         restoreSrs = false;
         this.saveFilterSettings();

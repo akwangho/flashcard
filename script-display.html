@@ -218,9 +218,12 @@
     
     // 記錄原始不熟程度，以便取消時恢復
     var originalDifficultyLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-    // 最後複習時間是今天時不減少不熟程度，避免同一天加強複習造成過度下降
+    // 最後複習時間是今天時不減少不熟程度，避免同一天加強複習造成過度下降；
+    // 強制複習（100）永遠維持原值
     var alreadyReviewedToday = currentWord.lastReviewDate === this.getTodayDateString();
-    var previewLevel = alreadyReviewedToday ? originalDifficultyLevel : Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, originalDifficultyLevel - 1);
+    var previewLevel = (alreadyReviewedToday || isForcedReviewLevel(originalDifficultyLevel))
+      ? originalDifficultyLevel
+      : Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, originalDifficultyLevel - 1);
 
     this.pendingRemoval = {
       word: currentWord,

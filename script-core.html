@@ -17,10 +17,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.26.1',
+    APP_VERSION: '1.26.2',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-16 09:46',
+    APP_BUILD_TIME: '2026-10-23 16:59',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -135,6 +135,7 @@
 
     // === 不熟程度 ===
     DIFFICULTY_VERY_FAMILIAR: -999,    // 「非常熟」門檻值
+    DIFFICULTY_FORCED_REVIEW: 100,     // 強制複習：必定載入、顯示 ★-、不列入統計，複習/移除不改變此值
 
     // === 時間單位 ===
     MS_PER_DAY: 86400000,             // 一天的毫秒數 (24*60*60*1000)
@@ -288,17 +289,48 @@
   };
 
   /**
+   * 是否為「強制複習」等級（100）。此等級必定載入且不列入統計。
+   * @param {number} level - 不熟程度
+   * @returns {boolean}
+   */
+  function isForcedReviewLevel(level) {
+    return typeof level === 'number' && level >= APP_CONSTANTS.DIFFICULTY_FORCED_REVIEW;
+  }
+
+  /**
+   * 單字是否為「強制複習」等級。
+   * @param {Object} word - 單字物件
+   * @returns {boolean}
+   */
+  function isForcedReviewWord(word) {
+    return !!word && isForcedReviewLevel(word.difficultyLevel);
+  }
+
+  /**
+   * 正規化不熟程度：-999~10 原樣保留；>=100 一律視為強制複習 100。
+   * @param {number} level - 不熟程度
+   * @returns {number}
+   */
+  function normalizeDifficultyLevel(level) {
+    var n = parseInt(level, 10);
+    if (isNaN(n)) return 0;
+    if (n >= APP_CONSTANTS.DIFFICULTY_FORCED_REVIEW) return APP_CONSTANTS.DIFFICULTY_FORCED_REVIEW;
+    return Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, Math.min(10, n));
+  }
+
+  /**
    * 套用不熟程度 CSS class 到元素（清除舊 class 後加入新 class）
    * @param {HTMLElement} element - 目標元素
-   * @param {number} level - 不熟程度等級 (-999 到 10)
+   * @param {number} level - 不熟程度等級 (-999 到 10，或 100 強制複習)
    */
   function applyDifficultyClass(element, level) {
     if (!element) return;
     element.className = element.className.replace(/\bdifficulty-level-n1\b/g, '');
+    element.className = element.className.replace(/\bdifficulty-level-forced\b/g, '');
     for (var i = 0; i <= 10; i++) {
       element.className = element.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '');
     }
-    var newCls = level < 0 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
+    var newCls = isForcedReviewLevel(level) ? 'difficulty-level-forced' : (level < 0 ? 'difficulty-level-n1' : 'difficulty-level-' + level);
     element.className = (element.className + ' ' + newCls).replace(/\s+/g, ' ').trim();
   }
 

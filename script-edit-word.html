@@ -53,7 +53,7 @@
     }
     if (difficultyValue) {
       var level = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
-      difficultyValue.textContent = level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? '✓ 已掌握' : (level < 0 ? '★0' : '★' + level);
+      difficultyValue.textContent = isForcedReviewLevel(level) ? '★- 強制複習' : (level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? '✓ 已掌握' : (level < 0 ? '★0' : '★' + level));
       this.updateEditWordDifficultyColor(level);
     }
     if (imageInput) imageInput.value = currentWord.image || '';
@@ -107,10 +107,11 @@
     if (!valueEl) return;
 
     valueEl.className = valueEl.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
+    valueEl.className = valueEl.className.replace(/\bdifficulty-level-forced\b/g, '').trim();
     for (var i = 0; i <= 10; i++) {
       valueEl.className = valueEl.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
     }
-    var cls = level < 0 ? 'difficulty-level-n1' : 'difficulty-level-' + level;
+    var cls = isForcedReviewLevel(level) ? 'difficulty-level-forced' : (level < 0 ? 'difficulty-level-n1' : 'difficulty-level-' + level);
     valueEl.className = (valueEl.className + ' ' + cls).trim();
   };
 
@@ -140,7 +141,7 @@
     var updateDiffDisplay = function(val) {
       var valueEl = document.getElementById('edit-word-difficulty-value');
       if (valueEl) {
-        valueEl.textContent = val <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? '✓ 已掌握' : (val < 0 ? '★0' : '★' + val);
+        valueEl.textContent = isForcedReviewLevel(val) ? '★- 強制複習' : (val <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? '✓ 已掌握' : (val < 0 ? '★0' : '★' + val));
         self.updateEditWordDifficultyColor(val);
       }
     };
@@ -160,7 +161,7 @@
       var onNumberChange = function() {
         var val = parseInt(difficultyNumberInput.value);
         if (isNaN(val)) val = 0;
-        val = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, Math.min(10, val));
+        val = normalizeDifficultyLevel(val);
         difficultyNumberInput.value = val;
         if (difficultyInput) difficultyInput.value = Math.max(-1, Math.min(10, val));
         updateDiffDisplay(val);
@@ -354,7 +355,7 @@
     var newChinese = chineseInput ? chineseInput.value.trim() : '';
     var newDifficulty = difficultyNumberInput ? parseInt(difficultyNumberInput.value) : (difficultyInput ? parseInt(difficultyInput.value) : 0);
     if (isNaN(newDifficulty)) newDifficulty = 0;
-    newDifficulty = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, Math.min(10, newDifficulty));
+    newDifficulty = normalizeDifficultyLevel(newDifficulty);
     var newImage = imageInput ? imageInput.value.trim() : '';
     var newMustSpell = mustSpellToggle ? this.normalizeMustSpell(mustSpellToggle.value) : 0;
 

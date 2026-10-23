@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the filters restricting which words appear in the carousel and quiz: review-time, difficulty, must-spell, word-type, and tag. All active filters combine via intersection logic.
+Defines the filters restricting which words appear in the carousel and quiz: review-time, difficulty, must-spell, word-type, and tag. All active filters combine via intersection logic, except forced-review words (difficulty 100), which always bypass filters.
 
 ## Requirements
 
@@ -53,6 +53,17 @@ The system SHALL allow filtering words by tags (column H, split by `,` or `，`)
 - **WHEN** the user selects one or more tags
 - **THEN** a word is included if it has ANY selected tag; all unique tags from loaded words are listed sorted, each with its word count
 - **AND** with no tags selected the filter is inactive (all words shown); when no loaded words have tags, the modal displays "目前沒有任何標籤"
+
+### Requirement: Forced Review Override
+
+The system SHALL always load every word whose difficulty is 100, regardless of the active filters, and SHALL exclude those words from filter counts and statistics.
+
+#### Scenario: Extra words beyond the filtered set
+
+- **WHEN** any filter combination is applied and the pool contains forced-review words
+- **THEN** the filtered normal words are returned plus ALL forced-review words, even if they fail the difficulty, review-time, must-spell, type, or tag filters (e.g. 100 filtered normal words + 3 forced-review words = 103 words loaded)
+- **AND** the filter-option counts (`countWordsForFilter`, `countWordsForDifficultyFilter`) and SRS statistics count normal words only, so forced-review words do not change those numbers
+- **AND** the `★-` display indicates a forced-review word is excluded from statistics
 
 ### Requirement: Filter Combination
 

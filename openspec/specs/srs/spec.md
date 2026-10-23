@@ -68,7 +68,7 @@ The system SHALL provide a quick-review modal with statistics, a priority list, 
 #### Scenario: Modal contents
 
 - **WHEN** the quick-review modal is opened from the menu button (whose red circular badge shows the due/overdue count, capped at "99+")
-- **THEN** the modal shows the total "共 N 個單字", review-progress bars for the last 3 days / 7 days / 2 weeks / 1 month (count + percentage each) plus never-reviewed, and a difficulty distribution (≤ -999 green, ★0 grey, ★1–2 gold, ★3–4 orange, ★5–6 dark orange, ★7–8 orange-red, ★9–10 red; zero-count categories skipped)
+- **THEN** the modal shows the total "共 N 個單字" (forced-review words excluded), review-progress bars for the last 3 days / 7 days / 2 weeks / 1 month (count + percentage each) plus never-reviewed, and a difficulty distribution (≤ -999 green, ★0 grey, ★1–2 gold, ★3–4 orange, ★5–6 dark orange, ★7–8 orange-red, ★9–10 red; zero-count categories skipped; forced-review words excluded)
 - **AND** preset quantity buttons: 10, 20, 30, 50, 100, and "全部 (N)"
 - **AND** an expandable priority table lists rank, word, category, difficulty, and last-review date (max 300 px, internal scrolling, sticky header); category labels are 不熟/全新, SRS到期, 已熟悉, 未到期 — display-only, ordering comes from the score
 
@@ -94,5 +94,6 @@ The system SHALL start a filtered carousel session when the user initiates quick
 #### Scenario: Start and end
 
 - **WHEN** the user selects a quantity and starts the review
-- **THEN** the top N words by priority are selected, shuffled (to prevent same-sheet clustering), and shown in standard flashcard mode
+- **THEN** the top N normal words by priority are selected, plus ALL forced-review words (difficulty 100) beyond that quantity (e.g. select 100 with 3 forced-review words = 103 words), shuffled (to prevent same-sheet clustering), and shown in standard flashcard mode
+- **AND** forced-review words do not consume the selected quantity and are excluded from the statistics used to choose it
 - **AND** the active-filters indicator shows "📖 快速複習"; SRS mode ends when the user clears filters or starts a new round

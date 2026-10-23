@@ -698,6 +698,7 @@
   
   // 標記單字為困難（測驗答錯時呼叫）- 增加不熟程度 +1
   FlashcardApp.prototype.markWordAsDifficult = function(word) {
+    if (isForcedReviewLevel(word.difficultyLevel)) return;
     var newLevel = Math.min(10, (word.difficultyLevel || 0) + 1);
     word.difficultyLevel = newLevel;
     

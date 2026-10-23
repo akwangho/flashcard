@@ -15,7 +15,7 @@ Row 1 is a header row; data starts from row 2.
 | A | (A1 = valid word count) | Must-spell flag: `1` = 衝刺要會拼單字 (sprint), `0.5` = 隨機要會拼單字 (random), `-1` = 看懂就好 (understand-only), empty/`0` = none; other legacy values read as `1` (see `flashcard-core/spec.md`) | No |
 | B | `單字` | English word | Yes |
 | C | `翻譯` | Chinese translation | Yes |
-| D | `不熟程度` | Difficulty -999~10 (empty = 0; reads legacy `*`, writes numbers) | No |
+| D | `不熟程度` | Difficulty -999~10, or `100` = forced review (always loaded, shown as ★-, excluded from statistics); empty = 0; values >=100 normalise to 100; reads legacy `*`, writes numbers | No |
 | E | `圖片URL` | Image URL | No |
 | F | `圖片` | Image display formula | No |
 | G | `最後複習日期` | Last review date `YYYY-MM-DD` (empty = never reviewed) | No |
@@ -91,4 +91,4 @@ The backend SHALL expose the following functions to the frontend (via `google.sc
 - **WHEN** the frontend requests words or sheet data
 - **THEN** word loading is provided by `getWordsFromSheet() → Array<Word>` (default sheet), `getWordsFromSheets(sheetId, sheetNames) → Array<Word>` (throws on error — no demo-data fallback; the frontend failure handler shows the error), `getWordsFromSingleSheet(sheetId, sheetName) → {success, words, sheetName, wordCount}` (progressive loading), and `getWordsFromSheetsWithDuplicateDetection(sheetId, sheetNames, autoHandle) → Object` (non-initial reload; see `duplicate-handling/spec.md`)
 - **AND** sheet management by `getSheetsList(sheetId) → {spreadsheetName, sheets: [{name, wordCount}]}`, `getSheetNamesOnly(sheetId) → {spreadsheetName, sheetNames, sheetCount}`, and `getSheetWordCount(sheetId, sheetName) → {name, wordCount}`
-- **AND** word operations by `updateWordProperties(sheetId, sheetName, rowIndex, properties) → Object` (columns A–I), `updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel) → {success, error?}` (column D; 0 written as empty), `batchUpdateReviewDates(sheetId, updates) → {success, updatedCount, failedCount, failed}` (batch-write `[{sheetName, rowIndex, date}]` to column G; per-sheet single read-modify-write; partial failures surface `success:false` with the failed list so the frontend retries), and `exportWordsToSheet(words, sheetName, targetSheetId, overwrite, isFirstBatch) → Object` (see `word-export/spec.md`)
+- **AND** word operations by `updateWordProperties(sheetId, sheetName, rowIndex, properties) → Object` (columns A–I), `updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel) → {success, error?}` (column D; -999~10 or 100 forced review; 0 written as empty), `batchUpdateReviewDates(sheetId, updates) → {success, updatedCount, failedCount, failed}` (batch-write `[{sheetName, rowIndex, date}]` to column G; per-sheet single read-modify-write; partial failures surface `success:false` with the failed list so the frontend retries), and `exportWordsToSheet(words, sheetName, targetSheetId, overwrite, isFirstBatch) → Object` (see `word-export/spec.md`)

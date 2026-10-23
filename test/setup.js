@@ -539,7 +539,10 @@ function bootstrapApp() {
     'if (typeof isModalBackgroundClick !== "undefined") { global.isModalBackgroundClick = isModalBackgroundClick; }\n' +
     'if (typeof getWordType !== "undefined") { global.getWordType = getWordType; }\n' +
     'if (typeof isWordFormList !== "undefined") { global.isWordFormList = isWordFormList; }\n' +
-    'if (typeof renderLoadingVersionText !== "undefined") { global.renderLoadingVersionText = renderLoadingVersionText; }\n';
+    'if (typeof renderLoadingVersionText !== "undefined") { global.renderLoadingVersionText = renderLoadingVersionText; }\n' +
+    'if (typeof normalizeDifficultyLevel !== "undefined") { global.normalizeDifficultyLevel = normalizeDifficultyLevel; }\n' +
+    'if (typeof isForcedReviewLevel !== "undefined") { global.isForcedReviewLevel = isForcedReviewLevel; }\n' +
+    'if (typeof isForcedReviewWord !== "undefined") { global.isForcedReviewWord = isForcedReviewWord; }\n';
   var script = new Function(exportCode);
   script.call(global);
 }

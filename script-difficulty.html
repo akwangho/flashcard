@@ -24,6 +24,9 @@
     }
     
     var currentLevel = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
+    if (isForcedReviewLevel(currentLevel)) {
+      return;
+    }
     var newLevel = currentLevel < 0 ? 1 : Math.min(10, currentLevel + 1);
     currentWord.difficultyLevel = newLevel;
     
@@ -39,6 +42,7 @@
 
   FlashcardApp.prototype.decreaseDifficulty = function(word) {
     if (!word) return;
+    if (isForcedReviewLevel(word.difficultyLevel)) return;
     
     var newLevel = Math.max(APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR, (word.difficultyLevel || 0) - 1);
     word.difficultyLevel = newLevel;
@@ -80,7 +84,9 @@
    * 共用：更新不熟程度 UI（文字 + CSS class）
    */
   FlashcardApp.prototype._renderDifficultyUI = function(display, levelEl, level) {
-    if (level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) {
+    if (isForcedReviewLevel(level)) {
+      levelEl.textContent = '-';
+    } else if (level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) {
       levelEl.textContent = '✓';
     } else if (level < 0) {
       levelEl.textContent = 0;
@@ -89,12 +95,13 @@
     }
 
     display.className = display.className.replace(/\bdifficulty-level-n1\b/g, '').trim();
+    display.className = display.className.replace(/\bdifficulty-level-forced\b/g, '').trim();
     for (var i = 0; i <= 10; i++) {
       display.className = display.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '').trim();
     }
     display.className = display.className.replace(/\s+/g, ' ').trim();
     display.classList.add('difficulty-display');
-    var cls = level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? 'difficulty-level-n1' : 'difficulty-level-' + Math.max(0, level);
+    var cls = isForcedReviewLevel(level) ? 'difficulty-level-forced' : (level <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR ? 'difficulty-level-n1' : 'difficulty-level-' + Math.max(0, level));
     display.classList.add(cls);
   };
 

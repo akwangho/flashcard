@@ -24,7 +24,7 @@ The system SHALL allow editing the following word properties.
 | Field | Input | Constraints / notes |
 |-------|-------|--------------------|
 | English word / Chinese translation | Text input | Required; cannot be empty |
-| Difficulty level | Slider (-1~10) + number input (-999~10) | Bidirectional sync; ≤ -999 shows "✓ 已掌握" (green), -1~-998 shows ★0 (grey), 0–10 shows ★N with colour |
+| Difficulty level | Slider (-1~10) + number input (-999~10, or 100) | Bidirectional sync; ≤ -999 shows "✓ 已掌握" (green), -1~-998 shows ★0 (grey), 0–10 shows ★N with colour, 100 shows "★- 強制複習" (cyan; values ≥100 normalise to 100) |
 | Must-spell | Four-option select | `0` 不需 / `1` 衝刺要會拼單字 / `0.5` 隨機要會拼單字 / `-1` 看懂就好（先英文，不用中翻英）; mixed-mode ordering per `flashcard-core/spec.md` |
 | Image URL | Text input | May be empty; live preview (below) |
 | KK phonetic | Display + manual text input + 重新抓取 refetch | Chooser and refetch rules per `kk-phonetic/spec.md` |

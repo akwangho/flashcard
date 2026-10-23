@@ -13,7 +13,7 @@ The primary learning loop: auto-carousel, display modes, smart timer, word-card 
 | `id` | — | Unique id, assigned sequentially on load |
 | `english` | B | English word |
 | `chinese` | C | Chinese translation |
-| `difficultyLevel` | D | Difficulty -999~10 (negative = very familiar) |
+| `difficultyLevel` | D | Difficulty -999~10 (negative = very familiar) or 100 = forced review (always loaded; see `review-filter/spec.md`) |
 | `image` / `imageFormula` | E / F | Image URL / image display formula |
 | `lastReviewDate` | G | 'YYYY-MM-DD'; empty = never reviewed |
 | `mustSpell` | A | 0 none · 1 衝刺要會拼單字 (sprint) · 0.5 隨機要會拼單字 (random) · -1 看懂就好 (understand-only) |

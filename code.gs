@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.26.1';
+  var SERVER_VERSION = '1.26.2';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-16 09:46';
+  var SERVER_BUILD_TIME = '2026-10-23 16:59';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -116,6 +116,24 @@
     TAGS: 8,           // H 欄
     KK_PHONETIC: 9     // I 欄：KK 音標
   };
+
+  /** 「非常熟」門檻值（與前端 APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR 一致） */
+  var DIFFICULTY_VERY_FAMILIAR = -999;
+
+  /** 「強制複習」等級（與前端 APP_CONSTANTS.DIFFICULTY_FORCED_REVIEW 一致） */
+  var DIFFICULTY_FORCED_REVIEW = 100;
+
+  /**
+   * 正規化不熟程度：-999~10 原樣保留；>=100 一律視為強制複習 100。
+   * @param {*} level - 原始不熟程度
+   * @returns {number}
+   */
+  function normalizeDifficultyLevel(level) {
+    var n = parseInt(level, 10);
+    if (isNaN(n)) return 0;
+    if (n >= DIFFICULTY_FORCED_REVIEW) return DIFFICULTY_FORCED_REVIEW;
+    return Math.max(DIFFICULTY_VERY_FAMILIAR, Math.min(10, n));
+  }
 
   // ===========================================
   // 工具函數 (Utility Functions)
@@ -239,14 +257,14 @@ function countValidWords(sheet) {
   * 格式：A=要會拼, B=單字, C=翻譯, D=不熟程度, E=圖片URL, F=圖片, G=複習日期（A1=總數）
   */
   function createWordObject(rowData, id, sheetName, rowIndex) {
-    // 計算不熟程度（支援數字 -999~10 或舊版 * 符號）
+    // 計算不熟程度（支援數字 -999~10、>=100 強制複習，或舊版 * 符號）
     let difficultyLevel = 0;
     if (rowData[COL.DIFFICULTY] !== undefined && rowData[COL.DIFFICULTY] !== null && rowData[COL.DIFFICULTY] !== '') {
       const diffStr = rowData[COL.DIFFICULTY].toString().trim();
       const parsed = Number(diffStr);
       if (!isNaN(parsed) && diffStr !== '') {
-        // 數字格式（支援 -999 到 10）
-        difficultyLevel = Math.max(-999, Math.min(10, Math.round(parsed)));
+        // 數字格式（支援 -999 到 10，以及 >=100 的強制複習等級）
+        difficultyLevel = normalizeDifficultyLevel(Math.round(parsed));
       } else {
         // 向後相容：計算 * 符號數量
         for (let i = 0; i < diffStr.length; i++) {
@@ -549,8 +567,8 @@ function countValidWords(sheet) {
   }
 
   /**
-  * 更新單字不熟程度（多層級 -1~10）
-  * difficultyLevel: -1 表示非常熟（已掌握），0 表示已熟悉，1-10 表示不熟程度
+  * 更新單字不熟程度（-999~10，或 100 強制複習）
+  * difficultyLevel: -1 表示非常熟（已掌握），0 表示已熟悉，1-10 表示不熟程度，100 表示強制複習
   * 寫入時以數字為主（向後相容讀取 * 符號）
   */
   function updateWordDifficulty(sheetId, sheetName, rowIndex, difficultyLevel) {
@@ -573,7 +591,7 @@ function countValidWords(sheet) {
       const row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
       
       // 以數字格式寫入（0 寫空字串，其他寫數字）
-      const level = Math.max(-999, Math.min(10, parseInt(difficultyLevel) || 0));
+      const level = normalizeDifficultyLevel(difficultyLevel);
       sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
       
       console.log('成功更新不熟程度為', level);
@@ -621,7 +639,7 @@ function countValidWords(sheet) {
         patches.push({ col: COL_NUM.CHINESE, val: properties.chinese.toString().trim() });
       }
       if (properties.difficultyLevel !== undefined && properties.difficultyLevel !== null) {
-        var level = Math.max(-999, Math.min(10, parseInt(properties.difficultyLevel) || 0));
+        var level = normalizeDifficultyLevel(properties.difficultyLevel);
         patches.push({ col: COL_NUM.DIFFICULTY, val: level === 0 ? '' : level });
       }
       if (properties.imageUrl !== undefined && properties.imageUrl !== null) {
@@ -981,7 +999,7 @@ function countValidWords(sheet) {
   */
   function writeMergedMetadataToRow(sheet, row, groupWords) {
     var merged = mergeDuplicateMetadata(groupWords);
-    var level = Math.max(-999, Math.min(10, parseInt(merged.difficultyLevel) || 0));
+    var level = normalizeDifficultyLevel(merged.difficultyLevel);
     sheet.getRange(row, COL_NUM.DIFFICULTY).setValue(level === 0 ? '' : level);
     sheet.getRange(row, COL_NUM.IMAGE_URL).setValue(merged.image);
     sheet.getRange(row, COL_NUM.MUST_SPELL).setValue(merged.mustSpell === 0 ? '' : merged.mustSpell);

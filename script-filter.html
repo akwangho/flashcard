@@ -107,10 +107,20 @@
 
   // 套用所有篩選條件（不熟單字 + 複習時間）
   FlashcardApp.prototype.applyAllFilters = function(words) {
-    var filtered = words.slice();
+    var filtered = [];
+    var forcedReviewWords = [];
     var self = this;
     
     var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
+
+    // 強制複習（100）不受任何篩選影響，一律額外載入
+    for (var fw = 0; fw < words.length; fw++) {
+      if (isForcedReviewWord(words[fw])) {
+        forcedReviewWords.push(words[fw]);
+      } else {
+        filtered.push(words[fw]);
+      }
+    }
 
     // 篩選 1：不熟程度篩選
     if (this.difficultyFilter < 0) {
@@ -180,6 +190,11 @@
       });
     }
     
+    // 強制複習單字額外加回（不列入篩選統計），再一起排序
+    for (var f = 0; f < forcedReviewWords.length; f++) {
+      filtered.push(forcedReviewWords[f]);
+    }
+
     // 篩選後依「複習優先分數」排序：不熟程度數字大的、很久沒複習的優先出現；
     // 最近剛複習且數字小的排到後面。同分數的單字之間以亂數輕度混合（多工作表打散）。
     this.sortWordsByReviewPriority(filtered);
@@ -229,6 +244,11 @@
   FlashcardApp.prototype.countWordsForFilter = function(filterType) {
     var words = this.words;
     var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
+
+    // 強制複習單字不列入篩選統計（但仍會額外載入）
+    words = words.filter(function(w) {
+      return !isForcedReviewWord(w);
+    });
     
     // 如果同時啟用了不熟程度篩選，先套用
     if (this.difficultyFilter < 0) {
@@ -486,6 +506,11 @@
   // 計算不熟程度篩選的單字數量
   FlashcardApp.prototype.countWordsForDifficultyFilter = function(minLevel) {
     var words = this.words;
+
+    // 強制複習單字不列入篩選統計（但仍會額外載入）
+    words = words.filter(function(w) {
+      return !isForcedReviewWord(w);
+    });
     
     // 如果同時啟用了複習時間篩選，先套用
     if (this.reviewFilter !== 'all') {

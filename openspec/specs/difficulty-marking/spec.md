@@ -2,19 +2,20 @@
 
 ## Purpose
 
-Defines the -999 to 10 difficulty scale, its UI rendering, the increase / auto-decrease rules, and the D-key mark-as-very-familiar flow. Difficulty is stored in Sheet column D; difficulty filters are specified in `review-filter/spec.md`.
+Defines the -999 to 10 difficulty scale plus the 100 forced-review level, its UI rendering, the increase / auto-decrease rules, and the D-key mark-as-very-familiar flow. Difficulty is stored in Sheet column D; difficulty filters are specified in `review-filter/spec.md`.
 
 ## Requirements
 
 ### Requirement: Difficulty Scale and Display
 
-The system SHALL use a difficulty scale from -999 to 10 and render it with stars and colour.
+The system SHALL use a difficulty scale from -999 to 10, plus the special forced-review level 100, and render it with stars and colour.
 
 #### Scenario: Scale semantics and rendering
 
 - **WHEN** a word's difficulty level is displayed
-- **THEN** the semantics are: `-999` = very familiar / mastered (green; excluded from carousel and quiz by default), `-1` to `-998` = reviewed |N| times (green), `0` = familiar (no mark), `1–10` = ★N unfamiliar with colour escalating yellow → orange → dark orange → orange-red → red (`10` adds a red glow)
+- **THEN** the semantics are: `-999` = very familiar / mastered (green; excluded from carousel and quiz by default), `-1` to `-998` = reviewed |N| times (green), `0` = familiar (no mark), `1–10` = ★N unfamiliar with colour escalating yellow → orange → dark orange → orange-red → red (`10` adds a red glow), `100` = forced review (cyan)
 - **AND** positive values render as `★N`; `≤ -999` renders as `★✓` in green; `-1` to `-998` render as `★0` in grey — the real negative number is never shown in the UI
+- **AND** the forced-review level renders as `★-` instead of a number, indicating it is excluded from difficulty statistics; the edit modal shows `★- 強制複習`
 
 #### Scenario: Sheet read/write format
 
@@ -37,6 +38,21 @@ The system SHALL allow the user to increase the current word's difficulty.
 - **WHEN** the user increases difficulty
 - **THEN** it jumps directly to 1 (not +1)
 - **AND** while the word is pending removal, pressing S has no effect
+
+### Requirement: Forced Review Level Protection
+
+The system SHALL keep a word at difficulty 100 through review-related actions so it remains forced until the user explicitly edits it or marks it very familiar.
+
+#### Scenario: Actions that do not change 100
+
+- **WHEN** a forced-review word is increased (S / F5 / Enter / progress-area click), auto-decreased on confirmed removal, or answered wrong in a quiz
+- **THEN** its difficulty stays 100 and no write is made that would change it
+- **AND** the pending-removal preview continues to show `★-` rather than a decremented value
+
+#### Scenario: Explicit override
+
+- **WHEN** the user edits the word and changes the number input, or completes the D-key mark-as-very-familiar flow
+- **THEN** the explicit new value is saved (values `≥ 100` entered in the number input normalise back to 100; values 11–99 clamp to 10)
 
 ### Requirement: Auto-Decrease Difficulty on Removal
 

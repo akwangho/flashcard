@@ -268,21 +268,49 @@
     return this._buildPriorityList(sourceWords);
   };
 
-  // 開始快速複習模式（依優先度排序，取前 N 個）
+  /**
+   * 從候選單字中挑選快速複習內容：
+   * 一般單字依指定數量取前 N 個，強制複習（100）單字一律額外附加以外的數量，
+   * 因此選 100 個且有 3 個強制複習字時，最終會有 103 個。
+   * @param {Array} sourceWords - 已套用篩選的候選單字
+   * @param {number} count - 一般單字要取幾個
+   * @returns {Array} 複習單字清單
+   */
+  FlashcardApp.prototype._selectSrsReviewWords = function(sourceWords, count) {
+    var normalWords = [];
+    var forcedReviewWords = [];
+
+    for (var i = 0; i < sourceWords.length; i++) {
+      if (isForcedReviewWord(sourceWords[i])) {
+        forcedReviewWords.push(sourceWords[i]);
+      } else {
+        normalWords.push(sourceWords[i]);
+      }
+    }
+
+    var recommendedWords = this.getRecommendedWords(normalWords);
+    var limit = Math.max(0, Math.min(count, recommendedWords.length));
+    var result = recommendedWords.slice(0, limit);
+    for (var f = 0; f < forcedReviewWords.length; f++) {
+      result.push(forcedReviewWords[f]);
+    }
+    return result;
+  };
+
+  // 開始快速複習模式（依優先度排序，取前 N 個；強制複習字額外全數載入）
   // 與其他篩選條件為 AND 關係：先套用所有篩選，再從結果中依 SRS 優先度排序
   FlashcardApp.prototype.startSrsReview = function(count) {
     // 排除使用者已「暫時移除」的單字（與測驗/聽力一致），避免複習到已移除的字
     var filteredWords = this.getFilteredWordsExcludingRemoved();
-    var recommendedWords = this.getRecommendedWords(filteredWords);
+    var reviewWords = this._selectSrsReviewWords(filteredWords, count);
 
-    if (recommendedWords.length === 0) {
+    if (reviewWords.length === 0) {
       this.showNotification('沒有符合目前篩選條件的可複習單字', 'info');
       return;
     }
 
-    // 取指定數量（已依優先度排序，取前 N 個後打亂顯示順序）
-    var reviewCount = Math.min(count, recommendedWords.length);
-    this.currentWords = recommendedWords.slice(0, reviewCount);
+    // 一般單字取指定數量；強制複習字不佔用該數量，額外附加
+    this.currentWords = reviewWords;
     this.shuffleArray(this.currentWords);
     this.currentIndex = 0;
     this.removedWords = [];
@@ -303,15 +331,25 @@
     this.updateProgress();
     this.updatePauseButtonState();
 
-    this.showNotification('開始複習 ' + reviewCount + ' 個單字', 'success');
-    console.log('快速複習模式啟動，共', reviewCount, '個單字（已套用篩選條件）');
+    this.showNotification('開始複習 ' + reviewWords.length + ' 個單字', 'success');
+    console.log('快速複習模式啟動，共', reviewWords.length, '個單字（已套用篩選條件）');
   };
 
-  // 開啟快速複習模態框（統計與數量基於篩選後的單字）
+  // 開啟快速複習模態框（統計與數量基於篩選後的一般單字；強制複習字不列入統計）
   FlashcardApp.prototype.openSrsReviewModal = function() {
     // 與 startSrsReview 相同基準：排除「暫時移除」單字，統計與實際複習的數字才會一致
     var filteredWords = this.getFilteredWordsExcludingRemoved();
-    var filteredCount = filteredWords.length;
+    var normalWords = [];
+    var forcedCount = 0;
+    for (var fw = 0; fw < filteredWords.length; fw++) {
+      if (isForcedReviewWord(filteredWords[fw])) {
+        forcedCount++;
+      } else {
+        normalWords.push(filteredWords[fw]);
+      }
+    }
+    var filteredCount = normalWords.length;
+    var hasAnyReviewWord = normalWords.length > 0 || forcedCount > 0;
     var modal = document.getElementById('srs-review-modal');
     var statsEl = document.getElementById('srs-stats');
     var priorityListEl = document.getElementById('srs-word-priority-list');
@@ -323,7 +361,7 @@
 
     this.pauseTimer();
 
-    if (filteredCount === 0) {
+    if (!hasAnyReviewWord) {
       if (statsEl) statsEl.style.display = 'none';
       if (priorityListEl) priorityListEl.style.display = 'none';
       if (optionsEl) optionsEl.style.display = 'none';
@@ -337,10 +375,10 @@
     } else {
       if (noDueEl) noDueEl.style.display = 'none';
 
-      var stats = this.calculateSrsStats(filteredWords);
+      var stats = this.calculateSrsStats(normalWords);
       this.renderSrsStats(stats);
 
-      var priorityList = this.getRecommendedWordsWithPriority(filteredWords);
+      var priorityList = this.getRecommendedWordsWithPriority(normalWords);
       this.renderWordPriorityList(priorityList);
 
       if (optionsEl) optionsEl.style.display = 'block';
@@ -481,7 +519,14 @@
   // @param {Array} [sourceWords] - 來源單字陣列，省略時使用 this.words
   FlashcardApp.prototype.calculateSrsStats = function(sourceWords) {
     var words = sourceWords || this.words;
-    var total = words ? words.length : 0;
+    if (!words) return null;
+
+    // 強制複習字不列入統計
+    words = words.filter(function(w) {
+      return !isForcedReviewWord(w);
+    });
+
+    var total = words.length;
     if (total === 0) return null;
 
     var today = new Date();
@@ -636,7 +681,7 @@
       var item = priorityList[i];
       var w = item.word;
       var diff = (w.difficultyLevel !== undefined && w.difficultyLevel !== null) ? w.difficultyLevel : 0;
-      var diffText = (diff <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) ? '非常熟' : ('★' + diff);
+      var diffText = isForcedReviewLevel(diff) ? '★-' : ((diff <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) ? '非常熟' : ('★' + diff));
       var dateText = (w.lastReviewDate && w.lastReviewDate !== '') ? w.lastReviewDate.slice(5) : '從未';
       var catLabel = PRIORITY_LABELS[item.priority] || '';
       var rowClass = (i % 2 === 0) ? 'srs-pt-row-even' : 'srs-pt-row-odd';
