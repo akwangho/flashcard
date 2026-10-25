@@ -137,9 +137,67 @@ describe('speakEnglishLetters', function() {
     app.voiceSettings.enabled = true;
     app.voiceSettings.spellOutLetters = true;
     app.speakEnglishLetters('a-b', function() {});
-    // Should speak 'a' (first letter)
+    // Should speak 'a' as letter-name-forcing spelling ("eigh")
     var firstUtterance = global.speechSynthesis.speak.mock.calls[0][0];
-    expect(firstUtterance.text).toBe('a');
+    expect(firstUtterance.text).toBe('eigh');
+  });
+
+  test('speaks letter "a" with letter-name forcing (eigh, not article)', function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+    app.speakEnglishLetters('a', function() {});
+    var firstUtterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(firstUtterance.text).toBe('eigh');
+  });
+});
+
+// ============================================================
+// _letterToSpeakable (letter-name forcing) — openspec/specs/voice-tts/spec.md
+// ============================================================
+describe('_letterToSpeakable', function() {
+
+  test('maps lowercase "a" to letter-name spelling "eigh"', function() {
+    expect(app._letterToSpeakable('a')).toBe('eigh');
+  });
+
+  test('maps uppercase "A" to "eigh"', function() {
+    expect(app._letterToSpeakable('A')).toBe('eigh');
+  });
+
+  test('passes non-"a" letters through unchanged', function() {
+    expect(app._letterToSpeakable('b')).toBe('b');
+    expect(app._letterToSpeakable('z')).toBe('z');
+    // "i" is spoken as the word "I" /aɪ/, which IS the letter name
+    expect(app._letterToSpeakable('i')).toBe('i');
+  });
+});
+
+// ============================================================
+// speakEnglishLettersSpaced (must-spell single-utterance spell-out)
+// ============================================================
+describe('speakEnglishLettersSpaced', function() {
+
+  beforeEach(function() {
+    app.voiceSettings.enabled = true;
+    app.voiceSettings.spellOutLetters = true;
+  });
+
+  test('joins letters with spaces and forces letter-name "eigh" for a', function() {
+    app.speakEnglishLettersSpaced('cat', function() {});
+    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(utterance.text).toBe('c eigh t');
+  });
+
+  test('substitutes every occurrence of a (banana)', function() {
+    app.speakEnglishLettersSpaced('banana', function() {});
+    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(utterance.text).toBe('b eigh n eigh n eigh');
+  });
+
+  test('leaves words without a untouched', function() {
+    app.speakEnglishLettersSpaced('cold', function() {});
+    var utterance = global.speechSynthesis.speak.mock.calls[0][0];
+    expect(utterance.text).toBe('c o l d');
   });
 });
 

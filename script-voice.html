@@ -49,6 +49,39 @@
     return japanesePattern.test(text);
   };
 
+  /**
+   * 字母 → 「字母名發音」朗讀文字對照表（逐字拼讀專用）。
+   *
+   * 問題：TTS 引擎會依上下文決定單獨一個 "a" 的唸法——有時唸字母名 /eɪ/、
+   * 有時唸冠詞 /ə/（「一個」），導致拼讀 a 時忽字母忽冠詞、很不一致。
+   * 「拆字單一發音」路徑（b a t）尤其嚴重：a 被視為句子裡的單字 → 唸成冠詞。
+   *
+   * 解法：把 a 換成 "eigh"（eight / weigh 的母音拼法，英文拼字規則唯一唸 /eɪ/），
+   * 與 KK 音標的 KK_SINGLE_SYMBOL_MAP（aɪ→eye、θ→thuh）同一策略。
+   *
+   * 實測（macOS say 語音波形分析，11 個 Apple 語音：Samantha / Eddy / Reed / Sandy /
+   * Shelley / Grandma / Kathy / Junior / Fred / Flo / Rocko）：
+   * - 單獨發音時 "eigh" 與 "a" 的音檔 100% 位元組相同（零回歸）；
+   * - 拆字發音（b a t → b eigh t）時，原本唸成 80ms 冠詞弱音的語音改唸完整 /eɪ/，
+   *   原本就唸字母名的語音（Kathy/Junior/Fred）完全不受影響（音檔相同）；
+   * - 沒有任何語音把 eigh 拆成 e-i-g-h 逐字唸。
+   * 其餘字母（b-z）不是英文單字，各引擎皆以字母名發音，無需替換。
+   */
+  FlashcardApp.LETTER_SPEAKABLE_MAP = {
+    'a': 'eigh'
+  };
+
+  /**
+   * 取得字母交給 TTS 的朗讀文字：固定使用「字母名」發音。
+   * @param {string} letter - 單一英文字母（大小寫皆可）
+   * @returns {string} 交給 SpeechSynthesisUtterance 的文字
+   */
+  FlashcardApp.prototype._letterToSpeakable = function(letter) {
+    var l = String(letter || '').toLowerCase();
+    return FlashcardApp.LETTER_SPEAKABLE_MAP[l] || letter;
+  };
+
+
   // 逐字母拼讀英文單字
   FlashcardApp.prototype.speakEnglishLetters = function(text, callback) {
     if (!this.voiceSettings.enabled || !this.voiceSettings.spellOutLetters) {
@@ -111,7 +144,8 @@
         }
         
         var letter = letters[currentLetterIndex];
-        var utterance = new SpeechSynthesisUtterance(letter);
+        // 固定使用「字母名」發音（a → eigh），避免被唸成冠詞 /ə/
+        var utterance = new SpeechSynthesisUtterance(self._letterToSpeakable(letter));
         utterance.rate = 1; // 英文字母簡單易懂，固定使用正常速度
         utterance.pitch = self.voiceSettings.pitch;
         utterance.volume = self.voiceSettings.volume;
@@ -209,7 +243,14 @@
         return;
       }
 
-      var spaced = letters.join(' ');
+      // 每個字母先轉成「字母名發音」文字（a → eigh），再以空格串接
+      // （例如 breakfast → b r e eigh k f eigh s t，cat → c eigh t）
+      var speakables = [];
+      for (var m = 0; m < letters.length; m++) {
+        speakables.push(this._letterToSpeakable(letters[m]));
+      }
+
+      var spaced = speakables.join(' ');
       console.log('拆字發音:', spaced);
 
       var self = this;

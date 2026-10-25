@@ -63,8 +63,13 @@ The system SHALL optionally spell out letters (a–z/A–Z; spaces and hyphens s
 #### Scenario: Must-spell single-utterance and scope
 
 - **WHEN** spell-out runs for a must-spell word (level 1 衝刺 or 0.5 隨機)
-- **THEN** letters are joined with single spaces (`breakfast` → `b r e a k f a s t`) and spoken as ONE utterance at rate 1, then the full word; other words (level 0 / -1) use the per-letter sequence
+- **THEN** letters are joined with single spaces (`breakfast` → `b r e eigh k f eigh s t`) and spoken as ONE utterance at rate 1, then the full word; other words (level 0 / -1) use the per-letter sequence
 - **AND** the `spellOutScope` selector (shown only while spell-out is enabled) picks: `all` 所有單字 · `must-spell-all` 所有要會拼單字 (0.5/1) · `must-spell-random` 隨機要會拼單字 (0.5) · `must-spell-sprint` 衝刺要會拼單字 (1); out-of-scope words read normally with the standard 500 ms delay
+
+#### Scenario: Stable letter-name pronunciation
+
+- **WHEN** spell-out speaks the letter `a` (per-letter or single-utterance path)
+- **THEN** the spoken text uses the letter-name-forcing spelling from `LETTER_SPEAKABLE_MAP` (`a` → `eigh`, the eight/weigh vowel) so no voice reads it as the article /ə/ ("一個"); all other letters pass through unchanged, because only `a` is also an English word
 
 ### Requirement: Voice Wait Mechanism
 
