@@ -17,7 +17,7 @@
 
 ### Startup and word-load flows
 
-- `new FlashcardApp()` (6 sub-inits) → `init()`: `loadSettings()` + `loadSheetSettings()` → `detectLegacyBrowser()` → `setupEventListeners()` (core / menu / modal / keyboard / swipe / progress); saved sheet → `loadWords(true)`, otherwise `openSheetSettings()`
+- `new FlashcardApp()` (6 sub-inits) → `init()`: `loadSettings()` + `loadSheetSettings()` + `loadSrsData()` → `detectLegacyBrowser()` → `setupEventListeners()` (core / menu / modal / keyboard / swipe / progress); saved sheet → `loadWords(true)`, otherwise `openSheetSettings()`
 - **Initial load:** `loadWordsProgressively()` → parallel `getWordsFromSingleSheet()` per sheet (progress bar) → `finishProgressiveLoading()` (reassign ids → duplicate auto-handle → notification) → `handleLoadingComplete()` → `startNewRound()`
 - **Reload:** `getWordsFromSheetsWithDuplicateDetection()` (backend auto-handles duplicates; see `duplicate-handling/spec.md`) → notification / duplicate modal / proceed
 
@@ -27,7 +27,7 @@
 - CSS: `style-base` · `style-flashcard` · `style-modal` · `style-sheets` · `style-quiz` (`.html`)
 - JS: `script-polyfills` (ES5 polyfills) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
 - Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh`
-- Tests: `test/environment.js` (caches ~400 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (813 cases)
+- Tests: `test/environment.js` (caches ~550 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1071 cases)
 
 ## Deployment (clasp)
 

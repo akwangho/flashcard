@@ -14,7 +14,7 @@ The system SHALL allow filtering words by how long ago they were last reviewed (
 
 - **WHEN** the user opens the review-time filter modal
 - **THEN** these options are available, each showing its matching word count: All / Never reviewed (column G empty) / Not reviewed in 2+ weeks / 1+ month / 3+ months / 6+ months (G empty or date > 14 / 30 / 90 / 180 days ago)
-- **AND** a word counts as reviewed only when its removal is confirmed (including the mark-as-very-familiar flow): today's date is written to column G as `YYYY-MM-DD`, batch-synced on page unload, menu/modal open, or every 20 reviewed words; revealed-but-not-removed words never count
+- **AND** a word counts as reviewed only when its removal is confirmed (including the mark-as-very-familiar flow): today's date is written to column G as `YYYY-MM-DD`, batch-synced on page unload, menu open, pause, when ≤ 3 words remain in the round, or every 20 reviewed words; revealed-but-not-removed words never count
 
 ### Requirement: Difficulty Filter
 
@@ -41,7 +41,7 @@ The system SHALL allow filtering words by grammatical type: word, phrase, or sen
 #### Scenario: Classification and options
 
 - **WHEN** the type filter modal is opened
-- **THEN** each word is classified from its English field as sentence (ends `.`/`?`/`!` after trimming), phrase (has spaces, no sentence-ending punctuation), or word (otherwise), shown as three checkboxes — word / phrase / sentence, each with a count — all selected by default
+- **THEN** each word is classified from its English field as sentence (ends `.`/`?`/`!` after trimming), phrase (has spaces, no sentence-ending punctuation), or word (otherwise — semicolon/slash-separated word-form lists like `swing; swung; swung` or `woman / women` count as word), shown as three checkboxes — word / phrase / sentence, each with a count — all selected by default
 - **AND** at least one type must remain selected
 
 ### Requirement: Tag Filter
@@ -73,4 +73,4 @@ The system SHALL apply all active filters simultaneously using intersection logi
 
 - **WHEN** two or more filters are active
 - **THEN** only words satisfying ALL conditions are included, reordered by review-priority score with equal scores randomised (see `srs/spec.md`), and the carousel restarts from the beginning
-- **AND** if the filters yield zero words, a toast notification is shown and the most recently changed filter is reset
+- **AND** if the filters yield zero words, an alert dialog is shown; the four modal filters reset the changed filter, while the must-spell toggle resets all filters (its empty pool routes through the new-round restart)

@@ -12,9 +12,11 @@ The system SHALL allow pausing and resuming the carousel at any time, resuming w
 
 #### Scenario: Pause
 
-- **WHEN** the user pauses (pause button, `B` key, or opening any modal/menu)
+- **WHEN** the user pauses (pause button, `B` key, opening the menu, or opening the edit-word modal)
 - **THEN** the timer stops with its remaining time recorded, the progress bar freezes in place, and a "Paused" indicator is shown
 - **AND** the persistent silent audio (see `screen-awake/spec.md`) is suspended so iOS releases the audio focus (no lingering Safari tab speaker icon; adjacent media such as YouTube is not auto-paused)
+- **WHEN** the user opens any other modal (settings, voice, filters, export, quiz, sheet settings, …)
+- **THEN** the timer pauses (remaining time recorded, bar frozen) but no "Paused" indicator shows and the silent audio keeps playing
 
 #### Scenario: Resume
 

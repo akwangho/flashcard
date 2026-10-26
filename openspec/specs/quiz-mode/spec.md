@@ -8,13 +8,13 @@ Defines the quick and full quiz modes, question generation, the answer flow, sco
 
 ### Requirement: Quiz Types
 
-The system SHALL provide a 10-question quick quiz and a full quiz covering all available words.
+The system SHALL provide a quick quiz of up to 10 questions and a full quiz covering all available words.
 
 #### Scenario: Quick quiz
 
 - **GIVEN** at least 3 words are available
 - **WHEN** the user starts a quick quiz
-- **THEN** 10 words are randomly selected from the current pool and the carousel pauses automatically
+- **THEN** up to 10 words are randomly selected from the current pool (all available words when fewer than 10) and the carousel pauses automatically
 - **AND** with fewer than 3 words the quiz cannot start and a notification is shown
 
 #### Scenario: Full quiz
@@ -30,7 +30,7 @@ The system SHALL generate 4-option questions with randomly mixed directions.
 
 - **WHEN** each question is generated
 - **THEN** its direction is randomly `en-zh` (EN → ZH) or `zh-en` (ZH → EN), 50% each
-- **AND** the 4 options are 1 correct + 3 random wrong answers drawn from all loaded words, with no duplicates, generic fallbacks when fewer than 3 distinct wrong options exist, and random display order
+- **AND** the 4 options are 1 correct + 3 random wrong answers drawn from the current filtered word pool (temporarily-removed words excluded), with no duplicates, generic fallbacks when fewer than 3 distinct wrong options exist, and random display order
 
 ### Requirement: Quiz Flow
 
@@ -44,9 +44,9 @@ The system SHALL guide the user through start, answer, and results screens.
 #### Scenario: Answer feedback
 
 - **WHEN** the user selects the correct option
-- **THEN** a green border and ✅ "Correct!" indicator appear
+- **THEN** a green border and a ✅ 答對了！ indicator appear
 - **WHEN** the user selects a wrong option
-- **THEN** a red border and ❌ "Wrong!" indicator appear and the correct answer is highlighted
+- **THEN** a red border and a ❌ 答錯了！ indicator appear and the correct answer is highlighted
 
 ### Requirement: Score Messages
 
@@ -55,7 +55,7 @@ The system SHALL display a performance message based on the final percentage sco
 #### Scenario: Encouragement messages
 
 - **WHEN** the final percentage score is computed
-- **THEN** the message shown is: 100% → "滿分！太厲害了！你完全掌握了這些單字！" / 80–99% → "太棒了！你的英文單字掌握得很好！" / 60–79% → "不錯哦！再多練習幾次就更熟了！" / 40–59% → "加油！多複習幾次就會進步的！" / 0–39% → "別灰心！持續學習就會越來越好！"
+- **THEN** the message shown is: ≥90 → "太棒了！你是英文單字小高手！🏆" / 80–89% → "很好！你的英文單字掌握得不錯！👍" / 70–79% → "不錯哦！繼續努力就會更棒！💪" / 60–69% → "還可以！多多練習會進步的！📚" / <60 → "加油！多讀多練習一定會進步的！🌟"
 
 ### Requirement: Wrong-Answer Review
 
@@ -64,8 +64,8 @@ The system SHALL list wrong answers after the quiz and increase their difficulty
 #### Scenario: Display and difficulty increase
 
 - **WHEN** the results screen is shown
-- **THEN** each wrong answer entry shows the original question, the user's wrong answer, and the correct answer
-- **AND** each incorrectly answered word's `difficultyLevel` is increased by +1
+- **THEN** each wrong answer entry shows the word (English), the user's wrong answer, and the correct answer
+- **AND** each incorrectly answered word's `difficultyLevel` is immediately increased by +1 at answer time (capped at ★10; forced-review ★100 words are unchanged)
 
 ### Requirement: Quiz Scope Indicator
 
@@ -74,7 +74,7 @@ The system SHALL display which words the current quiz covers.
 #### Scenario: Scope text
 
 - **WHEN** the quiz screen is shown
-- **THEN** the scope line reads "📗 測驗範圍：所有單字" by default; "⭐ 測驗範圍：★N 以上的不熟單字" with a difficulty filter ("⭐ 測驗範圍：非常熟的單字" for the very-familiar filter); or "📗 測驗範圍：剩餘單字（已排除 X 個已移除單字）" when words were removed from the round
+- **THEN** the scope line reads "📗 測驗範圍：所有單字（N 題）" by default; "📚 測驗範圍：⭐ ★N 以上（N 題）" with a difficulty filter ("📚 測驗範圍：⭐ 非常熟（已掌握）（N 題）" for the very-familiar filter; other active filters append · -joined parts); or "📖 測驗範圍：剩餘單字（N 題，已排除 X 個）" when words were removed from the round
 
 #### Scenario: Removed words stay out of the pool
 

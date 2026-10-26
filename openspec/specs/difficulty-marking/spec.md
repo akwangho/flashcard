@@ -13,8 +13,8 @@ The system SHALL use a difficulty scale from -999 to 10, plus the special forced
 #### Scenario: Scale semantics and rendering
 
 - **WHEN** a word's difficulty level is displayed
-- **THEN** the semantics are: `-999` = very familiar / mastered (green; excluded from carousel and quiz by default), `-1` to `-998` = reviewed |N| times (green), `0` = familiar (no mark), `1–10` = ★N unfamiliar with colour escalating yellow → orange → dark orange → orange-red → red (`10` adds a red glow), `100` = forced review (cyan)
-- **AND** positive values render as `★N`; `≤ -999` renders as `★✓` in green; `-1` to `-998` render as `★0` in grey — the real negative number is never shown in the UI
+- **THEN** the semantics are: `-999` = very familiar / mastered (green; excluded from carousel and quiz by default), `-1` to `-998` = reviewed |N| times (grey), `0` = familiar (no mark), `1–10` = ★N unfamiliar with colour escalating yellow → orange → dark orange → orange-red → red (`9`–`10` are red with a red glow), `100` = forced review (cyan)
+- **AND** positive values render as `★N`; `≤ -999` renders as `★✓` in green; `-1` to `-998` render as `★0` in grey — the real negative number is never shown in the difficulty indicator (the SRS quick-review priority table shows it raw, e.g. `★-1`)
 - **AND** the forced-review level renders as `★-` instead of a number, indicating it is excluded from difficulty statistics; the edit modal shows `★- 強制複習`
 
 #### Scenario: Sheet read/write format
@@ -68,7 +68,7 @@ The system SHALL automatically decrease difficulty by 1 when a word is confirmed
 
 - **WHEN** the user clicks the word card to mark it pending removal
 - **THEN** the display immediately shows the decremented value (not yet written to the sheet)
-- **AND** cancelling (R key or restore button) reverts the display to the original value
+- **AND** cancelling (restore button or ←) reverts the display to the original value
 
 ### Requirement: Mark as Very Familiar (D-Key Double-Confirm)
 
@@ -77,9 +77,9 @@ The system SHALL mark a word as -999 (very familiar) via a two-press D-key confi
 #### Scenario: Double-press confirmation
 
 - **WHEN** the user presses D once
-- **THEN** the timer and progress bar pause and a "Press D again to mark as very familiar" prompt is shown
+- **THEN** the timer and progress bar pause and a "再按一下 D 設為非常熟" prompt is shown
 - **WHEN** D is pressed again within 3 seconds
-- **THEN** the word enters pending-removal state with a ✓ preview, a "✓ Marked as very familiar" toast, and a "Restore word" button; without a second press within 3 seconds the operation auto-cancels and the timer resumes
+- **THEN** the word enters pending-removal state with a ✓ preview, a "✓ 已設為非常熟" toast, and a "Restore word" button; without a second press within 3 seconds the operation auto-cancels and the timer resumes
 
 #### Scenario: Confirm, cancel, and upgrade
 

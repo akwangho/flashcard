@@ -40,7 +40,7 @@ When `speakWord` receives a KK phonetic string (`/.../`), the system SHALL strea
 
 ### Requirement: Japanese TTS
 
-The system SHALL detect Japanese content (English field matching `[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]`) and read it with a Japanese voice.
+The system SHALL detect Japanese content (English field matching `[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u3000-\u303F]`) and read it with a Japanese voice.
 
 #### Scenario: Detection
 
@@ -88,11 +88,11 @@ The system SHALL hold the carousel at timer expiry while any voice (EN/JA/ZH/spe
 
 ### Requirement: Mute / Unmute
 
-The system SHALL toggle voice with the voice button or M key, showing 🔊 (active) or 🔇 (muted) plus a Muted indicator.
+The system SHALL toggle voice with the voice button or the Muted indicator, showing 🔊 (active) or 🔇 (muted) plus a Muted indicator.
 
 #### Scenario: Toggle
 
-- **WHEN** the user clicks the voice button or presses M
+- **WHEN** the user clicks the voice button or the Muted indicator
 - **THEN** voice mutes/unmutes with 🔊/🔇 icon and a Muted indicator while muted
 
 ### Requirement: Voice Activation Gates

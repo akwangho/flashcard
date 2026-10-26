@@ -18,18 +18,20 @@ The primary learning loop: auto-carousel, display modes, smart timer, word-card 
 | `lastReviewDate` | G | 'YYYY-MM-DD'; empty = never reviewed |
 | `mustSpell` | A | 0 none · 1 衝刺要會拼單字 (sprint) · 0.5 隨機要會拼單字 (random) · -1 看懂就好 (understand-only) |
 | `tags` | H | Comma-separated tags array |
-| `sheetName` / `originalRowIndex` | — | Source sheet name / 1-based row index |
+| `sheetName` / `originalRowIndex` | — | Source sheet name / 0-based row index (sheet row − 1) |
 
 ## Requirements
 
 ### Requirement: Auto-Carousel Word Display
 
-The system SHALL display the first language (0.1 s fade-in), then the second language together with its image after the configured delay (1–10 s, default 4.5 s, step 0.5 s), then advance automatically.
+The system SHALL display the first language (0.5 s fade-in), then the second language together with its image after the configured delay (1–10 s, default 4.5 s, step 0.5 s), then advance automatically.
 
 #### Scenario: Reordering and failure fallback
 
-- **WHEN** a round completes, words load from multiple sheets, or filters change
+- **WHEN** words load from multiple sheets, filters change, or the pool empties through removals
 - **THEN** the pool is reordered by the review-priority score (see `srs/spec.md`), equal scores randomised so words mix evenly, and a new round starts
+- **WHEN** the carousel wraps past the last word of the round
+- **THEN** the remaining pool is simply reshuffled randomly (removed words stay excluded) and the round continues
 - **WHEN** all selected sheets fail (error, timeout, or zero words)
 - **THEN** no error screen is shown; the sheet-settings modal opens for reselection
 
@@ -44,7 +46,7 @@ The system SHALL support `english-first` (default), `chinese-first`, and `mixed`
 
 ### Requirement: Smart Timer
 
-The system SHALL, when smart timer is enabled, replace the phase-2 delay with `smartDelay` for Chinese `max(1.2, 1.0 + chars × 0.15)` and for English `min(delayTime, max(1.2, 0.5 + letters × 0.3))` (only a–z/A–Z count), and SHALL use the full `delayTime` regardless of length when (`mustSpell` is 1 or 0.5 AND `difficultyLevel > 0`) or `difficultyLevel ≥ 3` (`mustSpell` = -1 does not count as must-spell here).
+The system SHALL, when smart timer is enabled, replace the phase-2 delay with `smartDelay` for Chinese `min(delayTime, max(1.2, 1.0 + chars × 0.15))` and for English `min(delayTime, max(1.2, 0.5 + letters × 0.3))` (only a–z/A–Z count), and SHALL use the full `delayTime` regardless of length when (`mustSpell` is 1 or 0.5 AND `difficultyLevel > 0`) or `difficultyLevel ≥ 3` (`mustSpell` = -1 does not count as must-spell here).
 
 #### Scenario: Example
 
@@ -63,7 +65,7 @@ All on-card text rendering SHALL pass through `displayTextFor(word, lang)`: trim
 
 ### Requirement: Timer Progress Bar
 
-The system SHALL show a top progress bar (toggleable in general settings) growing 0%→50% over phase 1, then 50%→100% over phase 2.
+The system SHALL show a top progress bar (toggleable in general settings) growing 0%→50% over phase 1, then 50%→100% over phase 2 — except in carousel memory mode, which animates one 0%→100% pass over the whole card delay (see `ui-shell/spec.md`).
 
 #### Scenario: Interactions
 
@@ -87,7 +89,7 @@ The system SHALL treat a tap on the word card as a pending-removal action.
 
 ### Requirement: Previous / Next Navigation
 
-The system SHALL support manual navigation. Next stops the timer and advances immediately (wrapping past the last word). Previous checks in order: cancel pending removal → single-use removal undo → pop the navigation history stack (word index and word sequence at that step).
+The system SHALL support manual navigation. Next reveals the second language when it is hidden (and confirms a pending removal when one is queued); otherwise it stops the timer and advances immediately (wrapping past the last word). Previous checks in order: cancel pending removal → single-use removal undo → pop the navigation history stack (word index and word sequence at that step).
 
 #### Scenario: Single-use removal undo
 

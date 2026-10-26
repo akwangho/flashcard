@@ -20,7 +20,7 @@ For corporate networks with SSL inspection, see the `deploy.sh` comments for CA 
 
 ## Architecture
 
-**Pattern:** Frontend-backend split via Google Apps Script HTML Service. Backend is `code.gs`; frontend is 14+ `.html` modules included via `<?!= include(); ?>` in `index.html`.
+**Pattern:** Frontend-backend split via Google Apps Script HTML Service. Backend is `code.gs`; frontend is 26 `.html` modules (21 script + 5 style) included via `<?!= include(); ?>` in `index.html`.
 
 **Frontend JS Pattern:**
 - All methods mounted on `FlashcardApp.prototype` (prototype-based OOP, single constructor)
@@ -52,4 +52,4 @@ Each code change should update:
 
 ## Test Setup
 
-Tests use Jest + jsdom with a custom environment (`test/environment.js`) that caches ~400KB of script content to avoid repeated file I/O. `test/setup.js` creates mock DOM elements, mocks `google.script.run` and `speechSynthesis`, loads all script files by stripping `<script>` tags, and provides a `createApp()` helper.
+Tests use Jest + jsdom with a custom environment (`test/environment.js`) that caches ~550KB of script content to avoid repeated file I/O. `test/setup.js` creates mock DOM elements, mocks `google.script.run` and `speechSynthesis`, loads all script files by stripping `<script>` tags, and provides a `createApp()` helper.

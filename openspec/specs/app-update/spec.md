@@ -14,7 +14,7 @@ The backend SHALL expose the deployed version and build time, and the frontend S
 
 - **WHEN** the backend version differs from `APP_CONSTANTS.APP_VERSION`
 - **THEN** the backend value wins in both directions (including rollbacks)
-- **AND** `SERVER_VERSION` in `code.gs` MUST equal `APP_CONSTANTS.APP_VERSION`, and `SERVER_BUILD_TIME` MUST equal `APP_BUILD_TIME` (drift would reload the page forever; enforced by `test/app-update.test.js`)
+- **AND** `SERVER_VERSION` in `code.gs` MUST equal `APP_CONSTANTS.APP_VERSION`, and `SERVER_BUILD_TIME` MUST equal `APP_BUILD_TIME` (drift would trigger a reload on every check until fixed; enforced by `test/app-update.test.js`)
 
 #### Scenario: Loading screen contents
 
@@ -42,7 +42,7 @@ The version check SHALL be rare, SHALL never interrupt active study, and SHALL n
 
 - **WHEN** a check is automatic
 - **THEN** it runs only while the carousel is paused, and is skipped (retried at the next opportunity) during card transitions, while speech is playing, or while a carousel timer is live
-- **AND** if `getServerVersion()` fails, throws, or does not respond within `APP_UPDATE_TIMEOUT_MS` (15 s), no navigation occurs and the check time is still recorded (a broken backend is not re-hammered)
+- **AND** if `getAppDeployInfo()` fails, throws, or does not respond within `APP_UPDATE_TIMEOUT_MS` (15 s), no navigation occurs and the check time is still recorded (a broken backend is not re-hammered)
 
 #### Scenario: Triggers
 

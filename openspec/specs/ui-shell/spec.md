@@ -13,7 +13,7 @@ The system SHALL show a loading screen during startup and word reload.
 #### Scenario: Content
 
 - **WHEN** the loading screen appears
-- **THEN** it shows the last-viewed word from localStorage (`flashcard-last-word`; fallback "Ready / 準備好的；有準備的"), a progress bar (indeterminate → determinate "loading sheet N of M" → completion), and small grey version + build date/time text
+- **THEN** it shows the last-viewed word from localStorage (`flashcard-last-word`; fallback "Ready / 準備好的；有準備的"), a progress bar (indeterminate → determinate 載入工作表 N/M → completion), and small grey version + build date/time text
 
 ### Requirement: Visual Theme and Responsive Layout
 
@@ -55,8 +55,8 @@ The system SHALL present secondary interfaces as modals: opening any modal pause
 #### Scenario: Structure and behaviour
 
 - **WHEN** the user opens the ▼ menu
-- **THEN** the items are: **◂ 篩選** (⭐ Difficulty, 📅 Review time, ✍️ Must-spell, 📝 Type, 🏷️ Tags) · 📖 Quick review (due-badge count) · **◂ 測驗** (🎯 Quick quiz 10 Q, 📝 Full quiz) · ✏️ Edit current word · 🔍 Search words · 📤 Export words · 🔄 Reload words · **◂ 快速設定** (presets) · 📋 Sheet settings · **◂ 設定** (🔊 Voice, ⚙️ General) · 📺 Fullscreen
-- **AND** flyout submenus open on the left (one at a time); menu open pauses the carousel, close resumes it (unless already paused) and hides the whole toolbar until the cursor/tap re-enters the toolbar zone; a too-tall menu scrolls vertically (`max-height: 70vh`, never horizontally)
+- **THEN** the items are: **◂ 篩選** (⭐ Difficulty, 📅 Review time, ✍️ Must-spell, 📝 Type, 🏷️ Tags) · 📖 Quick review · **◂ 測驗** (🎯 Quick quiz 10 Q, 📝 Full quiz, 👂 聽音辨字, ✍️ 聽音拼字) · ✏️ Edit current word · 🔍 Search words · 📤 Export words · 🔄 Reload words · **◂ 快速設定** (presets) · 📋 Sheet settings · **◂ 設定** (🔊 Voice, ⚙️ General) · 📺 Fullscreen
+- **AND** flyout submenus open on the left (one at a time); menu open pauses the carousel, close resumes it (unless already paused) and hides the whole toolbar until the cursor/tap re-enters the toolbar zone
 
 ### Requirement: Quick Settings Presets
 
@@ -68,7 +68,7 @@ The system SHALL apply one-click preset learning modes — applied immediately, 
 | 👂 用聽的認識單字 | `english-first`, spell-out off, `chineseEnabled=true`, `delayTime=4.5`, smart timer, no delayed speech |
 | 📝 日常複習 | `mixed`, delayed speech, `spellOutLetters=true` scope `must-spell-all`, `chineseEnabled=false`, `delayTime=10`, smart timer + progress bar |
 | 🎧 聽力訓練 | `listeningMode=true`, spell-out off, `chineseEnabled=false`, smart timer |
-| 🔄 輪播記憶 | `carouselMemoryMode=true`, `english-first`, spell-out off, `chineseEnabled=false`, `delayTime=5`, no smart timer, no progress bar, no delayed speech |
+| 🔄 輪播記憶 | `carouselMemoryMode=true`, `english-first`, spell-out off, `chineseEnabled=false`, `delayTime=4.5`, no smart timer, no progress bar, no delayed speech |
 
 #### Scenario: Apply a preset
 

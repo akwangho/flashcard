@@ -12,9 +12,10 @@ The system SHALL control the feature with the `showKKPhonetic` setting, **enable
 
 #### Scenario: Toggle via shortcut or settings
 
-- **WHEN** the user presses K (also while paused) or toggles the settings-modal checkbox and saves
-- **THEN** the choice persists to localStorage, the checkbox stays in sync, and a toast confirms the new state
-- **AND** the current word updates immediately: an already-resolved phonetic fades in on enable; the phonetic is hidden and cleared on disable
+- **WHEN** the user presses K (also while paused)
+- **THEN** the choice persists to localStorage, the checkbox stays in sync, a toast confirms the new state, and the current word updates immediately: an already-resolved phonetic fades in on enable; the phonetic is hidden and cleared on disable
+- **WHEN** the user toggles the settings-modal checkbox and saves
+- **THEN** the choice persists to localStorage and the checkbox stays in sync, but no toast fires and the current card does not refresh (it re-displays only when display mode or font family also changed)
 
 ### Requirement: Column I Storage
 
@@ -63,7 +64,7 @@ The system SHALL display the phonetic centred on the card — exactly midway bet
 
 ### Requirement: Fetching and Pre-Cache
 
-The system SHALL fetch phonetics through a GAS endpoint without disturbing the flashcard flow: concurrent requests for the same word are deduplicated (one GAS call), failures are logged only, cached results (including "not found") are reused, and current + upcoming words are pre-fetched in the background, skipping sentences and already-resolved words. A response arriving after the user moved on is never shown on the wrong card but is still written back keyed to the original word (word object, cache, and column I for single-candidate results).
+The system SHALL fetch phonetics through a GAS endpoint without disturbing the flashcard flow: concurrent requests for the same word are deduplicated (one GAS call), failures are logged only, cached results (including "not found") are reused, and current + upcoming words are pre-fetched in the background, skipping sentences and already-resolved words. A response arriving after the user moved on is never shown on the wrong card but is still written back keyed to the original word (word object, cache, and column I — comma-joined for multi-candidate results).
 
 #### Scenario: Flow never blocked
 
@@ -95,4 +96,4 @@ The system SHALL treat multi-candidate results as tentative until the user confi
 
 - **WHEN** the user clicks 重新抓取 KK 音標
 - **THEN** the API is queried bypassing cache and column I; results (multiple candidates: selectable buttons, first pre-selected) fill the manual-entry field and are stored only on save; a typed value always wins
-- **AND** saving an empty field clears the phonetic; changing the English word without a valid refetch or typed value clears column I and the old word's cached phonetic, so the new word cannot inherit it
+- **AND** saving an empty field clears the phonetic in column I and the word object — a previously cached value may still display on the card; changing the English word without a valid refetch or typed value clears column I and the old word's cached phonetic, so the new word cannot inherit it
