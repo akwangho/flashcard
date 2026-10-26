@@ -207,6 +207,49 @@ describe('performExport', function() {
     expect(exportData[1].english).toBe('medium');
   });
 
+  test('payload carries must-spell, tags, and KK phonetic (sheet columns A/H/I)', function() {
+    var typeRadio = document.getElementById('export-type-difficult');
+    typeRadio.checked = false;
+    app.words = [
+      { english: 'cat', chinese: '貓', difficultyLevel: 2, mustSpell: 1,
+        tags: ['動物'], kkPhonetic: 'kæt', image: '' }
+    ];
+    app.currentWords = app.words.slice();
+
+    app.showExportProgress = jest.fn();
+    app.startBatchExport = jest.fn();
+
+    app.performExport(false);
+
+    var payload = app.startBatchExport.mock.calls[0][0];
+    expect(payload.length).toBe(1);
+    expect(payload[0].english).toBe('cat');
+    expect(payload[0].mustSpell).toBe(1);
+    expect(payload[0].tags).toEqual(['動物']);
+    expect(payload[0].kkPhonetic).toBe('kæt');
+    expect(payload[0].kkCandidates).toBeNull();
+  });
+
+  test('payload preserves a multi-candidate KK list for column I', function() {
+    var typeRadio = document.getElementById('export-type-difficult');
+    typeRadio.checked = false;
+    app.words = [
+      { english: 'dog', chinese: '狗', difficultyLevel: 0, mustSpell: 0.5,
+        kkPhonetic: 'dɔg', kkCandidates: ['dɔg', 'dɔːg'] }
+    ];
+    app.currentWords = app.words.slice();
+
+    app.showExportProgress = jest.fn();
+    app.startBatchExport = jest.fn();
+
+    app.performExport(false);
+
+    var payload = app.startBatchExport.mock.calls[0][0];
+    expect(payload[0].mustSpell).toBe(0.5);
+    expect(payload[0].kkCandidates).toEqual(['dɔg', 'dɔːg']);
+    expect(payload[0].tags).toEqual([]);
+  });
+
   test('alerts when no words to export', function() {
     app.words = [];
     app.currentWords = [];

@@ -310,8 +310,12 @@ FlashcardApp.prototype.processBatch = function() {
         english: w.english,
         chinese: w.chinese,
         difficultyLevel: w.difficultyLevel || 0,
-        image: w.image || '',        // E 欄：圖片URL
-        imageFormula: w.imageFormula || ''  // F 欄：圖片顯示公式
+        image: w.image || '',               // E 欄：圖片URL
+        imageFormula: w.imageFormula || '', // F 欄：圖片顯示公式
+        mustSpell: w.mustSpell || 0,        // A 欄：要會拼標記（0 → 後端寫空字串）
+        tags: w.tags || [],                 // H 欄：標籤（後端以逗號 join）
+        kkPhonetic: w.kkPhonetic || '',     // I 欄：KK 音標
+        kkCandidates: w.kkCandidates || null // I 欄：多候選待確認清單（>1 時後端保留完整清單）
       });
     }
       
