@@ -155,7 +155,7 @@ function createDOMElements() {
     // Listening mode setting
     'listening-mode-setting',
     // SRS review modal
-    'srs-review-btn', 'srs-due-badge',
+    'srs-review-btn',
     'srs-review-modal', 'close-srs-modal',
     'srs-stats', 'srs-no-due',
     'srs-count-options', 'srs-count-buttons',

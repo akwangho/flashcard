@@ -96,4 +96,4 @@ The system SHALL treat multi-candidate results as tentative until the user confi
 
 - **WHEN** the user clicks 重新抓取 KK 音標
 - **THEN** the API is queried bypassing cache and column I; results (multiple candidates: selectable buttons, first pre-selected) fill the manual-entry field and are stored only on save; a typed value always wins
-- **AND** saving an empty field clears the phonetic in column I and the word object — a previously cached value may still display on the card; changing the English word without a valid refetch or typed value clears column I and the old word's cached phonetic, so the new word cannot inherit it
+- **AND** saving an empty field clears the phonetic in column I, the word object, and the cache entry (so the card cannot resurrect it); changing the English word without a valid refetch or typed value clears column I and the old word's cached phonetic, so the new word cannot inherit it

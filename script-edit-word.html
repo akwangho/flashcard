@@ -445,6 +445,10 @@
       if (typeof this._kkNormalizeWord === 'function') {
         delete this.kkPhoneticCache[this._kkNormalizeWord(originalEnglish)];
       }
+    } else if (!newKKPhonetic && typeof this._kkNormalizeWord === 'function') {
+      // 音標被清空：一併刪除快取項目，否則卡片顯示時會從快取
+      // resurrect 舊音標，與「儲存後清除 I 欄」的使用者意圖矛盾
+      delete this.kkPhoneticCache[this._kkNormalizeWord(newEnglish)];
     }
     if (newKKPhonetic && newKKPhonetic !== '' && typeof this._setCachedKKPhonetic === 'function') {
       // 選定/維持的音標同步進快取，顯示路徑即可直接使用（不需再呼叫 GAS）；

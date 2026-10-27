@@ -27,7 +27,7 @@ The system SHALL detect duplicate English words (case-sensitive) on every load, 
 
 - **WHEN** the same word exists multiple times in the SAME sheet (identical English + Chinese)
 - **THEN** each deleted duplicate resolves to a distinct physical row — never the row that just received the merged metadata — and rows are deleted bottom-up so earlier deletions cannot shift later row numbers
-- **AND** if the target worksheet no longer exists (renamed or deleted since load): **Merge definitions** fails with an error before any source row is deleted, so no definition is lost; **Keep one, delete others** skips the metadata merge with a logged warning but still deletes the other rows
+- **AND** if the target/kept worksheet no longer exists (renamed or deleted since load), or the kept/target row cannot be found, the resolution fails with an error BEFORE any source row is deleted, so no definition is lost (both manual actions share this guarantee)
 
 ### Requirement: Manual Resolution Modal
 

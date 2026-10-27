@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.26.4';
+  var SERVER_VERSION = '1.26.5';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-26 19:37';
+  var SERVER_BUILD_TIME = '2026-10-27 09:33';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -773,11 +773,9 @@ function countValidWords(sheet) {
         targetSheet.getRange(targetSheet.getLastRow() + 1, 1, rowsToWrite.length, 9).setValues(rowsToWrite);
       }
       
-      // A1 總數修正：本批附加後重新計算實際資料列數，
+      // A1 總數修正：每批附加後都重新計算實際資料列數，
       // 多批匯出時 A1 才不會只停在第一批的數量
-      if (isFirstBatch || overwrite || !sheetExists) {
-        targetSheet.getRange(1, 1).setValue(Math.max(targetSheet.getLastRow() - 1, 0));
-      }
+      targetSheet.getRange(1, 1).setValue(Math.max(targetSheet.getLastRow() - 1, 0));
       
       let actionText;
       if (overwrite) {
@@ -1127,17 +1125,22 @@ function countValidWords(sheet) {
       
       const spreadsheet = openSpreadsheetSafely(sheetId.trim());
 
+      // 找不到保留單字所在工作表或列（可能已被改名/刪除/移動）時直接中止，
+      // 與「合併定義」相同保障：先確認保留目標存在，才刪除來源列，避免定義永久遺失
+      const keepSheet = spreadsheet.getSheetByName(keepWord.sheetName);
+      if (!keepSheet) {
+        console.error('找不到保留單字所在工作表:', keepWord.sheetName);
+        return { success: false, error: '找不到保留單字所在工作表：' + keepWord.sheetName };
+      }
+      const keepRowIndex = findWordRowIndex(keepSheet, keepWord.english, keepWord.chinese);
+      if (keepRowIndex === -1) {
+        console.error('找不到保留單字位置:', keepWord.english, '-', keepWord.chinese);
+        return { success: false, error: '找不到保留單字位置：' + keepWord.english };
+      }
+
       // 先將其他重複項目的中繼資料合併寫入保留列，避免刪除後遺失欄位
       try {
-        const keepSheet = spreadsheet.getSheetByName(keepWord.sheetName);
-        if (keepSheet) {
-          const keepRowIndex = findWordRowIndex(keepSheet, keepWord.english, keepWord.chinese);
-          if (keepRowIndex !== -1) {
-            writeMergedMetadataToRow(keepSheet, keepRowIndex + 1, [keepWord].concat(deleteWords));
-          } else {
-            console.warn('找不到保留單字位置，略過中繼資料合併:', keepWord.english, '-', keepWord.chinese);
-          }
-        }
+        writeMergedMetadataToRow(keepSheet, keepRowIndex + 1, [keepWord].concat(deleteWords));
       } catch (metaError) {
         console.error('合併保留單字中繼資料失敗:', metaError);
       }

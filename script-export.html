@@ -53,10 +53,8 @@ FlashcardApp.prototype.getDefaultExportSheetName = function() {
   var base = 'Sheet1'; // 預設值
   
   // 如果有選擇的工作表，使用第一個作為基礎名稱
-  console.log("this.sheetSettings.selectedSheets", this.sheetSettings.selectedSheets);
   if (this.sheetSettings.selectedSheets && this.sheetSettings.selectedSheets.length > 0) {
     base = this.sheetSettings.selectedSheets[0];
-    console.log("base", base);
   }
   
   var date = new Date();

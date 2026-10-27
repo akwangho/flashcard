@@ -1073,6 +1073,8 @@ describe('edit word manual KK phonetic input', function() {
   test('clearing the input clears column I on save', function() {
     app.words = [makeWord({ kkPhonetic: 'əˈpɛl' })];
     app.currentWords = app.words.slice();
+    // 模擬先前查詢已解析並寫入快取（否則卡片顯示時會 resurrect 舊音標）
+    app.kkPhoneticCache['apple'] = { p: 'əˈpɛl' };
     app.openEditWordModal();
 
     typeKK('');
@@ -1080,6 +1082,7 @@ describe('edit word manual KK phonetic input', function() {
 
     expect(app._kkSheetWrites[0].properties.kkPhonetic).toBe('');
     expect(app.words[0].kkPhonetic).toBe('');
+    expect(app.kkPhoneticCache['apple']).toBeUndefined();
     expect(document.getElementById('edit-word-kk-value').textContent).toContain('尚未設定');
   });
 
