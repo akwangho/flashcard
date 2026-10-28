@@ -317,7 +317,11 @@
 
     if (!url) {
       previewContainer.style.display = 'none';
-      previewImg.src = '';
+      // 移除 src 而非設空字串：空 src 會被解析成頁面網址、
+      // 觸發多餘請求並可能喚起舊的 onerror（index.html 圖片區同款規則）
+      previewImg.removeAttribute('src');
+      previewImg.onload = null;
+      previewImg.onerror = null;
       return;
     }
 
@@ -376,11 +380,9 @@
 
     // 找到原始單字
     var word = null;
-    var wordIdx = -1;
     for (var i = 0; i < this.words.length; i++) {
       if (this.words[i].id === wordId) {
         word = this.words[i];
-        wordIdx = i;
         break;
       }
     }
@@ -499,10 +501,20 @@
               console.log('單字屬性已同步到後端');
             } else {
               console.error('後端更新失敗:', result ? result.error : '未知錯誤');
+              // 本地端與畫面已更新——後端寫入失敗必須通知使用者，
+              // 否則看起來像存成功，下次重新載入時所有編輯都會消失
+              if (typeof self.showNotification === 'function') {
+                self.showNotification('⚠️ 儲存到 Google Sheet 失敗：' +
+                  (result && result.error ? result.error : '未知錯誤') +
+                  '。畫面顯示的是未同步的修改，請檢查網路後重新編輯儲存', 'error');
+              }
             }
           })
           .withFailureHandler(function(error) {
             console.error('後端更新單字屬性失敗:', error);
+            if (typeof self.showNotification === 'function') {
+              self.showNotification('⚠️ 儲存到 Google Sheet 失敗（網路或權限錯誤）。畫面顯示的是未同步的修改，請檢查後重新編輯儲存', 'error');
+            }
           })
           .updateWordProperties(sheetId, sheetName, rowIndex, properties);
       }

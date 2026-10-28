@@ -89,6 +89,17 @@
   FlashcardApp.prototype.closeSearchWordModal = function() {
     var modal = document.getElementById('search-word-modal');
     if (modal) modal.style.display = 'none';
+    // 選單開啟搜尋時交接下來的暫停（非使用者主動 B 暫停）：
+    // 搜尋視窗關閉時要代為解除，否則輪播會永遠停在暫停，
+    // 直到使用者手動按播放鍵
+    if (this._searchInheritedPause) {
+      this._searchInheritedPause = false;
+      if (this.userPaused) {
+        this.userPaused = false;
+        if (typeof this.updatePauseButtonState === 'function') this.updatePauseButtonState();
+        this.resumeTimer();
+      }
+    }
   };
 
   FlashcardApp.prototype.runSearchWords = function() {

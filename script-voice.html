@@ -25,6 +25,11 @@
    */
   FlashcardApp.prototype._shouldSpellOutCurrentWord = function() {
     if (!this.voiceSettings.enabled || !this.voiceSettings.spellOutLetters) return false;
+    // 測驗／聽力練習有自己的發音設計（聽音辨字拼字母＝直接洩漏答案；
+    // 測驗回饋也不該隨「背後那張閃卡」的 mustSpell 決定要不要拼字）。
+    // 閃卡的拼讀設定只屬於輪播卡片本身。
+    if (this.quizState && this.quizState.isActive) return false;
+    if (this.listeningState && this.listeningState.isActive) return false;
     var scope = this.voiceSettings.spellOutScope || 'all';
     if (scope === 'all') return true;
     var currentWord = this.currentWords ? this.currentWords[this.currentIndex] : null;
@@ -523,19 +528,28 @@
 
     var self = this;
     
-    // 清理之前的等待定時器（如果存在）
+    // 清理之前的等待定時器（如果存在）。
+    // 逾時 handle 也要清：不清的話舊的 10 秒逾時仍會觸發，
+    // 清掉「新一次」的等待輪詢、朗誦舊呼叫閉包捕獲的文字，
+    // 且 cancelAllSpeech 永遠清不到那個孤兒 handle
     if (this.chineseWaitInterval) {
       clearInterval(this.chineseWaitInterval);
       this.chineseWaitInterval = null;
     }
+    if (this._chineseWaitTimeout) {
+      clearTimeout(this._chineseWaitTimeout);
+      this._chineseWaitTimeout = null;
+    }
     
-    // 如果正在播放英文或日文語音（包括字母拼讀），等待播放完成
-    if (this.speechSynthesis.speaking) {
+    // 如果正在播放英文或日文語音（包括字母拼讀），等待播放完成。
+    // _speechSequenceActive 涵蓋字母之間的 10ms 間隙與字母→整字的
+    // 100ms 間隙——只看 speaking 的話中文會切進字母縫裡
+    if (this.speechSynthesis && (this.speechSynthesis.speaking || this._speechSequenceActive)) {
       console.log('等待英文/日文語音播放完成後再播放中文...');
       
       // 使用輪詢檢查語音是否播放完成
       this.chineseWaitInterval = setInterval(function() {
-        if (!self.speechSynthesis.speaking) {
+        if (self.speechSynthesis && !self.speechSynthesis.speaking && !self._speechSequenceActive) {
           clearInterval(self.chineseWaitInterval);
           self.chineseWaitInterval = null;
           if (self._chineseWaitTimeout) {
@@ -704,14 +718,23 @@
     var audio = this._kkAudioPlayer || (this._kkAudioPlayer = new Audio());
     var self = this;
 
+    // 世代計數：換到新音檔後，舊載入的過期 error 事件（已排入事件佇列）
+    // 仍會派發給「目前」的 onerror 閉包——用新卡片的 inner 執行會誤把
+    // 全 session 的副檔名 ogg→mp3 降級、或對播放正常的音檔插播 TTS 後備
+    var gen = this._kkAudioGen = (this._kkAudioGen || 0) + 1;
+
     audio.onended = null;
     /** ogg 失敗 → 降級 mp3 重播；mp3 也失敗（離線/CDN 異常）→ TTS 近音後備 */
     function handleKKAudioError() {
+      if (gen !== self._kkAudioGen) return; // 過期事件：本音檔已被取代
       if (self._kkAudioExt === '.ogg') {
         self._kkAudioExt = '.mp3';
         audio.onerror = handleKKAudioError;
         audio.src = self._kkAudioUrl(inner);
-        audio.play();
+        var retry = audio.play();
+        if (retry && typeof retry.catch === 'function') {
+          retry.catch(function() { audio.onerror = null; });
+        }
         return;
       }
       audio.onerror = null;
@@ -810,6 +833,10 @@
       clearTimeout(this._speechWaitTimeout);
       this._speechWaitTimeout = null;
     }
+    if (this._speechWaitDelay) {
+      clearTimeout(this._speechWaitDelay);
+      this._speechWaitDelay = null;
+    }
   };
 
   // 等待語音播放完成後才執行回調（確保字母拼讀和中文語音不會被中途打斷）
@@ -856,8 +883,12 @@
       
       if (!stillSpeaking) {
         self.clearSpeechWait();
-        // 語音播放完成後，短暫延遲再執行回調
-        setTimeout(function() {
+        // 語音播放完成後，短暫延遲再執行回調。
+        // 這個 timeout 必須被追蹤（clearSpeechWait 會一併清除）：
+        // 使用者在這 300ms 內點卡翻面或按 ← 時，若延遲仍在，
+        // 過期的 nextWord 會把剛架好的移除確認計時器立刻視為到期
+        self._speechWaitDelay = setTimeout(function() {
+          self._speechWaitDelay = null;
           if (!self.isPaused) {
             callback();
           }
@@ -1023,6 +1054,19 @@
       // iOS Safari：cancel() 非同步，同一 tick 直接 speak() 會被一起清掉；
       // 開設定視窗時卡片語音可能還在播 → 等引擎停下來再預覽，避免預覽無聲
       if (self._isSpeechBusy && self._isSpeechBusy()) {
+        // 先 bump 播放世代：字母拼讀鏈把「cancel 打斷」當成「字母唸完」，
+        // 不 bump 的話每個被打斷的字母 onerror 都會繼續拼下一個字母，
+        // 預覽樣本會跟殘留的字母鏈＋整個單字發音混音重疊
+        self._speechPlayId = (self._speechPlayId || 0) + 1;
+        self._speechSequenceActive = false;
+        if (self.chineseWaitInterval) {
+          clearInterval(self.chineseWaitInterval);
+          self.chineseWaitInterval = null;
+        }
+        if (self._chineseWaitTimeout) {
+          clearTimeout(self._chineseWaitTimeout);
+          self._chineseWaitTimeout = null;
+        }
         try { self.speechSynthesis.cancel(); } catch (cancelError) {}
         self._speakWhenSpeechIdle(play);
       } else {
@@ -1057,11 +1101,15 @@
     if (voiceSelectSetting) {
       var selectedVoiceURI = voiceSelectSetting.value;
       this.voiceSettings.voiceURI = selectedVoiceURI;
-      var voices = this.speechSynthesis.getVoices();
-      for (var i = 0; i < voices.length; i++) {
-        if (voices[i].voiceURI === selectedVoiceURI) {
-          this.voiceSettings.lang = voices[i].lang;
-          break;
+      // speechSynthesis 可能不存在（舊 iOS/隱私模式）：直接跳過 lang 對應，
+      // 不得在這裡丟例外——後面的 saveSettings() 會被整個跳過，設定靜默消失
+      if (this.speechSynthesis) {
+        var voices = this.speechSynthesis.getVoices();
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === selectedVoiceURI) {
+            this.voiceSettings.lang = voices[i].lang;
+            break;
+          }
         }
       }
     }
@@ -1069,11 +1117,13 @@
     if (japaneseVoiceSelectSetting) {
       var selectedJapaneseVoiceURI = japaneseVoiceSelectSetting.value;
       this.voiceSettings.japaneseVoiceURI = selectedJapaneseVoiceURI;
-      var voices = this.speechSynthesis.getVoices();
-      for (var i = 0; i < voices.length; i++) {
-        if (voices[i].voiceURI === selectedJapaneseVoiceURI) {
-          this.voiceSettings.japaneseLang = voices[i].lang;
-          break;
+      if (this.speechSynthesis) {
+        var voices = this.speechSynthesis.getVoices();
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].voiceURI === selectedJapaneseVoiceURI) {
+            this.voiceSettings.japaneseLang = voices[i].lang;
+            break;
+          }
         }
       }
     }
@@ -1098,7 +1148,8 @@
   FlashcardApp.prototype.populateVoiceSelect = function() {
     var voiceSelect = document.getElementById('voice-select-setting');
     var japaneseVoiceSelect = document.getElementById('japanese-voice-select-setting');
-    var voices = this.speechSynthesis.getVoices();
+    // speechSynthesis 可能不存在（舊 iOS/隱私模式）：開啟語音設定不得因此崩潰
+    var voices = this.speechSynthesis ? this.speechSynthesis.getVoices() : [];
     var self = this;
     var chineseVoiceSelect = document.getElementById('chinese-voice-select-setting');
     

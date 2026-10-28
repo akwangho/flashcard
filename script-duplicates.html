@@ -60,7 +60,9 @@
     notification.addEventListener('mouseenter', cancelAutoHide);
     notification.addEventListener('mouseleave', scheduleHide);
     
-    var optOutBtn = document.getElementById('auto-merge-opt-out');
+    // 以「本通知節點內」的 querySelector 取按鈕：5 秒顯示期內若有前一則通知
+    // 還在 DOM 裡，getElementById 會抓到舊通知的按鈕 → 新通知的按鈕沒綁到事件
+    var optOutBtn = notification.querySelector('#auto-merge-opt-out');
     if (optOutBtn) {
       optOutBtn.addEventListener('click', function() {
         try {
@@ -74,8 +76,8 @@
       });
     }
     
-    // 手動關閉通知
-    var closeBtn = document.getElementById('close-notification');
+    // 手動關閉通知（同上：以本節點為範圍查詢）
+    var closeBtn = notification.querySelector('#close-notification');
     if (closeBtn) {
       closeBtn.addEventListener('click', function() {
         cancelAutoHide();
@@ -96,6 +98,10 @@
   
   FlashcardApp.prototype.showDuplicateModal = function() {
     console.log('顯示重複處理模態框');
+    
+    // 全新的處理回合：重置「已採取動作」旗標（X／ESC 未動作關閉時
+    // closeDuplicateModal 依此判斷是否要視同「跳過」執行記憶體去重）
+    this._duplicateModalActionTaken = false;
     
     this.clearAllTimersAndSpeech();
     
@@ -193,11 +199,37 @@
   
   FlashcardApp.prototype.closeDuplicateModal = function() {
     closeModalById(this, 'duplicate-words-modal');
+    // X／ESC 未選擇任何動作就關閉時，視同「跳過，稍後處理」：執行記憶體
+    // 去重後開始輪播。否則首次載入 currentWords 為空（畫面停格不動），
+    // 重新載入流程則拿舊物件續播（id 與新 words 錯位 → 難度/SRS/複習
+    // 日期寫到錯誤的實體列）。「跳過」與逐項處理完成會先設旗標，不走此路。
+    if (this.duplicateWords && this.duplicateWords.length > 0 && !this._duplicateModalActionTaken) {
+      this._duplicateModalActionTaken = true;
+      try {
+        var result = this.processDuplicatesInMemory(this.words, this.duplicateWords);
+        if (result && result.success) {
+          this.words = result.processedWords;
+        }
+      } catch (e) {
+        console.warn('關閉重複視窗時的記憶體去重失敗:', e);
+      }
+      this.setupEventListeners();
+      this.applySettings();
+      if (typeof this._flagSrsRestoreBeforeNewRound === 'function') {
+        this._flagSrsRestoreBeforeNewRound();
+      }
+      this.startNewRound();
+      return;
+    }
+    this._duplicateModalActionTaken = false;
   };
   
   // 跳過重複處理（自動處理）
   FlashcardApp.prototype.skipDuplicates = function() {
     console.log('跳過重複處理 - 執行本地自動處理邏輯（僅記憶體處理）');
+    
+    // 已採取動作（跳過）：之後的完成按鈕關閉視窗時不得再觸發 closeDuplicateModal 的視同跳過
+    this._duplicateModalActionTaken = true;
     
     try {
       var result = this.processDuplicatesInMemory(this.words, this.duplicateWords);
@@ -569,13 +601,21 @@
       
       // 設置超時機制，防止永久卡住
     var self = this;
+    // settle 旗標：逾時已顯示失敗後，晚到的成功/失敗回呼不得再結算
+    // （showProcessingResult 會 splice 目前群組；晚到回呼會移除錯的群組、
+    //  並把幻影結果推進 duplicateProcessingResults 污染完成摘要）
+    var settled = false;
     var timeoutId = setTimeout(function() {
+        if (settled) return;
+        settled = true;
         console.error('處理超時');
       self.showProcessingResult(false, '處理超時，請檢查網路連接後重試');
       }, APP_CONSTANTS.DUPLICATE_TIMEOUT_MS);
       
       // 定義成功處理函數
     var handleSuccess = function(result) {
+        if (settled) return;
+        settled = true;
         clearTimeout(timeoutId);
         console.log('處理成功回調被觸發，結果:', result);
       
@@ -627,6 +667,8 @@
       
       // 定義失敗處理函數
     var handleFailure = function(error) {
+        if (settled) return;
+        settled = true;
         clearTimeout(timeoutId);
         console.error('處理失敗:', error);
         
@@ -777,6 +819,9 @@
     var totalCount = this.duplicateProcessingResults ? this.duplicateProcessingResults.length : 0;
       
     alert('重複處理完成！\n成功處理: ' + successCount + '/' + totalCount + ' 個重複項目');
+      
+      // 已採取動作（逐項處理完成）：關閉視窗不得再觸發視同跳過的去重+重開輪播
+      this._duplicateModalActionTaken = true;
       
       // 關閉Modal
       this.closeDuplicateModal();

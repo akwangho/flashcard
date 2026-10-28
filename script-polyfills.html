@@ -66,9 +66,16 @@
     }
     
     if (!Array.prototype.includes) {
+      // 依 ES2016 規範：支援 fromIndex（負值從尾端偏移）與 SameValueZero
+      // （NaN === NaN 視為相等）——未來若有呼叫端用到才不會踩到 shim 偏差
       Array.prototype.includes = function(searchElement) {
-        for (var i = 0; i < this.length; i++) {
-          if (this[i] === searchElement) {
+        var fromIndex = arguments.length > 1 ? Number(arguments[1]) : 0;
+        if (isNaN(fromIndex)) fromIndex = 0;
+        if (fromIndex < 0) fromIndex = Math.max(0, this.length + fromIndex);
+        for (var i = fromIndex; i < this.length; i++) {
+          var v = this[i];
+          // SameValueZero：NaN 與 NaN 視為相同（嚴格相等 === 會漏掉）
+          if (v === searchElement || (v !== v && searchElement !== searchElement)) {
             return true;
           }
         }

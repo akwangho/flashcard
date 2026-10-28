@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.26.5';
+  var SERVER_VERSION = '1.26.6';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-10-27 09:33';
+  var SERVER_BUILD_TIME = '2026-10-28 09:21';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -410,64 +410,6 @@ function countValidWords(sheet) {
     }
   }
 
-  /**
-  * 獲取工作表清單和單字數量
-  */
-  function getSheetsList(sheetId) {
-    try {
-      console.log('開始載入工作表清單，Sheet ID:', sheetId);
-      
-      const cleanSheetId = validateAndCleanSheetId(sheetId);
-      console.log('清理後的 Sheet ID:', cleanSheetId);
-      
-      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
-      const spreadsheetName = spreadsheet.getName();
-      console.log('成功載入 Google Sheet:', spreadsheetName);
-      
-      let sheets;
-      try {
-        sheets = spreadsheet.getSheets();
-      } catch (sheetsError) {
-        console.error('無法取得工作表列表:', sheetsError);
-        throw new Error('無法取得工作表列表，請檢查 Sheet 權限設定');
-      }
-      
-      if (!sheets || sheets.length === 0) {
-        throw new Error('此 Google Sheet 中沒有找到任何工作表');
-      }
-      
-      console.log('找到', sheets.length, '個工作表');
-      const sheetsList = [];
-      
-      for (let i = 0; i < sheets.length; i++) {
-        const sheet = sheets[i];
-        const sheetName = sheet.getName();
-        console.log('處理工作表:', sheetName);
-        
-        const wordCount = countValidWords(sheet);
-        if (wordCount === null) {
-          console.log('工作表', sheetName, '的單字數無法取得（A1 欄位無值或無效）');
-        } else {
-          console.log('工作表', sheetName, '有', wordCount, '個單字');
-        }
-        
-        sheetsList.push({
-          name: sheetName,
-          wordCount: wordCount
-        });
-      }
-      
-      console.log('成功載入工作表清單，總計', sheetsList.length, '個工作表');
-      
-      return {
-        spreadsheetName: spreadsheetName,
-        sheets: sheetsList
-      };
-    } catch (error) {
-      console.error('getSheetsList 發生錯誤:', error);
-      throw new Error('載入工作表清單失敗：' + error.message);
-    }
-  }
 
   /**
   * 從單一工作表載入單字（用於逐表載入進度顯示）
@@ -557,16 +499,6 @@ function countValidWords(sheet) {
   }
 
   /**
-  * 向後相容的單一工作表載入函數
-  */
-  function getWordsFromSheet() {
-    const DEFAULT_SHEET_ID = '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
-    const DEFAULT_SHEET_NAME = 'Sheet1';
-    
-    return getWordsFromSheets(DEFAULT_SHEET_ID, [DEFAULT_SHEET_NAME]);
-  }
-
-  /**
   * 更新單字不熟程度（-999~10，或 100 強制複習）
   * difficultyLevel: -1 表示非常熟（已掌握），0 表示已熟悉，1-10 表示不熟程度，100 表示強制複習
   * 寫入時以數字為主（向後相容讀取 * 符號）
@@ -589,6 +521,13 @@ function countValidWords(sheet) {
       }
       
       const row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
+
+      // 列號範圍檢查：外部刪列會讓載入時記下的 rowIndex 過期，
+      // 不檢查會把不熟程度寫到「另一個單字」的列（靜默資料錯置）
+      const lastRow = sheet.getLastRow();
+      if (row < 2 || row > lastRow) {
+        return { success: false, error: '列號超出範圍：' + row };
+      }
       
       // 以數字格式寫入（0 寫空字串，其他寫數字）
       const level = normalizeDifficultyLevel(difficultyLevel);
@@ -626,6 +565,13 @@ function countValidWords(sheet) {
       }
       
       var row = rowIndex + 1; // rowIndex 為 0-based，實際行數為 1-based
+
+      // 列號範圍檢查：外部刪列會讓載入時記下的 rowIndex 過期，
+      // 不檢查會把屬性寫到「另一個單字」的列（靜默資料錯置）
+      var lastRow = sheet.getLastRow();
+      if (row < 2 || row > lastRow) {
+        return { success: false, error: '列號超出範圍：' + row };
+      }
       
       // 收集要更新的欄位，依欄號排序後把「連續欄位」合併成一次 setValues 寫入，
       // 把多次 API 呼叫壓到最少。F 欄（圖片顯示公式）不在更新範圍，
@@ -740,8 +686,10 @@ function countValidWords(sheet) {
         targetSheet = ss.insertSheet(sheetName);
       }
       
-      // 寫入第一列：A1 放總數（如果是新工作表或覆寫模式）
-      if (isFirstBatch || overwrite || !sheetExists) {
+      // 寫入第一列：A1 放總數（只有第一批或新建工作表才寫表頭；
+      // 覆寫模式的重建也只發生在第一批，後續批次一律附加、不得再插表頭，
+      // 否則多批匯出會把表頭當成「單字/翻譯」幻影單字載入）
+      if (isFirstBatch || !sheetExists) {
         targetSheet.appendRow([words.length, '單字', '翻譯', '不熟程度', '圖片URL', '', '', '標籤', 'KK音標']);
       }
       
@@ -852,9 +800,10 @@ function countValidWords(sheet) {
         const lastRow = sheet.getLastRow();
         if (lastRow < 1) continue;
 
-        // 一次讀取 G 欄 → 記憶體中修改 → 一次寫回（N 次 setValue → 2 次呼叫）
-        const gValues = sheet.getRange(1, COL_NUM.LAST_REVIEW, lastRow, 1).getValues();
-
+        // 只寫回本次觸碰的儲存格：若整欄 getValues→setValues 讀寫，
+        // get 與 set 之間其他裝置／使用者的 G 欄寫入會被舊快照回溯
+        // （競態資料遺失：第二台裝置同步、家長手動編輯、
+        //  移除復原的回滾與進行中同步重疊）
         for (let i = 0; i < sheetUpdates.length; i++) {
           const update = sheetUpdates[i];
           const row = update.rowIndex + 1; // 轉換為 1-based
@@ -862,11 +811,9 @@ function countValidWords(sheet) {
             failedUpdates.push({ update: update, error: '列號超出範圍：' + row });
             continue;
           }
-          gValues[row - 1][0] = update.date;
+          sheet.getRange(row, COL_NUM.LAST_REVIEW).setValue(update.date);
           updatedCount++;
         }
-
-        sheet.getRange(1, COL_NUM.LAST_REVIEW, lastRow, 1).setValues(gValues);
       }
 
       console.log('成功更新', updatedCount, '個複習日期');
@@ -1138,11 +1085,14 @@ function countValidWords(sheet) {
         return { success: false, error: '找不到保留單字位置：' + keepWord.english };
       }
 
-      // 先將其他重複項目的中繼資料合併寫入保留列，避免刪除後遺失欄位
+      // 先將其他重複項目的中繼資料合併寫入保留列，避免刪除後遺失欄位；
+      // 寫入失敗時直接中止（與「合併定義」路徑一致），
+      // 否則刪除後只存在於被刪列的中繼資料（難度/圖片/標籤/要會拼）會永久遺失
       try {
         writeMergedMetadataToRow(keepSheet, keepRowIndex + 1, [keepWord].concat(deleteWords));
       } catch (metaError) {
-        console.error('合併保留單字中繼資料失敗:', metaError);
+        console.error('合併保留單字中繼資料失敗，中止刪除:', metaError);
+        return { success: false, error: '合併中繼資料失敗，已取消刪除：' + metaError.message };
       }
 
       // 為每個要刪除的單字找到當前的實際行位置並刪除（保護剛寫入合併資料的保留列）
@@ -1331,72 +1281,6 @@ function countValidWords(sheet) {
     }
   }
 
-  /**
-  * 自動處理重複單字（修改Google Sheet）
-  */
-  function autoHandleSkippedDuplicates(sheetId, duplicates) {
-    try {
-      console.log('自動處理重複單字（跳過不處理邏輯），總數:', duplicates.length);
-      
-      const results = [];
-      
-      for (let i = 0; i < duplicates.length; i++) {
-        const duplicate = duplicates[i];
-        console.log('處理重複單字:', duplicate.english, '是否相同定義:', duplicate.isSameDefinition);
-        
-        if (duplicate.isSameDefinition) {
-          // 中文意義相同：保留第一個工作表的，刪除其他
-          const keepWord = duplicate.words[0]; // 第一個工作表的
-          const deleteWords = duplicate.words.slice(1); // 其他工作表的
-          
-          console.log('相同定義，保留第一個工作表:', keepWord.sheetName);
-          const result = handleDuplicateWordKeepOne(sheetId, keepWord, deleteWords);
-          
-          results.push({
-            english: duplicate.english,
-            action: 'keep_first',
-            success: result.success,
-            keptSheet: keepWord.sheetName,
-            deletedCount: result.deletedCount || 0,
-            error: result.error
-          });
-        } else {
-          // 中文意義不同：自動合併成一個（保留第一個工作表的，合併其他定義）
-          const targetWord = duplicate.words[0]; // 第一個工作表的作為目標
-          const mergeWords = duplicate.words.slice(1); // 其他工作表的合併進來
-          
-          console.log('不同定義，合併到第一個工作表:', targetWord.sheetName);
-          const result = handleDuplicateWordMerge(sheetId, targetWord, mergeWords);
-          
-          results.push({
-            english: duplicate.english,
-            action: 'merge_to_first',
-            success: result.success,
-            targetSheet: targetWord.sheetName,
-            mergedDefinition: result.mergedDefinition,
-            deletedCount: result.deletedCount || 0,
-            error: result.error
-          });
-        }
-      }
-      
-      const successCount = results.filter(r => r.success).length;
-      console.log('自動處理完成，成功:', successCount, '總數:', results.length);
-      
-      return {
-        success: true,
-        results: results,
-        successCount: successCount,
-        totalCount: results.length
-      };
-    } catch (error) {
-      console.error('自動處理重複單字失敗:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
 
   // ===========================================
   // 高階整合功能

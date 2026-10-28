@@ -17,31 +17,34 @@ beforeEach(function() {
 // ============================================================
 describe('generateAlternativeSheetName', function() {
 
-  test('appends timestamp to a name without one', function() {
+  test('appends HHMMSS timestamp to a name without one', function() {
     var result = app.generateAlternativeSheetName('MySheet');
-    expect(result).toMatch(/^MySheet_\d{4}$/);
+    expect(result).toMatch(/^MySheet_\d{6}$/);
   });
 
   test('updates timestamp if name already has one', function() {
     var result = app.generateAlternativeSheetName('MySheet_1200');
-    expect(result).toMatch(/^MySheet_\d{4}$/);
+    expect(result).toMatch(/^MySheet_\d{6}$/);
   });
 
   test('result is different from input when input has timestamp', function() {
     var result = app.generateAlternativeSheetName('TestSheet_9999');
-    expect(result).toMatch(/^TestSheet_\d{4}$/);
+    expect(result).toMatch(/^TestSheet_\d{6}$/);
     var time = result.split('_').pop();
     var hours = parseInt(time.substring(0, 2));
     var minutes = parseInt(time.substring(2, 4));
+    var seconds = parseInt(time.substring(4, 6));
     expect(hours).toBeGreaterThanOrEqual(0);
     expect(hours).toBeLessThanOrEqual(23);
     expect(minutes).toBeGreaterThanOrEqual(0);
     expect(minutes).toBeLessThanOrEqual(59);
+    expect(seconds).toBeGreaterThanOrEqual(0);
+    expect(seconds).toBeLessThanOrEqual(59);
   });
 
   test('handles names with underscores that are not timestamps', function() {
     var result = app.generateAlternativeSheetName('My_Sheet_Name');
-    expect(result).toMatch(/^My_Sheet_Name_\d{4}$/);
+    expect(result).toMatch(/^My_Sheet_Name_\d{6}$/);
   });
 });
 

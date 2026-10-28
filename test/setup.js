@@ -391,12 +391,12 @@ function setupMocks() {
 
   // Add all GAS functions as no-ops
   var gasFunctions = [
-    'getWordsFromSheet', 'getWordsFromSheets', 'getWordsFromSingleSheet', 'getWordsFromSheetsWithDuplicateDetection',
-    'getSheetsList', 'getSheetNamesOnly', 'getSheetWordCount',
+    'getWordsFromSheets', 'getWordsFromSingleSheet', 'getWordsFromSheetsWithDuplicateDetection',
+    'getSheetNamesOnly', 'getSheetWordCount',
     'updateWordProperties', 'updateWordDifficulty', 'markWordAsDifficult',
     'batchUpdateReviewDates', 'exportWordsToSheet',
     'detectDuplicateWords', 'handleDuplicateWordKeepOne', 'handleDuplicateWordMerge',
-    'autoHandleSkippedDuplicatesInMemory', 'autoHandleSkippedDuplicates',
+    'autoHandleSkippedDuplicatesInMemory',
     'queryKKPhonetic',
     'getServerVersion',
     'getAppDeployInfo'

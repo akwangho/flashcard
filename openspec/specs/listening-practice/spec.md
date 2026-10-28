@@ -13,7 +13,7 @@ The system SHALL provide two listening exercises launched from the 測驗 menu �
 #### Scenario: Activate and exit
 
 - **WHEN** the user selects 「👂 聽音辨字」 or 「✍️ 聽音拼字」 from the 測驗 flyout
-- **THEN** the carousel pauses and the exercise modal opens; the 結束 button closes the modal and ends the session
+- **THEN** the carousel pauses and the exercise modal opens; the 結束 button closes the modal and ends the session (tapping the modal backdrop is ignored while an exercise is in progress, so a stray tap cannot discard the session)
 
 ### Requirement: Audio-First Exercises
 

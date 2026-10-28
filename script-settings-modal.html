@@ -74,10 +74,11 @@
     }
   };
   
-  // 重置設定
+  // 重置設定（目前無 UI 入口，僅測試使用；預設值必須與 script-core.html
+  // 的 _initSettingsState 工廠預設一致，否則測試假設會漂移）
   FlashcardApp.prototype.resetSettings = function() {
     this.settings = {
-      delayTime: 3,
+      delayTime: 4.5,
       fontSize: 96,
       displayMode: 'english-first',
       fontFamily: 'system-default',

@@ -36,6 +36,14 @@
   FlashcardApp.prototype.closeExportModal = function() {
     closeModalById(this, 'export-modal');
     
+    // 匯出進行中關閉視窗＝取消匯出：作廢批次鏈與殘留回呼，
+    // 否則晚到的批次成功回呼會彈「匯出成功！共匯出 0 個單字」的假成功
+    // （工作表實際只有前幾批的部分資料）
+    if (this.totalBatches > 0 && this.currentBatch < this.totalBatches) {
+      this._exportCancelled = true;
+    }
+    this._pendingExportData = null;
+    
     // 確保「已暫停」消失
     var pausedIndicator = document.getElementById('paused-indicator');
     if (pausedIndicator) {
@@ -142,6 +150,10 @@ FlashcardApp.prototype.getDefaultExportSheetName = function() {
     this.exportTargetSheetId = targetSheetId;
     this.exportOverwrite = overwrite;
     this.isSheetCreated = false; // 追蹤工作表是否已創建
+    this._exportCancelled = false; // 新的匯出回合：清除取消旗標
+    // 資料快照：SHEET_EXISTS 對話框出現時 hideExportProgress 會清空
+    // exportBatches，覆寫重試必須從這份快照重建（原「重組批次」讀不到東西）
+    this._pendingExportData = exportData;
     
     // 開始處理第一批
     this.processBatch();
@@ -151,6 +163,9 @@ FlashcardApp.prototype.getDefaultExportSheetName = function() {
 // 處理單一批次（修改exportWordsToSheet調用）
 FlashcardApp.prototype.processBatch = function() {
   var self = this;
+  
+  // 使用者已關閉匯出視窗（取消）：整條批次鏈作廢
+  if (this._exportCancelled) return;
   
   if (this.currentBatch >= this.totalBatches) {
     // 所有批次完成
@@ -175,6 +190,7 @@ FlashcardApp.prototype.processBatch = function() {
   // 處理當前批次
   google.script.run
     .withSuccessHandler(function(result) {
+      if (self._exportCancelled) return; // 匯出已被取消：丟棄晚到的結果
       console.log('第 ' + batchNumber + ' 批匯出結果:', result);
       
       // 檢查匯出結果
@@ -214,6 +230,7 @@ FlashcardApp.prototype.processBatch = function() {
       }, APP_CONSTANTS.EXPORT_BATCH_DELAY_MS);
     })
     .withFailureHandler(function(error) {
+      if (self._exportCancelled) return; // 匯出已被取消：不彈錯誤、不重設按鈕
       console.error('批次匯出失敗:', error);
       self.hideExportProgress();
       alert('匯出失敗（第 ' + batchNumber + ' 批），請重試！\n錯誤：' + error);
@@ -230,12 +247,15 @@ FlashcardApp.prototype.processBatch = function() {
   
   // 匯出完成處理
   FlashcardApp.prototype.onExportComplete = function() {
+    if (this._exportCancelled) return; // 已取消的匯出不得宣告成功
+    
     var confirmBtn = document.getElementById('confirm-export');
     if (confirmBtn) {
       confirmBtn.disabled = false;
       confirmBtn.textContent = '匯出';
     }
     
+    this._pendingExportData = null;
     alert('匯出成功！共匯出 ' + this.totalWords + ' 個單字');
     this.closeExportModal();
   };
@@ -375,7 +395,12 @@ FlashcardApp.prototype.processBatch = function() {
       overwriteModal.style.display = 'none';
     }
     
-      this.resumeTimer();
+      // 只有匯出視窗也關閉時才恢復輪播：匯出視窗仍開著時，
+      // 輪播不得在 modal 背後自動前進（匯出視窗關閉時有自己的恢復路徑）
+      var exportModal = document.getElementById('export-modal');
+      if (!exportModal || exportModal.style.display === 'none') {
+        this.resumeTimer();
+      }
       
       // 移除事件處理程序
       this.unbindOverwriteConfirmEvents();
@@ -407,14 +432,10 @@ FlashcardApp.prototype.processBatch = function() {
       // 覆寫確認按鈕
     this.overwriteConfirmHandler = function() {
       self.closeOverwriteConfirmModal();
-      // 重新開始分批匯出，設定覆寫模式
-      var exportData = [];
-      if (self.exportBatches) {
-        // 重新組合所有批次的資料
-        for (var i = 0; i < self.exportBatches.length; i++) {
-          exportData = exportData.concat(self.exportBatches[i]);
-        }
-      }
+      // 用 startBatchExport 留下的資料快照重建匯出
+      // （exportBatches 已被 handleSheetExistsError → hideExportProgress 清空，
+      //  原本「重組批次」的程式碼因此從未生效過）
+      var exportData = self._pendingExportData || [];
       if (exportData.length > 0) {
         self.showExportProgress();
         // 重置工作表創建狀態
@@ -522,15 +543,19 @@ FlashcardApp.prototype.processBatch = function() {
     var now = new Date();
     var hours = now.getHours().toString();
     var minutes = now.getMinutes().toString();
+    var seconds = now.getSeconds().toString();
     
     // ES5 版本的 padStart
     if (hours.length < 2) hours = '0' + hours;
     if (minutes.length < 2) minutes = '0' + minutes;
+    if (seconds.length < 2) seconds = '0' + seconds;
     
-    var timestamp = hours + minutes;
+    // 時間戳精確到秒（HHMMSS）：只到分的話，同一分鐘內第二次匯出會
+    // 建議出「與現在同名」的新名稱，陷入已存在→同名建議→已存在的迴圈
+    var timestamp = hours + minutes + seconds;
       
-      // 如果原名稱包含時間戳記，則更新時間戳記
-    var timePattern = /_\d{4}$/;
+      // 如果原名稱包含時間戳記，則更新時間戳記（含舊版 _HHMM 格式）
+    var timePattern = /_\d{4,6}$/;
       if (timePattern.test(originalName)) {
       return originalName.replace(timePattern, '_' + timestamp);
       } else {

@@ -48,7 +48,7 @@ The system SHALL present secondary interfaces as modals: opening any modal pause
 
 #### Scenario: Modal IDs
 
-- Element IDs: `sheet-settings-modal`, `settings-modal`, `voice-settings-modal`, `export-modal`, `overwrite-confirm-modal`, `duplicate-words-modal`, `quiz-modal`, `edit-word-modal`, `difficulty-filter-modal`, `review-filter-modal`, `srs-review-modal`, `custom-confirm-modal`, `type-filter-modal`, `tag-filter-modal`
+- Element IDs: `sheet-settings-modal`, `settings-modal`, `voice-settings-modal`, `export-modal`, `overwrite-confirm-modal`, `duplicate-words-modal`, `quiz-modal`, `listening-modal`, `edit-word-modal`, `difficulty-filter-modal`, `review-filter-modal`, `srs-review-modal`, `custom-confirm-modal`, `type-filter-modal`, `tag-filter-modal`, `search-word-modal`
 
 ### Requirement: Menu System
 

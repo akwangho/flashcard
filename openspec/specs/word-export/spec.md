@@ -21,4 +21,9 @@ The system SHALL export words to a new worksheet in the same Google Sheet, defau
 #### Scenario: Overwrite protection
 
 - **WHEN** the target worksheet name already exists in the Google Sheet
-- **THEN** a confirmation modal offers **Use a different name** (suggests an alternate by appending — or refreshing a trailing — `_HHMM` time suffix) or **Overwrite existing worksheet** (deletes the old worksheet first)
+- **THEN** a confirmation modal offers **Use a different name** (suggests an alternate by appending — or refreshing a trailing — `_HHMMSS` time suffix, so two exports in the same minute cannot suggest the same name) or **Overwrite existing worksheet** (deletes the old worksheet first)
+
+#### Scenario: Closing the export modal cancels the export
+
+- **WHEN** the user closes the export modal while batches are still in flight (ESC / backdrop / ×)
+- **THEN** the remaining batches are abandoned (no further sheet writes), no completion alert fires, and the modal reopens for a fresh export; an already-finished export is unaffected

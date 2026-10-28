@@ -215,7 +215,8 @@ describe('resetSettings', function() {
 
     app.resetSettings();
 
-    expect(app.settings.delayTime).toBe(3);
+    // resetSettings 的預設值必須與 script-core.html 的工廠預設一致（4.5 秒）
+    expect(app.settings.delayTime).toBe(4.5);
     expect(app.settings.displayMode).toBe('english-first');
     expect(app.settings.listeningMode).toBe(false);
     expect(app.settings.carouselMemoryMode).toBe(false);

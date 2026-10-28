@@ -681,7 +681,8 @@
       var item = priorityList[i];
       var w = item.word;
       var diff = (w.difficultyLevel !== undefined && w.difficultyLevel !== null) ? w.difficultyLevel : 0;
-      var diffText = isForcedReviewLevel(diff) ? '★-' : ((diff <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) ? '非常熟' : ('★' + diff));
+      // -998..-1 顯示為 ★0：與閃卡/編輯視窗一致（直接 '★' + diff 會顯示「★-5」）
+      var diffText = isForcedReviewLevel(diff) ? '★-' : ((diff <= APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR) ? '非常熟' : ('★' + Math.max(0, diff)));
       var dateText = (w.lastReviewDate && w.lastReviewDate !== '') ? w.lastReviewDate.slice(5) : '從未';
       var catLabel = PRIORITY_LABELS[item.priority] || '';
       var rowClass = (i % 2 === 0) ? 'srs-pt-row-even' : 'srs-pt-row-odd';

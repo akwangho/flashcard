@@ -434,3 +434,37 @@ describe('updateLoadingProgress', function() {
     expect(fillEl.style.width).toBe('0%');
   });
 });
+
+// ============================================================
+// _escapeHtml — 使用者可控字串插入 innerHTML 前的跳脫
+// ============================================================
+describe('_escapeHtml', function() {
+  var app;
+
+  beforeEach(function() {
+    var origInit = FlashcardApp.prototype.init;
+    FlashcardApp.prototype.init = function() {};
+    app = new FlashcardApp();
+    FlashcardApp.prototype.init = origInit;
+  });
+
+  test('escapes quotes, angle brackets, ampersand, and single quotes', function() {
+    var out = app._escapeHtml('Sheet "A" & <B> \'C\'');
+    // 期望值以 concat 斷詞：避免任何輸出層把 HTML 實體正規化回原字元
+    var AMP = '&' + 'amp;', LT = '&' + 'lt;', GT = '&' + 'gt;',
+        QUOT = '&' + 'quot;', APOS = '&' + '#39;';
+    var expected = 'Sheet ' + QUOT + 'A' + QUOT + ' ' + AMP + ' ' + LT + 'B' + GT + ' ' + APOS + 'C' + APOS;
+    expect(out).toBe(expected);
+  });
+
+  test('handles null and undefined as empty strings', function() {
+    expect(app._escapeHtml(null)).toBe('');
+    expect(app._escapeHtml(undefined)).toBe('');
+  });
+
+  test('escapes data-sheet-id breaking double quotes', function() {
+    // 工作表名稱含雙引號時不得破壞 data-sheet-id 屬性
+    var out = app._escapeHtml('Unit "1"');
+    expect(out.indexOf('"')).toBe(-1);
+  });
+});

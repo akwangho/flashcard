@@ -584,6 +584,16 @@
     this._speechPlayId = (this._speechPlayId || 0) + 1;
     var playId = this._speechPlayId;
     this._speechSequenceActive = false;
+    // 一併作廢「等待英文播完再播中文」的輪詢：否則引擎一閒置，
+    // 舊的中文翻譯會在 P 重播之後插播（違反 P 的作廢合約）
+    if (this.chineseWaitInterval) {
+      clearInterval(this.chineseWaitInterval);
+      this.chineseWaitInterval = null;
+    }
+    if (this._chineseWaitTimeout) {
+      clearTimeout(this._chineseWaitTimeout);
+      this._chineseWaitTimeout = null;
+    }
     // 記下重播前是否真的有語音在播：只有真的被打斷時才需要等 cancel 生效
     var wasSpeaking = this._isSpeechBusy();
     try { this.speechSynthesis.cancel(); } catch (e) {}
@@ -638,6 +648,11 @@
     this.pendingRemoval = null;
     this._pKeyPressCount = 0;
     this._speechRateOverride = null;
+    // 換卡＝新意圖：放棄進行中的「再按一下 D」待確認狀態
+    // （不清掉的話，3 秒逾時會把「上一個字」快照的剩餘時間還原到目前這張卡）
+    if (typeof this._clearPendingVeryFamiliar === 'function') {
+      this._clearPendingVeryFamiliar();
+    }
     this.hideRestoreButton();
     this._clearDisplayTimer();
     this.resetProgressBar();
@@ -902,6 +917,12 @@
         this.userPaused = false;
         this.updatePauseButtonState();
         this.resumeTimer();
+      }
+      if (wasOpen && skipTimerResume && !this._wasPausedBeforeMenu) {
+        // 暫停是「選單開啟」造成的（使用者先前並未暫停），且選單把暫停
+        // 交接給搜尋視時：記下交接事實，搜尋視窗關閉時要代為解除，
+        // 否則使用者關掉搜尋後輪播永遠停在暫停
+        this._searchInheritedPause = true;
       }
       this._wasPausedBeforeMenu = undefined;
 
@@ -1174,7 +1195,10 @@
     }
     if (srsStartBtn) {
       srsStartBtn.addEventListener('click', function() {
-        if (self._srsSelectedCount) {
+        // 不得用真值判斷：篩選後一般單字 0 個、僅剩強制複習（100）單字時
+        // _srsSelectedCount 為 0，使用者會完全無法開始（按鈕沒反應）；
+        // startSrsReview(0) 本身支援「只回全部強制複習單字」
+        if (self._srsSelectedCount !== undefined && self._srsSelectedCount !== null) {
           self.startSrsReview(self._srsSelectedCount);
         }
       });
@@ -1265,6 +1289,7 @@
             self.closeDuplicateModal();
             self.closeDifficultyFilterModal();
             self.closeEditWordModal();
+            if (typeof self.closeSearchWordModal === 'function') self.closeSearchWordModal();
             self.closeMenu();
           } },
         // F5 / S → 增加不熟程度
@@ -1316,8 +1341,15 @@
       return;
     }
     
-    // B 鍵 - 暫停/繼續，任何狀態下都能使用
+    // B 鍵 - 暫停/繼續，任何狀態下都能使用（modal 開啟中除外）
     if (keyCode === 66 || code === 'KeyB') {
+      // modal 開啟時不得切換暫停：輪播已被 modal 凍結，這裡切 B 會在
+      // modal 背後恢復自動輪播與捷徑（Enter 改難度、→ 換卡會在
+      // 測驗／聽力／SRS 進行中生效，把資料寫到看不見的單字上）
+      if (typeof self._anyModalOpen === 'function' && self._anyModalOpen()) {
+        if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
+        return;
+      }
       if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
       self.togglePause();
       return;
@@ -1487,25 +1519,41 @@
   
     console.log('匯出相關事件監聽器設置完成');
     
-    // 隱藏控制按鈕事件監聽器
-    this.setupHiddenControlListeners();
-  };
-  
-  // 設置隱藏控制按鈕監聽器
-  FlashcardApp.prototype.setupHiddenControlListeners = function() {
-    console.log('設置隱藏控制按鈕事件監聽器...');
-    var self = this;
-    
-
-    
-    
-    
-
-    
-    console.log('隱藏控制按鈕事件監聽器設置完成');
   };
 
   // ESC 鍵：由上而下關閉最頂層開啟的 modal，回傳是否有 modal 被關閉
+  /** 所有「Escape 應關閉」的 modal（依疊加順序，最上層優先）；
+   *  _closeTopmostModal 與 _anyModalOpen 共用（B 鍵等全域捷徑的 modal 防護） */
+  FlashcardApp.MODAL_CLOSE_MAP = [
+    { id: 'overwrite-confirm-modal', method: 'closeOverwriteConfirmModal' },
+    { id: 'quiz-modal',              method: 'closeQuizModal' },
+    { id: 'listening-modal',         method: 'closeListeningModal' },
+    { id: 'export-modal',            method: 'closeExportModal' },
+    { id: 'duplicate-words-modal',   method: 'closeDuplicateModal' },
+    { id: 'edit-word-modal',         method: 'closeEditWordModal' },
+    { id: 'search-word-modal',       method: 'closeSearchWordModal' },
+    { id: 'srs-review-modal',        method: 'closeSrsReviewModal' },
+    { id: 'difficulty-filter-modal',  method: 'closeDifficultyFilterModal' },
+    { id: 'review-filter-modal',     method: 'closeReviewFilterModal' },
+    { id: 'type-filter-modal',       method: 'closeTypeFilterModal' },
+    { id: 'tag-filter-modal',        method: 'closeTagFilterModal' },
+    { id: 'voice-settings-modal',    method: 'closeVoiceSettings' },
+    { id: 'settings-modal',          method: 'closeSettings' },
+    { id: 'sheet-settings-modal',    method: 'closeSheetSettings' }
+  ];
+
+  /** 是否有任一 modal 開啟中（含 custom-confirm 覆蓋對話框） */
+  FlashcardApp.prototype._anyModalOpen = function() {
+    var confirmModal = document.getElementById('custom-confirm-modal');
+    if (confirmModal && confirmModal.style.display === 'flex') return true;
+    var map = FlashcardApp.MODAL_CLOSE_MAP;
+    for (var i = 0; i < map.length; i++) {
+      var el = document.getElementById(map[i].id);
+      if (el && el.style.display === 'flex') return true;
+    }
+    return false;
+  };
+
   FlashcardApp.prototype._closeTopmostModal = function() {
     // custom-confirm 優先（它是最上層的覆蓋對話框）
     var confirmModal = document.getElementById('custom-confirm-modal');
@@ -1516,22 +1564,7 @@
     }
 
     // 其他 modal：按 z-index / 疊加順序，最上層優先
-    var modalCloseMap = [
-      { id: 'overwrite-confirm-modal', method: 'closeOverwriteConfirmModal' },
-      { id: 'quiz-modal',              method: 'closeQuizModal' },
-      { id: 'listening-modal',         method: 'closeListeningModal' },
-      { id: 'export-modal',            method: 'closeExportModal' },
-      { id: 'duplicate-words-modal',   method: 'closeDuplicateModal' },
-      { id: 'edit-word-modal',         method: 'closeEditWordModal' },
-      { id: 'srs-review-modal',        method: 'closeSrsReviewModal' },
-      { id: 'difficulty-filter-modal',  method: 'closeDifficultyFilterModal' },
-      { id: 'review-filter-modal',     method: 'closeReviewFilterModal' },
-      { id: 'type-filter-modal',       method: 'closeTypeFilterModal' },
-      { id: 'tag-filter-modal',        method: 'closeTagFilterModal' },
-      { id: 'voice-settings-modal',    method: 'closeVoiceSettings' },
-      { id: 'settings-modal',          method: 'closeSettings' },
-      { id: 'sheet-settings-modal',    method: 'closeSheetSettings' }
-    ];
+    var modalCloseMap = FlashcardApp.MODAL_CLOSE_MAP;
 
     for (var i = 0; i < modalCloseMap.length; i++) {
       var entry = modalCloseMap[i];
@@ -1671,8 +1704,18 @@
       
       console.log('全螢幕請求已發送');
       
+      // 監聽器防洩漏：remove 必須傳入「上次加入」的同一個函式參考。
+      // （先前用剛建立的 closure 去 remove 是 no-op，每次進入全螢幕
+      //   都會累積 4 個 fullscreenchange 監聽器）
+      if (this._fullscreenChangeHandler) {
+        document.removeEventListener('fullscreenchange', this._fullscreenChangeHandler);
+        document.removeEventListener('webkitfullscreenchange', this._fullscreenChangeHandler);
+        document.removeEventListener('mozfullscreenchange', this._fullscreenChangeHandler);
+        document.removeEventListener('MSFullscreenChange', this._fullscreenChangeHandler);
+      }
+      
       var self = this;
-      var fullscreenChangeHandler = function() {
+      this._fullscreenChangeHandler = function() {
         var isFullscreen = document.fullscreenElement || 
                           document.webkitFullscreenElement || 
                           document.mozFullScreenElement || 
@@ -1687,15 +1730,10 @@
         self.updateFullscreenButtonText();
       };
       
-      document.removeEventListener('fullscreenchange', fullscreenChangeHandler);
-      document.removeEventListener('webkitfullscreenchange', fullscreenChangeHandler);
-      document.removeEventListener('mozfullscreenchange', fullscreenChangeHandler);
-      document.removeEventListener('MSFullscreenChange', fullscreenChangeHandler);
-      
-      document.addEventListener('fullscreenchange', fullscreenChangeHandler);
-      document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
-      document.addEventListener('mozfullscreenchange', fullscreenChangeHandler);
-      document.addEventListener('MSFullscreenChange', fullscreenChangeHandler);
+      document.addEventListener('fullscreenchange', this._fullscreenChangeHandler);
+      document.addEventListener('webkitfullscreenchange', this._fullscreenChangeHandler);
+      document.addEventListener('mozfullscreenchange', this._fullscreenChangeHandler);
+      document.addEventListener('MSFullscreenChange', this._fullscreenChangeHandler);
       
     } catch (error) {
       console.error('進入全螢幕時發生錯誤:', error);

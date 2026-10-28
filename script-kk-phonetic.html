@@ -242,8 +242,6 @@
    * @param {Object} word - 當前單字物件
    */
   FlashcardApp.prototype.updateKKPhoneticDisplay = function(word) {
-    var el = document.getElementById('kk-phonetic-display');
-
     // 每次切換卡片都遞增顯示 token：先前的非同步回應（含快取/Sheet 命中而未發查詢者）
     // 一律視為過期，不得顯示在目前已切換的卡片上（race condition 保護）
     this._kkDisplayToken++;
@@ -253,17 +251,16 @@
       return;
     }
 
-    // 先隱藏（此刻英文尚未顯示；時機到了由 _maybeShowKKPhonetic 顯示）
+    // 先隱藏（此刻英文尚未顯示；時機到了由 _maybeShowKKPhonetic 顯示）。
+    // _hideKKPhonetic 內部會把 _kkFirstPartShown 重置為 false，
+    // 因此下方不需要「英文已顯示就立刻補顯示」的分支
+    // （displayCurrentWord 的呼叫順序保證英文是在本函式之後才顯示）
     this._hideKKPhonetic();
 
     var resolved = this._resolveKKDisplayInfo(word);
     if (resolved) {
       this._kkPendingResult = resolved.phonetic;
       this._kkPendingNeedsReview = !!resolved.needsReview;
-      // _display*Word 已在本函式之前執行時（英文已顯示），立刻補上
-      if (this._kkFirstPartShown) {
-        this._maybeShowKKPhonetic();
-      }
       return;
     }
 
@@ -470,18 +467,27 @@
         var candidates = (result.candidates && result.candidates.length > 0) ? result.candidates : [];
         var phonetic = candidates.length > 0 ? candidates[0] : '';
 
-        // 寫入快取（含空結果，避免反覆查詢；可用編輯畫面強制重新抓取）
-        self._setCachedKKPhonetic(english, phonetic, candidates);
+        // 編輯畫面的「重新抓取」（writeBack: false）：結果僅進編輯 UI 暫存，
+        // 不寫快取、不同步 word 物件——使用者按「取消」時，卡片不得顯示
+        // 未確認的音標（空結果也不得把卡片上已確認的音標清掉）
+        var stageOnly = opts.writeBack === false;
 
-        // 晚回來的回應一律寫回原本的單字資料（race condition 下只影響資料、不影響目前顯示）
-        if (word) {
-          word.kkPhonetic = phonetic || '';
-          if (candidates && candidates.length > 0) {
-            word.kkCandidates = candidates;
-          }
-          // 同步 words / currentWords 中同 id 的物件（依 id 比對，不會寫錯對象）
-          if (word.id !== undefined) {
-            self._syncKKPhoneticToWordObjects(word.id, phonetic, candidates);
+        if (!stageOnly) {
+          // 寫入快取（含空結果，避免反覆查詢；可用編輯畫面強制重新抓取）
+          self._setCachedKKPhonetic(english, phonetic, candidates);
+
+          // 晚回來的回應一律寫回原本的單字資料（race condition 下只影響資料、不影響目前顯示）
+          if (word) {
+            word.kkPhonetic = phonetic || '';
+            if (candidates && candidates.length > 0) {
+              word.kkCandidates = candidates;
+            } else {
+              word.kkCandidates = null;
+            }
+            // 同步 words / currentWords 中同 id 的物件（依 id 比對，不會寫錯對象）
+            if (word.id !== undefined) {
+              self._syncKKPhoneticToWordObjects(word.id, phonetic, candidates);
+            }
           }
         }
 
@@ -548,6 +554,10 @@
           arr[i].kkPhonetic = phonetic || '';
           if (candidates && candidates.length > 0) {
             arr[i].kkCandidates = candidates;
+          } else {
+            // 空結果要一併清候選：不清的話下次開編輯視窗會顯示
+            // 「欄位 I 已存 N 筆候選」，一點選儲存就把已被推翻的候選寫回 I 欄
+            arr[i].kkCandidates = null;
           }
         }
       }

@@ -70,10 +70,13 @@
     
     var updates = [];
     for (var i = 0; i < keys.length; i++) {
-      var parts = keys[i].split(':');
+      // 鍵值格式 sheetName:rowIndex：工作表名稱本身可含 ':'（如「Unit 1: Test」），
+      // 以「最後一個冒號」分隔（rowIndex 一律是結尾的純數字），
+      // split(':') 會把名稱截斷 → getSheetByName 找不到 → 複習日期靜默消失
+      var sep = keys[i].lastIndexOf(':');
       updates.push({
-        sheetName: parts[0],
-        rowIndex: parseInt(parts[1], 10),
+        sheetName: keys[i].slice(0, sep),
+        rowIndex: parseInt(keys[i].slice(sep + 1), 10),
         date: this.reviewedInSession[keys[i]]
       });
     }
@@ -97,10 +100,20 @@
             }
           }
         }
+
+        // 同步已結束：執行等待中的複習日期回滾（移除復原），
+        // 確保回滾寫入不會被本批次的舊日期覆蓋
+        if (typeof self._flushPendingReviewRollbacks === 'function') {
+          self._flushPendingReviewRollbacks();
+        }
       })
       .withFailureHandler(function(error) {
         console.error('複習日期同步失敗:', error);
         self.reviewSyncPending = false;
+        // 失敗也要釋放回滾佇列（佇列卡住會讓之後的復原全部失效）
+        if (typeof self._flushPendingReviewRollbacks === 'function') {
+          self._flushPendingReviewRollbacks();
+        }
       })
       .batchUpdateReviewDates(this.sheetSettings.sheetId, updates);
   };
@@ -241,6 +254,34 @@
   };
 
   // 計算各複習時間篩選條件符合的單字數量
+  /**
+   * 類型＋標籤篩選述詞（與 applyAllFilters 的篩選 4/5 完全一致）。
+   * 計數器（countWordsForFilter / countWordsForDifficultyFilter）必須套用
+   * 相同述詞，否則選項上顯示的「(N 個)」會大於實際套用後的池，
+   * 甚至全部套用後歸零而觸發不必要的篩選重設。
+   */
+  FlashcardApp.prototype._passesTypeAndTagFilters = function(w) {
+    if (this.typeFilter && this.typeFilter.length < 3) {
+      var type = getWordType(w.english);
+      var typeHit = false;
+      for (var i = 0; i < this.typeFilter.length; i++) {
+        if (this.typeFilter[i] === type) { typeHit = true; break; }
+      }
+      if (!typeHit) return false;
+    }
+    if (this.tagFilter && this.tagFilter.length > 0) {
+      if (!w.tags || w.tags.length === 0) return false;
+      var tagHit = false;
+      for (var t = 0; !tagHit && t < this.tagFilter.length; t++) {
+        for (var j = 0; j < w.tags.length; j++) {
+          if (w.tags[j] === this.tagFilter[t]) { tagHit = true; break; }
+        }
+      }
+      if (!tagHit) return false;
+    }
+    return true;
+  };
+
   FlashcardApp.prototype.countWordsForFilter = function(filterType) {
     var words = this.words;
     var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
@@ -274,6 +315,12 @@
         return appCount.normalizeMustSpell(w.mustSpell) > 0;
       });
     }
+    
+    // 類型／標籤篩選同樣影響計數（與 applyAllFilters 一致）
+    var selfTypeTag = this;
+    words = words.filter(function(w) {
+      return selfTypeTag._passesTypeAndTagFilters(w);
+    });
     
     if (filterType === 'all') {
       return words.length;
@@ -532,6 +579,12 @@
         return appDiff.normalizeMustSpell(w.mustSpell) > 0;
       });
     }
+    
+    // 類型／標籤篩選同樣影響計數（與 applyAllFilters 一致）
+    var selfDiffTypeTag = this;
+    words = words.filter(function(w) {
+      return selfDiffTypeTag._passesTypeAndTagFilters(w);
+    });
     
     var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
 

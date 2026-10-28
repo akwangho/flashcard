@@ -27,7 +27,9 @@
       var elapsed = Date.now() - this._activeTimerInfo.setAt;
       this._pauseRemainingMs = Math.max(0, this._activeTimerInfo.delay - elapsed);
     } else {
-      this._pauseRemainingMs = 0;
+      // 沒有進行中的計時器＝先前暫停尚未恢復（B 暫停 → 開 modal 再暫停）：
+      // 保留已存的剩餘時間。清成 0 的話，最終恢復會以「全長」重跑該階段
+      this._pauseRemainingMs = this._pauseRemainingMs || 0;
     }
     
     this._clearDisplayTimer();
@@ -165,6 +167,10 @@
   // 單字點擊事件（刪除單字功能）
   FlashcardApp.prototype.onWordClick = function() {
     if (this.isTransitioning || this.isPaused) return;
+    
+    // 點卡片＝翻面新意圖：放棄進行中的「再按一下 D」待確認狀態，
+    // 避免 3 秒逾時用 D 暫停時的快照時間覆蓋新架設的翻面/移除確認計時器
+    this._clearPendingVeryFamiliar();
     
     if (this.currentWords.length <= 1) {
       var sections = document.querySelectorAll('.card-section');
@@ -349,6 +355,9 @@
    */
   FlashcardApp.prototype.cancelRemoval = function() {
     if (!this.pendingRemoval) return;
+    
+    // 取消移除＝新意圖：同樣放棄進行中的 D 待確認狀態（若仍存在）
+    this._clearPendingVeryFamiliar();
     
     var isVeryFamiliar = this.pendingRemoval.isVeryFamiliar;
     
@@ -795,6 +804,28 @@
     this._resumeTimerAfterVeryFamiliarCancel();
   };
 
+  /**
+   * 清除「再按一下 D 設為非常熟」待確認狀態（放棄 D 意圖）。
+   * 使用者以其他互動（點卡片翻面／取消移除／換卡／套用篩選）表達新意圖時呼叫。
+   * 不清掉的話，3 秒逾時的 cancelMarkVeryFamiliar 會用第一次 D 暫停時
+   * 快照的「短剩餘時間」覆蓋掉新架設的計時器——例如翻面後的移除確認
+   * 倒數會被立刻觸發 confirmRemoval，使用者來不及按「恢復單字」。
+   * 與 cancelMarkVeryFamiliar 不同：本函式「不」恢復快照計時器
+   * （新計時器已在跑，恢復反而會破壞它）。
+   */
+  FlashcardApp.prototype._clearPendingVeryFamiliar = function() {
+    if (this._pendingVeryFamiliar) {
+      if (this._pendingVeryFamiliar.timer) {
+        clearTimeout(this._pendingVeryFamiliar.timer);
+      }
+      this._pendingVeryFamiliar = null;
+    }
+    if (this._vfSavedTimer) {
+      this._vfSavedTimer = null;
+    }
+    this.hideVeryFamiliarToast();
+  };
+
   // 顯示非常熟提示訊息（toast）
   FlashcardApp.prototype.showVeryFamiliarToast = function(message) {
     var toast = document.getElementById('very-familiar-toast');
@@ -912,6 +943,21 @@
     var sheetId = this.sheetSettings && this.sheetSettings.sheetId;
     if (!sheetId) return;
     var dateToWrite = prevDate || '';
+    // 複習日期批次同步進行中時，google.script.run 不保證先後順序：
+    // 這次移除的「今天」就在那批裡，若回滾先落地、批次後落地，被還原的
+    // 單字又會被覆蓋成今天（SRS/複習篩選損壞）。先排隊，同步完成後再回滾。
+    if (this.reviewSyncPending) {
+      if (!this._pendingReviewRollbacks) this._pendingReviewRollbacks = [];
+      this._pendingReviewRollbacks.push({ sheetName: word.sheetName, rowIndex: word.originalRowIndex, date: dateToWrite });
+      return;
+    }
+    this._writeReviewDateRollback(word.sheetName, word.originalRowIndex, dateToWrite);
+  };
+
+  /** 實際把回滪寫到後端（單一更新） */
+  FlashcardApp.prototype._writeReviewDateRollback = function(sheetName, rowIndex, date) {
+    var sheetId = this.sheetSettings && this.sheetSettings.sheetId;
+    if (!sheetId) return;
     try {
       google.script.run
         .withSuccessHandler(function(result) {
@@ -921,12 +967,22 @@
           console.error('還原複習日期同步失敗:', error);
         })
         .batchUpdateReviewDates(sheetId, [{
-          sheetName: word.sheetName,
-          rowIndex: word.originalRowIndex,
-          date: dateToWrite
+          sheetName: sheetName,
+          rowIndex: rowIndex,
+          date: date
         }]);
     } catch (e) {
       console.error('還原複習日期呼叫失敗:', e);
+    }
+  };
+
+  /** 批次同步結束後，執行等待中的複習日期回滪（syncReviewDates 完成時呼叫） */
+  FlashcardApp.prototype._flushPendingReviewRollbacks = function() {
+    if (!this._pendingReviewRollbacks || this._pendingReviewRollbacks.length === 0) return;
+    var queued = this._pendingReviewRollbacks;
+    this._pendingReviewRollbacks = [];
+    for (var i = 0; i < queued.length; i++) {
+      this._writeReviewDateRollback(queued[i].sheetName, queued[i].rowIndex, queued[i].date);
     }
   };
 

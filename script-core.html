@@ -8,8 +8,7 @@
    *
    * @dependencies 無外部相依（此檔案最先載入）
    * @provides FlashcardApp, APP_CONSTANTS (APP_VERSION, APP_BUILD_TIME), formatDateYYYYMMDD,
-   *   isModalBackgroundClick, selectVoiceByURIOrLang, applyDifficultyClass,
-   *   openModalById, closeModalById
+   *   isModalBackgroundClick, openModalById, closeModalById
    */
 
   // =====================================================================
@@ -17,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.26.5',
+    APP_VERSION: '1.26.6',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-27 09:33',
+    APP_BUILD_TIME: '2026-10-28 09:21',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -199,22 +198,6 @@
   }
 
   /**
-   * 從語音列表中選擇語音（依 voiceURI 或語系前綴）
-   * @param {Array} voices - 可用語音列表
-   * @param {string} voiceURI - 偏好的語音 URI
-   * @param {string} langPrefix - 語系前綴（如 'en-', 'ja-', 'zh-'）
-   * @returns {Object|null} 找到的語音物件
-   */
-  function selectVoiceByURIOrLang(voices, voiceURI, langPrefix) {
-    var found = null;
-    for (var i = 0; i < voices.length; i++) {
-      if (voices[i].voiceURI === voiceURI) return voices[i];
-      if (!found && voices[i].lang.indexOf(langPrefix) === 0) found = voices[i];
-    }
-    return found;
-  }
-
-  /**
    * 判斷單字類型：sentence（句號/問號/驚嘆號結尾，含引號包裹）、phrase（含空格）、word（其他）
    * 以「;」或「/」分隔的單字型態列（swing; swung; swung、woman / women）視為 word。
    * @param {string} english - 英文字串
@@ -319,21 +302,6 @@
   }
 
   /**
-   * 套用不熟程度 CSS class 到元素（清除舊 class 後加入新 class）
-   * @param {HTMLElement} element - 目標元素
-   * @param {number} level - 不熟程度等級 (-999 到 10，或 100 強制複習)
-   */
-  function applyDifficultyClass(element, level) {
-    if (!element) return;
-    element.className = element.className.replace(/\bdifficulty-level-n1\b/g, '');
-    element.className = element.className.replace(/\bdifficulty-level-forced\b/g, '');
-    for (var i = 0; i <= 10; i++) {
-      element.className = element.className.replace(new RegExp('\\bdifficulty-level-' + i + '\\b', 'g'), '');
-    }
-    var newCls = isForcedReviewLevel(level) ? 'difficulty-level-forced' : (level < 0 ? 'difficulty-level-n1' : 'difficulty-level-' + level);
-    element.className = (element.className + ' ' + newCls).replace(/\s+/g, ' ').trim();
-  }
-
   /**
    * 通用 Modal 開啟（暫停計時器 + 顯示）
    * @param {string} modalId - modal 元素的 ID
@@ -650,6 +618,16 @@
     this.cancelPendingSpeechRestart();
     this._speechSequenceActive = false;
     this._speechPlayId = (this._speechPlayId || 0) + 1;
+    // KK 音標真人音檔（HTMLAudioElement）不在 speechSynthesis 管轄內：
+    // cancel() 停不了它，不暫停的話錄音會繼續播到下一張卡、與新卡的語音重疊
+    if (this._kkAudioPlayer) {
+      try {
+        this._kkAudioPlayer.pause();
+      } catch (kkErr) {
+        console.warn('暫停 KK 音檔失敗:', kkErr);
+      }
+      this._kkAudioPlayer.onerror = null;
+    }
     if (this.speechSynthesis && typeof this.speechSynthesis.cancel === 'function') {
       try {
         this.speechSynthesis.cancel();
@@ -928,6 +906,21 @@
     return false;
   };
   
+  /**
+   * HTML 跳脫：工作表名稱/ID 等使用者可控字串插入 innerHTML 前必須跳脫，
+   * 否則名稱含雙引號會破壞 data-* 屬性（點擊選到錯誤項目）並允許標記注入
+   * @param {*} s - 要跳脫的值（null/undefined 視為空字串）
+   * @returns {string} 跳脫後的安全字串
+   */
+  FlashcardApp.prototype._escapeHtml = function(s) {
+    return String(s === undefined || s === null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+  
   // 載入Sheet歷史記錄（不包含預設檔案）
   FlashcardApp.prototype.loadSheetHistory = function() {
     try {
@@ -1031,10 +1024,10 @@
     for (var i = 0; i < defaultSheets.length; i++) {
       var item = defaultSheets[i];
       
-      html += '<div class="sheet-history-item default-sheet" data-sheet-id="' + item.id + '">';
+      html += '<div class="sheet-history-item default-sheet" data-sheet-id="' + this._escapeHtml(item.id) + '">';
       html += '  <div class="sheet-history-info">';
-      html += '    <div class="sheet-history-name">' + item.name + '</div>';
-      html += '    <div class="sheet-history-id">' + item.id + '</div>';
+      html += '    <div class="sheet-history-name">' + this._escapeHtml(item.name) + '</div>';
+      html += '    <div class="sheet-history-id">' + this._escapeHtml(item.id) + '</div>';
       html += '  </div>';
       html += '  <span class="sheet-history-badge">預設</span>';
       html += '</div>';
@@ -1075,12 +1068,12 @@
     for (var i = 0; i < history.length; i++) {
       var item = history[i];
       
-      html += '<div class="sheet-history-item recent-sheet" data-sheet-id="' + item.id + '">';
+      html += '<div class="sheet-history-item recent-sheet" data-sheet-id="' + this._escapeHtml(item.id) + '">';
       html += '  <div class="sheet-history-info">';
-      html += '    <div class="sheet-history-name">' + item.name + '</div>';
-      html += '    <div class="sheet-history-id">' + item.id + '</div>';
+      html += '    <div class="sheet-history-name">' + this._escapeHtml(item.name) + '</div>';
+      html += '    <div class="sheet-history-id">' + this._escapeHtml(item.id) + '</div>';
       html += '  </div>';
-      html += '  <button class="sheet-history-delete" data-sheet-id="' + item.id + '" title="刪除">🗑️</button>';
+      html += '  <button class="sheet-history-delete" data-sheet-id="' + this._escapeHtml(item.id) + '" title="刪除">🗑️</button>';
       html += '</div>';
     }
     
@@ -1411,7 +1404,10 @@
     var i, j, key, word;
     for (i = 0; i < allWords.length; i++) {
       word = allWords[i];
-      key = word.english.trim();
+      // 鍵值加前綴：純物件以英文單字當鍵，遇 'constructor'/'toString'/'__proto__'
+      // 等原型屬性名會撞上繼承值（truthy）→ .push TypeError 或設到原型上，
+      // 而且例外發生在 GAS success handler 內無人捕捉 → 載入畫面永久卡死
+      key = 'w:' + word.english.trim();
       if (!duplicatesMap[key]) {
         duplicatesMap[key] = [];
       }
@@ -1513,8 +1509,10 @@
       if (w.tags && w.tags.length) {
         for (var t = 0; t < w.tags.length; t++) {
           var tag = w.tags[t];
-          if (tag && !seenTags[tag]) {
-            seenTags[tag] = true;
+          // 前綴同 findDuplicateGroupsInMemory：標籤名為 'constructor' 等時
+          // seenTags[tag] 會撞上原型 truthy 值而被靜默丟棄
+          if (tag && !seenTags['t:' + tag]) {
+            seenTags['t:' + tag] = true;
             merged.tags.push(tag);
           }
         }
@@ -1663,6 +1661,10 @@
       (function(sheetName, index) {
         google.script.run
           .withSuccessHandler(function(result) {
+            // 30 秒逾時後才晚到的回應：整體載入已完成，不得再改動 allWords
+            // （no-duplicates 路徑 allWords 即 this.words 本體；晚到資料會帶著
+            //  後端 id=0 直接插入進行中的陣列 → 與新配置的 id 衝突、繞過去重）
+            if (finished) return;
             var count = 0;
             if (result && result.success && result.words) {
               count = result.words.length;
@@ -1675,7 +1677,9 @@
             }
             
             completed++;
-            sheetStatus[sheetName] = 'done';
+            // 後端對「找不到工作表」回傳 {success:false}（非例外）：
+            // 標記為 error（紅字），不得顯示綠色 ✓ 假裝載入完成
+            sheetStatus[sheetName] = (result && result.success) ? 'done' : 'error';
             sheetWordCounts[sheetName] = count;
             self.updateLoadingProgress(completed, total,
               '載入工作表 ' + completed + '/' + total + '...');
@@ -1687,6 +1691,8 @@
             }
           })
           .withFailureHandler(function(error) {
+            // 逾時後晚到的失敗回應同樣丟棄（finished 已為 true）
+            if (finished) return;
             console.error('載入工作表失敗:', sheetName, error);
             completed++;
             sheetStatus[sheetName] = 'error';
@@ -1707,6 +1713,19 @@
   
   // 完成逐表載入後的處理
   FlashcardApp.prototype.finishProgressiveLoading = function(allWords, callback) {
+    // 依「選擇的工作表順序 + 列號」排序：並行載入的回應到達順序否則會讓
+    // 跨表重複單字的保留目標（第一個出現者）與 id 指派在每次載入間漂移，
+    // 導致難度/SRS 寫入目標列在不同天落在不同實體列上
+    var selectedSheetsOrder = (this.sheetSettings && this.sheetSettings.selectedSheets) || [];
+    allWords.sort(function(a, b) {
+      var oa = selectedSheetsOrder.indexOf(a.sheetName);
+      var ob = selectedSheetsOrder.indexOf(b.sheetName);
+      if (oa === -1) oa = 100000;
+      if (ob === -1) ob = 100000;
+      if (oa !== ob) return oa - ob;
+      return (a.originalRowIndex || 0) - (b.originalRowIndex || 0);
+    });
+
     // 重新分配唯一 ID
     for (var i = 0; i < allWords.length; i++) {
       allWords[i].id = i;
@@ -1812,7 +1831,9 @@
               callback(false);
             }
           } else {
-            throw new Error('沒有找到單字資料');
+            // 後端回傳空字陣列：success handler 內的例外不會進 failure handler
+            // （伺服器呼叫本身成功），必須直接開設定畫面，否則載入畫面永久卡住
+            self.handleLoadingComplete(false, true);
           }
         })
         .withFailureHandler(function(error) {
@@ -1821,20 +1842,10 @@
         })
         .getWordsFromSheetsWithDuplicateDetection(self.sheetSettings.sheetId, self.sheetSettings.selectedSheets, false);
     } else {
-      google.script.run
-        .withSuccessHandler(function(words) {
-          if (words && words.length > 0) {
-            self.words = words;
-            callback(false);
-          } else {
-            throw new Error('沒有找到單字資料');
-          }
-        })
-        .withFailureHandler(function(error) {
-          console.error('載入單字失敗:', error);
-          self.handleLoadingComplete(false, true);
-        })
-        .getWordsFromSheet();
+      // 未設定 Sheet（正式流程不會到達：所有呼叫端皆有設定才會呼叫 loadWords）：
+      // 直接開啟設定畫面。不得走舊的 getWordsFromSheet() 後備——它載入的是
+      // 硬編碼的示範試算表，會靜默載入與使用者無關的單字
+      self.handleLoadingComplete(false, true);
     }
   };
   

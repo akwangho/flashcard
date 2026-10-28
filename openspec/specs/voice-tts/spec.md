@@ -23,7 +23,7 @@ When `speakWord` receives a KK phonetic string (`/.../`), the system SHALL strea
 
 - **WHEN** the browser reports Opus support (`canPlayType('audio/ogg; codecs="opus"')`, probed once per session), `.ogg` is used; otherwise `.mp3` directly
 - **AND** an `.ogg` load failure switches the session to `.mp3` and retries the clip; TTS fallback happens only if `.mp3` also fails
-- **AND** autoplay-policy rejections (e.g. iOS before first gesture) fail silently without TTS; when `voiceSettings.enabled` is false nothing plays; when `Audio` is unavailable the caller falls back to TTS instead of throwing
+- **AND** autoplay-policy rejections (e.g. iOS before first gesture) fail silently without TTS; when `voiceSettings.enabled` is false nothing plays; when `Audio` is unavailable the caller falls back to TTS instead of throwing; cancelling all speech (card switch, mute, navigation) also pauses a playing recording so it cannot bleed into the next card
 
 #### Scenario: Preload and replay
 
@@ -58,7 +58,7 @@ The system SHALL optionally play the Chinese translation when it appears in phas
 
 ### Requirement: Letter Spell-Out
 
-The system SHALL optionally spell out letters (a–z/A–Z; spaces and hyphens skipped) then read the full word, shortening the initial speech delay from 500 ms to 50 ms.
+The system SHALL optionally spell out letters (a–z/A–Z; spaces and hyphens skipped) then read the full word, shortening the initial speech delay from 500 ms to 50 ms. Spell-out belongs to the flashcard carousel only: quiz feedback and listening-practice audio never letter-spell, regardless of the setting or the word behind the modal.
 
 #### Scenario: Must-spell single-utterance and scope
 

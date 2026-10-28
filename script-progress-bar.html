@@ -24,7 +24,15 @@
     var duration = (isCarousel && customDuration !== undefined) ? customDuration
       : (phase === 2 && customDuration !== undefined) ? customDuration
       : this.settings.delayTime;
-    var startPercent = (phase === 1 || isCarousel) ? 0 : 50;
+    // 輪播記憶模式的單一進度條進行中，進入翻面／移除確認階段（phase 2）時：
+    // 不得跳回 50%（視覺突變，且丟棄已經過的輪播時間），
+    // 改從目前凍結的百分比繼續動畫到 100%
+    var startPercent;
+    if (phase === 2 && this._progressPhase === 'carousel') {
+      startPercent = this._getCurrentProgressBarPercent();
+    } else {
+      startPercent = (phase === 1 || isCarousel) ? 0 : 50;
+    }
     var endPercent = (phase === 1) ? 50 : 100;
 
     this._progressPhase = phase;
@@ -41,9 +49,10 @@
     bar.style.width = endPercent + '%';
   };
 
-  FlashcardApp.prototype.pauseProgressBar = function() {
+  /** 取得進度條目前的百分比（依 computed width 換算） */
+  FlashcardApp.prototype._getCurrentProgressBarPercent = function() {
     var bar = document.getElementById('timer-progress-bar');
-    if (!bar) return;
+    if (!bar) return 0;
 
     var computedWidth = 0;
     try {
@@ -52,7 +61,14 @@
       computedWidth = bar.offsetWidth || 0;
     }
     var parentWidth = bar.parentElement ? bar.parentElement.offsetWidth : window.innerWidth;
-    var currentPercent = parentWidth > 0 ? (computedWidth / parentWidth) * 100 : 0;
+    return parentWidth > 0 ? (computedWidth / parentWidth) * 100 : 0;
+  };
+
+  FlashcardApp.prototype.pauseProgressBar = function() {
+    var bar = document.getElementById('timer-progress-bar');
+    if (!bar) return;
+
+    var currentPercent = this._getCurrentProgressBarPercent();
 
     bar.style.WebkitTransition = 'none';
     bar.style.transition = 'none';

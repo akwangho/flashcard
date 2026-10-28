@@ -14,7 +14,7 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 
 | Key | Action |
 |-----|--------|
-| `B` | Pause / resume (works in any state; highest priority) |
+| `B` | Pause / resume (works in any state; highest priority — except while any modal is open, where B is ignored so the carousel cannot silently resume behind an exercise) |
 | Space | Click word card (show translation / mark for removal) |
 | Enter / `S` / F5 | Increase difficulty; `S`/F5: a negative value jumps to 1, blocked during pending removal |
 | → / ← | Next / previous word |

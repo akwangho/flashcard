@@ -348,6 +348,17 @@ describe('findDuplicateGroupsInMemory', function() {
     expect(app.findDuplicateGroupsInMemory(words).length).toBe(0);
   });
 
+  test('does not crash when an English word collides with an Object.prototype property', function() {
+    // 'constructor' 等單字以前用純物件鍵值會撞上原型（truthy）→ .push TypeError，
+    // 且例外發生在 GAS success handler 內無人捕捉 → 載入畫面永久卡死
+    var words = [
+      { id: 0, english: 'constructor', chinese: '建構子', sheetName: 'S1' },
+      { id: 1, english: 'toString', chinese: '轉字串', sheetName: 'S1' },
+      { id: 2, english: 'apple', chinese: '蘋果', sheetName: 'S1' }
+    ];
+    expect(app.findDuplicateGroupsInMemory(words).length).toBe(0);
+  });
+
   test('returns one group when same english appears twice with same chinese', function() {
     var words = [
       { id: 0, english: 'apple', chinese: '蘋果', sheetName: 'S1' },

@@ -179,9 +179,6 @@
     this.shuffleArray(availableWords);
     console.log('洗牌後單字順序:', availableWords.map(function(w, i) { return i + ':' + w.english; }).slice(0, 5));
     
-    // 根據測驗類型決定題目數量
-    var questionCount = type === 'quick' ? Math.min(APP_CONSTANTS.QUIZ_QUICK_COUNT, availableWords.length) : availableWords.length;
-    
     // 快速測驗只取前N個（已隨機洗牌）
     if (type === 'quick' && availableWords.length > APP_CONSTANTS.QUIZ_QUICK_COUNT) {
       availableWords = availableWords.slice(0, APP_CONSTANTS.QUIZ_QUICK_COUNT);
@@ -415,7 +412,12 @@
       totalNum.textContent = this.quizState.questions.length;
     }
     if (currentScore) {
-      currentScore.textContent = this.quizState.score;
+      // 與結果頁同尺度（百分比）：score 是「答對數 × 10 分」，
+      // 完整測驗題數 > 10 時直接顯示會超過 100，與最終成績不一致
+      var totalQuestions = this.quizState.questions.length || 1;
+      currentScore.textContent = Math.round(
+        (this.quizState.score / (totalQuestions * APP_CONSTANTS.QUIZ_POINTS_PER_QUESTION)) * 100
+      );
     }
     if (progressFill) {
       var progress = (this.quizState.currentQuestionIndex / this.quizState.questions.length) * 100;
@@ -745,6 +747,13 @@
     this.quizState.score = 0;
     this.quizState.startTime = new Date();
     this.quizState.endTime = null;
+    
+    // 更新開始畫面的題數與範圍說明（答錯會把 -999 推成 -998 退出「非常熟」
+    // 篩選池，重新開始後題目可能變少；只呼叫 showQuizScreen 不會刷新這兩個元素）
+    var questionCountEl = document.getElementById('quiz-question-count');
+    if (questionCountEl) questionCountEl.textContent = this.quizState.questions.length;
+    var scopeInfoEl = document.getElementById('quiz-scope-info');
+    if (scopeInfoEl) scopeInfoEl.textContent = this._buildScopeText(this.quizState.questions.length);
     
     this.showQuizScreen('start');
   };
