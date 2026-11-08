@@ -37,6 +37,29 @@ describe('grammar annotation', function() {
     expect(annotationFor('I am running.', 'running').role).toBe('verb');
   });
 
+  test('does not mark predicate adjectives such as glad as verbs', function() {
+    var sentence = 'I am glad to see you here again.';
+    expect(annotationFor(sentence, 'am').role).toBe('be');
+    expect(annotationFor(sentence, 'see').role).toBe('verb');
+    expect(annotationFor(sentence, 'glad')).toBeNull();
+    expect(annotationFor('I am happy to help.', 'happy')).toBeNull();
+    expect(annotationFor('He is ready to go.', 'ready')).toBeNull();
+    expect(annotationFor('They are willing to try.', 'willing')).toBeNull();
+  });
+
+  test('keeps progressive and passive participles as verbs', function() {
+    expect(annotationFor('I am running.', 'running').role).toBe('verb');
+    expect(annotationFor('The food is eaten.', 'eaten').role).toBe('verb');
+    expect(annotationFor('The dog was called Tom.', 'called').role).toBe('verb');
+  });
+
+  test('does not mark phrasal-verb particles as verbs', function() {
+    expect(annotationFor('I look forward to seeing you.', 'look').role).toBe('verb');
+    expect(annotationFor('I look forward to seeing you.', 'forward')).toBeNull();
+    expect(annotationFor('Please give up the bag.', 'give').role).toBe('verb');
+    expect(annotationFor('Please give up the bag.', 'up')).toBeNull();
+  });
+
   test('recognises do-support and contractions', function() {
     expect(annotationFor('Do you like it?', 'do').role).toBe('auxiliary');
     expect(annotationFor('Do you like it?', 'like').role).toBe('verb');
@@ -64,6 +87,32 @@ describe('grammar annotation', function() {
 
     expect(element.textContent).toBe('She has eaten.');
     expect(element.querySelectorAll('.grammar-verb, .grammar-auxiliary, .grammar-be').length).toBe(0);
+  });
+
+  test('annotates sentences only, not words or phrases', function() {
+    var element = document.getElementById('english-word');
+
+    app.setGrammarAnnotatedText(element, 'run');
+    expect(element.querySelectorAll('.grammar-verb, .grammar-auxiliary, .grammar-be').length).toBe(0);
+
+    app.setGrammarAnnotatedText(element, 'run quickly');
+    expect(element.querySelectorAll('.grammar-verb, .grammar-auxiliary, .grammar-be').length).toBe(0);
+
+    app.setGrammarAnnotatedText(element, 'I run.');
+    expect(element.querySelectorAll('.grammar-verb').length).toBe(1);
+    expect(element.querySelector('.grammar-verb').textContent).toBe('run');
+  });
+
+  test('shows the legend only for the current sentence', function() {
+    var legend = document.getElementById('grammar-legend');
+    app.currentWords = [{ english: 'run', chinese: '跑' }];
+    app.currentIndex = 0;
+    app.updateGrammarLegendVisibility();
+    expect(legend.classList.contains('show')).toBe(false);
+
+    app.currentWords = [{ english: 'I run.', chinese: '我跑。' }];
+    app.updateGrammarLegendVisibility();
+    expect(legend.classList.contains('show')).toBe(true);
   });
 
   test('saves the setting and updates the legend', function() {

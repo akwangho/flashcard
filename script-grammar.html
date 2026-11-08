@@ -2,8 +2,9 @@
 <script>
   /**
    * @module script-grammar
-   * @description 英文語法角色自動標注：辨識主要動詞、助動詞與 BE 動詞，
-   *   以三種顏色標示；先顯示的英文保留原文，等中文出現時才補上標注。
+   * @description 英文句子語法角色自動標注：辨識主要動詞、助動詞與 BE 動詞，
+   *   以三種顏色標示；單字與片語不標注，先顯示的英文保留原文，
+   *   等中文出現時才補上標注。
    *
    * @dependencies vendor-compromise.html (window.nlp), script-core.html
    * @provides FlashcardApp.prototype: getGrammarAnnotations,
@@ -49,6 +50,57 @@
   };
 
   /**
+   * 連繫動詞（linking verb）：後面接的是主語補語（形容詞／名詞），
+   * 例如 `I feel glad.`、`She seems happy.`、`He became a teacher.`。
+   */
+  var GRAMMAR_LINKING_VERBS = {
+    'become': true, 'became': true, 'becoming': true,
+    'seem': true, 'seemed': true, 'seeming': true,
+    'appear': true, 'appeared': true, 'appearing': true,
+    'feel': true, 'felt': true, 'feeling': true,
+    'look': true, 'looked': true, 'looking': true,
+    'sound': true, 'sounded': true, 'sounding': true,
+    'taste': true, 'tasted': true, 'tasting': true,
+    'smell': true, 'smelled': true, 'smelling': true,
+    'remain': true, 'remained': true, 'remaining': true,
+    'stay': true, 'stayed': true, 'staying': true,
+    'grow': true, 'grew': true, 'grown': true, 'growing': true,
+    'turn': true, 'turned': true, 'turning': true,
+    'get': true, 'got': true, 'gotten': true, 'getting': true,
+    'keep': true, 'kept': true, 'keeping': true,
+    'prove': true, 'proved': true, 'proven': true, 'proving': true
+  };
+
+  /**
+   * 常見主語補語形容詞。放在 BE／連繫動詞後時是形容詞而非動詞；
+   * 特別涵蓋 compromise 容易誤判的 `glad / happy / ready / willing`。
+   */
+  var GRAMMAR_PREDICATE_ADJECTIVES = {
+    'able': true, 'afraid': true, 'alive': true, 'alone': true,
+    'angry': true, 'anxious': true, 'ashamed': true, 'available': true,
+    'aware': true, 'beautiful': true, 'better': true, 'bored': true,
+    'busy': true, 'calm': true, 'careless': true, 'cheerful': true,
+    'clean': true, 'clear': true, 'clever': true, 'comfortable': true,
+    'confident': true, 'confused': true, 'content': true, 'crazy': true,
+    'curious': true, 'dead': true, 'delighted': true,
+    'disappointed': true, 'eager': true, 'early': true, 'easy': true,
+    'excited': true, 'expensive': true, 'fair': true, 'faithful': true,
+    'famous': true, 'finished': true, 'free': true, 'fresh': true,
+    'friendly': true, 'frightened': true, 'glad': true, 'good': true,
+    'grateful': true, 'happy': true, 'healthy': true, 'helpful': true,
+    'honest': true, 'hungry': true, 'ill': true, 'interested': true,
+    'jealous': true, 'kind': true, 'late': true, 'lucky': true,
+    'nervous': true, 'nice': true, 'okay': true, 'open': true,
+    'patient': true, 'perfect': true, 'pleased': true, 'polite': true,
+    'poor': true, 'proud': true, 'ready': true, 'real': true,
+    'right': true, 'sad': true, 'safe': true, 'scared': true,
+    'serious': true, 'shy': true, 'sorry': true, 'strong': true,
+    'stupid': true, 'surprised': true, 'sure': true, 'sweet': true,
+    'tired': true, 'upset': true, 'useful': true, 'weak': true,
+    'well': true, 'willing': true, 'worried': true, 'wrong': true
+  };
+
+  /**
    * 判斷 compromise term 是否帶有指定標籤。
    * @param {Object} term - compromise term
    * @param {string} tag - 標籤名稱
@@ -82,6 +134,11 @@
   FlashcardApp.prototype._grammarRoleForTerm = function(term) {
     if (!term) return null;
     var word = this._grammarTermText(term);
+
+    // `to` 是不定詞／介詞標記，不是句中動詞；短語动词的 particle
+    // （look forward、give up 的 forward/up）也不是主要動詞。
+    if (word === 'to') return null;
+    if (this._grammarTermHasTag(term, 'Particle')) return null;
 
     // BE 動詞及其縮寫形式優先判定。
     if (GRAMMAR_BE_WORDS[word]) return GRAMMAR_ROLE_BE;
@@ -125,6 +182,87 @@
    */
   FlashcardApp.prototype._grammarIsCommonVerb = function(word) {
     return !!(word && GRAMMAR_COMMON_VERBS[word]);
+  };
+
+  /**
+   * 找出下一個實際內容詞，略過修飾用的副詞與否定詞。
+   * @param {Array<Object>} units - 可見詞彙單元
+   * @param {number} startIndex - 起始索引
+   * @returns {number} 下一個內容詞索引；不存在時回傳 -1
+   */
+  FlashcardApp.prototype._grammarNextContentIndex = function(units, startIndex) {
+    for (var i = startIndex; i < units.length; i++) {
+      var term = units[i].term;
+      if (this._grammarTermHasTag(term, 'Adverb') ||
+          this._grammarTermHasTag(term, 'Negative')) {
+        continue;
+      }
+      return i;
+    }
+    return -1;
+  };
+
+  /**
+   * 依句法上下文修正主語補語，避免把形容詞誤標成動詞。
+   *
+   * compromise 偶爾會把 `I am glad to see you.` 的 glad 判成動詞；
+   * `willing` 也可能被當成 gerund。BE 動詞與連繫動詞後的補語需依上下文判斷：
+   * - 一般動詞／形容詞（如 glad、happy、ready）視為形容詞。
+   * - 明確的進行式（running）與被動式（eaten、called）仍視為動詞。
+   * - 已知的主語補語形容詞（如 willing、interested）一律不標成動詞。
+   *
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyContextualAdjectives = function(units) {
+    for (var i = 0; i < units.length; i++) {
+      var linkWord = this._grammarTermText(units[i].term);
+      var isBe = units[i].role === GRAMMAR_ROLE_BE;
+      var isLinkingVerb = units[i].role === GRAMMAR_ROLE_VERB &&
+                          GRAMMAR_LINKING_VERBS[linkWord];
+      if (!isBe && !isLinkingVerb) continue;
+
+      var targetIndex = this._grammarNextContentIndex(units, i + 1);
+      if (targetIndex < 0 || units[targetIndex].role !== GRAMMAR_ROLE_VERB) continue;
+
+      var target = units[targetIndex];
+      var targetWord = this._grammarTermText(target.term);
+      var isGerund = this._grammarTermHasTag(target.term, 'Gerund');
+      var isParticiple = this._grammarTermHasTag(target.term, 'Participle');
+      var isPastTense = this._grammarTermHasTag(target.term, 'PastTense');
+
+      // 已知的主語補語形容詞優先；即使 compromise 標成 Gerund/Participle 也不標紅。
+      if (GRAMMAR_PREDICATE_ADJECTIVES[targetWord]) {
+        target.role = null;
+        continue;
+      }
+
+      if (isBe) {
+        // BE + 一般動詞在正常英文中是形容詞補語；
+        // Gerund（am running）、Participle（is eaten）與
+        // PastTense 被動式（was called Tom）則保留動詞角色。
+        if (!isGerund && !isParticiple && !isPastTense) target.role = null;
+      } else if (isLinkingVerb) {
+        // 連繫動詞 + 形容詞 + to infinitive，例如 `feel glad to see you.`。
+        var nextIndex = this._grammarNextContentIndex(units, targetIndex + 1);
+        var nextWord = nextIndex >= 0 ? this._grammarTermText(units[nextIndex].term) : '';
+        if (nextWord === 'to' && !isGerund && !isParticiple) target.role = null;
+      }
+    }
+  };
+
+  /**
+   * 修正片語助動詞：`used to ...`、`about to ...`。
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyPhraseAuxiliaries = function(units) {
+    for (var i = 0; i < units.length - 1; i++) {
+      var word = this._grammarTermText(units[i].term);
+      var nextWord = this._grammarTermText(units[i + 1].term);
+      if (nextWord === 'to' &&
+          (word === 'used' || word === 'about' || word === 'supposed')) {
+        units[i].role = GRAMMAR_ROLE_AUXILIARY;
+      }
+    }
   };
 
   /**
@@ -240,6 +378,8 @@
 
       this._grammarApplyDoQuestion(units, text);
       this._grammarApplyModalFallback(units);
+      this._grammarApplyContextualAdjectives(units);
+      this._grammarApplyPhraseAuxiliaries(units);
 
       for (var u = 0; u < units.length; u++) {
         if (!units[u].role) continue;
@@ -297,13 +437,30 @@
   };
 
   /**
-   * 依設定設定文字；有標注時顯示語法標注，否則顯示純文字。
+   * 判斷單字是否為完整句子。只有句子需要語法角色標注，
+   * 單字、片語與單字型態列表維持純文字。
+   * @param {Object} word - 單字物件
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype.shouldAnnotateGrammar = function(word) {
+    if (!word || !word.english) return false;
+    return typeof getWordType === 'function' && getWordType(word.english) === 'sentence';
+  };
+
+  /**
+   * 依設定設定文字；只有完整句子且功能開啟時顯示語法標注，
+   * 其餘情況（單字、片語）顯示純文字。
    * @param {HTMLElement} element - 目標文字元素
    * @param {string} text - 原始英文文字
    */
   FlashcardApp.prototype.setGrammarAnnotatedText = function(element, text) {
     if (!element) return;
+    var isSentence = typeof getWordType === 'function' && getWordType(text) === 'sentence';
     if (this.settings && this.settings.grammarAnnotationEnabled === false) {
+      this.setCardText(element, text);
+      return;
+    }
+    if (!isSentence) {
       this.setCardText(element, text);
       return;
     }
@@ -312,11 +469,15 @@
 
   /**
    * 顯示／隱藏主畫面的語法角色圖例。
+   * 只有目前卡片是完整句子時才顯示圖例。
    */
   FlashcardApp.prototype.updateGrammarLegendVisibility = function() {
     var legend = document.getElementById('grammar-legend');
     if (!legend) return;
     var enabled = !(this.settings && this.settings.grammarAnnotationEnabled === false);
-    legend.classList.toggle('show', enabled);
+    var currentWord = this.currentWords && this.currentWords.length ?
+      this.currentWords[this.currentIndex] : null;
+    var isSentence = this.shouldAnnotateGrammar(currentWord);
+    legend.classList.toggle('show', enabled && isSentence);
   };
 </script>

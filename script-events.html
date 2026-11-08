@@ -641,6 +641,11 @@
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
 
+    // 語法標注只針對完整句子；圖例也只在此時顯示。
+    if (typeof this.updateGrammarLegendVisibility === 'function') {
+      this.updateGrammarLegendVisibility();
+    }
+
     // 共用前置：重置狀態
     this.showingChinese = false;
     this.isTransitioning = false;
