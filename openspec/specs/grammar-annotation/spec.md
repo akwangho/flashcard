@@ -44,6 +44,16 @@ The system SHALL withhold annotation from English text that appears first and SH
 - **WHEN** the English side appears
 - **THEN** the English text is already annotated when it becomes visible.
 
+### Requirement: Multi-Sentence Annotation
+
+The system SHALL annotate every complete sentence contained in a sentence card. Each sentence SHALL be analysed with its own grammatical context, and annotation ranges SHALL retain their original character positions across sentence boundaries.
+
+#### Scenario: Question and answer card
+
+- **GIVEN** the English text is `Does he have a fever? No, he doesn't. He has a cough.`
+- **WHEN** grammar annotation is applied
+- **THEN** `Does` and `doesn't` are coloured as auxiliary verbs, while `have` and `has` are coloured as main verbs.
+
 ### Requirement: Grammar Role Classification
 
 The system SHALL classify and colour main verbs, auxiliary verbs, and BE verbs separately. BE forms take precedence over the general auxiliary category; modal, perfect, and do-support auxiliaries use the auxiliary category; other verbs use the main-verb category. Classification SHALL use sentence context so predicate adjectives after BE or linking verbs are not coloured as verbs, while progressive and passive verb forms remain verbs.

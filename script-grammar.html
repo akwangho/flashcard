@@ -2,7 +2,8 @@
 <script>
   /**
    * @module script-grammar
-   * @description 英文句子語法角色自動標注：辨識主要動詞、助動詞與 BE 動詞，
+   * @description 英文句子語法角色自動標注（完整支援一張卡片內的多句內容）：
+   *   辨識主要動詞、助動詞與 BE 動詞，
    *   以三種顏色標示；單字與片語不標注，先顯示的英文保留原文，
    *   等中文出現時才補上標注。
    *
@@ -272,7 +273,7 @@
    * @param {string} text - 完整英文文字
    */
   FlashcardApp.prototype._grammarApplyDoQuestion = function(units, text) {
-    if (!units.length || !/[?？]\s*$/.test(text)) return;
+    if (!units.length || !/[?？][\"'”’]?\s*$/.test(text)) return;
     var firstWord = this._grammarTermText(units[0].term);
     if (firstWord !== 'do' && firstWord !== 'does' && firstWord !== 'did') return;
 
@@ -333,6 +334,8 @@
 
   /**
    * 分析英文文字，回傳語法角色標注範圍。
+   * compromise 會將多句文字拆成多個 sentence；每個句子都必須獨立分析，
+   * 再依原文字元位置合併，才能完整標注問答型等多句卡片。
    * @param {string} text - 英文文字
    * @returns {Array<{start:number,end:number,text:string,role:string}>}
    */
@@ -342,53 +345,61 @@
 
     try {
       var parsed = window.nlp(text).json();
-      if (!parsed || !parsed.length || !parsed[0].terms) return annotations;
+      if (!parsed || !parsed.length) return annotations;
 
-      var terms = parsed[0].terms;
-      var units = [];
       var cursor = 0;
-      var previousUnit = null;
+      for (var sentenceIndex = 0; sentenceIndex < parsed.length; sentenceIndex++) {
+        var parsedSentence = parsed[sentenceIndex];
+        var terms = parsedSentence && parsedSentence.terms;
+        if (!terms || !terms.length) continue;
 
-      for (var i = 0; i < terms.length; i++) {
-        var term = terms[i];
-        var pre = term.pre || '';
-        var termText = term.text || '';
-        var post = term.post || '';
+        var sentenceStart = cursor;
+        var units = [];
+        var previousUnit = null;
 
-        if (termText) {
-          var unit = {
-            term: term,
-            start: cursor + pre.length,
-            end: cursor + pre.length + termText.length,
-            role: this._grammarRoleForTerm(term)
-          };
-          units.push(unit);
-          previousUnit = unit;
-        } else if (previousUnit && !previousUnit.role) {
-          // 縮寫中的隱藏詞（如 I'm → am、I've → have）沿用前一個可見詞。
-          var implicitRole = this._grammarRoleForTerm({
-            text: term.implicit || '',
-            tags: term.tags || []
-          });
-          if (implicitRole) previousUnit.role = implicitRole;
+        for (var i = 0; i < terms.length; i++) {
+          var term = terms[i];
+          var pre = term.pre || '';
+          var termText = term.text || '';
+          var post = term.post || '';
+
+          if (termText) {
+            var unit = {
+              term: term,
+              start: cursor + pre.length,
+              end: cursor + pre.length + termText.length,
+              role: this._grammarRoleForTerm(term)
+            };
+            units.push(unit);
+            previousUnit = unit;
+          } else if (previousUnit && !previousUnit.role) {
+            // 縮寫中的隱藏詞（如 I'm → am、I've → have）沿用前一個可見詞。
+            var implicitRole = this._grammarRoleForTerm({
+              text: term.implicit || '',
+              tags: term.tags || []
+            });
+            if (implicitRole) previousUnit.role = implicitRole;
+          }
+
+          cursor += pre.length + termText.length + post.length;
         }
 
-        cursor += pre.length + termText.length + post.length;
-      }
+        // 每句獨立套用文法规則，避免上一句的主詞、modal 或 BE 影響下一句。
+        var sentenceText = parsedSentence.text || text.substring(sentenceStart, cursor);
+        this._grammarApplyDoQuestion(units, sentenceText);
+        this._grammarApplyModalFallback(units);
+        this._grammarApplyContextualAdjectives(units);
+        this._grammarApplyPhraseAuxiliaries(units);
 
-      this._grammarApplyDoQuestion(units, text);
-      this._grammarApplyModalFallback(units);
-      this._grammarApplyContextualAdjectives(units);
-      this._grammarApplyPhraseAuxiliaries(units);
-
-      for (var u = 0; u < units.length; u++) {
-        if (!units[u].role) continue;
-        annotations.push({
-          start: units[u].start,
-          end: units[u].end,
-          text: text.substring(units[u].start, units[u].end),
-          role: units[u].role
-        });
+        for (var u = 0; u < units.length; u++) {
+          if (!units[u].role) continue;
+          annotations.push({
+            start: units[u].start,
+            end: units[u].end,
+            text: text.substring(units[u].start, units[u].end),
+            role: units[u].role
+          });
+        }
       }
     } catch (e) {
       console.warn('英文語法角色分析失敗（不影響卡片顯示）:', e);

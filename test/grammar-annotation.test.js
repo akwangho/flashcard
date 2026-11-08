@@ -69,6 +69,38 @@ describe('grammar annotation', function() {
     expect(annotationFor("I'm happy.", "I'm").role).toBe('be');
   });
 
+  test('annotates every sentence in a multi-sentence card', function() {
+    var sentence = 'Does he have a fever? No, he doesn\'t. He has a cough.';
+    var annotations = app.getGrammarAnnotations(sentence);
+    var roles = {};
+    for (var i = 0; i < annotations.length; i++) {
+      roles[annotations[i].text.toLowerCase()] = annotations[i].role;
+      expect(sentence.substring(annotations[i].start, annotations[i].end)).toBe(annotations[i].text);
+    }
+
+    expect(roles.does).toBe('auxiliary');
+    expect(roles.have).toBe('verb');
+    expect(roles["doesn't"]).toBe('auxiliary');
+    expect(roles.has).toBe('verb');
+    expect(annotations.length).toBe(4);
+
+    var element = document.getElementById('english-word');
+    app.renderGrammarAnnotations(element, sentence);
+    expect(element.textContent).toBe(sentence);
+    expect(element.querySelectorAll('.grammar-auxiliary').length).toBe(2);
+    expect(element.querySelectorAll('.grammar-verb').length).toBe(2);
+  });
+
+  test('keeps sentence contexts separate in multi-sentence cards', function() {
+    var sentence = 'He goes home. She comes back.';
+    var annotations = app.getGrammarAnnotations(sentence);
+    var verbs = [];
+    for (var i = 0; i < annotations.length; i++) {
+      if (annotations[i].role === 'verb') verbs.push(annotations[i].text);
+    }
+    expect(verbs).toEqual(['goes', 'comes']);
+  });
+
   test('renders coloured spans without changing the visible text', function() {
     var element = document.getElementById('english-word');
     app.renderGrammarAnnotations(element, 'She has eaten.');
