@@ -737,6 +737,8 @@
 
     this.setCardText(firstElement, this.displayTextFor(currentWord, 'english'));
     this.setCardText(secondElement, this.displayTextFor(currentWord, 'chinese'));
+    // 輪播記憶模式中英文同時出現，因此英文一開始就顯示語法標注。
+    this.setGrammarAnnotatedText(firstElement, this.displayTextFor(currentWord, 'english'));
     firstElement.classList.add('show');
     secondElement.classList.add('show');
     this.showingChinese = true;

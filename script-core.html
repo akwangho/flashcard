@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.26.6',
+    APP_VERSION: '1.27.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-10-28 09:21',
+    APP_BUILD_TIME: '2026-11-08 09:58',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -466,7 +466,8 @@
       smartTimerEnabled: false,
       listeningMode: false,
       carouselMemoryMode: false,
-      showKKPhonetic: true             // KK 音標顯示開關（預設開啟；K 鍵可切換）
+      showKKPhonetic: true,            // KK 音標顯示開關（預設開啟；K 鍵可切換）
+      grammarAnnotationEnabled: true   // 動詞／助動詞／BE 動詞自動標注（預設開啟）
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -1203,6 +1204,15 @@
     // 設定 KK 音標顯示開關
     var kkPhoneticToggle = document.getElementById('kk-phonetic-setting');
     if (kkPhoneticToggle) kkPhoneticToggle.checked = !!this.settings.showKKPhonetic;
+
+    // 設定英文語法角色自動標注開關
+    var grammarAnnotationToggle = document.getElementById('grammar-annotation-setting');
+    if (grammarAnnotationToggle) {
+      grammarAnnotationToggle.checked = this.settings.grammarAnnotationEnabled !== false;
+    }
+    if (typeof this.updateGrammarLegendVisibility === 'function') {
+      this.updateGrammarLegendVisibility();
+    }
 
     // 主畫面快速計時區（與 delay-setting / smart-timer-setting 同步）
     var quickDelaySlider = document.getElementById('quick-delay-setting');

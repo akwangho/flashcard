@@ -1,0 +1,322 @@
+<!-- script-grammar.html -->
+<script>
+  /**
+   * @module script-grammar
+   * @description 英文語法角色自動標注：辨識主要動詞、助動詞與 BE 動詞，
+   *   以三種顏色標示；先顯示的英文保留原文，等中文出現時才補上標注。
+   *
+   * @dependencies vendor-compromise.html (window.nlp), script-core.html
+   * @provides FlashcardApp.prototype: getGrammarAnnotations,
+   *   renderGrammarAnnotations, setGrammarAnnotatedText,
+   *   updateGrammarLegendVisibility
+   */
+
+  var GRAMMAR_ROLE_VERB = 'verb';
+  var GRAMMAR_ROLE_AUXILIARY = 'auxiliary';
+  var GRAMMAR_ROLE_BE = 'be';
+
+  /** 常見原形動詞：供 modal / do-support 文法的後備判斷使用。 */
+  var GRAMMAR_COMMON_VERBS = {
+    'be': true, 'become': true, 'begin': true, 'believe': true, 'break': true,
+    'bring': true, 'build': true, 'buy': true, 'call': true, 'come': true,
+    'cry': true, 'cut': true, 'do': true, 'drink': true, 'drive': true,
+    'eat': true, 'fall': true, 'feel': true, 'find': true, 'finish': true,
+    'fly': true, 'forget': true, 'get': true, 'give': true, 'go': true,
+    'grow': true, 'have': true, 'hear': true, 'help': true, 'hold': true,
+    'hope': true, 'hurry': true, 'jump': true, 'keep': true, 'know': true,
+    'laugh': true, 'learn': true, 'leave': true, 'let': true, 'like': true,
+    'listen': true, 'live': true, 'look': true, 'love': true, 'make': true,
+    'meet': true, 'move': true, 'need': true, 'open': true, 'play': true,
+    'please': true, 'put': true, 'read': true, 'ride': true, 'run': true,
+    'say': true, 'see': true, 'sell': true, 'send': true, 'sing': true,
+    'sit': true, 'sleep': true, 'speak': true, 'spend': true, 'stand': true,
+    'start': true, 'stay': true, 'study': true, 'swim': true, 'take': true,
+    'talk': true, 'teach': true, 'tell': true, 'think': true, 'throw': true,
+    'travel': true, 'try': true, 'understand': true, 'use': true,
+    'visit': true, 'wait': true, 'walk': true, 'want': true, 'watch': true,
+    'wear': true, 'win': true, 'wish': true, 'work': true, 'write': true
+  };
+
+  var GRAMMAR_BE_WORDS = {
+    'am': true, 'is': true, 'are': true, 'was': true, 'were': true,
+    'be': true, 'been': true, 'being': true
+  };
+
+  var GRAMMAR_MODAL_WORDS = {
+    'can': true, 'could': true, 'may': true, 'might': true, 'must': true,
+    'shall': true, 'should': true, 'will': true, 'would': true,
+    'ought': true, 'cannot': true
+  };
+
+  /**
+   * 判斷 compromise term 是否帶有指定標籤。
+   * @param {Object} term - compromise term
+   * @param {string} tag - 標籤名稱
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._grammarTermHasTag = function(term, tag) {
+    if (!term || !term.tags || !term.tags.length) return false;
+    for (var i = 0; i < term.tags.length; i++) {
+      if (term.tags[i] === tag) return true;
+    }
+    return false;
+  };
+
+  /**
+   * 取得 term 的小寫文字（保留英文撇號，移除首尾非英文字元）。
+   * @param {Object} term - compromise term
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarTermText = function(term) {
+    if (!term) return '';
+    var text = (term.text || term.implicit || '').toLowerCase();
+    return text.replace(/^[^a-z]+/, '').replace(/[^a-z]+$/, '');
+  };
+
+  /**
+   * 判斷 term 屬於哪一種語法角色。
+   * BE 優先於 auxiliary；一般動詞最後判定。
+   * @param {Object} term - compromise term
+   * @returns {string|null} 'verb' | 'auxiliary' | 'be' | null
+   */
+  FlashcardApp.prototype._grammarRoleForTerm = function(term) {
+    if (!term) return null;
+    var word = this._grammarTermText(term);
+
+    // BE 動詞及其縮寫形式優先判定。
+    if (GRAMMAR_BE_WORDS[word]) return GRAMMAR_ROLE_BE;
+    if (word === "i'm" || word === "you're" || word === "we're" ||
+        word === "they're" || word === "he's" || word === "she's" ||
+        word === "it's" || word === "that's" || word === "there's" ||
+        word === "here's" || word === "who's" || word === "what's" ||
+        word === "where's" || word === "when's" || word === "why's" ||
+        word === "how's") {
+      return GRAMMAR_ROLE_BE;
+    }
+
+    // Modal / have / do 等助動詞與其縮寫。
+    if (GRAMMAR_MODAL_WORDS[word]) return GRAMMAR_ROLE_AUXILIARY;
+    if (word === "i've" || word === "you've" || word === "we've" ||
+        word === "they've" || word === "i'd" || word === "you'd" ||
+        word === "we'd" || word === "they'd" || word === "he'd" ||
+        word === "she'd" || word === "it'd" || word === "i'll" ||
+        word === "you'll" || word === "we'll" || word === "they'll" ||
+        word === "he'll" || word === "she'll" || word === "it'll" ||
+        word === "don't" || word === "doesn't" || word === "didn't" ||
+        word === "can't" || word === "couldn't" || word === "mayn't" ||
+        word === "mightn't" || word === "mustn't" || word === "shan't" ||
+        word === "shouldn't" || word === "won't" || word === "wouldn't") {
+      return GRAMMAR_ROLE_AUXILIARY;
+    }
+
+    if (this._grammarTermHasTag(term, 'Copula')) return GRAMMAR_ROLE_BE;
+    if (this._grammarTermHasTag(term, 'Auxiliary') ||
+        this._grammarTermHasTag(term, 'Modal')) {
+      return GRAMMAR_ROLE_AUXILIARY;
+    }
+    if (this._grammarTermHasTag(term, 'Verb')) return GRAMMAR_ROLE_VERB;
+    return null;
+  };
+
+  /**
+   * 判斷單字是否為常見原形動詞。
+   * @param {string} word - 小寫英文單字
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._grammarIsCommonVerb = function(word) {
+    return !!(word && GRAMMAR_COMMON_VERBS[word]);
+  };
+
+  /**
+   * 找出 do / does / did 問句中的主要動詞。
+   * compromise 對 `Do you like it?` 會把 like 判成連接詞，因此在此補強。
+   * @param {Array<Object>} units - 可見詞彙單元
+   * @param {string} text - 完整英文文字
+   */
+  FlashcardApp.prototype._grammarApplyDoQuestion = function(units, text) {
+    if (!units.length || !/[?？]\s*$/.test(text)) return;
+    var firstWord = this._grammarTermText(units[0].term);
+    if (firstWord !== 'do' && firstWord !== 'does' && firstWord !== 'did') return;
+
+    units[0].role = GRAMMAR_ROLE_AUXILIARY;
+
+    // 找問句主詞（名詞或代名詞），下一個詞才是主要動詞。
+    var subjectIndex = -1;
+    for (var i = 1; i < units.length; i++) {
+      var subjectTerm = units[i].term;
+      if (this._grammarTermHasTag(subjectTerm, 'Pronoun') ||
+          this._grammarTermHasTag(subjectTerm, 'Noun') ||
+          this._grammarTermHasTag(subjectTerm, 'Person')) {
+        subjectIndex = i;
+        break;
+      }
+    }
+
+    var verbIndex = subjectIndex >= 0 ? subjectIndex + 1 : 2;
+    // 主詞後可能先出現副詞（Do you really like ...?），略過後再找主要動詞。
+    while (verbIndex < units.length &&
+           this._grammarTermHasTag(units[verbIndex].term, 'Adverb')) {
+      verbIndex++;
+    }
+    if (verbIndex < units.length && !units[verbIndex].role) {
+      var verbWord = this._grammarTermText(units[verbIndex].term);
+      if (this._grammarIsCommonVerb(verbWord)) {
+        units[verbIndex].role = GRAMMAR_ROLE_VERB;
+      }
+    }
+  };
+
+  /**
+   * 補強 modal 後方的主要動詞（例如 `can swim`）。
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyModalFallback = function(units) {
+    for (var i = 0; i < units.length; i++) {
+      if (units[i].role !== GRAMMAR_ROLE_AUXILIARY) continue;
+      var modalWord = this._grammarTermText(units[i].term);
+      if (!GRAMMAR_MODAL_WORDS[modalWord]) continue;
+
+      for (var j = i + 1; j < units.length; j++) {
+        var nextTerm = units[j].term;
+        if (this._grammarTermHasTag(nextTerm, 'Adverb') ||
+            this._grammarTermHasTag(nextTerm, 'Negative')) {
+          continue;
+        }
+        if (!units[j].role) {
+          var nextWord = this._grammarTermText(nextTerm);
+          if (this._grammarIsCommonVerb(nextWord)) {
+            units[j].role = GRAMMAR_ROLE_VERB;
+          }
+        }
+        break;
+      }
+    }
+  };
+
+  /**
+   * 分析英文文字，回傳語法角色標注範圍。
+   * @param {string} text - 英文文字
+   * @returns {Array<{start:number,end:number,text:string,role:string}>}
+   */
+  FlashcardApp.prototype.getGrammarAnnotations = function(text) {
+    var annotations = [];
+    if (!text || typeof window.nlp !== 'function') return annotations;
+
+    try {
+      var parsed = window.nlp(text).json();
+      if (!parsed || !parsed.length || !parsed[0].terms) return annotations;
+
+      var terms = parsed[0].terms;
+      var units = [];
+      var cursor = 0;
+      var previousUnit = null;
+
+      for (var i = 0; i < terms.length; i++) {
+        var term = terms[i];
+        var pre = term.pre || '';
+        var termText = term.text || '';
+        var post = term.post || '';
+
+        if (termText) {
+          var unit = {
+            term: term,
+            start: cursor + pre.length,
+            end: cursor + pre.length + termText.length,
+            role: this._grammarRoleForTerm(term)
+          };
+          units.push(unit);
+          previousUnit = unit;
+        } else if (previousUnit && !previousUnit.role) {
+          // 縮寫中的隱藏詞（如 I'm → am、I've → have）沿用前一個可見詞。
+          var implicitRole = this._grammarRoleForTerm({
+            text: term.implicit || '',
+            tags: term.tags || []
+          });
+          if (implicitRole) previousUnit.role = implicitRole;
+        }
+
+        cursor += pre.length + termText.length + post.length;
+      }
+
+      this._grammarApplyDoQuestion(units, text);
+      this._grammarApplyModalFallback(units);
+
+      for (var u = 0; u < units.length; u++) {
+        if (!units[u].role) continue;
+        annotations.push({
+          start: units[u].start,
+          end: units[u].end,
+          text: text.substring(units[u].start, units[u].end),
+          role: units[u].role
+        });
+      }
+    } catch (e) {
+      console.warn('英文語法角色分析失敗（不影響卡片顯示）:', e);
+      return [];
+    }
+
+    return annotations;
+  };
+
+  /**
+   * 將語法角色標注渲染到元素；只建立文字節點與 span，避免 HTML 注入。
+   * @param {HTMLElement} element - 目標文字元素
+   * @param {string} text - 原始英文文字
+   */
+  FlashcardApp.prototype.renderGrammarAnnotations = function(element, text) {
+    if (!element) return;
+    var source = String(text || '');
+    var annotations = this.getGrammarAnnotations(source);
+
+    element.textContent = '';
+    element.classList.toggle('word-empty', source === '');
+
+    var cursor = 0;
+    for (var i = 0; i < annotations.length; i++) {
+      var annotation = annotations[i];
+      if (annotation.start > cursor) {
+        element.appendChild(document.createTextNode(source.substring(cursor, annotation.start)));
+      }
+
+      var span = document.createElement('span');
+      if (annotation.role === GRAMMAR_ROLE_VERB) {
+        span.className = 'grammar-verb';
+      } else if (annotation.role === GRAMMAR_ROLE_AUXILIARY) {
+        span.className = 'grammar-auxiliary';
+      } else if (annotation.role === GRAMMAR_ROLE_BE) {
+        span.className = 'grammar-be';
+      }
+      span.textContent = annotation.text;
+      element.appendChild(span);
+      cursor = annotation.end;
+    }
+
+    if (cursor < source.length) {
+      element.appendChild(document.createTextNode(source.substring(cursor)));
+    }
+  };
+
+  /**
+   * 依設定設定文字；有標注時顯示語法標注，否則顯示純文字。
+   * @param {HTMLElement} element - 目標文字元素
+   * @param {string} text - 原始英文文字
+   */
+  FlashcardApp.prototype.setGrammarAnnotatedText = function(element, text) {
+    if (!element) return;
+    if (this.settings && this.settings.grammarAnnotationEnabled === false) {
+      this.setCardText(element, text);
+      return;
+    }
+    this.renderGrammarAnnotations(element, text);
+  };
+
+  /**
+   * 顯示／隱藏主畫面的語法角色圖例。
+   */
+  FlashcardApp.prototype.updateGrammarLegendVisibility = function() {
+    var legend = document.getElementById('grammar-legend');
+    if (!legend) return;
+    var enabled = !(this.settings && this.settings.grammarAnnotationEnabled === false);
+    legend.classList.toggle('show', enabled);
+  };
+</script>

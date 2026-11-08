@@ -445,6 +445,18 @@
     chineseElement.classList.add('show');
     this.showingChinese = true;
 
+    // 語法標注依出現順序處理：
+    // - 先英文：英文已先顯示且未標注，現在中文出現才補標注英文。
+    // - 先中文：英文此刻才出現，直接以已標注狀態顯示。
+    if (isReversed) {
+      this.setGrammarAnnotatedText(chineseElement, secondText);
+    } else {
+      this.setGrammarAnnotatedText(
+        document.getElementById('english-word'),
+        this.displayTextFor(currentWord, 'english')
+      );
+    }
+
     // KK 音標：先中文/聽力模式下，英文此刻才出現 → 音標同步顯示；
     // 已顯示中（先英文模式）則僅微調位置避免與翻譯重疊
     if (typeof this._maybeShowKKPhonetic === 'function') {

@@ -165,6 +165,13 @@
           <span class="muted-text">已靜音</span>
         </div>
       </div>
+
+      <!-- 英文語法角色圖例：動詞／助動詞／BE 動詞 -->
+      <div id="grammar-legend" class="grammar-legend">
+        <span class="grammar-legend-item grammar-verb">動詞</span>
+        <span class="grammar-legend-item grammar-auxiliary">助動詞</span>
+        <span class="grammar-legend-item grammar-be">BE</span>
+      </div>
       
       <div class="card-container">
         <div class="card-section" id="english-section">
@@ -461,6 +468,19 @@
             </div>
             <div class="setting-help">
               <small>啟用後，單字與片語（不含句子）會顯示 KK 音標於畫面中央；缺音標的單字會自動從線上字典查詢並寫回單字檔 I 欄</small>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label for="grammar-annotation-setting">🎨 自動標注動詞</label>
+            <div class="setting-control">
+              <label class="switch">
+                <input type="checkbox" id="grammar-annotation-setting">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="setting-help">
+              <small>以不同顏色標示 <span class="grammar-verb">動詞</span>、<span class="grammar-auxiliary">助動詞</span> 與 <span class="grammar-be">BE 動詞</span>。先顯示英文時會等中文出現才標注；先顯示中文時，英文一出現就已完成標注</small>
             </div>
           </div>
 
@@ -1217,7 +1237,9 @@
     </div>
 
   <?!= include('script-polyfills'); ?>
+  <?!= include('vendor-compromise'); ?>
   <?!= include('script-core'); ?>
+  <?!= include('script-grammar'); ?>
   <?!= include('script-events'); ?>
   <?!= include('script-settings-modal'); ?>
   <?!= include('script-difficulty'); ?>

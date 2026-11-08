@@ -35,6 +35,7 @@
     
     var oldDisplayMode = this.settings.displayMode;
     var oldFontFamily = this.settings.fontFamily;
+    var oldGrammarAnnotationEnabled = this.settings.grammarAnnotationEnabled !== false;
     
     if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
     if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
@@ -63,13 +64,21 @@
     // 讀取 KK 音標顯示開關
     var kkPhoneticToggle = document.getElementById('kk-phonetic-setting');
     if (kkPhoneticToggle) this.settings.showKKPhonetic = kkPhoneticToggle.checked;
+
+    // 讀取英文語法角色自動標注開關
+    var grammarAnnotationToggle = document.getElementById('grammar-annotation-setting');
+    if (grammarAnnotationToggle) {
+      this.settings.grammarAnnotationEnabled = grammarAnnotationToggle.checked;
+    }
     
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
     
     // 如果顯示模式或字型改變，重新顯示當前單字
-    if (oldDisplayMode !== this.settings.displayMode || oldFontFamily !== this.settings.fontFamily) {
+    if (oldDisplayMode !== this.settings.displayMode ||
+        oldFontFamily !== this.settings.fontFamily ||
+        oldGrammarAnnotationEnabled !== (this.settings.grammarAnnotationEnabled !== false)) {
       this.redisplayCurrentWord();
     }
   };
@@ -89,7 +98,8 @@
       smartTimerEnabled: false,
       listeningMode: false,
       carouselMemoryMode: false,
-      showKKPhonetic: true             // KK 音標顯示開關（預設開啟）
+      showKKPhonetic: true,            // KK 音標顯示開關（預設開啟）
+      grammarAnnotationEnabled: true   // 英文語法角色自動標注（預設開啟）
     };
     this.voiceSettings = {
       enabled: true,

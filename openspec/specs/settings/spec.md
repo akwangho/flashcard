@@ -11,6 +11,7 @@ Defines the general and voice settings modals and the LocalStorage models persis
 - `delayTime: Number` (1–10 s, step 0.5), `fontSize: Number` (20–120 px, step 4), `displayMode: String` (`'english-first'` | `'chinese-first'` | `'mixed'`), `fontFamily: String` (font code; see Font Family Mapping)
 - `delaySpeechInNormalMode: Boolean` (EN speech deferred to phase 2), `mustSpellChineseFirst: Boolean` (mixed mode: force Chinese-first for 衝刺要會拼單字 only; see `flashcard-core/spec.md`)
 - `showTimerProgressBar: Boolean`, `timerProgressBarOffset: Number` (0–2000 px), `smartTimerEnabled: Boolean`, `showKKPhonetic: Boolean` (see `kk-phonetic` spec)
+- `grammarAnnotationEnabled: Boolean` (automatic main-verb / auxiliary-verb / BE-verb colouring; see `grammar-annotation/spec.md`)
 
 ### Voice Settings (`flashcard-voice-settings`)
 
@@ -35,7 +36,7 @@ The system SHALL provide a modal for configuring core carousel behaviour.
 #### Scenario: Available controls
 
 - **WHEN** the general settings modal is open
-- **THEN** it offers a delay time slider (1–10 s, step 0.5), font size slider (20–120 px, step 4, live preview), font family dropdown (9 fonts, live preview), display mode radio (English first / Chinese first / Mixed), sprint must-spell force-Chinese-first toggle (visible only in Mixed mode), smart timer toggle, timer progress bar toggle, and progress bar top offset input (0–2000 px, visible only when the bar is enabled)
+- **THEN** it offers a delay time slider (1–10 s, step 0.5), font size slider (20–120 px, step 4, live preview), font family dropdown (9 fonts, live preview), display mode radio (English first / Chinese first / Mixed), sprint must-spell force-Chinese-first toggle (visible only in Mixed mode), smart timer toggle, KK phonetic toggle, grammar-role annotation toggle, timer progress bar toggle, and progress bar top offset input (0–2000 px, visible only when the bar is enabled)
 
 ### Requirement: Voice Settings Modal
 

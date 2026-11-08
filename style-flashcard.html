@@ -202,6 +202,48 @@
     transform: translateY(0);
   }
 
+  /* ==========================================================================
+     英文語法角色自動標注
+     三種高對比色彩分別表示主要動詞、助動詞與 BE 動詞。
+     ========================================================================== */
+  .grammar-verb {
+    color: #ff6b6b;
+  }
+
+  .grammar-auxiliary {
+    color: #ffd43b;
+  }
+
+  .grammar-be {
+    color: #51cf66;
+  }
+
+  .grammar-legend {
+    display: none;
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 20;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.62);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    pointer-events: none;
+  }
+
+  .grammar-legend.show {
+    display: flex;
+  }
+
+  .grammar-legend-item {
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
   /* 暫時移除（待刪除）的單字：灰色 + 描邊效果，確保在灰色背景圖上仍清晰可見 */
   .word.word-pending-removal {
     color: #666666 !important;

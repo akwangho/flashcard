@@ -9,7 +9,7 @@
 | Layer | Technology |
 |-------|------------|
 | Backend | Google Apps Script (`code.gs`); ES6 allowed; every function try-catch wrapped |
-| Frontend | Native ES5 JS; prototype-based OOP — all methods on `FlashcardApp.prototype`; 100+ state properties initialised via 6 sub-init fns (`_initCoreState`, `_initVoiceState`, `_initSettingsState`, `_initFilterState`, `_initScreenAwakeState`, `_initQuizState`) |
+| Frontend | Native ES5 JS; prototype-based OOP — all methods on `FlashcardApp.prototype`; 100+ state properties initialised via 7 sub-init fns (`_initCoreState`, `_initVoiceState`, `_initSettingsState`, `_initFilterState`, `_initScreenAwakeState`, `_initQuizState`, `_initKKPhoneticState`) |
 | Markup / CSS | HTML5 via GAS HTML Service templates (`<?!= include(); ?>`); CSS modules use `var()` with hard-coded fallbacks |
 | Voice | Web Speech API (EN/JA/ZH) |
 | Data | Google Sheets via `SpreadsheetApp`; frontend calls backend via `google.script.run.withSuccessHandler()` |
@@ -25,9 +25,9 @@
 
 - `code.gs` — backend; `index.html` — main HTML (all modals)
 - CSS: `style-base` · `style-flashcard` · `style-modal` · `style-sheets` · `style-quiz` (`.html`)
-- JS: `script-polyfills` (ES5 polyfills) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
+- JS: `script-polyfills` (ES5 polyfills) · `vendor-compromise` (ES5 grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
 - Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh`
-- Tests: `test/environment.js` (caches ~550 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1071 cases)
+- Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1085 cases)
 
 ## Deployment (clasp)
 
@@ -62,3 +62,4 @@ CSS: every `var(--x)` needs a hard-coded fallback. Touch: `touchstart/move/end`;
 | Timer progress bar / offset | on (`showTimerProgressBar: true`) / 0 px |
 | Smart timer / carousel memory mode | off (`smartTimerEnabled: false`) / off (`carouselMemoryMode: false`) |
 | KK phonetic | **on** (`showKKPhonetic: true`) |
+| Grammar role annotation | **on** (`grammarAnnotationEnabled: true`) |

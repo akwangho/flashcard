@@ -31,6 +31,7 @@ function createDOMElements() {
     // Flashcard display
     'paused-indicator', 'muted-indicator',
     'english-section', 'english-word', 'chinese-section', 'chinese-word',
+    'grammar-legend',
     'progress-area', 'progress-text', 'difficulty-display', 'difficulty-level',
     'must-spell-indicator', 'en-zh-indicator',
     // Filters
@@ -101,6 +102,8 @@ function createDOMElements() {
     'kk-phonetic-display',
     // KK phonetic setting toggle
     'kk-phonetic-setting',
+    // Grammar role annotation setting toggle
+    'grammar-annotation-setting',
     // Search word modal
     'search-word-modal', 'close-search-word', 'search-word-input', 'search-word-run',
     'search-word-summary', 'search-word-results', 'close-search-word-footer',
@@ -183,7 +186,7 @@ function createDOMElements() {
     el.id = id;
     // Some elements need special types
     if (id.indexOf('-setting') !== -1 && id.indexOf('select') === -1) {
-      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting' || id === 'listening-mode-setting') {
+      if (id.indexOf('enabled') !== -1 || id === 'reverse-setting' || id === 'delay-speech-setting' || id === 'spell-out-letters-setting' || id === 'chinese-speech-enabled-setting' || id === 'listening-mode-setting' || id === 'grammar-annotation-setting') {
         el = document.createElement('input');
         el.id = id;
         el.type = 'checkbox';
@@ -467,7 +470,9 @@ function loadAllScripts() {
   // Try split files first
   var splitFiles = [
     'script-polyfills.html',
+    'vendor-compromise.html',
     'script-core.html',
+    'script-grammar.html',
     'script-events.html',
     'script-settings-modal.html',
     'script-difficulty.html',
