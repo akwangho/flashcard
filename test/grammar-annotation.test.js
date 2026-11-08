@@ -13,14 +13,20 @@ describe('grammar annotation', function() {
     app = setup.createApp();
   });
 
-  function annotationFor(text, word) {
+  function annotationsFor(text, word) {
     var annotations = app.getGrammarAnnotations(text);
+    var matches = [];
     for (var i = 0; i < annotations.length; i++) {
       if (annotations[i].text.toLowerCase() === word.toLowerCase()) {
-        return annotations[i];
+        matches.push(annotations[i]);
       }
     }
-    return null;
+    return matches;
+  }
+
+  function annotationFor(text, word) {
+    var matches = annotationsFor(text, word);
+    return matches.length ? matches[0] : null;
   }
 
   test('is enabled by default', function() {
@@ -33,7 +39,7 @@ describe('grammar annotation', function() {
     expect(annotationFor('They will go.', 'will').role).toBe('auxiliary');
     expect(annotationFor('They will go.', 'go').role).toBe('verb');
     expect(annotationFor('He is a good boy.', 'is').role).toBe('be');
-    expect(annotationFor('I am running.', 'am').role).toBe('be');
+    expect(annotationFor('I am running.', 'am').role).toBe('auxiliary');
     expect(annotationFor('I am running.', 'running').role).toBe('verb');
   });
 
@@ -67,6 +73,70 @@ describe('grammar annotation', function() {
     expect(annotationFor("I've finished.", "I've").role).toBe('auxiliary');
     expect(annotationFor("I've finished.", 'finished').role).toBe('verb');
     expect(annotationFor("I'm happy.", "I'm").role).toBe('be');
+  });
+
+  test('distinguishes BE verbs from BE auxiliaries by function', function() {
+    expect(annotationFor('I am glad to see you.', 'am').role).toBe('be');
+    expect(annotationFor('I am running.', 'am').role).toBe('auxiliary');
+    expect(annotationFor('What are you thinking about?', 'are').role).toBe('auxiliary');
+    expect(annotationFor('What are you thinking about?', 'thinking').role).toBe('verb');
+    expect(annotationFor('She was jogging.', 'was').role).toBe('auxiliary');
+    expect(annotationFor('She was jogging.', 'jogging').role).toBe('verb');
+    expect(annotationFor('The dog was called Tom.', 'was').role).toBe('auxiliary');
+    expect(annotationFor('The animal is stuck in the tree.', 'is').role).toBe('be');
+    expect(annotationFor('The animal is stuck in the tree.', 'stuck')).toBeNull();
+  });
+
+  test('recognises embedded do-support in wh-questions', function() {
+    expect(annotationFor('What fruit does your mom like?', 'does').role).toBe('auxiliary');
+    expect(annotationFor('What fruit does your mom like?', 'like').role).toBe('verb');
+    expect(annotationFor('How many oranges do you need?', 'do').role).toBe('auxiliary');
+    expect(annotationFor('How many oranges do you need?', 'need').role).toBe('verb');
+
+    var twoDos = annotationsFor('What do you do when your hair is dirty?', 'do');
+    expect(twoDos.length).toBe(2);
+    expect(twoDos[0].role).toBe('auxiliary');
+    expect(twoDos[1].role).toBe('verb');
+  });
+
+  test('does not mark nouns or adjectives as verbs in noun phrases', function() {
+    expect(annotationFor("He doesn't like cold drinks.", 'drinks')).toBeNull();
+    expect(annotationFor('We need enough books.', 'books')).toBeNull();
+    expect(annotationFor("I'm going to buy this Christmas tree.", 'Christmas')).toBeNull();
+    expect(annotationFor('What summer plans do you have?', 'plans')).toBeNull();
+    expect(annotationFor('I can make a plane with blocks.', 'blocks')).toBeNull();
+    expect(annotationFor("The more you speak, the better you'll get.", 'better')).toBeNull();
+    expect(annotationFor('I got nothing to do.', 'do')).toBeNull();
+    expect(annotationFor("Let's meet at the floating market.", 'market')).toBeNull();
+    expect(annotationFor('We found a flea during the treasure hunt.', 'hunt')).toBeNull();
+    expect(annotationFor('Is the tide low enough for the firework show?', 'show')).toBeNull();
+    expect(annotationFor('We rent shared bikes to get around.', 'shared')).toBeNull();
+    expect(annotationFor('We rent shared bikes to get around.', 'bikes')).toBeNull();
+    expect(annotationFor('There is a well-known symbol here.', 'known')).toBeNull();
+    expect(annotationFor("I can't wait to go whale watching.", 'watching')).toBeNull();
+    expect(annotationFor('All my teammates are cool.', 'all')).toBeNull();
+    expect(annotationFor('Soon, the cat left the barn.', 'soon')).toBeNull();
+    expect(annotationFor('Nice shot.', 'shot')).toBeNull();
+    expect(annotationFor('There are many items made of bamboo.', 'made')).toBeNull();
+    expect(annotationFor('Computers connect us in a way called the Internet.', 'called')).toBeNull();
+  });
+
+  test('recognises a main verb that compromise labels as a noun', function() {
+    expect(annotationFor('Computers connect us in a way called the Internet.', 'connect').role).toBe('verb');
+  });
+
+  test('recognises imperative and quoted verbs', function() {
+    expect(annotationFor('Mark the new landmark.', 'Mark').role).toBe('verb');
+    expect(annotationFor('Circle the word "soccer".', 'Circle').role).toBe('verb');
+    expect(annotationFor('Slice the fresh basil.', 'Slice').role).toBe('verb');
+    expect(annotationFor('The clerk says, "Welcome!"', 'Welcome').role).toBe('verb');
+    expect(annotationFor('The lazy animal let the hammer slip.', 'let').role).toBe('verb');
+  });
+
+  test('recognises verbs that compromise labels as prepositions', function() {
+    expect(annotationFor('I like to ride my bicycle.', 'like').role).toBe('verb');
+    expect(annotationFor('What would you like to eat?', 'like').role).toBe('verb');
+    expect(annotationFor('What was the weather like when she came?', 'like')).toBeNull();
   });
 
   test('annotates every sentence in a multi-sentence card', function() {

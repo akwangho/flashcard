@@ -56,7 +56,9 @@ The system SHALL annotate every complete sentence contained in a sentence card. 
 
 ### Requirement: Grammar Role Classification
 
-The system SHALL classify and colour main verbs, auxiliary verbs, and BE verbs separately. BE forms take precedence over the general auxiliary category; modal, perfect, and do-support auxiliaries use the auxiliary category; other verbs use the main-verb category. Classification SHALL use sentence context so predicate adjectives after BE or linking verbs are not coloured as verbs, while progressive and passive verb forms remain verbs.
+The system SHALL classify and colour main verbs, auxiliary verbs, and BE verbs separately. Modal, perfect, phrase, and do-support auxiliaries SHALL use the auxiliary category. BE forms SHALL use the BE category when they function as copulas and SHALL use the auxiliary category when they support a progressive or passive verb phrase. Other verbs SHALL use the main-verb category.
+
+Classification SHALL use sentence context so predicate adjectives after BE or linking verbs are not coloured as verbs, noun modifiers and reduced participles are not coloured as main verbs, and progressive or passive verb forms remain verbs.
 
 #### Scenario: Representative sentence
 
@@ -67,3 +69,20 @@ The system SHALL classify and colour main verbs, auxiliary verbs, and BE verbs s
 
 - **WHEN** the English text is `I am glad to see you here again.`
 - **THEN** `am` is coloured as a BE verb, `see` is coloured as a main verb, and `glad` is not coloured as a verb.
+
+#### Scenario: BE auxiliary by function
+
+- **WHEN** the English text is `I am running.`
+- **THEN** `am` is coloured as an auxiliary verb and `running` is coloured as a main verb.
+- **WHEN** the English text is `The dog was called Tom.`
+- **THEN** `was` is coloured as an auxiliary verb and `called` is coloured as a main verb.
+
+#### Scenario: Embedded do-support
+
+- **WHEN** the English text is `What fruit does your mom like?`
+- **THEN** `does` is coloured as an auxiliary verb and `like` is coloured as a main verb.
+
+#### Scenario: Noun modifier is not a verb
+
+- **WHEN** the English text is `He doesn't like cold drinks.`
+- **THEN** `doesn't` is coloured as an auxiliary verb, `like` is coloured as a main verb, and `drinks` is not coloured as a verb.

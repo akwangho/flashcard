@@ -21,7 +21,7 @@
   var GRAMMAR_COMMON_VERBS = {
     'be': true, 'become': true, 'begin': true, 'believe': true, 'break': true,
     'bring': true, 'build': true, 'buy': true, 'call': true, 'come': true,
-    'cry': true, 'cut': true, 'do': true, 'drink': true, 'drive': true,
+    'connect': true, 'cry': true, 'cut': true, 'do': true, 'drink': true, 'drive': true,
     'eat': true, 'fall': true, 'feel': true, 'find': true, 'finish': true,
     'fly': true, 'forget': true, 'get': true, 'give': true, 'go': true,
     'grow': true, 'have': true, 'hear': true, 'help': true, 'hold': true,
@@ -36,7 +36,8 @@
     'talk': true, 'teach': true, 'tell': true, 'think': true, 'throw': true,
     'travel': true, 'try': true, 'understand': true, 'use': true,
     'visit': true, 'wait': true, 'walk': true, 'want': true, 'watch': true,
-    'wear': true, 'win': true, 'wish': true, 'work': true, 'write': true
+    'wear': true, 'win': true, 'wish': true, 'work': true, 'write': true,
+    'mark': true, 'circle': true, 'slice': true, 'welcome': true
   };
 
   var GRAMMAR_BE_WORDS = {
@@ -98,7 +99,27 @@
     'serious': true, 'shy': true, 'sorry': true, 'strong': true,
     'stupid': true, 'surprised': true, 'sure': true, 'sweet': true,
     'tired': true, 'upset': true, 'useful': true, 'weak': true,
-    'well': true, 'willing': true, 'worried': true, 'wrong': true
+    'well': true, 'willing': true, 'worried': true, 'wrong': true,
+    'flushed': true, 'stuck': true
+  };
+
+  /** 常見副詞：句首誤判成動詞時，依後方主語判斷。 */
+  var GRAMMAR_COMMON_ADVERBS = {
+    'soon': true, 'already': true, 'still': true, 'then': true,
+    'now': true, 'today': true, 'tomorrow': true, 'yesterday': true,
+    'however': true, 'therefore': true, 'maybe': true, 'perhaps': true,
+    'again': true, 'ever': true, 'never': true, 'always': true,
+    'often': true, 'sometimes': true, 'usually': true
+  };
+
+  /**
+   * 容易在名詞位置被標成動詞的常見字；只有符合名詞上下文時才清除標注。
+   */
+  var GRAMMAR_NOUN_CONTEXT_WORDS = {
+    'bikes': true, 'blocks': true, 'books': true, 'christmas': true,
+    'drinks': true, 'hunt': true, 'known': true, 'market': true, 'net': true,
+    'plans': true, 'shot': true, 'show': true, 'vegetables': true,
+    'view': true
   };
 
   /**
@@ -138,7 +159,7 @@
 
     // `to` 是不定詞／介詞標記，不是句中動詞；短語动词的 particle
     // （look forward、give up 的 forward/up）也不是主要動詞。
-    if (word === 'to') return null;
+    if (word === 'to' || word === 'it') return null;
     if (this._grammarTermHasTag(term, 'Particle')) return null;
 
     // BE 動詞及其縮寫形式優先判定。
@@ -160,12 +181,15 @@
         word === "she'd" || word === "it'd" || word === "i'll" ||
         word === "you'll" || word === "we'll" || word === "they'll" ||
         word === "he'll" || word === "she'll" || word === "it'll" ||
-        word === "don't" || word === "doesn't" || word === "didn't" ||
+        word === "let's" || word === "don't" || word === "doesn't" || word === "didn't" ||
         word === "can't" || word === "couldn't" || word === "mayn't" ||
         word === "mightn't" || word === "mustn't" || word === "shan't" ||
         word === "shouldn't" || word === "won't" || word === "wouldn't") {
       return GRAMMAR_ROLE_AUXILIARY;
     }
+
+    // 人稱代名詞本身不是動詞；先完成縮寫判斷，避免影響 I'm / I've 等形式。
+    if (this._grammarTermHasTag(term, 'Pronoun')) return null;
 
     if (this._grammarTermHasTag(term, 'Copula')) return GRAMMAR_ROLE_BE;
     if (this._grammarTermHasTag(term, 'Auxiliary') ||
@@ -267,40 +291,84 @@
   };
 
   /**
-   * 找出 do / does / did 問句中的主要動詞。
-   * compromise 對 `Do you like it?` 會把 like 判成連接詞，因此在此補強。
+   * 找出 do / does / did 問句中的助動詞與主要動詞。
+   * 除句首 `Do you...?` 外，也支援 wh-questions 中的嵌入 do-support：
+   * `What fruit does your mom like?`、`What do you do...?`。
    * @param {Array<Object>} units - 可見詞彙單元
-   * @param {string} text - 完整英文文字
+   * @param {string} text - 單句英文文字
    */
   FlashcardApp.prototype._grammarApplyDoQuestion = function(units, text) {
-    if (!units.length || !/[?？][\"'”’]?\s*$/.test(text)) return;
-    var firstWord = this._grammarTermText(units[0].term);
-    if (firstWord !== 'do' && firstWord !== 'does' && firstWord !== 'did') return;
+    if (!units.length || !/[?？]/.test(text)) return;
 
-    units[0].role = GRAMMAR_ROLE_AUXILIARY;
+    var doWords = { 'do': true, 'does': true, 'did': true };
+    var candidates = [];
+    for (var i = 0; i < units.length; i++) {
+      var word = this._grammarTermText(units[i].term);
+      if (doWords[word]) candidates.push(i);
+    }
+    if (!candidates.length) return;
 
-    // 找問句主詞（名詞或代名詞），下一個詞才是主要動詞。
-    var subjectIndex = -1;
-    for (var i = 1; i < units.length; i++) {
-      var subjectTerm = units[i].term;
-      if (this._grammarTermHasTag(subjectTerm, 'Pronoun') ||
-          this._grammarTermHasTag(subjectTerm, 'Noun') ||
-          this._grammarTermHasTag(subjectTerm, 'Person')) {
-        subjectIndex = i;
-        break;
+    for (var c = 0; c < candidates.length; c++) {
+      var candidateIndex = candidates[c];
+      if (units[candidateIndex].role === GRAMMAR_ROLE_AUXILIARY) continue;
+
+      var foundSubject = false;
+      var foundDoForm = -1;
+      var foundVerb = -1;
+      var scanEnd = Math.min(units.length, candidateIndex + 8);
+
+      for (var j = candidateIndex + 1; j < scanEnd; j++) {
+        var term = units[j].term;
+        var termWord = this._grammarTermText(term);
+
+        // 子句邊界後的動詞不屬於目前 do-support 結構。
+        if (this._grammarTermHasTag(term, 'Connector') ||
+            this._grammarTermHasTag(term, 'Conjunction') ||
+            termWord === 'when' || termWord === 'where' || termWord === 'why') {
+          break;
+        }
+        if (this._grammarTermHasTag(term, 'Adverb') ||
+            this._grammarTermHasTag(term, 'Negative') ||
+            this._grammarTermHasTag(term, 'Determiner') ||
+            this._grammarTermHasTag(term, 'Possessive')) {
+          continue;
+        }
+
+        if (doWords[termWord]) {
+          if (foundSubject && foundDoForm < 0) foundDoForm = j;
+          continue;
+        }
+
+        if (this._grammarTermHasTag(term, 'Pronoun') ||
+            this._grammarTermHasTag(term, 'Person') ||
+            this._grammarTermHasTag(term, 'Noun')) {
+          foundSubject = true;
+          continue;
+        }
+
+        if (units[j].role === GRAMMAR_ROLE_VERB ||
+            units[j].role === GRAMMAR_ROLE_AUXILIARY ||
+            units[j].role === GRAMMAR_ROLE_BE) {
+          if (foundSubject || candidateIndex === 0) {
+            foundVerb = j;
+            break;
+          }
+        }
+
+        // compromise 可能把 `like` 判成介詞；已知動詞且位於主詞後時仍視為主要動詞。
+        if (foundSubject && !units[j].role && this._grammarIsCommonVerb(termWord)) {
+          units[j].role = GRAMMAR_ROLE_VERB;
+          foundVerb = j;
+          break;
+        }
       }
-    }
 
-    var verbIndex = subjectIndex >= 0 ? subjectIndex + 1 : 2;
-    // 主詞後可能先出現副詞（Do you really like ...?），略過後再找主要動詞。
-    while (verbIndex < units.length &&
-           this._grammarTermHasTag(units[verbIndex].term, 'Adverb')) {
-      verbIndex++;
-    }
-    if (verbIndex < units.length && !units[verbIndex].role) {
-      var verbWord = this._grammarTermText(units[verbIndex].term);
-      if (this._grammarIsCommonVerb(verbWord)) {
-        units[verbIndex].role = GRAMMAR_ROLE_VERB;
+      if (foundVerb >= 0) {
+        units[candidateIndex].role = GRAMMAR_ROLE_AUXILIARY;
+      } else if (foundDoForm >= 0) {
+        // `What do you do...?`：第一個 do 是助動詞，第二個 do 是主要動詞。
+        units[candidateIndex].role = GRAMMAR_ROLE_AUXILIARY;
+        units[foundDoForm].role = GRAMMAR_ROLE_VERB;
       }
     }
   };
@@ -328,6 +396,278 @@
           }
         }
         break;
+      }
+    }
+  };
+
+  /**
+   * 補強 compromise 誤標為介詞的常見動詞。
+   * 例如 `I like to ride...` 的 like 可能是 Preposition，但此處是主要動詞。
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyCommonVerbFallback = function(units) {
+    for (var i = 1; i < units.length; i++) {
+      if (units[i].role) continue;
+      var word = this._grammarTermText(units[i].term);
+      var previousTerm = units[i - 1].term;
+      if (word === 'like' && this._grammarTermHasTag(previousTerm, 'Pronoun')) {
+        units[i].role = GRAMMAR_ROLE_VERB;
+        continue;
+      }
+
+      // `Computers connect us...` 的 connect 可能被 compromise 判成名詞。
+      if (word === 'connect' && i + 1 < units.length &&
+          this._grammarTermHasTag(previousTerm, 'Noun') &&
+          this._grammarTermHasTag(units[i + 1].term, 'Pronoun')) {
+        units[i].role = GRAMMAR_ROLE_VERB;
+      }
+    }
+  };
+
+  /**
+   * 補強句首祈使句與引號內的動詞。
+   * compromise 可能把 `Mark ...`、`Circle ...`、`Welcome!` 判成專有名詞，
+   * 也可能把 `let the hammer slip` 的 let 判成名詞。
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyImperativeFallback = function(units) {
+    for (var i = 0; i < units.length; i++) {
+      if (units[i].role) continue;
+      var word = this._grammarTermText(units[i].term);
+      var nextTerm = i + 1 < units.length ? units[i + 1].term : null;
+      var pre = units[i].term.pre || '';
+
+      // 句首動詞後接受詞／子句時，是祈使句主要動詞。
+      if (i === 0 && this._grammarIsCommonVerb(word) && nextTerm &&
+          (this._grammarTermHasTag(nextTerm, 'Determiner') ||
+           this._grammarTermHasTag(nextTerm, 'Noun') ||
+           this._grammarTermHasTag(nextTerm, 'Pronoun'))) {
+        units[i].role = GRAMMAR_ROLE_VERB;
+        continue;
+      }
+
+      // 引號內的 `Welcome!` 是動詞，不是歡迎詞名詞。
+      if (word === 'welcome' && /[\"“]/.test(pre)) {
+        units[i].role = GRAMMAR_ROLE_VERB;
+        continue;
+      }
+
+      // `let the hammer slip` / `let me go` 的 let 是使役動詞。
+      if (word === 'let' && nextTerm &&
+          this._grammarTermHasTag(nextTerm, 'Determiner')) {
+        units[i].role = GRAMMAR_ROLE_VERB;
+      }
+    }
+  };
+
+  /**
+   * 清除名詞位置的假陽性標注。
+   * compromise 會把 `books`、`blocks`、`Christmas tree`、`firework show` 等
+   * 名詞片語的一部分標成動詞；此處僅在明確名詞上下文才清除。
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyNounContextRules = function(units) {
+    for (var i = 0; i < units.length; i++) {
+      if (units[i].role !== GRAMMAR_ROLE_VERB) continue;
+
+      var word = this._grammarTermText(units[i].term);
+      var previous = i > 0 ? units[i - 1] : null;
+      var next = i + 1 < units.length ? units[i + 1] : null;
+      var previousTerm = previous ? previous.term : null;
+      var nextTerm = next ? next.term : null;
+
+      // `All my teammates...` 的 All 是限定詞。
+      if (word === 'all' && nextTerm &&
+          (this._grammarTermHasTag(nextTerm, 'Possessive') ||
+           this._grammarTermHasTag(nextTerm, 'Noun') ||
+           this._grammarTermHasTag(nextTerm, 'Pronoun'))) {
+        units[i].role = null;
+        continue;
+      }
+
+      // `Soon, the cat...` 的 Soon 是副詞。
+      if (GRAMMAR_COMMON_ADVERBS[word] && i === 0 && nextTerm) {
+        var afterNext = i + 2 < units.length ? units[i + 2] : null;
+        var adverbFollowedByNoun =
+          this._grammarTermHasTag(nextTerm, 'Noun') ||
+          (this._grammarTermHasTag(nextTerm, 'Determiner') && afterNext &&
+           this._grammarTermHasTag(afterNext.term, 'Noun'));
+        if (adverbFollowedByNoun) {
+          units[i].role = null;
+          continue;
+        }
+      }
+
+      // `What was the weather like when...?` 的 like 是介詞。
+      if (word === 'like' && previousTerm && nextTerm &&
+          this._grammarTermHasTag(previousTerm, 'Noun')) {
+        var likeNextWord = this._grammarTermText(nextTerm);
+        var likeIsPreposition = likeNextWord === 'when' || likeNextWord === 'what' ||
+          likeNextWord === 'that' || likeNextWord === 'which';
+        if (!likeIsPreposition) continue;
+        units[i].role = null;
+        continue;
+      }
+
+      // `nothing to do` 的 do 是名詞，不是動詞。
+      if (word === 'do' && previousTerm && i >= 2) {
+        var nominalObject = units[i - 2];
+        if (this._grammarTermText(previous.term) === 'to' &&
+            this._grammarTermHasTag(previous.term, 'Conjunction') &&
+            this._grammarTermHasTag(nominalObject.term, 'Noun')) {
+          var nominalWord = this._grammarTermText(nominalObject.term);
+          if (nominalWord === 'nothing' || nominalWord === 'something' ||
+              nominalWord === 'anything' || nominalWord === 'everything' ||
+              nominalWord === 'none') {
+            units[i].role = null;
+            continue;
+          }
+        }
+      }
+
+      // `the better ...` 的 better 是比較級形容詞。
+      if (word === 'better' && previousTerm &&
+          this._grammarTermHasTag(previousTerm, 'Determiner')) {
+        units[i].role = null;
+        continue;
+      }
+
+      // 過去分詞作為名詞後置修飾語，不是句中主要動詞。
+      if (word === 'made' && previousTerm && nextTerm &&
+          this._grammarTermText(previousTerm) === 'items' &&
+          this._grammarTermText(nextTerm) === 'of') {
+        units[i].role = null;
+        continue;
+      }
+      if (word === 'called' && previousTerm && nextTerm &&
+          this._grammarTermText(previousTerm) === 'way' &&
+          this._grammarTermHasTag(nextTerm, 'Determiner')) {
+        units[i].role = null;
+        continue;
+      }
+
+      // `rent shared bikes` 的 shared 是修飾名詞的形容詞。
+      if (word === 'shared' && next &&
+          this._grammarTermText(next.term) === 'bikes') {
+        units[i].role = null;
+        continue;
+      }
+
+      // `whale watching` 的 watching 是名詞化的 gerund，不是句中動詞。
+      if (previousTerm && this._grammarTermHasTag(previousTerm, 'Noun') &&
+          previous.role !== GRAMMAR_ROLE_BE &&
+          previous.role !== GRAMMAR_ROLE_AUXILIARY &&
+          !this._grammarTermHasTag(previousTerm, 'Pronoun') &&
+          this._grammarTermHasTag(units[i].term, 'Gerund') &&
+          (!nextTerm || this._grammarTermHasTag(nextTerm, 'Preposition'))) {
+        units[i].role = null;
+        continue;
+      }
+
+      if (!GRAMMAR_NOUN_CONTEXT_WORDS[word]) continue;
+
+      var previousIsModifier = previousTerm &&
+        (this._grammarTermHasTag(previousTerm, 'Determiner') ||
+         this._grammarTermHasTag(previousTerm, 'Adjective') ||
+         this._grammarTermHasTag(previousTerm, 'Adverb') ||
+         this._grammarTermHasTag(previousTerm, 'Noun') ||
+         this._grammarTermHasTag(previousTerm, 'Preposition'));
+      var nextIsNoun = nextTerm && this._grammarTermHasTag(nextTerm, 'Noun');
+      var atEnd = !nextTerm;
+
+      if (previousIsModifier && (atEnd || nextIsNoun)) {
+        units[i].role = null;
+        continue;
+      }
+
+      // `What summer plans do you have?` 的 plans 是名詞。
+      if (word === 'plans' && previousTerm && nextTerm &&
+          this._grammarTermHasTag(previousTerm, 'Noun') &&
+          (this._grammarTermText(next.term) === 'do' ||
+           this._grammarTermText(next.term) === 'does' ||
+           this._grammarTermText(next.term) === 'did')) {
+        units[i].role = null;
+        continue;
+      }
+
+      // `shared bikes to ...` 的 bikes 是名詞。
+      if (word === 'bikes' && previousTerm && nextTerm &&
+          this._grammarTermHasTag(previousTerm, 'PastTense') &&
+          this._grammarTermText(next.term) === 'to') {
+        units[i].role = null;
+      }
+    }
+  };
+
+  /**
+   * 依 BE 動詞的實際功能分類：
+   * - BE + V-ing / 被動式：BE 是助動詞（auxiliary）。
+   * - BE + 形容詞／名詞補語：BE 是 BE 動詞（be）。
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyBeFunctionRules = function(units) {
+    for (var i = 0; i < units.length; i++) {
+      if (units[i].role !== GRAMMAR_ROLE_BE) continue;
+      var targetIndex = this._grammarNextContentIndex(units, i + 1);
+      if (targetIndex < 0) continue;
+
+      var target = units[targetIndex];
+      var targetWord = this._grammarTermText(target.term);
+      var isGerund = this._grammarTermHasTag(target.term, 'Gerund');
+      var isParticiple = this._grammarTermHasTag(target.term, 'Participle');
+      var isPastTense = this._grammarTermHasTag(target.term, 'PastTense');
+      var looksLikeGerund = isGerund ||
+        (this._grammarTermHasTag(target.term, 'Adjective') &&
+         /ing$/.test(targetWord) && !GRAMMAR_PREDICATE_ADJECTIVES[targetWord]);
+
+      // 已知的主語補語形容詞優先，即使 compromise 將其標為 Gerund。
+      if (GRAMMAR_PREDICATE_ADJECTIVES[targetWord]) {
+        target.role = null;
+        continue;
+      }
+
+      if (looksLikeGerund) {
+        units[i].role = GRAMMAR_ROLE_AUXILIARY;
+        target.role = GRAMMAR_ROLE_VERB;
+        continue;
+      }
+
+      // BE + 主詞 + V-ing，例如 `What are you thinking?`、`She was jogging.`。
+      if (this._grammarTermHasTag(target.term, 'Pronoun') ||
+          this._grammarTermHasTag(target.term, 'Person') ||
+          this._grammarTermHasTag(target.term, 'Noun')) {
+        var afterSubjectIndex = this._grammarNextContentIndex(units, targetIndex + 1);
+        if (afterSubjectIndex >= 0) {
+          var afterSubjectWord = this._grammarTermText(units[afterSubjectIndex].term);
+          var afterSubjectIsGerund =
+            this._grammarTermHasTag(units[afterSubjectIndex].term, 'Gerund') ||
+            ((this._grammarTermHasTag(units[afterSubjectIndex].term, 'Verb') ||
+              this._grammarTermHasTag(units[afterSubjectIndex].term, 'Adjective')) &&
+             /ing$/.test(afterSubjectWord) &&
+             !GRAMMAR_PREDICATE_ADJECTIVES[afterSubjectWord]);
+          if (afterSubjectIsGerund) {
+            units[i].role = GRAMMAR_ROLE_AUXILIARY;
+            units[afterSubjectIndex].role = GRAMMAR_ROLE_VERB;
+            continue;
+          }
+        }
+      }
+
+      if (isParticiple || isPastTense) {
+        if (GRAMMAR_PREDICATE_ADJECTIVES[targetWord]) {
+          // `I am glad` / `The animal is stuck`：BE 是系動詞，後方是形容詞。
+          target.role = null;
+        } else {
+          // `was called` / `is made`：BE 是被動式助動詞。
+          units[i].role = GRAMMAR_ROLE_AUXILIARY;
+          target.role = GRAMMAR_ROLE_VERB;
+        }
+        continue;
+      }
+
+      if (target.role === GRAMMAR_ROLE_VERB &&
+          GRAMMAR_PREDICATE_ADJECTIVES[targetWord]) {
+        target.role = null;
       }
     }
   };
@@ -388,7 +728,11 @@
         var sentenceText = parsedSentence.text || text.substring(sentenceStart, cursor);
         this._grammarApplyDoQuestion(units, sentenceText);
         this._grammarApplyModalFallback(units);
+        this._grammarApplyCommonVerbFallback(units);
+        this._grammarApplyImperativeFallback(units);
+        this._grammarApplyNounContextRules(units);
         this._grammarApplyContextualAdjectives(units);
+        this._grammarApplyBeFunctionRules(units);
         this._grammarApplyPhraseAuxiliaries(units);
 
         for (var u = 0; u < units.length; u++) {
