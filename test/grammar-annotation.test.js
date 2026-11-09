@@ -3,6 +3,8 @@
  * Spec: openspec/specs/grammar-annotation/spec.md
  */
 
+var fs = require('fs');
+var path = require('path');
 var setup = require('./setup');
 
 describe('grammar annotation', function() {
@@ -31,6 +33,30 @@ describe('grammar annotation', function() {
 
   test('is enabled by default', function() {
     expect(app.settings.grammarAnnotationEnabled).toBe(true);
+  });
+
+  test('uses a distinct purple colour for auxiliary verbs', function() {
+    var css = fs.readFileSync(
+      path.join(__dirname, '..', 'style-flashcard.html'),
+      'utf8'
+    );
+
+    function grammarColor(className) {
+      var match = css.match(new RegExp(
+        '\\.' + className + '\\s*\\{[^}]*color:\\s*(#[0-9a-fA-F]{6})'
+      ));
+      return match ? match[1].toLowerCase() : null;
+    }
+
+    var verbColor = grammarColor('grammar-verb');
+    var auxiliaryColor = grammarColor('grammar-auxiliary');
+    var beColor = grammarColor('grammar-be');
+
+    // 預設英文是亮黃色 (#FFFF00)；助動詞改用高辨識度紫色。
+    expect(auxiliaryColor).toBe('#845ef7');
+    expect(auxiliaryColor).not.toBe('#ffff00');
+    expect(auxiliaryColor).not.toBe(verbColor);
+    expect(auxiliaryColor).not.toBe(beColor);
   });
 
   test('classifies main verbs, auxiliary verbs, and BE verbs separately', function() {

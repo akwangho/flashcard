@@ -27,7 +27,7 @@
 - CSS: `style-base` · `style-flashcard` · `style-modal` · `style-sheets` · `style-quiz` (`.html`)
 - JS: `script-polyfills` (ES5 polyfills) · `vendor-compromise` (ES5 grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
 - Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh`
-- Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1099 cases)
+- Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1100 cases)
 
 ## Deployment (clasp)
 

@@ -14,12 +14,17 @@ Defines the optional automatic grammar-role highlighting of English sentences: m
 
 ### Requirement: Optional Automatic Grammar Annotation
 
-The system SHALL provide a general-settings toggle for automatic grammar-role annotation. When enabled, it SHALL colour English main verbs, auxiliary verbs, and BE verbs with three visually distinct colours while preserving the original text. It SHALL annotate complete sentences only; standalone words and phrases SHALL remain plain text.
+The system SHALL provide a general-settings toggle for automatic grammar-role annotation. When enabled, it SHALL colour English main verbs, auxiliary verbs, and BE verbs with three visually distinct colours while preserving the original text. The auxiliary-verb colour SHALL be clearly distinguishable from the default bright-yellow English text. It SHALL annotate complete sentences only; standalone words and phrases SHALL remain plain text.
 
 #### Scenario: Disable annotation
 
 - **WHEN** the user disables grammar annotation
 - **THEN** English text is rendered without grammar-role colour spans and no grammar legend is shown.
+
+#### Scenario: Auxiliary colour contrast
+
+- **WHEN** grammar annotation is enabled
+- **THEN** auxiliary verbs use a distinct purple colour that is clearly different from the default bright-yellow English text.
 
 #### Scenario: Word or phrase card
 
