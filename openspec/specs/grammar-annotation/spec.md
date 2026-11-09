@@ -58,7 +58,7 @@ The system SHALL annotate every complete sentence contained in a sentence card. 
 
 The system SHALL classify and colour main verbs, auxiliary verbs, and BE verbs separately. Modal, perfect, phrase, and do-support auxiliaries SHALL use the auxiliary category. BE forms SHALL use the BE category when they function as copulas and SHALL use the auxiliary category when they support a progressive or passive verb phrase. Other verbs SHALL use the main-verb category.
 
-Classification SHALL use sentence context so predicate adjectives after BE or linking verbs are not coloured as verbs, noun modifiers and reduced participles are not coloured as main verbs, and progressive or passive verb forms remain verbs.
+Classification SHALL use sentence context so predicate adjectives after BE or linking verbs are not coloured as verbs, noun modifiers and reduced participles are not coloured as main verbs, and past participles used attributively before nouns are not coloured as verbs. Progressive or passive verb forms SHALL remain verbs.
 
 #### Scenario: Representative sentence
 
@@ -86,3 +86,10 @@ Classification SHALL use sentence context so predicate adjectives after BE or li
 
 - **WHEN** the English text is `He doesn't like cold drinks.`
 - **THEN** `doesn't` is coloured as an auxiliary verb, `like` is coloured as a main verb, and `drinks` is not coloured as a verb.
+
+#### Scenario: Participial adjective before a noun
+
+- **WHEN** the English text is `The night owl bought fried food from a street vendor.`
+- **THEN** `bought` is coloured as a main verb and `fried` is not coloured as a verb.
+- **WHEN** the English text is `The food was fried.`
+- **THEN** `was` is coloured as an auxiliary verb and `fried` is coloured as a main verb.

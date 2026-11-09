@@ -121,6 +121,23 @@ describe('grammar annotation', function() {
     expect(annotationFor('Computers connect us in a way called the Internet.', 'called')).toBeNull();
   });
 
+  test('does not mark participial adjectives before nouns as verbs', function() {
+    var sentence = 'The night owl bought fried food from a street vendor.';
+    expect(annotationFor(sentence, 'bought').role).toBe('verb');
+    expect(annotationFor(sentence, 'fried')).toBeNull();
+
+    expect(annotationFor('She bought baked goods.', 'baked')).toBeNull();
+    expect(annotationFor('The owl bought freshly fried food.', 'fried')).toBeNull();
+    expect(annotationFor('The fried food was delicious.', 'fried')).toBeNull();
+    expect(annotationFor('The report mentioned written instructions.', 'written')).toBeNull();
+
+    // 有限動詞、被動式與助動詞結構必須保留動詞角色。
+    expect(annotationFor('She cooked dinner.', 'cooked').role).toBe('verb');
+    expect(annotationFor('They have cooked food.', 'cooked').role).toBe('verb');
+    expect(annotationFor('The food was fried.', 'fried').role).toBe('verb');
+    expect(annotationFor('They bought and fried food.', 'fried').role).toBe('verb');
+  });
+
   test('recognises a main verb that compromise labels as a noun', function() {
     expect(annotationFor('Computers connect us in a way called the Internet.', 'connect').role).toBe('verb');
   });

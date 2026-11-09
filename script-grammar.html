@@ -461,6 +461,66 @@
   };
 
   /**
+   * 清除過去分詞作名詞前置修飾語時的假陽性。
+   * compromise 會把 `fried food`、`baked goods`、`written instructions`
+   * 的 fried／baked／written 判成過去式動詞；這些詞位於名詞片語中，
+   * 應視為形容詞性修飾語而不是句中主要動詞。
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyParticipleModifiers = function(units) {
+    for (var i = 0; i < units.length; i++) {
+      if (units[i].role !== GRAMMAR_ROLE_VERB) continue;
+
+      var term = units[i].term;
+      var isPastParticiple =
+        this._grammarTermHasTag(term, 'PastTense') ||
+        this._grammarTermHasTag(term, 'Participle');
+      if (!isPastParticiple) continue;
+
+      var next = i + 1 < units.length ? units[i + 1] : null;
+      if (!next || !this._grammarTermHasTag(next.term, 'Noun')) continue;
+
+      var previousIndex = i - 1;
+      while (previousIndex >= 0) {
+        var previousTerm = units[previousIndex].term;
+        if (!this._grammarTermHasTag(previousTerm, 'Adverb') &&
+            !this._grammarTermHasTag(previousTerm, 'Negative')) {
+          break;
+        }
+        previousIndex--;
+      }
+
+      // `have cooked food`：cooked 是主要動詞，前方是 auxiliary。
+      if (previousIndex < 0) {
+        units[i].role = null;
+        continue;
+      }
+
+      var previous = units[previousIndex];
+      var previousTerm = previous.term;
+
+      // `fried food`、`the delicious fried food`：分詞直接修飾後方名詞。
+      if (this._grammarTermHasTag(previousTerm, 'Determiner') ||
+          this._grammarTermHasTag(previousTerm, 'Adjective') ||
+          this._grammarTermHasTag(previousTerm, 'Possessive') ||
+          this._grammarTermHasTag(previousTerm, 'Preposition')) {
+        units[i].role = null;
+        continue;
+      }
+
+      // `bought fried food`：分詞位於另一個主要動詞後，仍是名詞修飾語。
+      var previousIsLexicalVerb =
+        this._grammarTermHasTag(previousTerm, 'Verb') &&
+        !this._grammarTermHasTag(previousTerm, 'Auxiliary') &&
+        !this._grammarTermHasTag(previousTerm, 'Modal') &&
+        !this._grammarTermHasTag(previousTerm, 'Copula');
+      if (previousIsLexicalVerb) {
+        units[i].role = null;
+      }
+    }
+  };
+
+  /**
    * 清除名詞位置的假陽性標注。
    * compromise 會把 `books`、`blocks`、`Christmas tree`、`firework show` 等
    * 名詞片語的一部分標成動詞；此處僅在明確名詞上下文才清除。
@@ -730,6 +790,7 @@
         this._grammarApplyModalFallback(units);
         this._grammarApplyCommonVerbFallback(units);
         this._grammarApplyImperativeFallback(units);
+        this._grammarApplyParticipleModifiers(units);
         this._grammarApplyNounContextRules(units);
         this._grammarApplyContextualAdjectives(units);
         this._grammarApplyBeFunctionRules(units);
