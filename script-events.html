@@ -354,8 +354,7 @@
           'quick-quiz-btn':       function() { self.startQuiz('quick'); },
           'full-quiz-btn':        function() { self.startQuiz('full'); },
           'listen-choose-btn':    function() { self.startListeningQuiz('choose'); },
-          'listen-spell-btn':     function() { self.startListeningQuiz('spell'); },
-          'grammar-quiz-btn':     function() { self.startGrammarQuiz(); }
+          'listen-spell-btn':     function() { self.startListeningQuiz('spell'); }
         };
 
         // 解析點擊目標 ID（含 srs-review-btn 子元素相容）
@@ -956,9 +955,6 @@
     this._setupSearchWordModalListeners();
     this._setupSrsModalListeners();
     this.setupQuizListeners();
-    if (typeof this.setupGrammarQuizListeners === 'function') {
-      this.setupGrammarQuizListeners();
-    }
   };
 
   FlashcardApp.prototype._setupSearchWordModalListeners = function() {
@@ -1539,7 +1535,6 @@
     { id: 'overwrite-confirm-modal', method: 'closeOverwriteConfirmModal' },
     { id: 'quiz-modal',              method: 'closeQuizModal' },
     { id: 'listening-modal',         method: 'closeListeningModal' },
-    { id: 'grammar-quiz-modal',      method: 'closeGrammarQuizModal' },
     { id: 'export-modal',            method: 'closeExportModal' },
     { id: 'duplicate-words-modal',   method: 'closeDuplicateModal' },
     { id: 'edit-word-modal',         method: 'closeEditWordModal' },

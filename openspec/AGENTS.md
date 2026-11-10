@@ -29,7 +29,6 @@ OpenSpec v1.3.1. Specs describe **current deployed behaviour** and are the sourc
 | `screen-awake/` | Wake Lock, NoSleep video, silent audio, Keep-Alive |
 | `kk-phonetic/` | KK phonetic toggle, centre display, dictionary query, pre-cache, edit-modal confirmation |
 | `grammar-annotation/` | Optional automatic colouring of main verbs, auxiliary verbs, and BE verbs with reveal-order timing |
-| `grammar-quiz/` | Grammar quiz: BE verbs, Do/Does auxiliaries, affirmative→negative/question transformations, singular/plural agreement |
 
 ## Conventions
 

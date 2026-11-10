@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.28.0',
+    APP_VERSION: '1.27.5',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-10 23:05',
+    APP_BUILD_TIME: '2026-11-10 00:20',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -73,12 +73,6 @@
     // === 聽力練習 ===
     LISTENING_QUICK_COUNT: 10,
     LISTENING_MIN_WORDS: 3,
-
-    // === 文法測驗 ===
-    // 題目用來自這些工作表（單字庫／五上單字）；未載入時退回使用所有已載入單字
-    GRAMMAR_QUIZ_SOURCE_SHEETS: ['單字庫', '五上單字'],
-    GRAMMAR_QUIZ_POOL_SIZE: 100,      // 每個題型設計的題目數
-    GRAMMAR_QUIZ_QUESTION_COUNT: 10,  // 每次測驗隨機抽出的題數
 
     // === 匯出 ===
     EXPORT_BATCH_SIZE: 15,

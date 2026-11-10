@@ -25,8 +25,8 @@
 
 - `code.gs` — backend; `index.html` — main HTML (all modals)
 - CSS: `style-base` · `style-flashcard` · `style-modal` · `style-sheets` · `style-quiz` (`.html`)
-- JS: `script-polyfills` (ES5 polyfills) · `vendor-compromise` (ES5 grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-grammar-quiz` · `script-bootstrap`
-- Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh` · `scripts/validate-grammar-quiz.mjs` (pulls the live word bank and checks generated grammar questions)
+- JS: `script-polyfills` (ES5 polyfills) · `vendor-compromise` (ES5 grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
+- Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh`
 - Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1100 cases)
 
 ## Deployment (clasp)
@@ -56,7 +56,6 @@ CSS: every `var(--x)` needs a hard-coded fallback. Touch: `touchstart/move/end`;
 | Letter spell-out / scope | off / `all` (所有單字) |
 | Chinese voice / locales (zh / en / ja) | off / zh-TW · en-US · ja-JP |
 | Sheet history limit / quick quiz questions | 10 / 10 |
-| Grammar quiz source sheets / pool size / questions per run | 單字庫 + 五上單字 / 100 per question type / 10 |
 | Export batch size / Keep-Alive interval / review-date sync threshold | 15 / 30 s / every 20 reviewed words |
 | Review-time filter / difficulty filter / must-spell filter | all / 0 (only −999 words hidden by default) / off |
 | Type filter / tag filter | all (word/phrase/sentence) / empty |
