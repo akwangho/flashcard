@@ -20,7 +20,7 @@ For corporate networks with SSL inspection, see the `deploy.sh` comments for CA 
 
 ## Architecture
 
-**Pattern:** Frontend-backend split via Google Apps Script HTML Service. Backend is `code.gs`; frontend is 28 `.html` modules (22 script + 5 style + 1 vendored library) included via `<?!= include(); ?>` in `index.html`.
+**Pattern:** Frontend-backend split via Google Apps Script HTML Service. Backend is `code.gs`; frontend is 30 `.html` modules (23 script + 5 style + 1 vendored library) included via `<?!= include(); ?>` in `index.html`.
 
 **Frontend JS Pattern:**
 - All methods mounted on `FlashcardApp.prototype` (prototype-based OOP, single constructor)
@@ -42,6 +42,8 @@ Backend (`code.gs`) may use ES6+.
 ## Spec-Driven Development (OpenSpec)
 
 Current deployed behavior is documented in `openspec/specs/<capability>/spec.md`. When modifying code, **update the corresponding spec** to keep it in sync. Specs use RFC 2119 keywords (SHALL, SHOULD, MAY). See `openspec/AGENTS.md` for the capability index and conventions.
+
+A dedicated validation tool lives at `scripts/validate-grammar-quiz.mjs`: it pulls the live 「單字庫」「五上單字」 worksheets and checks every generated grammar question (sentence correctness, distractor quality, pool size). Run it after changing the grammar-question tables.
 
 ## Versioning
 

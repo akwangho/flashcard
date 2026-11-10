@@ -155,6 +155,23 @@ function createDOMElements() {
     'listening-final-score', 'listening-correct-count', 'listening-wrong-count',
     'listening-result-message', 'listening-wrong-review', 'listening-wrong-list',
     'listening-start', 'listening-next', 'listening-restart', 'listening-finish',
+    // Grammar quiz modal
+    'grammar-quiz-modal', 'grammar-quiz-title', 'close-grammar-quiz',
+    'grammar-quiz-type-screen', 'grammar-quiz-intro-title',
+    'grammar-quiz-intro-description', 'grammar-quiz-scope-info',
+    'grammar-quiz-type-grid',
+    'grammar-quiz-progress-screen', 'grammar-quiz-current-number',
+    'grammar-quiz-total-number', 'grammar-quiz-current-score',
+    'grammar-quiz-progress-fill', 'grammar-quiz-focus',
+    'grammar-quiz-prompt', 'grammar-quiz-question', 'grammar-quiz-options',
+    'grammar-quiz-feedback', 'grammar-quiz-feedback-result',
+    'grammar-quiz-feedback-explanation',
+    'grammar-quiz-result-screen', 'grammar-quiz-result-icon',
+    'grammar-quiz-result-title', 'grammar-quiz-final-score',
+    'grammar-quiz-correct-count', 'grammar-quiz-wrong-count',
+    'grammar-quiz-result-message', 'grammar-quiz-wrong-review',
+    'grammar-quiz-wrong-list',
+    'grammar-quiz-back', 'grammar-quiz-next', 'grammar-quiz-restart', 'grammar-quiz-finish',
     // Listening mode setting
     'listening-mode-setting',
     // SRS review modal
@@ -491,6 +508,7 @@ function loadAllScripts() {
     'script-screen-awake.html',
     'script-quiz.html',
     'script-listening.html',
+    'script-grammar-quiz.html',
     'script-bootstrap.html'
   ];
 
@@ -547,7 +565,8 @@ function bootstrapApp() {
     'if (typeof renderLoadingVersionText !== "undefined") { global.renderLoadingVersionText = renderLoadingVersionText; }\n' +
     'if (typeof normalizeDifficultyLevel !== "undefined") { global.normalizeDifficultyLevel = normalizeDifficultyLevel; }\n' +
     'if (typeof isForcedReviewLevel !== "undefined") { global.isForcedReviewLevel = isForcedReviewLevel; }\n' +
-    'if (typeof isForcedReviewWord !== "undefined") { global.isForcedReviewWord = isForcedReviewWord; }\n';
+    'if (typeof isForcedReviewWord !== "undefined") { global.isForcedReviewWord = isForcedReviewWord; }\n' +
+    'if (typeof GRAMMAR_QUIZ_TYPES !== "undefined") { global.GRAMMAR_QUIZ_TYPES = GRAMMAR_QUIZ_TYPES; }\n';
   var script = new Function(exportCode);
   script.call(global);
 }

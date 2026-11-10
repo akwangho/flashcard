@@ -269,6 +269,7 @@
                   <button id="full-quiz-btn" class="menu-item">📝 完整測驗</button>
                   <button id="listen-choose-btn" class="menu-item">👂 聽音辨字</button>
                   <button id="listen-spell-btn" class="menu-item">✍️ 聽音拼字</button>
+                  <button id="grammar-quiz-btn" class="menu-item">📐 文法測驗</button>
                 </div>
               </div>
               <div class="menu-divider"></div>
@@ -1219,6 +1220,97 @@
     </div>
   </div>
 
+  <!-- 文法測驗模態框 -->
+  <div id="grammar-quiz-modal" class="modal" style="display: none;">
+    <div class="modal-content grammar-quiz-modal-content">
+      <div class="modal-header">
+        <h2 id="grammar-quiz-title">📐 文法測驗</h2>
+        <button id="close-grammar-quiz" class="close-btn" aria-label="關閉視窗">×</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- 題型選擇畫面 -->
+        <div id="grammar-quiz-type-screen" class="quiz-screen">
+          <div class="quiz-intro">
+            <div class="quiz-icon">📐</div>
+            <h3 id="grammar-quiz-intro-title">選擇題型</h3>
+            <p id="grammar-quiz-intro-description">
+              BE 動詞（am / is / are）、助動詞（Do / Does），<br>
+              以及一般動詞改成否定句、疑問句的變化
+            </p>
+            <div class="quiz-scope" id="grammar-quiz-scope-info">
+              📗 題庫來源：單字庫、五上單字
+            </div>
+            <div class="grammar-quiz-type-grid" id="grammar-quiz-type-grid">
+              <!-- 題型按鈕由 JS 動態生成 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 答題畫面 -->
+        <div id="grammar-quiz-progress-screen" class="quiz-screen" style="display: none;">
+          <div class="quiz-progress-header">
+            <div class="quiz-progress-info">
+              <span id="grammar-quiz-current-number">1</span> / <span id="grammar-quiz-total-number">10</span>
+            </div>
+            <div class="quiz-score-info">
+              得分：<span id="grammar-quiz-current-score">0</span>
+            </div>
+          </div>
+
+          <div class="quiz-progress-bar">
+            <div class="quiz-progress-fill" id="grammar-quiz-progress-fill"></div>
+          </div>
+
+          <div class="grammar-quiz-question-box">
+            <div class="grammar-quiz-focus" id="grammar-quiz-focus">BE 動詞（am / is / are）</div>
+            <div class="grammar-quiz-prompt" id="grammar-quiz-prompt" style="display: none;"></div>
+            <div class="grammar-quiz-question" id="grammar-quiz-question">She is happy.</div>
+          </div>
+
+          <div class="grammar-quiz-options" id="grammar-quiz-options">
+            <!-- 選項將由JS動態生成 -->
+          </div>
+
+          <!-- 答題回饋 -->
+          <div id="grammar-quiz-feedback" class="quiz-feedback" style="display: none;">
+            <div class="quiz-feedback-content">
+              <div class="quiz-feedback-result" id="grammar-quiz-feedback-result">✅ 答對了！</div>
+              <div class="quiz-feedback-explanation" id="grammar-quiz-feedback-explanation"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 結果畫面 -->
+        <div id="grammar-quiz-result-screen" class="quiz-screen" style="display: none;">
+          <div class="quiz-result">
+            <div class="quiz-result-icon" id="grammar-quiz-result-icon">🎉</div>
+            <h3 id="grammar-quiz-result-title">文法測驗完成！</h3>
+            <div class="quiz-score">
+              <span class="quiz-final-score" id="grammar-quiz-final-score">0</span> 分
+            </div>
+            <div class="quiz-stats">
+              <span class="quiz-stat correct">✓ <span id="grammar-quiz-correct-count">0</span></span>
+              <span class="quiz-stat wrong">✗ <span id="grammar-quiz-wrong-count">0</span></span>
+            </div>
+            <p id="grammar-quiz-result-message"></p>
+          </div>
+          <div id="grammar-quiz-wrong-review" style="display: none;">
+            <h4>錯題回顧：</h4>
+            <div id="grammar-quiz-wrong-list" class="quiz-wrong-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="grammar-quiz-back" class="secondary-btn" style="display: none;">← 換題型</button>
+        <button id="grammar-quiz-next" class="primary-btn" style="display: none;">下一題</button>
+        <button id="grammar-quiz-restart" class="primary-btn" style="display: none;">再來一次</button>
+        <button id="grammar-quiz-finish" class="secondary-btn" style="display: none;">結束</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 自訂確認對話框（取代瀏覽器內建 confirm，避免離開全螢幕） -->
     <div id="custom-confirm-modal" class="modal" style="display: none;">
       <div class="modal-content custom-confirm-content">
@@ -1258,6 +1350,7 @@
   <?!= include('script-screen-awake'); ?>
   <?!= include('script-quiz'); ?>
   <?!= include('script-listening'); ?>
+  <?!= include('script-grammar-quiz'); ?>
   <?!= include('script-bootstrap'); ?>
 </body>
 </html>

@@ -1,0 +1,2048 @@
+<!-- script-grammar-quiz.html -->
+<script>
+  /**
+   * @module script-grammar-quiz
+   * @description 文法測驗模組：BE 動詞（am/is/are）、助動詞（Do/Does）與一般動詞
+   *   從肯定句改成否定句／疑問句時的變化，以及單複數搭配。
+   *
+   *   題目來源：Google Datasheet 的「單字庫」「五上單字」工作表。
+   *   執行時只會從「目前已載入的單字」中挑出可用的單字來出題，
+   *   因此題目永遠跟著使用者正在學的字庫走。
+   *
+   * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS),
+   *   script-events.html (shuffleArray), script-grammar.html (GRAMMAR_COMMON_VERBS)
+   * @provides FlashcardApp.prototype: startGrammarQuiz, setupGrammarQuizListeners,
+   *   closeGrammarQuizModal, isGrammarQuizInProgress,
+   *   _grammarQuizSourceWords, _grammarQuizVocabulary,
+   *   _grammarQuizBuildPool, _grammarQuizMakeItems,
+   *   _grammarQuizMakeBeItem, _grammarQuizMakeDoItem,
+   *   _grammarQuizQuestionFromItem, _grammarQuizWrongForms,
+   *   showGrammarQuizModal, showGrammarQuizScreen,
+   *   showGrammarQuizQuestion, renderGrammarQuizOptions,
+   *   selectGrammarQuizAnswer, showGrammarQuizFeedback,
+   *   showGrammarQuizNextButton, nextGrammarQuizQuestion,
+   *   showGrammarQuizResult, showGrammarQuizWrongReview,
+   *   restartGrammarQuiz
+   */
+
+  // ==========================================================================
+  // 文法測驗：題型定義
+  // ==========================================================================
+
+  /**
+   * 題型定義。
+   * id 對應前端 state.type；每種題型都會各自建立一組題目（見 APP_CONSTANTS.GRAMMAR_QUIZ_POOL_SIZE）。
+   */
+  var GRAMMAR_QUIZ_TYPES = {
+    truefalse: {
+      id: 'truefalse',
+      label: '是非題',
+      icon: '✅',
+      desc: '句子有沒有文法錯誤？'
+    },
+    fill: {
+      id: 'fill',
+      label: '填空選擇題',
+      icon: '✏️',
+      desc: '選出正確的 BE 動詞或助動詞'
+    },
+    choice: {
+      id: 'choice',
+      label: '選擇題',
+      icon: '🔤',
+      desc: '把肯定句改成否定句或疑問句'
+    },
+    translate: {
+      id: 'translate',
+      label: '中翻英',
+      icon: '🀄',
+      desc: '看中文句子，選出正確的英文'
+    },
+    mixed: {
+      id: 'mixed',
+      label: '混合題型',
+      icon: '🎲',
+      desc: '四種題型混合出題'
+    }
+  };
+
+  /** 題型顯示順序（題型選擇畫面） */
+  var GRAMMAR_QUIZ_TYPE_ORDER = ['truefalse', 'fill', 'choice', 'translate', 'mixed'];
+
+  // ==========================================================================
+  // 文法測驗：詞彙資料表
+  //
+  // 下列資料表的英文都取自「單字庫」「五上單字」工作表；
+  // 執行時會再跟「已載入的單字」比對，沒有載入的單字不會出題。
+  // 中文翻譯取自工作表（部分太籠統的則另存較精確的說明）。
+  // ==========================================================================
+
+  /**
+   * 主語（人）。
+   * plural 為 true 表示要用 are / Do / don't（you 視為複數，用 are / Do）。
+   */
+  var GRAMMAR_QUIZ_SUBJECTS = [
+    { en: 'I', zh: '我', plural: false },
+    { en: 'you', zh: '你', plural: true },
+    { en: 'he', zh: '他', plural: false },
+    { en: 'she', zh: '她', plural: false },
+    { en: 'it', zh: '它', plural: false },
+    { en: 'we', zh: '我們', plural: true },
+    { en: 'they', zh: '他們', plural: true },
+    { en: 'Tom', zh: '湯姆', plural: false },
+    { en: 'Amy', zh: '艾咪', plural: false },
+    { en: 'Peter', zh: '彼得', plural: false },
+    { en: 'Mia', zh: '米亞', plural: false },
+    { en: 'Lisa', zh: '莉莎', plural: false },
+    { en: 'Ken', zh: '肯恩', plural: false },
+    { en: 'Nancy', zh: '南西', plural: false }
+  ];
+
+  /**
+   * 主語（事物）。搭配形容詞時使用，讓句子更自然
+   * （例：The soup is hot. / My shoes are dirty.）。
+   */
+  var GRAMMAR_QUIZ_THING_SUBJECTS = [
+    { en: 'My room', zh: '我的房間', plural: false },
+    { en: 'My bike', zh: '我的腳踏車', plural: false },
+    { en: 'My hands', zh: '我的雙手', plural: false },
+    { en: 'My hair', zh: '我的頭髮', plural: false },
+    { en: 'My homework', zh: '我的作業', plural: false },
+    { en: 'This book', zh: '這本書', plural: false },
+    { en: 'That pizza', zh: '那個披薩', plural: false },
+    { en: 'The weather', zh: '天氣', plural: false },
+    { en: 'The soup', zh: '那鍋湯', plural: false },
+    { en: 'The door', zh: '那扇門', plural: false }
+  ];
+
+  /**
+   * 主語（衣物類，複數）。搭配衣物形容詞時使用
+   * （例：My shoes are dirty. / My teeth are clean.）。
+   */
+  var GRAMMAR_QUIZ_CLOTHING_SUBJECTS = [
+    { en: 'My shoes', zh: '我的鞋子', plural: true },
+    { en: 'My socks', zh: '我的襪子', plural: true },
+    { en: 'My clothes', zh: '我的衣服', plural: true },
+    { en: 'My glasses', zh: '我的眼鏡', plural: true },
+    { en: 'My teeth', zh: '我的牙齒', plural: true }
+  ];
+
+  /**
+   * 動詞與受詞配對。
+   * base 原形 / third 第三人稱單數 / zh 中文 / objects 受詞（en 英文、zh 中文）。
+   * objects 為空時表示該動詞本身已是完整片語（例如 get up）。
+   */
+  var GRAMMAR_QUIZ_VERBS = [
+    { base: 'play', third: 'plays', zh: '玩', objects: [
+      { en: 'soccer', zh: '足球' }, { en: 'basketball', zh: '籃球' },
+      { en: 'volleyball', zh: '排球' }, { en: 'badminton', zh: '羽毛球' },
+      { en: 'piano', zh: '鋼琴' }, { en: 'guitar', zh: '吉他' }
+    ]},
+    { base: 'like', third: 'likes', zh: '喜歡', objects: [
+      { en: 'pizza', zh: '披薩' }, { en: 'fruit', zh: '水果' },
+      { en: 'music', zh: '音樂' }, { en: 'math', zh: '數學' },
+      { en: 'science', zh: '科學' }, { en: 'juice', zh: '果汁' },
+      { en: 'corn', zh: '玉米' }, { en: 'soup', zh: '湯' }
+    ]},
+    { base: 'have', third: 'has', zh: '有', objects: [
+      { en: 'breakfast', zh: '早餐' }, { en: 'lunch', zh: '午餐' },
+      { en: 'dinner', zh: '晚餐' }, { en: 'a cold', zh: '感冒' },
+      { en: 'a fever', zh: '發燒' }, { en: 'a headache', zh: '頭痛' },
+      { en: 'a toothache', zh: '牙痛' }, { en: 'a sore throat', zh: '喉嚨痛' },
+      { en: 'a runny nose', zh: '流鼻水' }, { en: 'fruit', zh: '水果' },
+      { en: 'money', zh: '錢' }, { en: 'a bike', zh: '腳踏車' }
+    ]},
+    { base: 'do', third: 'does', zh: '做', objects: [
+      { en: 'my homework', zh: '我的作業' }, { en: 'housework', zh: '家務' }
+    ]},
+    { base: 'get up', third: 'gets up', zh: '起床', objects: [] },
+    { base: 'take', third: 'takes', zh: '拿／做', objects: [
+      { en: 'a nap', zh: '小睡片刻' }, { en: 'a walk', zh: '散步' },
+      { en: 'a shower', zh: '沖澡' }, { en: 'a bath', zh: '泡澡' },
+      { en: 'medicine', zh: '藥' }, { en: 'a bus', zh: '公車' }
+    ]},
+    { base: 'eat', third: 'eats', zh: '吃', objects: [
+      { en: 'rice', zh: '米飯' }, { en: 'soup', zh: '湯' },
+      { en: 'noodles', zh: '麵條' }, { en: 'dumplings', zh: '水餃' },
+      { en: 'fruit', zh: '水果' }, { en: 'beef', zh: '牛肉' },
+      { en: 'pork', zh: '豬肉' }, { en: 'corn', zh: '玉米' },
+      { en: 'steak', zh: '牛排' }, { en: 'bread', zh: '麵包' },
+      { en: 'eggs', zh: '蛋' }
+    ]},
+    { base: 'go', third: 'goes', zh: '去', objects: [
+      { en: 'to school', zh: '上學' }, { en: 'home', zh: '回家' },
+      { en: 'to bed', zh: '上床睡覺' }, { en: 'there', zh: '那裡' }
+    ]},
+    { base: 'watch', third: 'watches', zh: '看', objects: [
+      { en: 'a movie', zh: '電影' }, { en: 'a game', zh: '比賽' },
+      { en: 'the door', zh: '門' }, { en: 'sports', zh: '運動賽事' }
+    ]},
+    { base: 'study', third: 'studies', zh: '讀', objects: [
+      { en: 'math', zh: '數學' }, { en: 'science', zh: '科學' },
+      { en: 'music', zh: '音樂' }, { en: 'art', zh: '美術' },
+      { en: 'Chinese', zh: '中文' }
+    ]},
+    { base: 'want', third: 'wants', zh: '想要', objects: [
+      { en: 'rice', zh: '米飯' }, { en: 'soup', zh: '湯' },
+      { en: 'fruit', zh: '水果' }, { en: 'a new bike', zh: '一台新腳踏車' },
+      { en: 'more food', zh: '更多食物' }
+    ]},
+    { base: 'need', third: 'needs', zh: '需要', objects: [
+      { en: 'help', zh: '幫忙' }, { en: 'money', zh: '錢' },
+      { en: 'more food', zh: '更多食物' }, { en: 'a rest', zh: '休息一下' },
+      { en: 'medicine', zh: '藥' }
+    ]},
+    { base: 'make', third: 'makes', zh: '做', objects: [
+      { en: 'a cake', zh: '一個蛋糕' }, { en: 'fruit salad', zh: '水果沙拉' },
+      { en: 'a mistake', zh: '一個錯誤' }, { en: 'dinner', zh: '晚餐' }
+    ]},
+    { base: 'ride', third: 'rides', zh: '騎', objects: [
+      { en: 'a bike', zh: '腳踏車' }, { en: 'a bicycle', zh: '自行車' },
+      { en: 'a horse', zh: '馬' }, { en: 'a sled', zh: '雪橇' }
+    ]},
+    { base: 'bring', third: 'brings', zh: '帶來', objects: [
+      { en: 'my homework', zh: '我的作業' }, { en: 'some toys', zh: '一些玩具' },
+      { en: 'my bag', zh: '我的書包' }
+    ]},
+    { base: 'give', third: 'gives', zh: '給', objects: [
+      { en: 'him a gift', zh: '給他一份禮物' },
+      { en: 'away some toys', zh: '送掉一些玩具' }
+    ]},
+    { base: 'tell', third: 'tells', zh: '告訴', objects: [
+      { en: 'a story', zh: '一個故事' }, { en: 'a joke', zh: '一個笑話' },
+      { en: 'the truth', zh: '實話' }
+    ]},
+    { base: 'sing', third: 'sings', zh: '唱', objects: [
+      { en: 'a song', zh: '一首歌' }, { en: 'English songs', zh: '英文歌' }
+    ]},
+    { base: 'read', third: 'reads', zh: '讀', objects: [
+      { en: 'a book', zh: '一本書' }, { en: 'the newspaper', zh: '報紙' },
+      { en: 'a story', zh: '一個故事' }
+    ]},
+    { base: 'write', third: 'writes', zh: '寫', objects: [
+      { en: 'my homework', zh: '我的作業' }, { en: 'a letter', zh: '一封信' },
+      { en: 'in English', zh: '用英文' }
+    ]},
+    { base: 'send', third: 'sends', zh: '寄／送', objects: [
+      { en: 'a letter', zh: '一封信' }, { en: 'a message', zh: '一則訊息' },
+      { en: 'an email', zh: '一封電子郵件' }
+    ]},
+    { base: 'teach', third: 'teaches', zh: '教', objects: [
+      { en: 'math', zh: '數學' }, { en: 'English', zh: '英文' },
+      { en: 'us a song', zh: '我們一首歌' }
+    ]},
+    { base: 'learn', third: 'learns', zh: '學', objects: [
+      { en: 'English', zh: '英文' }, { en: 'math', zh: '數學' },
+      { en: 'a song', zh: '一首歌' }
+    ]},
+    { base: 'open', third: 'opens', zh: '打開', objects: [
+      { en: 'the door', zh: '門' }, { en: 'my mouth', zh: '嘴巴' },
+      { en: 'a book', zh: '一本書' }
+    ]},
+    { base: 'close', third: 'closes', zh: '關上', objects: [
+      { en: 'the door', zh: '門' }, { en: 'my mouth', zh: '嘴巴' },
+      { en: 'the window', zh: '窗戶' }
+    ]},
+    { base: 'put', third: 'puts', zh: '放', objects: [
+      { en: 'my bag on the chair', zh: '我的書包放在椅子上' },
+      { en: 'it away', zh: '把它收好' },
+      { en: 'on your shoes', zh: '穿上你的鞋子' }
+    ]},
+    { base: 'wear', third: 'wears', zh: '穿／戴', objects: [
+      { en: 'a hat', zh: '帽子' }, { en: 'jeans', zh: '牛仔褲' },
+      { en: 'socks', zh: '襪子' }, { en: 'gloves', zh: '手套' },
+      { en: 'shoes', zh: '鞋子' }
+    ]},
+    { base: 'wash', third: 'washes', zh: '洗', objects: [
+      { en: 'my hands', zh: '我的手' }, { en: 'the dishes', zh: '碗盤' },
+      { en: 'my face', zh: '我的臉' }
+    ]},
+    { base: 'buy', third: 'buys', zh: '買', objects: [
+      { en: 'fruit', zh: '水果' }, { en: 'a cake', zh: '一個蛋糕' },
+      { en: 'a new bike', zh: '一台新腳踏車' }, { en: 'bread', zh: '麵包' }
+    ]},
+    { base: 'sell', third: 'sells', zh: '賣', objects: [
+      { en: 'fruit', zh: '水果' }, { en: 'bread', zh: '麵包' }
+    ]},
+    { base: 'cook', third: 'cooks', zh: '做菜', objects: [
+      { en: 'dinner', zh: '晚餐' }, { en: 'beef', zh: '牛肉' },
+      { en: 'a cake', zh: '一個蛋糕' }, { en: 'noodles', zh: '麵條' }
+    ]},
+    { base: 'draw', third: 'draws', zh: '畫', objects: [
+      { en: 'a picture', zh: '一張圖' }, { en: 'a face', zh: '一張臉' },
+      { en: 'a map', zh: '一張地圖' }
+    ]},
+    { base: 'jump', third: 'jumps', zh: '跳', objects: [
+      { en: 'over the fence', zh: '越過籬笆' }, { en: 'rope', zh: '繩子' },
+      { en: 'high', zh: '高高地' }
+    ]},
+    { base: 'kick', third: 'kicks', zh: '踢', objects: [
+      { en: 'a ball', zh: '一個球' }, { en: 'the ball', zh: '那個球' }
+    ]},
+    { base: 'throw', third: 'throws', zh: '丟', objects: [
+      { en: 'a ball', zh: '一個球' }, { en: 'the ball', zh: '那個球' }
+    ]},
+    { base: 'catch', third: 'catches', zh: '接／抓', objects: [
+      { en: 'a ball', zh: '一個球' }, { en: 'the ball', zh: '那個球' },
+      { en: 'a fish', zh: '一條魚' }
+    ]},
+    { base: 'swim', third: 'swims', zh: '游泳', objects: [
+      { en: 'in the pool', zh: '在游泳池裡' }, { en: 'in the river', zh: '在河裡' }
+    ]},
+    { base: 'dance', third: 'dances', zh: '跳舞', objects: [
+      { en: 'with my sister', zh: '和我妹妹一起' }, { en: 'at the party', zh: '在派對上' }
+    ]},
+    { base: 'smile', third: 'smiles', zh: '微笑', objects: [
+      { en: 'at me', zh: '對我' }, { en: 'at the baby', zh: '對那個嬰兒' }
+    ]},
+    { base: 'laugh', third: 'laughs', zh: '笑', objects: [
+      { en: 'at the joke', zh: '那個笑話' }, { en: 'with my friend', zh: '和朋友' }
+    ]},
+    { base: 'cry', third: 'cries', zh: '哭', objects: [
+      { en: 'at night', zh: '晚上' }, { en: 'in the room', zh: '在房間裡' }
+    ]},
+    { base: 'walk', third: 'walks', zh: '走', objects: [
+      { en: 'to school', zh: '上學' }, { en: 'in the park', zh: '在公園裡' },
+      { en: 'with my dog', zh: '和我的狗一起' }
+    ]},
+    { base: 'run', third: 'runs', zh: '跑', objects: [
+      { en: 'in the park', zh: '在公園裡' }, { en: 'fast', zh: '很快地' },
+      { en: 'to school', zh: '上學' }
+    ]},
+    { base: 'sleep', third: 'sleeps', zh: '睡覺', objects: [
+      { en: 'at night', zh: '晚上' }, { en: 'for eight hours', zh: '八小時' }
+    ]},
+    { base: 'wake', third: 'wakes', zh: '醒來', objects: [
+      { en: 'up early', zh: '早早地' }, { en: 'at seven', zh: '七點' }
+    ]},
+    { base: 'sit', third: 'sits', zh: '坐', objects: [
+      { en: 'on the chair', zh: '在椅子上' }, { en: 'next to me', zh: '在我旁邊' }
+    ]},
+    { base: 'stand', third: 'stands', zh: '站', objects: [
+      { en: 'here', zh: '這裡' }, { en: 'up', zh: '站起來' }
+    ]},
+    { base: 'wait', third: 'waits', zh: '等', objects: [
+      { en: 'for the bus', zh: '公車' }, { en: 'at the gate', zh: '在門口' }
+    ]},
+    { base: 'look', third: 'looks', zh: '看', objects: [
+      { en: 'at the picture', zh: '這張圖' }, { en: 'for my bag', zh: '我的書包' },
+      { en: 'after class', zh: '下課後' }
+    ]},
+    { base: 'listen', third: 'listens', zh: '聽', objects: [
+      { en: 'to music', zh: '音樂' }, { en: 'to the teacher', zh: '老師' }
+    ]},
+    { base: 'speak', third: 'speaks', zh: '說', objects: [
+      { en: 'English', zh: '英文' }, { en: 'to the teacher', zh: '老師' }
+    ]},
+    { base: 'talk', third: 'talks', zh: '談話', objects: [
+      { en: 'to my mom', zh: '我媽媽' }, { en: 'about school', zh: '學校的事' }
+    ]},
+    { base: 'call', third: 'calls', zh: '打電話', objects: [
+      { en: 'my mom', zh: '我媽媽' }, { en: 'a taxi', zh: '一輛計程車' }
+    ]},
+    { base: 'visit', third: 'visits', zh: '拜訪', objects: [
+      { en: 'my uncle', zh: '我叔叔' }, { en: 'the hospital', zh: '醫院' }
+    ]},
+    { base: 'help', third: 'helps', zh: '幫忙', objects: [
+      { en: 'my mom', zh: '我媽媽' }, { en: 'with my homework', zh: '我的作業' }
+    ]},
+    { base: 'use', third: 'uses', zh: '使用', objects: [
+      { en: 'a spoon', zh: '湯匙' }, { en: 'my phone', zh: '我的手機' }
+    ]},
+    { base: 'clean', third: 'cleans', zh: '打掃', objects: [
+      { en: 'my room', zh: '我的房間' }, { en: 'the table', zh: '桌子' }
+    ]},
+    { base: 'join', third: 'joins', zh: '參加', objects: [
+      { en: 'the game', zh: '那場比賽' }, { en: 'the trip', zh: '那趟旅行' }
+    ]},
+    { base: 'show', third: 'shows', zh: '展示', objects: [
+      { en: 'me the picture', zh: '我這張圖' }, { en: 'my homework', zh: '我的作業' }
+    ]},
+    { base: 'answer', third: 'answers', zh: '回答', objects: [
+      { en: 'the question', zh: '問題' }, { en: 'my teacher', zh: '我的老師' }
+    ]},
+    { base: 'pay', third: 'pays', zh: '付錢', objects: [
+      { en: 'the money', zh: '錢' }, { en: 'for the cake', zh: '蛋糕' }
+    ]},
+    { base: 'find', third: 'finds', zh: '找到', objects: [
+      { en: 'my bag', zh: '我的書包' }, { en: 'the answer', zh: '答案' }
+    ]},
+    { base: 'lose', third: 'loses', zh: '弄丟', objects: [
+      { en: 'my bag', zh: '我的書包' }, { en: 'my key', zh: '我的鑰匙' }
+    ]},
+    { base: 'hold', third: 'holds', zh: '拿著', objects: [
+      { en: 'the book', zh: '這本書' }, { en: 'my hand', zh: '我的手' },
+      { en: 'a ball', zh: '一個球' }
+    ]},
+    { base: 'hang', third: 'hangs', zh: '掛', objects: [
+      { en: 'the picture', zh: '這張畫' }, { en: 'my coat', zh: '我的外套' }
+    ]},
+    { base: 'hide', third: 'hides', zh: '藏', objects: [
+      { en: 'my toy', zh: '我的玩具' }, { en: 'behind the door', zh: '在門後面' }
+    ]},
+    { base: 'forget', third: 'forgets', zh: '忘記', objects: [
+      { en: 'my homework', zh: '我的作業' }, { en: 'the answer', zh: '答案' }
+    ]},
+    { base: 'spend', third: 'spends', zh: '花費', objects: [
+      { en: 'my money', zh: '我的錢' }, { en: 'too much time', zh: '太多時間' }
+    ]},
+    { base: 'leave', third: 'leaves', zh: '離開', objects: [
+      { en: 'the classroom', zh: '教室' }, { en: 'at six', zh: '六點' }
+    ]},
+    { base: 'meet', third: 'meets', zh: '遇見', objects: [
+      { en: 'my teacher', zh: '我的老師' }, { en: 'at the gate', zh: '在門口' }
+    ]},
+    { base: 'miss', third: 'misses', zh: '想念', objects: [
+      { en: 'my mom', zh: '我媽媽' }, { en: 'the game', zh: '那場比賽' }
+    ]},
+    { base: 'share', third: 'shares', zh: '分享', objects: [
+      { en: 'my toys', zh: '我的玩具' }, { en: 'with my friend', zh: '和朋友' }
+    ]},
+    { base: 'follow', third: 'follows', zh: '跟隨', objects: [
+      { en: 'my mom', zh: '我媽媽' }, { en: 'the sign', zh: '標示' }
+    ]},
+    { base: 'collect', third: 'collects', zh: '收集', objects: [
+      { en: 'stamps', zh: '郵票' }
+    ]},
+    { base: 'gather', third: 'gathers', zh: '聚集', objects: [
+      { en: 'my friends', zh: '我的朋友們' }, { en: 'at the gate', zh: '在門口' }
+    ]},
+    { base: 'fight', third: 'fights', zh: '打架', objects: [
+      { en: 'with my brother', zh: '和我哥哥' }, { en: 'about the toy', zh: '玩具的事' }
+    ]},
+    { base: 'worry', third: 'worries', zh: '擔心', objects: [
+      { en: 'about the test', zh: '考試' }, { en: 'my mom', zh: '我媽媽' }
+    ]},
+    { base: 'hope', third: 'hopes', zh: '希望', objects: [
+      { en: 'for a new bike', zh: '一台新腳踏車' }, { en: 'to go', zh: '去' }
+    ]},
+    { base: 'wish', third: 'wishes', zh: '希望', objects: [
+      { en: 'you a happy birthday', zh: '你生日快樂' },
+      { en: 'a new bike', zh: '一台新腳踏車' }
+    ]},
+    { base: 'dream', third: 'dreams', zh: '夢想', objects: [
+      { en: 'about my birthday', zh: '我的生日' }, { en: 'to fly', zh: '飛行' }
+    ]},
+    { base: 'plan', third: 'plans', zh: '計畫', objects: [
+      { en: 'my trip', zh: '我的旅行' }, { en: 'a party', zh: '一場派對' }
+    ]},
+    { base: 'guess', third: 'guesses', zh: '猜', objects: [
+      { en: 'the answer', zh: '答案' }, { en: 'my age', zh: '我的年齡' }
+    ]},
+    { base: 'remember', third: 'remembers', zh: '記得', objects: [
+      { en: 'my name', zh: '我的名字' }, { en: 'the answer', zh: '答案' }
+    ]},
+    { base: 'love', third: 'loves', zh: '愛', objects: [
+      { en: 'music', zh: '音樂' }, { en: 'my family', zh: '我的家人' },
+      { en: 'fruit', zh: '水果' }
+    ]},
+    { base: 'feel', third: 'feels', zh: '感覺', objects: [
+      { en: 'happy', zh: '開心' }, { en: 'tired', zh: '累' },
+      { en: 'sick', zh: '不舒服' }, { en: 'better', zh: '好一點' }
+    ]},
+    { base: 'become', third: 'becomes', zh: '變成', objects: [
+      { en: 'a doctor', zh: '醫生' }, { en: 'a teacher', zh: '老師' }
+    ]},
+    { base: 'stay', third: 'stays', zh: '保持', objects: [
+      { en: 'healthy', zh: '健康' }, { en: 'at home', zh: '在家' },
+      { en: 'in bed', zh: '在床上' }
+    ]},
+    { base: 'keep', third: 'keeps', zh: '保持', objects: [
+      { en: 'healthy', zh: '健康' }, { en: 'quiet', zh: '安靜' }
+    ]},
+    { base: 'let', third: 'lets', zh: '讓', objects: [
+      { en: 'him go', zh: '他走' }, { en: 'the dog in', zh: '狗進來' }
+    ]},
+    { base: 'save', third: 'saves', zh: '存／省下', objects: [
+      { en: 'money', zh: '錢' }, { en: 'my seat', zh: '我的位子' }
+    ]},
+    { base: 'carry', third: 'carries', zh: '提／搬', objects: [
+      { en: 'my bag', zh: '我的書包' }, { en: 'a heavy box', zh: '一個重箱子' }
+    ]},
+    { base: 'eat', third: 'eats', zh: '吃', objects: [
+      { en: 'eggs', zh: '蛋' }
+    ]},
+    { base: 'fall', third: 'falls', zh: '跌倒', objects: [
+      { en: 'down', zh: '下來' }, { en: 'asleep', zh: '著' }
+    ]},
+    { base: 'cry', third: 'cries', zh: '哭', objects: [
+      { en: 'for help', zh: '求助' }
+    ]},
+    { base: 'begin', third: 'begins', zh: '開始', objects: [
+      { en: 'to read', zh: '閱讀' }, { en: 'the game', zh: '比賽' }
+    ]},
+    { base: 'give', third: 'gives', zh: '給', objects: [
+      { en: 'me a hand', zh: '我幫忙' }
+    ]}
+  ];
+
+  /**
+   * 形容詞（接在 BE 動詞後面當主語補語）。
+   * 分成「人」與「事物」兩組，避免出現「Mia is delicious.」這種不自然的句子。
+   */
+  var GRAMMAR_QUIZ_ADJECTIVES_PEOPLE = [
+    { en: 'happy', zh: '快樂的' }, { en: 'sad', zh: '難過的' },
+    { en: 'angry', zh: '生氣的' }, { en: 'hungry', zh: '飢餓的' },
+    { en: 'thirsty', zh: '口渴的' }, { en: 'tired', zh: '累的' },
+    { en: 'busy', zh: '忙碌的' }, { en: 'hot', zh: '熱的' },
+    { en: 'cold', zh: '冷的' }, { en: 'wet', zh: '潮濕的' },
+    { en: 'dry', zh: '乾燥的' }, { en: 'sick', zh: '生病的' },
+    { en: 'healthy', zh: '健康的' }, { en: 'tall', zh: '高的' },
+    { en: 'short', zh: '矮的' }, { en: 'thin', zh: '瘦的' },
+    { en: 'fat', zh: '胖的' }, { en: 'strong', zh: '強壯的' },
+    { en: 'clean', zh: '乾淨的' }, { en: 'dirty', zh: '髒的' },
+    { en: 'kind', zh: '親切的' }, { en: 'friendly', zh: '友善的' },
+    { en: 'polite', zh: '有禮貌的' }, { en: 'beautiful', zh: '美麗的' },
+    { en: 'cute', zh: '可愛的' }, { en: 'nice', zh: '美好的' },
+    { en: 'easy', zh: '容易的' }, { en: 'warm', zh: '溫暖的' },
+    { en: 'cool', zh: '涼爽的' }, { en: 'loud', zh: '大聲的' },
+    { en: 'quiet', zh: '安靜的' }, { en: 'old', zh: '年老的' },
+    { en: 'young', zh: '年輕的' }, { en: 'afraid', zh: '害怕的' },
+    { en: 'bored', zh: '無聊的' }, { en: 'boring', zh: '無聊的' },
+    { en: 'lonely', zh: '孤獨的' }, { en: 'glad', zh: '高興的' },
+    { en: 'poor', zh: '可憐的' }, { en: 'rich', zh: '富有的' },
+    { en: 'famous', zh: '有名的' }, { en: 'safe', zh: '安全的' },
+    { en: 'wrong', zh: '錯誤的' }, { en: 'different', zh: '不同的' },
+    { en: 'wonderful', zh: '精彩的' }, { en: 'lucky', zh: '幸運的' },
+    { en: 'sore', zh: '疼痛的' }, { en: 'shy', zh: '害羞的' },
+    { en: 'lazy', zh: '懶惰的' }, { en: 'cozy', zh: '溫暖舒適的' },
+    { en: 'funny', zh: '好笑的' }, { en: 'noisy', zh: '吵雜的' },
+    { en: 'sweet', zh: '甜甜的' }, { en: 'full', zh: '飽的' }
+  ];
+
+  /** 形容詞（搭配一般事物主語，例如 My room / The soup / This book） */
+  var GRAMMAR_QUIZ_ADJECTIVES_THINGS = [
+    { en: 'hot', zh: '熱的' }, { en: 'cold', zh: '冷的' },
+    { en: 'wet', zh: '潮濕的' }, { en: 'dry', zh: '乾燥的' },
+    { en: 'clean', zh: '乾淨的' }, { en: 'dirty', zh: '髒的' },
+    { en: 'empty', zh: '空的' }, { en: 'easy', zh: '容易的' },
+    { en: 'soft', zh: '柔軟的' }, { en: 'hard', zh: '硬的' },
+    { en: 'heavy', zh: '重的' }, { en: 'light', zh: '輕的' },
+    { en: 'long', zh: '長的' }, { en: 'dark', zh: '黑暗的' },
+    { en: 'beautiful', zh: '美麗的' }, { en: 'nice', zh: '美好的' },
+    { en: 'warm', zh: '溫暖的' }, { en: 'cool', zh: '涼爽的' },
+    { en: 'quiet', zh: '安靜的' }, { en: 'loud', zh: '大聲的' },
+    { en: 'safe', zh: '安全的' }, { en: 'wonderful', zh: '精彩的' },
+    { en: 'funny', zh: '好笑的' }, { en: 'old', zh: '舊的' }
+  ];
+
+  /** 形容詞（搭配衣物類主語，例如 My shoes / My clothes） */
+  var GRAMMAR_QUIZ_ADJECTIVES_CLOTHING = [
+    { en: 'clean', zh: '乾淨的' }, { en: 'dirty', zh: '髒的' },
+    { en: 'wet', zh: '潮濕的' }, { en: 'dry', zh: '乾燥的' },
+    { en: 'hot', zh: '熱的' }, { en: 'cold', zh: '冷的' },
+    { en: 'warm', zh: '溫暖的' }, { en: 'cool', zh: '涼爽的' },
+    { en: 'heavy', zh: '重的' }, { en: 'light', zh: '輕的' },
+    { en: 'long', zh: '長的' }, { en: 'old', zh: '舊的' },
+    { en: 'nice', zh: '美好的' }, { en: 'safe', zh: '安全的' }
+  ];
+
+  /**
+   * 人物類名詞（放在 a / an 後面當主語補語）。
+   * 只挑「可以描述一個人」的名詞，避免出現「Tom is a recipe.」這種怪句子。
+   * art 為不定冠詞；zh 為中文翻譯。
+   */
+  var GRAMMAR_QUIZ_PERSON_NOUNS = [
+    { en: 'doctor', zh: '醫師', art: 'a' },
+    { en: 'nurse', zh: '護理師', art: 'a' },
+    { en: 'cook', zh: '廚師', art: 'a' },
+    { en: 'farmer', zh: '農夫', art: 'a' },
+    { en: 'child', zh: '小孩', art: 'a' },
+    { en: 'clown', zh: '小丑', art: 'a' },
+    { en: 'prince', zh: '王子', art: 'a' },
+    { en: 'princess', zh: '公主', art: 'a' },
+    { en: 'writer', zh: '作家', art: 'a' },
+    { en: 'uncle', zh: '叔叔', art: 'an' },
+    { en: 'singer', zh: '歌手', art: 'a' },
+    { en: 'cyclist', zh: '自行車選手', art: 'a' },
+    { en: 'thief', zh: '小偷', art: 'a' },
+    { en: 'brother', zh: '哥哥', art: 'a' }
+  ];
+
+
+  /**
+   * 複數名詞（直接接在 are 後面，前面不加 the/my 之類）。
+   * 工作表裡標示「複數」「常用複數」的名詞都在這裡。
+   */
+  var GRAMMAR_QUIZ_NOUNS_PL = [
+    { en: 'dumplings', zh: '水餃' }, { en: 'noodles', zh: '麵條' },
+    { en: 'sandwiches', zh: '三明治' }, { en: 'French fries', zh: '薯條' },
+    { en: 'hamburgers', zh: '漢堡' }, { en: 'zebras', zh: '斑馬' },
+    { en: 'tigers', zh: '老虎' }, { en: 'lions', zh: '獅子' },
+    { en: 'grapes', zh: '葡萄' }, { en: 'guavas', zh: '芭樂' },
+    { en: 'oranges', zh: '柳橙' }, { en: 'papayas', zh: '木瓜' },
+    { en: 'pineapples', zh: '鳳梨' }, { en: 'butterflies', zh: '蝴蝶' },
+    { en: 'eggs', zh: '蛋' }, { en: 'chips', zh: '洋芋片' },
+    { en: 'snacks', zh: '點心' }, { en: 'nuts', zh: '堅果' },
+    { en: 'clothes', zh: '衣服' }, { en: 'leaves', zh: '葉子' }
+  ];
+
+
+  /** 常用不規則複數 → 單數 */
+  var GRAMMAR_QUIZ_PLURAL_TO_SINGULAR = {
+    teeth: 'tooth', feet: 'foot', leaves: 'leaf', children: 'child',
+    people: 'person', men: 'man', women: 'woman', mice: 'mouse',
+    geese: 'goose', sheep: 'sheep', fish: 'fish'
+  };
+
+  /** 常用不規則動詞過去式（題目中會用到的） */
+  var GRAMMAR_QUIZ_IRREGULAR_PAST = {
+    get: 'got', take: 'took', eat: 'ate', go: 'went', give: 'gave',
+    tell: 'told', sing: 'sang', write: 'wrote', send: 'sent',
+    spend: 'spent', wear: 'wore', meet: 'met', sit: 'sat', run: 'ran',
+    hide: 'hid', leave: 'left', fly: 'flew', throw: 'threw', forget: 'forgot',
+    steal: 'stole', begin: 'began', buy: 'bought', catch: 'caught',
+    keep: 'kept', feel: 'felt', sleep: 'slept', wake: 'woke', fall: 'fell',
+    swim: 'swam', read: 'read', ride: 'rode', come: 'came', become: 'became',
+    win: 'won', teach: 'taught', think: 'thought', hang: 'hung', draw: 'drew',
+    spread: 'spread', stick: 'stuck', shine: 'shone', cost: 'cost',
+    cut: 'cut', put: 'put', let: 'let', quit: 'quit', shut: 'shut',
+    hurt: 'hurt', hit: 'hit', bet: 'bet', cast: 'cast', eat: 'ate'
+  };
+
+  // ==========================================================================
+  // 文法測驗：主流程
+  // ==========================================================================
+
+  /**
+   * 開始文法測驗：開啟模態框並顯示題型選擇畫面。
+   */
+  FlashcardApp.prototype.startGrammarQuiz = function() {
+    var source = this._grammarQuizSourceWords();
+    if (!source || source.length === 0) {
+      alert('沒有可以出題的單字！請先載入「單字庫」或「五上單字」工作表。');
+      return;
+    }
+
+    this.pauseTimer();
+
+    this.grammarQuizState = {
+      isActive: true,
+      type: null,
+      questions: [],
+      currentQuestionIndex: 0,
+      selectedAnswer: null,
+      answers: [],
+      score: 0,
+      startTime: new Date(),
+      endTime: null,
+      sourceWords: source,
+      pool: []
+    };
+
+    this.showGrammarQuizModal();
+  };
+
+  /**
+   * 取得出題用的單字來源。
+   * 只取「單字庫」「五上單字」工作表（APP_CONSTANTS.GRAMMAR_QUIZ_SOURCE_SHEETS）；
+   * 若這兩個工作表都沒載入，則退回使用所有已載入的單字。
+   * @returns {Array<Object>} 單字陣列
+   */
+  FlashcardApp.prototype._grammarQuizSourceWords = function() {
+    var all = this.words || [];
+    if (all.length === 0) return [];
+
+    var wanted = APP_CONSTANTS.GRAMMAR_QUIZ_SOURCE_SHEETS || [];
+    var matched = [];
+    for (var i = 0; i < all.length; i++) {
+      if (wanted.indexOf(all[i].sheetName) !== -1) matched.push(all[i]);
+    }
+    if (matched.length > 0) return matched;
+
+    // 沒有指定的工作表時，退回使用全部單字
+    return all;
+  };
+
+  /**
+   * 建立「英文關鍵字 → 中文翻譯」的索引。
+   * 片語（do my homework）與字型表（eat; ate; eaten）都會收錄，
+   * 字型表另外以原形（eat）建立索引。
+   * @param {Array<Object>} sourceWords - 來源單字
+   * @returns {Object} 索引
+   */
+  FlashcardApp.prototype._grammarQuizBuildIndex = function(sourceWords) {
+    var index = {};
+    for (var i = 0; i < sourceWords.length; i++) {
+      var word = sourceWords[i];
+      var english = (word.english || '').trim();
+      if (!english) continue;
+      index[english.toLowerCase()] = word;
+
+      // 字型表（eat; ate; eaten）→ 額外建立原形索引
+      var parts = english.split(/[;\/]/);
+      if (parts.length > 1) {
+        var base = parts[0].trim().toLowerCase();
+        if (base && !index[base]) index[base] = word;
+      }
+    }
+    return index;
+  };
+
+  /**
+   * 判斷某段英文是否在字庫中出現。
+   * 比對方式：
+   *   1. 整串（例如 French fries）直接查表
+   *   2. 逐字查表（片語只要有一個字命中即可）
+   *   3. 複數去掉字尾再查一次（glasses → glass、eggs → egg）
+   * @param {string} text - 英文文字
+   * @param {Object} index - 單字索引
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._grammarQuizInBank = function(text, index) {
+    if (!text) return false;
+
+    var whole = text.trim().toLowerCase();
+    if (index[whole]) return true;
+
+    var words = whole.split(/[^a-z]+/);
+    for (var i = 0; i < words.length; i++) {
+      var word = words[i];
+      if (!word) continue;
+      if (index[word]) return true;
+      if (index[this._grammarQuizSingularForm(word)]) return true;
+    }
+    return false;
+  };
+
+  /**
+   * 取得英文複數的名詞單數（只處理常見規則與不規則型態）。
+   * @param {string} word - 英文單字（可能為複數）
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizSingularForm = function(word) {
+    if (!word) return '';
+    if (GRAMMAR_QUIZ_PLURAL_TO_SINGULAR[word]) return GRAMMAR_QUIZ_PLURAL_TO_SINGULAR[word];
+    if (/ies$/.test(word)) return word.substring(0, word.length - 3) + 'y';
+    if (/(ches|shes|xes|zes|ses)$/.test(word)) return word.substring(0, word.length - 2);
+    if (/[^s]s$/.test(word)) return word.substring(0, word.length - 1);
+    return word;
+  };
+
+  /**
+   * 依目前載入的單字，組出可用來出題的詞彙表。
+   * @returns {Object} { verbs, adjectives, nounsSg, nounsPl }
+   */
+  FlashcardApp.prototype._grammarQuizVocabulary = function() {
+    var index = this._grammarQuizBuildIndex(this.grammarQuizState.sourceWords || []);
+    var self = this;
+
+    var verbs = [];
+    for (var i = 0; i < GRAMMAR_QUIZ_VERBS.length; i++) {
+      var v = GRAMMAR_QUIZ_VERBS[i];
+      var vKey = v.base.toLowerCase();
+      if (!index[vKey] && !self._grammarQuizInBank(v.base, index)) continue;
+
+      // 受詞也必須在字庫中，否則整組動詞不採用
+      var objects = [];
+      for (var j = 0; j < v.objects.length; j++) {
+        if (self._grammarQuizInBank(v.objects[j].en, index)) objects.push(v.objects[j]);
+      }
+      if (v.objects.length > 0 && objects.length === 0) continue;
+
+      verbs.push({ base: v.base, third: v.third, zh: v.zh, objects: objects });
+    }
+
+    var adjectives = [];
+    for (var a = 0; a < GRAMMAR_QUIZ_ADJECTIVES_PEOPLE.length; a++) {
+      var adj = GRAMMAR_QUIZ_ADJECTIVES_PEOPLE[a];
+      if (index[adj.en.toLowerCase()] || self._grammarQuizInBank(adj.en, index)) {
+        adjectives.push({ en: adj.en, zh: adj.zh, kind: 'people' });
+      }
+    }
+
+    var adjectivesThings = [];
+    for (var at = 0; at < GRAMMAR_QUIZ_ADJECTIVES_THINGS.length; at++) {
+      var adjT = GRAMMAR_QUIZ_ADJECTIVES_THINGS[at];
+      if (index[adjT.en.toLowerCase()] || self._grammarQuizInBank(adjT.en, index)) {
+        adjectivesThings.push({ en: adjT.en, zh: adjT.zh, kind: 'things' });
+      }
+    }
+
+    var adjectivesClothing = [];
+    for (var ac = 0; ac < GRAMMAR_QUIZ_ADJECTIVES_CLOTHING.length; ac++) {
+      var adjC = GRAMMAR_QUIZ_ADJECTIVES_CLOTHING[ac];
+      if (index[adjC.en.toLowerCase()] || self._grammarQuizInBank(adjC.en, index)) {
+        adjectivesClothing.push({ en: adjC.en, zh: adjC.zh, kind: 'clothing' });
+      }
+    }
+
+    var nounsSg = [];
+    for (var s = 0; s < GRAMMAR_QUIZ_PERSON_NOUNS.length; s++) {
+      var noun = GRAMMAR_QUIZ_PERSON_NOUNS[s];
+      if (index[noun.en.toLowerCase()] || self._grammarQuizInBank(noun.en, index)) {
+        nounsSg.push(noun);
+      }
+    }
+
+    var nounsPl = [];
+    for (var p = 0; p < GRAMMAR_QUIZ_NOUNS_PL.length; p++) {
+      var nounPl = GRAMMAR_QUIZ_NOUNS_PL[p];
+      if (index[nounPl.en.toLowerCase()] || self._grammarQuizInBank(nounPl.en, index)) {
+        nounsPl.push(nounPl);
+      }
+    }
+
+    return {
+      verbs: verbs,
+      adjectives: adjectives,
+      adjectivesThings: adjectivesThings,
+      adjectivesClothing: adjectivesClothing,
+      nounsSg: nounsSg,
+      nounsPl: nounsPl
+    };
+  };
+
+  // ==========================================================================
+  // 文法測驗：句子項目產生器
+  // ==========================================================================
+
+  /**
+   * 依主語取得正確的 BE 動詞。
+   * @param {Object} subject - 主語
+   * @returns {string} 'am' | 'is' | 'are'
+   */
+  FlashcardApp.prototype._grammarQuizBeVerb = function(subject) {
+    if (subject.en === 'I') return 'am';
+    return subject.plural ? 'are' : 'is';
+  };
+
+  /**
+   * 依主語取得BE 動詞的大寫/疑問用形式。
+   * @param {Object} subject - 主語
+   * @returns {string} 'Am' | 'Is' | 'Are'
+   */
+  FlashcardApp.prototype._grammarQuizBeQuestionVerb = function(subject) {
+    var be = this._grammarQuizBeVerb(subject);
+    return be.charAt(0).toUpperCase() + be.substring(1);
+  };
+
+  /**
+   * 產生一個 BE 動詞題目項目。
+   * @param {Object} subject - 主語
+   * @param {Object} complement - 補語 { en, zh, kind }
+   * @returns {Object} 題目項目
+   */
+  FlashcardApp.prototype._grammarQuizMakeBeItem = function(subject, complement) {
+    var be = this._grammarQuizBeVerb(subject);
+    var beQuestion = this._grammarQuizBeQuestionVerb(subject);
+
+    var affTokens = [subject.en, be, complement.en];
+    var negTokens = [subject.en, be, 'not', complement.en];
+    var qTokens = [beQuestion, subject.en, complement.en];
+
+    var zhAff = subject.zh + '是' + complement.zh + '。';
+    var zhNeg = subject.zh + '不是' + complement.zh + '。';
+    var zhQuestion = subject.zh + '是' + complement.zh + '嗎？';
+
+    return {
+      focus: (complement.kind === 'noun-pl' || subject.plural) ? 'plural' : 'be',
+      subject: subject,
+      be: be,
+      complement: complement,
+      forms: {
+        aff: { tokens: affTokens, zh: zhAff, punct: '.' },
+        neg: { tokens: negTokens, zh: zhNeg, punct: '.' },
+        q: { tokens: qTokens, zh: zhQuestion, punct: '?' }
+      },
+      explain: this._grammarQuizBeExplain(be, subject)
+    };
+  };
+
+  /**
+   * 產生一個一般動詞（Do/Does）題目項目。
+   * @param {Object} subject - 主語
+   * @param {Object} verb - 動詞 { base, third, zh }
+   * @param {Object} object - 受詞 { en, zh }
+   * @returns {Object} 題目項目
+   */
+  FlashcardApp.prototype._grammarQuizMakeDoItem = function(subject, verb, object) {
+    var isThirdPerson = (subject.en !== 'I' && !subject.plural);
+    var aux = isThirdPerson ? 'Does' : 'Do';
+    var auxNeg = isThirdPerson ? "doesn't" : "don't";
+    var affVerb = isThirdPerson ? verb.third : verb.base;
+
+    // 沒有受詞的片語動詞（例如 get up）：物件位置留空
+    var objEn = object ? object.en : '';
+    var objZh = object ? object.zh : '';
+
+    var affTokens = [subject.en, affVerb];
+    var negTokens = [subject.en, auxNeg, verb.base];
+    var qTokens = [aux, subject.en, verb.base];
+    if (objEn) {
+      affTokens.push(objEn);
+      negTokens.push(objEn);
+      qTokens.push(objEn);
+    }
+
+    var zhAff = subject.zh + verb.zh + objZh + '。';
+    var zhNeg = subject.zh + '不' + verb.zh + objZh + '。';
+    var zhQuestion = subject.zh + verb.zh + objZh + '嗎？';
+
+    return {
+      focus: isThirdPerson ? 'third' : 'do',
+      subject: subject,
+      aux: aux,
+      auxNeg: auxNeg,
+      verb: verb,
+      object: object,
+      forms: {
+        aff: { tokens: affTokens, zh: zhAff, punct: '.' },
+        neg: { tokens: negTokens, zh: zhNeg, punct: '.' },
+        q: { tokens: qTokens, zh: zhQuestion, punct: '?' }
+      },
+      explain: this._grammarQuizDoExplain(isThirdPerson, verb, aux, auxNeg)
+    };
+  };
+
+  /**
+   * 產生 BE 動詞題目的說明文字。
+   * @param {string} be - BE 動詞
+   * @param {Object} subject - 主語
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizBeExplain = function(be, subject) {
+    var name = subject.en;
+    if (name.charAt(0) >= 'a' && name.charAt(0) <= 'z') {
+      name = name.charAt(0).toUpperCase() + name.substring(1);
+    }
+    if (be === 'am') return '主詞是 I，BE 動詞要用 am。';
+    if (be === 'are') return '主詞是複數（' + name + '），BE 動詞要用 are。';
+    return '主詞是第三人稱單數（' + name + '），BE 動詞要用 is。';
+  };
+
+  /**
+   * 產生一般動詞題目的說明文字。
+   * @param {boolean} isThirdPerson - 是否第三人稱單數
+   * @param {Object} verb - 動詞
+   * @param {string} aux - 疑問句助動詞
+   * @param {string} auxNeg - 否定句助動詞
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizDoExplain = function(isThirdPerson, verb, aux, auxNeg) {
+    if (isThirdPerson) {
+      return '第三人稱單數（' + verb.base + ' → ' + verb.third + '）：' +
+        '肯定句用 ' + verb.third + '，否定句與疑問句要用原形 ' + verb.base + '，' +
+        '分別搭配 ' + auxNeg + ' 與 ' + aux + '。';
+    }
+    return '主詞不是第三人稱單數：否定句用 ' + auxNeg + '，疑問句用 ' + aux +
+      '，後面一律接原形 ' + verb.base + '。';
+  };
+
+  /**
+   * 產生所有可用的題目項目（每個項目同時含肯定／否定／疑問三種句型）。
+   * @returns {Array<Object>} 題目項目陣列
+   */
+  FlashcardApp.prototype._grammarQuizMakeItems = function() {
+    var vocab = this._grammarQuizVocabulary();
+    var items = [];
+
+    // --- 主語分組 ---
+    var iSubjects = [];
+    var singularSubjects = [];
+    var pluralSubjects = [];
+    var i = 0;
+    for (i = 0; i < GRAMMAR_QUIZ_SUBJECTS.length; i++) {
+      var subject = GRAMMAR_QUIZ_SUBJECTS[i];
+      if (subject.en === 'I') iSubjects.push(subject);
+      else if (subject.plural) pluralSubjects.push(subject);
+      else singularSubjects.push(subject);
+    }
+    var thingSingular = [];
+    var clothingPlural = [];
+    for (i = 0; i < GRAMMAR_QUIZ_THING_SUBJECTS.length; i++) {
+      thingSingular.push(GRAMMAR_QUIZ_THING_SUBJECTS[i]);
+    }
+    for (i = 0; i < GRAMMAR_QUIZ_CLOTHING_SUBJECTS.length; i++) {
+      clothingPlural.push(GRAMMAR_QUIZ_CLOTHING_SUBJECTS[i]);
+    }
+
+    // --- BE 動詞 + 形容詞（人）---
+    for (var a = 0; a < vocab.adjectives.length; a++) {
+      var adj = vocab.adjectives[a];
+      var adjComp = { en: adj.en, zh: adj.zh, kind: 'adj' };
+      var k = 0;
+      for (k = 0; k < iSubjects.length; k++) items.push(this._grammarQuizMakeBeItem(iSubjects[k], adjComp));
+      for (k = 0; k < singularSubjects.length; k++) items.push(this._grammarQuizMakeBeItem(singularSubjects[k], adjComp));
+      for (k = 0; k < pluralSubjects.length; k++) items.push(this._grammarQuizMakeBeItem(pluralSubjects[k], adjComp));
+    }
+
+    // --- BE 動詞 + 形容詞（一般事物）---
+    for (var at = 0; at < vocab.adjectivesThings.length; at++) {
+      var adjT = vocab.adjectivesThings[at];
+      var adjTComp = { en: adjT.en, zh: adjT.zh, kind: 'adj' };
+      for (var kt = 0; kt < thingSingular.length; kt++) {
+        items.push(this._grammarQuizMakeBeItem(thingSingular[kt], adjTComp));
+      }
+    }
+
+    // --- BE 動詞 + 形容詞（衣物，複數主詞）---
+    for (var ac = 0; ac < vocab.adjectivesClothing.length; ac++) {
+      var adjC = vocab.adjectivesClothing[ac];
+      var adjCComp = { en: adjC.en, zh: adjC.zh, kind: 'adj' };
+      for (var kc = 0; kc < clothingPlural.length; kc++) {
+        items.push(this._grammarQuizMakeBeItem(clothingPlural[kc], adjCComp));
+      }
+    }
+
+    // --- BE 動詞 + 單數名詞 ---
+    for (var n = 0; n < vocab.nounsSg.length; n++) {
+      var noun = vocab.nounsSg[n];
+      var nounComp = { en: noun.art + ' ' + noun.en, zh: noun.zh, kind: 'noun-sg' };
+      var m = 0;
+      for (m = 0; m < iSubjects.length; m++) items.push(this._grammarQuizMakeBeItem(iSubjects[m], nounComp));
+      for (m = 0; m < singularSubjects.length; m++) items.push(this._grammarQuizMakeBeItem(singularSubjects[m], nounComp));
+    }
+
+    // --- BE 動詞 + 複數名詞（單複數搭配）---
+    // 複數名詞只搭配 they，避免出現「We are dumplings.」這種不自然的句子
+    for (var np = 0; np < vocab.nounsPl.length; np++) {
+      var nounPl = vocab.nounsPl[np];
+      var nounPlComp = { en: nounPl.en, zh: nounPl.zh, kind: 'noun-pl' };
+      for (var mp = 0; mp < pluralSubjects.length; mp++) {
+        if (pluralSubjects[mp].en !== 'they') continue;
+        items.push(this._grammarQuizMakeBeItem(pluralSubjects[mp], nounPlComp));
+      }
+    }
+
+    // --- 一般動詞 ---
+    for (var v = 0; v < vocab.verbs.length; v++) {
+      var vEntry = vocab.verbs[v];
+      var objectCount = vEntry.objects.length;
+      for (var o = 0; o < objectCount; o++) {
+        var object = vEntry.objects[o];
+        for (var s3 = 0; s3 < GRAMMAR_QUIZ_SUBJECTS.length; s3++) {
+          items.push(this._grammarQuizMakeDoItem(GRAMMAR_QUIZ_SUBJECTS[s3], vEntry, object));
+        }
+      }
+      // 沒有受詞的片語動詞（例如 get up）
+      if (objectCount === 0) {
+        for (var s4 = 0; s4 < GRAMMAR_QUIZ_SUBJECTS.length; s4++) {
+          items.push(this._grammarQuizMakeDoItem(GRAMMAR_QUIZ_SUBJECTS[s4], vEntry, { en: '', zh: '' }));
+        }
+      }
+    }
+
+    return items;
+  };
+
+  // ==========================================================================
+  // 文法測驗：題目生成
+  // ==========================================================================
+
+  /**
+   * 建立題目池。
+   * 依文法重點（BE 動詞 / 助動詞 / 第三人稱單數 / 單複數）輪流取題，
+   * 確保每個重點都有足夠的題目，不會全部集中在某一類。
+   * @param {string} type - 題型（truefalse / fill / choice / translate / mixed）
+   * @returns {Array<Object>} 題目陣列
+   */
+  FlashcardApp.prototype._grammarQuizBuildPool = function(type) {
+    var items = this._grammarQuizMakeItems();
+
+    // 依 focus 分組並各自洗牌
+    var groups = {};
+    var focusOrder = [];
+    for (var i = 0; i < items.length; i++) {
+      var focus = items[i].focus;
+      if (!groups[focus]) {
+        groups[focus] = [];
+        focusOrder.push(focus);
+      }
+      groups[focus].push(items[i]);
+    }
+    for (var g = 0; g < focusOrder.length; g++) {
+      this.shuffleArray(groups[focusOrder[g]]);
+    }
+
+    // 輪流取題
+    var ordered = [];
+    var cursor = 0;
+    while (ordered.length < items.length) {
+      var added = false;
+      for (var f = 0; f < focusOrder.length; f++) {
+        var group = groups[focusOrder[f]];
+        if (cursor < group.length) {
+          ordered.push(group[cursor]);
+          added = true;
+        }
+      }
+      if (!added) break;
+      cursor++;
+    }
+
+    var pool = [];
+    var target = APP_CONSTANTS.GRAMMAR_QUIZ_POOL_SIZE;
+
+    for (var j = 0; j < ordered.length && pool.length < target; j++) {
+      var itemType = type;
+      if (type === 'mixed') {
+        itemType = GRAMMAR_QUIZ_TYPE_ORDER[
+          Math.floor(Math.random() * (GRAMMAR_QUIZ_TYPE_ORDER.length - 1))
+        ];
+      }
+      var question = this._grammarQuizQuestionFromItem(ordered[j], itemType);
+      if (question) pool.push(question);
+    }
+
+    return pool;
+  };
+
+  /**
+   * 把句子項目轉成某一題型的題目。
+   * @param {Object} item - 題目項目
+   * @param {string} type - 題型
+   * @returns {Object|null} 題目
+   */
+  FlashcardApp.prototype._grammarQuizQuestionFromItem = function(item, type) {
+    if (type === 'truefalse') return this._grammarQuizMakeTrueFalse(item);
+    if (type === 'fill') return this._grammarQuizMakeFill(item);
+    if (type === 'choice') return this._grammarQuizMakeChoice(item);
+    if (type === 'translate') return this._grammarQuizMakeTranslate(item);
+    return null;
+  };
+
+  /**
+   * 取得某個句型版本的英文句子（開頭英文字母一律大寫）。
+   * @param {Object} item - 題目項目
+   * @param {string} form - 'aff' | 'neg' | 'q'
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizFormText = function(item, form) {
+    var f = item.forms[form];
+    var text = f.tokens.join(' ') + f.punct;
+    if (text.charAt(0) >= 'a' && text.charAt(0) <= 'z') {
+      text = text.charAt(0).toUpperCase() + text.substring(1);
+    }
+    return text;
+  };
+
+  /**
+   * 是非題：句子可能正確，也可能有一個文法錯誤。
+   * @param {Object} item - 題目項目
+   * @returns {Object|null}
+   */
+  FlashcardApp.prototype._grammarQuizMakeTrueFalse = function(item) {
+    var forms = ['aff', 'neg', 'q'];
+    var form = forms[Math.floor(Math.random() * forms.length)];
+
+    // 一半的題目故意放入文法錯誤
+    var isTrue = Math.random() < 0.5;
+    var text;
+    if (isTrue) {
+      text = this._grammarQuizFormText(item, form);
+    } else {
+      var wrongs = this._grammarQuizWrongForms(item, form, 1);
+      if (!wrongs || wrongs.length === 0) return null;
+      text = wrongs[0];
+    }
+
+    return {
+      type: 'truefalse',
+      item: item,
+      form: form,
+      focus: item.focus,
+      question: text,
+      correctAnswer: isTrue ? 'true' : 'false',
+      speakText: this._grammarQuizFormText(item, form),
+      options: [
+        { label: '✅ 正確 (True)', value: 'true' },
+        { label: '❌ 錯誤 (False)', value: 'false' }
+      ],
+      explain: isTrue
+        ? '這句話文法正確：' + item.explain
+        : '這句話有錯。正確說法：' + this._grammarQuizFormText(item, form) + '　（' + item.explain + '）'
+    };
+  };
+
+  /**
+   * 填空選擇題：句子挖空，選項為正確的 BE 動詞或助動詞。
+   * @param {Object} item - 題目項目
+   * @returns {Object|null}
+   */
+  FlashcardApp.prototype._grammarQuizMakeFill = function(item) {
+    var form = 'aff';
+    var tokens = item.forms.aff.tokens.slice();
+    var answer;
+    var options;
+    var blankIndex = -1;
+
+    if (item.focus === 'be' || item.focus === 'plural') {
+      blankIndex = 1;
+      answer = item.be;
+      options = ['am', 'is', 'are', 'was'];
+    } else {
+      // 一般動詞：挖空第三人稱單數的動詞變化
+      blankIndex = 1;
+      answer = tokens[1];
+      options = this._grammarQuizVerbOptionSet(item.verb);
+      if (!options) return null;
+    }
+
+    // 保留填入正確答案後的完整句子（供語音播放與說明使用）
+    var answerTokens = tokens.slice();
+    answerTokens[blankIndex] = answer;
+    var fullSentence = answerTokens.join(' ') + item.forms.aff.punct;
+    if (fullSentence.charAt(0) >= 'a' && fullSentence.charAt(0) <= 'z') {
+      fullSentence = fullSentence.charAt(0).toUpperCase() + fullSentence.substring(1);
+    }
+
+    tokens[blankIndex] = '____';
+    var questionText = tokens.join(' ') + item.forms.aff.punct;
+    if (questionText.charAt(0) >= 'a' && questionText.charAt(0) <= 'z') {
+      questionText = questionText.charAt(0).toUpperCase() + questionText.substring(1);
+    }
+
+    var optionObjects = [];
+    for (var i = 0; i < options.length; i++) {
+      optionObjects.push({ label: options[i], value: options[i] });
+    }
+    this.shuffleArray(optionObjects);
+
+    return {
+      type: 'fill',
+      item: item,
+      form: form,
+      focus: item.focus,
+      question: questionText,
+      correctAnswer: answer,
+      speakText: fullSentence,
+      options: optionObjects,
+      explain: '正確答案：' + answer + '　（' + item.explain + '）'
+    };
+  };
+
+  /**
+   * 產生動詞的選項組合（第三人稱單數、原形、過去式、-ing 形）。
+   * @param {Object} verb - 動詞 { base, third }
+   * @returns {Array<string>|null} 選項陣列
+   */
+  FlashcardApp.prototype._grammarQuizVerbOptionSet = function(verb) {
+    if (!verb) return null;
+    var ed = this._grammarQuizPastForm(verb.base);
+    var ing = this._grammarQuizIngForm(verb.base);
+    var options = [verb.third, verb.base];
+    if (ed && options.indexOf(ed) === -1) options.push(ed);
+    if (ing && options.indexOf(ing) === -1) options.push(ing);
+    while (options.length < 4) options.push(options[options.length - 1] + ' ');
+    return options.slice(0, 4);
+  };
+
+  /**
+   * 動詞過去式（只處理題目中會用到的常見型態）。
+   * 多字片語動詞（get up）只處理第一個字，其餘部分原樣保留。
+   * @param {string} base - 原形
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizPastForm = function(base) {
+    if (!base) return '';
+    var head = this._grammarQuizHeadWord(base);
+    var tail = this._grammarQuizTailWords(base);
+
+    var result = head;
+    if (GRAMMAR_QUIZ_IRREGULAR_PAST[head]) {
+      result = GRAMMAR_QUIZ_IRREGULAR_PAST[head];
+    } else if (/[^aeiou]y$/.test(head)) {
+      result = head.substring(0, head.length - 1) + 'ied';
+    } else if (/e$/.test(head)) {
+      result = head + 'd';
+    } else if (this._grammarQuizIsCvc(head)) {
+      result = head + head.charAt(head.length - 1) + 'ed';
+    } else {
+      result = head + 'ed';
+    }
+    return tail ? result + ' ' + tail : result;
+  };
+
+  /**
+   * 動詞 -ing 形（只處理題目中會用到的常見型態）。
+   * @param {string} base - 原形
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizIngForm = function(base) {
+    if (!base) return '';
+    var head = this._grammarQuizHeadWord(base);
+    var tail = this._grammarQuizTailWords(base);
+
+    var result;
+    if (/[^aeiou]y$/.test(head)) {
+      result = head.substring(0, head.length - 1) + 'ying';
+    } else if (/[^e]e$/.test(head) && !/ee$/.test(head)) {
+      result = head.substring(0, head.length - 1) + 'ing';
+    } else if (this._grammarQuizIsCvc(head)) {
+      result = head + head.charAt(head.length - 1) + 'ing';
+    } else {
+      result = head + 'ing';
+    }
+    return tail ? result + ' ' + tail : result;
+  };
+
+  /**
+   * 取得片語的第一個字（動詞本身）。
+   * @param {string} phrase - 片語
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizHeadWord = function(phrase) {
+    if (!phrase) return '';
+    var parts = phrase.split(' ');
+    return parts[0];
+  };
+
+  /**
+   * 取得片語除第一個字以外的部分。
+   * @param {string} phrase - 片語
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizTailWords = function(phrase) {
+    if (!phrase) return '';
+    var parts = phrase.split(' ');
+    return parts.slice(1).join(' ');
+  };
+
+  /**
+   * 判斷是不是「輔音＋母音＋輔音」結尾（需要重複最後一個 consonant）。
+   * @param {string} word - 英文單字
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype._grammarQuizIsCvc = function(word) {
+    if (!word || word.length < 3 || word.length > 5) return false;
+    return /[^aeiou][aeiou][^aeiouwxy]$/.test(word);
+  };
+
+  /**
+   * 選擇題：給一肯定句，選出正確的否定句或疑問句。
+   * @param {Object} item - 題目項目
+   * @returns {Object|null}
+   */
+  FlashcardApp.prototype._grammarQuizMakeChoice = function(item) {
+    var targetForm = (Math.random() < 0.5) ? 'q' : 'neg';
+    var correct = this._grammarQuizFormText(item, targetForm);
+    var wrongs = this._grammarQuizWrongForms(item, targetForm, 3);
+    if (!wrongs || wrongs.length < 3) return null;
+
+    var options = [{ label: correct, value: correct }];
+    for (var i = 0; i < wrongs.length && options.length < 4; i++) {
+      options.push({ label: wrongs[i], value: wrongs[i] });
+    }
+    if (options.length < 3) return null;
+    this.shuffleArray(options);
+
+    var prompt;
+    if (targetForm === 'q') {
+      prompt = (item.focus === 'do' || item.focus === 'third')
+        ? '把這句話改成疑問句（Do / Does），哪一句正確？'
+        : '把這句話改成疑問句，哪一句正確？';
+    } else {
+      prompt = (item.focus === 'do' || item.focus === 'third')
+        ? '把這句話改成否定句（don\'t / doesn\'t），哪一句正確？'
+        : '把這句話改成否定句，哪一句正確？';
+    }
+
+    return {
+      type: 'choice',
+      item: item,
+      form: targetForm,
+      focus: item.focus,
+      prompt: prompt,
+      context: this._grammarQuizFormText(item, 'aff'),
+      question: this._grammarQuizFormText(item, 'aff'),
+      correctAnswer: correct,
+      speakText: correct,
+      options: options,
+      explain: '正確答案：' + correct + '　（' + item.explain + '）'
+    };
+  };
+
+  /**
+   * 中翻英：給中文句子，選出正確的英文。
+   * @param {Object} item - 題目項目
+   * @returns {Object|null}
+   */
+  FlashcardApp.prototype._grammarQuizMakeTranslate = function(item) {
+    var form = 'aff';
+    var correct = this._grammarQuizFormText(item, form);
+    var wrongs = this._grammarQuizWrongForms(item, form, 3);
+    if (!wrongs || wrongs.length < 3) return null;
+
+    var options = [{ label: correct, value: correct }];
+    for (var i = 0; i < wrongs.length && options.length < 4; i++) {
+      options.push({ label: wrongs[i], value: wrongs[i] });
+    }
+    if (options.length < 3) return null;
+    this.shuffleArray(options);
+
+    return {
+      type: 'translate',
+      item: item,
+      form: form,
+      focus: item.focus,
+      prompt: '看中文句子，選出正確的英文句子：',
+      question: item.forms[form].zh,
+      correctAnswer: correct,
+      speakText: correct,
+      options: options,
+      explain: '正確答案：' + correct + '　（' + item.explain + '）'
+    };
+  };
+
+  // ==========================================================================
+  // 文法測驗：錯誤選項產生
+  // ==========================================================================
+
+  /**
+   * 產生指定數量的「文法錯誤句子」。
+   * 每一個候選都必須是明確的文法錯誤（是非題要用來判 False，
+   * 選擇題／中翻英則用來當干擾選項），不能只是換成另一個正確句型。
+   * @param {Object} item - 題目項目
+   * @param {string} form - 'aff' | 'neg' | 'q'
+   * @param {number} count - 需要幾個
+   * @returns {Array<string>} 錯誤句子
+   */
+  FlashcardApp.prototype._grammarQuizWrongForms = function(item, form, count) {
+    var candidates = [];
+    var correct = this._grammarQuizFormText(item, form);
+    var self = this;
+
+    var push = function(text) {
+      if (!text) return;
+      if (text === correct) return;
+      if (candidates.indexOf(text) !== -1) return;
+      candidates.push(text);
+    };
+
+    // 依 token 位置做變形，再組成完整句子
+    var mutate = function(formName, mutator) {
+      var tokens = item.forms[formName].tokens.slice();
+      if (!mutator(tokens)) return '';
+      var text = tokens.join(' ') + item.forms[formName].punct;
+      if (text.charAt(0) >= 'a' && text.charAt(0) <= 'z') {
+        text = text.charAt(0).toUpperCase() + text.substring(1);
+      }
+      return text;
+    };
+
+    // 找出某個 token 的位置
+    var indexOfToken = function(tokens, value, from) {
+      var start = from || 0;
+      for (var i = start; i < tokens.length; i++) {
+        if (tokens[i] === value) return i;
+      }
+      return -1;
+    };
+
+    var beList = ['am', 'is', 'are'];
+
+    if (item.focus === 'be' || item.focus === 'plural') {
+      if (form === 'q') {
+        // 疑问句：BE 動詞用錯 / 漏掉 BE 動詞
+        for (var q = 0; q < beList.length; q++) {
+          if (beList[q] === item.be) continue;
+          var capBe = beList[q].charAt(0).toUpperCase() + beList[q].substring(1);
+          push(mutate('q', function(tokens) { tokens[0] = capBe; return true; }));
+        }
+        push(mutate('q', function(tokens) { tokens.splice(0, 1); return true; }));
+      } else if (form === 'neg') {
+        // 否定句：BE 動詞用錯 / 漏掉 BE 動詞 / not 放錯位置
+        for (var n = 0; n < beList.length; n++) {
+          if (beList[n] === item.be) continue;
+          push(mutate('neg', function(tokens) { tokens[1] = beList[n]; return true; }));
+        }
+        push(mutate('neg', function(tokens) { tokens.splice(1, 1); return true; }));
+        push(mutate('neg', function(tokens) {
+          var tmp = tokens[1]; tokens[1] = tokens[2]; tokens[2] = tmp; return true;
+        }));
+      } else {
+        // 肯定句：BE 動詞用錯 / 漏掉 BE 動詞
+        for (var a = 0; a < beList.length; a++) {
+          if (beList[a] === item.be) continue;
+          push(mutate('aff', function(tokens) { tokens[1] = beList[a]; return true; }));
+        }
+        push(mutate('aff', function(tokens) { tokens.splice(1, 1); return true; }));
+      }
+    } else {
+      // 一般動詞（Do / Does）
+      var wrongAux = (item.aux === 'Do') ? 'Does' : 'Do';
+      var wrongAuxNeg = (item.auxNeg === "don't") ? "doesn't" : "don't";
+
+      if (form === 'q') {
+        // 助動詞用錯 / 漏掉助動詞 / 動詞多加 -s / 主詞動詞互換
+        push(mutate('q', function(tokens) { tokens[0] = wrongAux; return true; }));
+        push(mutate('q', function(tokens) { tokens.splice(0, 1); return true; }));
+        push(mutate('q', function(tokens) {
+          var vi = indexOfToken(tokens, item.verb.base, 2);
+          if (vi === -1) return false;
+          tokens[vi] = item.verb.third;
+          return true;
+        }));
+        push(mutate('q', function(tokens) {
+          var si = indexOfToken(tokens, item.subject.en, 1);
+          if (si === -1 || si + 1 >= tokens.length) return false;
+          var tmp = tokens[si]; tokens[si] = tokens[si + 1]; tokens[si + 1] = tmp;
+          return true;
+        }));
+      } else if (form === 'neg') {
+        // 否定助動詞用錯 / 漏掉否定助動詞 / 動詞多加 -s / 主詞動詞互換
+        push(mutate('neg', function(tokens) {
+          var ai = indexOfToken(tokens, item.auxNeg, 1);
+          if (ai === -1) return false;
+          tokens[ai] = wrongAuxNeg;
+          return true;
+        }));
+        push(mutate('neg', function(tokens) {
+          var ai2 = indexOfToken(tokens, item.auxNeg, 1);
+          if (ai2 === -1) return false;
+          tokens.splice(ai2, 1);
+          return true;
+        }));
+        push(mutate('neg', function(tokens) {
+          var vi2 = indexOfToken(tokens, item.verb.base, 2);
+          if (vi2 === -1) return false;
+          tokens[vi2] = item.verb.third;
+          return true;
+        }));
+        push(mutate('neg', function(tokens) {
+          var si2 = indexOfToken(tokens, item.subject.en, 0);
+          if (si2 === -1 || si2 + 1 >= tokens.length) return false;
+          var tmp2 = tokens[si2]; tokens[si2] = tokens[si2 + 1]; tokens[si2 + 1] = tmp2;
+          return true;
+        }));
+      } else {
+        // 肯定句：動詞變化弄錯 / 主詞動詞互換 / 動詞位置放上否定助動詞
+        push(mutate('aff', function(tokens) {
+          tokens[1] = (item.focus === 'third') ? item.verb.base : item.verb.third;
+          return true;
+        }));
+        push(mutate('aff', function(tokens) {
+          var tmp3 = tokens[0]; tokens[0] = tokens[1]; tokens[1] = tmp3;
+          return true;
+        }));
+        push(mutate('aff', function(tokens) { tokens[1] = item.auxNeg; return true; }));
+      }
+    }
+
+    return candidates;
+  };
+
+  // ==========================================================================
+  // 文法測驗：畫面
+  // ==========================================================================
+
+  /**
+   * 顯示文法測驗模態框（題型選擇畫面）。
+   */
+  FlashcardApp.prototype.showGrammarQuizModal = function() {
+    var self = this;
+    var modal = document.getElementById('grammar-quiz-modal');
+    if (modal) modal.style.display = 'flex';
+
+    var scopeInfo = document.getElementById('grammar-quiz-scope-info');
+    if (scopeInfo) {
+      var used = this._grammarQuizUsedSheets();
+      scopeInfo.textContent = '📗 題庫來源：' + (used.length > 0 ? used.join('、') : '所有已載入單字') +
+        '（' + this.grammarQuizState.sourceWords.length + ' 個單字）';
+    }
+
+    var grid = document.getElementById('grammar-quiz-type-grid');
+    if (grid) {
+      grid.innerHTML = '';
+      for (var i = 0; i < GRAMMAR_QUIZ_TYPE_ORDER.length; i++) {
+        var typeId = GRAMMAR_QUIZ_TYPE_ORDER[i];
+        var type = GRAMMAR_QUIZ_TYPES[typeId];
+        var btn = document.createElement('button');
+        btn.className = 'grammar-quiz-type-btn';
+        btn.setAttribute('data-type', typeId);
+        btn.innerHTML =
+          '<span class="grammar-quiz-type-icon">' + type.icon + '</span>' +
+          '<span class="grammar-quiz-type-label">' + type.label + '</span>' +
+          '<span class="grammar-quiz-type-desc">' + type.desc + '</span>';
+        (function(tid) {
+          btn.addEventListener('click', function() { self.beginGrammarQuiz(tid); });
+        })(typeId);
+        grid.appendChild(btn);
+      }
+    }
+
+    this.showGrammarQuizScreen('type');
+  };
+
+  /**
+   * 取得實際使用到的來源工作表名稱。
+   * @returns {Array<string>}
+   */
+  FlashcardApp.prototype._grammarQuizUsedSheets = function() {
+    var source = this.grammarQuizState ? this.grammarQuizState.sourceWords : [];
+    var names = [];
+    for (var i = 0; i < source.length; i++) {
+      if (names.indexOf(source[i].sheetName) === -1) names.push(source[i].sheetName);
+    }
+    return names;
+  };
+
+  /**
+   * 切換文法測驗畫面。
+   * @param {string} screenType - 'type' | 'progress' | 'result'
+   */
+  FlashcardApp.prototype.showGrammarQuizScreen = function(screenType) {
+    var screens = [
+      'grammar-quiz-type-screen',
+      'grammar-quiz-progress-screen',
+      'grammar-quiz-result-screen'
+    ];
+    for (var i = 0; i < screens.length; i++) {
+      var screen = document.getElementById(screens[i]);
+      if (screen) screen.style.display = 'none';
+    }
+
+    var buttons = ['grammar-quiz-back', 'grammar-quiz-next', 'grammar-quiz-restart', 'grammar-quiz-finish'];
+    for (var j = 0; j < buttons.length; j++) {
+      var btn = document.getElementById(buttons[j]);
+      if (btn) btn.style.display = 'none';
+    }
+
+    var target = document.getElementById('grammar-quiz-' + screenType + '-screen');
+    if (target) target.style.display = 'block';
+
+    if (screenType === 'progress') {
+      var back = document.getElementById('grammar-quiz-back');
+      if (back) back.style.display = 'inline-block';
+    } else if (screenType === 'result') {
+      var restart = document.getElementById('grammar-quiz-restart');
+      var finish = document.getElementById('grammar-quiz-finish');
+      if (restart) restart.style.display = 'inline-block';
+      if (finish) finish.style.display = 'inline-block';
+    }
+  };
+
+  /**
+   * 依題型建立題目並開始答題。
+   * @param {string} type - 題型
+   */
+  FlashcardApp.prototype.beginGrammarQuiz = function(type) {
+    var pool = this._grammarQuizBuildPool(type);
+    if (!pool || pool.length === 0) {
+      alert('題目產生失敗，請確認已載入「單字庫」或「五上單字」工作表。');
+      return;
+    }
+
+    this.shuffleArray(pool);
+    var count = Math.min(APP_CONSTANTS.GRAMMAR_QUIZ_QUESTION_COUNT, pool.length);
+    pool = pool.slice(0, count);
+
+    this.grammarQuizState.type = type;
+    this.grammarQuizState.pool = pool;
+    this.grammarQuizState.questions = pool;
+    this.grammarQuizState.currentQuestionIndex = 0;
+    this.grammarQuizState.selectedAnswer = null;
+    this.grammarQuizState.answers = [];
+    this.grammarQuizState.score = 0;
+    this.grammarQuizState.startTime = new Date();
+    this.grammarQuizState.endTime = null;
+
+    var title = document.getElementById('grammar-quiz-title');
+    if (title) {
+      var typeInfo = GRAMMAR_QUIZ_TYPES[type];
+      title.textContent = '📐 文法測驗・' + (typeInfo ? typeInfo.label : '');
+    }
+
+    this.showGrammarQuizScreen('progress');
+    this.showGrammarQuizQuestion();
+  };
+
+  /**
+   * 顯示目前的題目。
+   */
+  FlashcardApp.prototype.showGrammarQuizQuestion = function() {
+    var state = this.grammarQuizState;
+    var question = state.questions[state.currentQuestionIndex];
+    if (!question) return;
+
+    var currentNum = document.getElementById('grammar-quiz-current-number');
+    var totalNum = document.getElementById('grammar-quiz-total-number');
+    var currentScore = document.getElementById('grammar-quiz-current-score');
+    var progressFill = document.getElementById('grammar-quiz-progress-fill');
+
+    if (currentNum) currentNum.textContent = state.currentQuestionIndex + 1;
+    if (totalNum) totalNum.textContent = state.questions.length;
+    if (currentScore) {
+      var total = state.questions.length || 1;
+      currentScore.textContent = Math.round(
+        (state.score / (total * APP_CONSTANTS.QUIZ_POINTS_PER_QUESTION)) * 100
+      );
+    }
+    if (progressFill) {
+      progressFill.style.width =
+        ((state.currentQuestionIndex / state.questions.length) * 100) + '%';
+    }
+
+    var focusEl = document.getElementById('grammar-quiz-focus');
+    if (focusEl) {
+      focusEl.textContent = this._grammarQuizFocusLabel(question.focus);
+    }
+
+    var promptEl = document.getElementById('grammar-quiz-prompt');
+    if (promptEl) {
+      promptEl.textContent = question.prompt || '';
+      promptEl.style.display = question.prompt ? 'block' : 'none';
+    }
+
+    var questionEl = document.getElementById('grammar-quiz-question');
+    if (questionEl) {
+      questionEl.textContent = question.question;
+      questionEl.className = 'grammar-quiz-question' +
+        (question.type === 'translate' ? ' grammar-quiz-question-zh' : '');
+    }
+
+    this.renderGrammarQuizOptions(question);
+
+    var feedback = document.getElementById('grammar-quiz-feedback');
+    if (feedback) feedback.style.display = 'none';
+
+    // 下一題按鈕在作答後才出現
+    var nextBtn = document.getElementById('grammar-quiz-next');
+    if (nextBtn) nextBtn.style.display = 'none';
+
+    state.selectedAnswer = null;
+  };
+
+  /**
+   * 取得文法重點的中文標籤。
+   * @param {string} focus - 文法重點
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizFocusLabel = function(focus) {
+    if (focus === 'be') return 'BE 動詞（am / is / are）';
+    if (focus === 'plural') return '單複數搭配';
+    if (focus === 'third') return '第三人稱單數（動詞加 -s）';
+    return '助動詞 Do / Does';
+  };
+
+  /**
+   * 渲染選項按鈕。
+   * @param {Object} question - 題目
+   */
+  FlashcardApp.prototype.renderGrammarQuizOptions = function(question) {
+    var container = document.getElementById('grammar-quiz-options');
+    if (!container) return;
+
+    container.innerHTML = '';
+    var self = this;
+
+    for (var i = 0; i < question.options.length; i++) {
+      var option = question.options[i];
+      var btn = document.createElement('button');
+      btn.className = 'grammar-quiz-option';
+      btn.setAttribute('data-answer', option.value);
+
+      if (question.type === 'truefalse') {
+        btn.textContent = option.label;
+        btn.classList.add('grammar-quiz-option-tf');
+      } else if (question.type === 'fill') {
+        btn.textContent = option.label;
+        btn.classList.add('grammar-quiz-option-word');
+      } else {
+        btn.innerHTML = '<span class="grammar-quiz-option-letter">' +
+          String.fromCharCode(65 + i) + '</span>' + option.label;
+      }
+
+      (function(value) {
+        btn.addEventListener('click', function() {
+          self.selectGrammarQuizAnswer(value);
+        });
+      })(option.value);
+
+      container.appendChild(btn);
+    }
+  };
+
+  /**
+   * 選擇答案。
+   * @param {string} selectedAnswer - 選中的答案
+   */
+  FlashcardApp.prototype.selectGrammarQuizAnswer = function(selectedAnswer) {
+    var state = this.grammarQuizState;
+    if (state.selectedAnswer !== null) return;
+
+    state.selectedAnswer = selectedAnswer;
+
+    var question = state.questions[state.currentQuestionIndex];
+    var isCorrect = selectedAnswer === question.correctAnswer;
+
+    state.answers.push({
+      question: question,
+      selectedAnswer: selectedAnswer,
+      isCorrect: isCorrect
+    });
+
+    if (isCorrect) state.score += APP_CONSTANTS.QUIZ_POINTS_PER_QUESTION;
+
+    this._grammarQuizUpdateOptionStyles(question.correctAnswer, selectedAnswer);
+    this.showGrammarQuizFeedback(isCorrect, question);
+    this.showGrammarQuizNextButton();
+  };
+
+  /**
+   * 更新選項樣式（答對／答錯）。
+   * @param {string} correctAnswer - 正確答案
+   * @param {string} selectedAnswer - 選中的答案
+   */
+  FlashcardApp.prototype._grammarQuizUpdateOptionStyles = function(correctAnswer, selectedAnswer) {
+    var options = document.querySelectorAll('.grammar-quiz-option');
+    for (var i = 0; i < options.length; i++) {
+      var option = options[i];
+      var value = option.getAttribute('data-answer');
+      option.classList.add('disabled');
+      if (value === correctAnswer) option.classList.add('correct');
+      else if (value === selectedAnswer) option.classList.add('wrong');
+    }
+  };
+
+  /**
+   * 顯示答題回饋。
+   * @param {boolean} isCorrect - 是否答對
+   * @param {Object} question - 題目
+   */
+  FlashcardApp.prototype.showGrammarQuizFeedback = function(isCorrect, question) {
+    var feedback = document.getElementById('grammar-quiz-feedback');
+    if (!feedback) return;
+
+    feedback.className = 'quiz-feedback ' + (isCorrect ? 'correct' : 'wrong');
+    feedback.style.display = 'block';
+
+    var resultEl = document.getElementById('grammar-quiz-feedback-result');
+    if (resultEl) resultEl.textContent = isCorrect ? '✅ 答對了！' : '❌ 答錯了！';
+
+    var explainEl = document.getElementById('grammar-quiz-feedback-explanation');
+    if (explainEl) explainEl.textContent = question.explain || '';
+
+    // 英文題目播放語音，幫助小朋友聽到正確的句子
+    if (isCorrect && this.voiceSettings && this.voiceSettings.enabled) {
+      var self = this;
+      var speakText = question.speakText || question.correctAnswer;
+      if (speakText && !/[一-鿿]/.test(speakText)) {
+        var playId = this._speechPlayId || 0;
+        setTimeout(function() {
+          if (!self.grammarQuizState || !self.grammarQuizState.isActive) return;
+          if ((self._speechPlayId || 0) !== playId) return;
+          self.speakWord(speakText);
+        }, APP_CONSTANTS.SPEECH_DELAY_MS);
+      }
+    }
+  };
+
+  /**
+   * 顯示下一題按鈕（答完一題後才出現）。
+   */
+  FlashcardApp.prototype.showGrammarQuizNextButton = function() {
+    var state = this.grammarQuizState;
+    var isLast = state.currentQuestionIndex >= state.questions.length - 1;
+    var nextBtn = document.getElementById('grammar-quiz-next');
+    if (nextBtn) {
+      nextBtn.textContent = isLast ? '查看結果' : '下一題';
+      nextBtn.style.display = 'inline-block';
+    }
+  };
+
+  /**
+   * 下一題或顯示結果。
+   */
+  FlashcardApp.prototype.nextGrammarQuizQuestion = function() {
+    var state = this.grammarQuizState;
+    state.currentQuestionIndex++;
+    if (state.currentQuestionIndex >= state.questions.length) {
+      this.showGrammarQuizResult();
+    } else {
+      this.showGrammarQuizQuestion();
+    }
+  };
+
+  /**
+   * 顯示測驗結果。
+   */
+  FlashcardApp.prototype.showGrammarQuizResult = function() {
+    var state = this.grammarQuizState;
+    state.endTime = new Date();
+
+    var total = state.questions.length;
+    var correctCount = 0;
+    for (var i = 0; i < state.answers.length; i++) {
+      if (state.answers[i].isCorrect) correctCount++;
+    }
+    var wrongCount = total - correctCount;
+    var finalScore = Math.round((correctCount / total) * 100);
+
+    var icon = document.getElementById('grammar-quiz-result-icon');
+    if (icon) {
+      if (finalScore >= 90) icon.textContent = '🏆';
+      else if (finalScore >= 80) icon.textContent = '🎉';
+      else if (finalScore >= 70) icon.textContent = '👏';
+      else icon.textContent = '💪';
+    }
+
+    var titleEl = document.getElementById('grammar-quiz-result-title');
+    if (titleEl) titleEl.textContent = '文法測驗完成！';
+
+    var scoreEl = document.getElementById('grammar-quiz-final-score');
+    if (scoreEl) scoreEl.textContent = finalScore;
+
+    var correctEl = document.getElementById('grammar-quiz-correct-count');
+    if (correctEl) correctEl.textContent = correctCount;
+
+    var wrongEl = document.getElementById('grammar-quiz-wrong-count');
+    if (wrongEl) wrongEl.textContent = wrongCount;
+
+    var messageEl = document.getElementById('grammar-quiz-result-message');
+    if (messageEl) messageEl.textContent = this.getResultMessage(finalScore);
+
+    this.showGrammarQuizWrongReview();
+    this.showGrammarQuizScreen('result');
+  };
+
+  /**
+   * 顯示錯題回顧。
+   */
+  FlashcardApp.prototype.showGrammarQuizWrongReview = function() {
+    var state = this.grammarQuizState;
+    var wrongAnswers = [];
+    for (var i = 0; i < state.answers.length; i++) {
+      if (!state.answers[i].isCorrect) wrongAnswers.push(state.answers[i]);
+    }
+
+    var review = document.getElementById('grammar-quiz-wrong-review');
+    var list = document.getElementById('grammar-quiz-wrong-list');
+
+    if (wrongAnswers.length === 0) {
+      if (review) review.style.display = 'none';
+      return;
+    }
+
+    if (review) review.style.display = 'block';
+    if (!list) return;
+
+    list.innerHTML = '';
+    for (var w = 0; w < wrongAnswers.length; w++) {
+      var answer = wrongAnswers[w];
+      var item = document.createElement('div');
+      item.className = 'quiz-wrong-item';
+      item.innerHTML =
+        '<div class="quiz-wrong-word">' + this._grammarQuizEscapeHtml(answer.question.question) + '</div>' +
+        '<div>' +
+          '<div class="quiz-wrong-answer">你的答案：' +
+            this._grammarQuizEscapeHtml(this._grammarQuizOptionLabel(answer.question, answer.selectedAnswer)) + '</div>' +
+          '<div class="quiz-wrong-correct">正確答案：' +
+            this._grammarQuizEscapeHtml(this._grammarQuizOptionLabel(answer.question, answer.correctAnswer)) + '</div>' +
+        '</div>';
+      list.appendChild(item);
+    }
+  };
+
+  /**
+   * 取得選項的顯示文字。
+   * @param {Object} question - 題目
+   * @param {string} value - 選項值
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizOptionLabel = function(question, value) {
+    if (!question || !question.options) return String(value);
+    for (var i = 0; i < question.options.length; i++) {
+      if (question.options[i].value === value) return question.options[i].label;
+    }
+    return String(value);
+  };
+
+  /**
+   * HTML 逸出處理（避免單字內容破壞版面）。
+   * @param {string} text - 原始文字
+   * @returns {string}
+   */
+  FlashcardApp.prototype._grammarQuizEscapeHtml = function(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  };
+
+  /**
+   * 重新開始（同一題型）。
+   */
+  FlashcardApp.prototype.restartGrammarQuiz = function() {
+    var type = this.grammarQuizState ? this.grammarQuizState.type : null;
+    if (!type) {
+      this.closeGrammarQuizModal();
+      return;
+    }
+    this.beginGrammarQuiz(type);
+  };
+
+  /**
+   * 返回題型選擇畫面（結束目前的題目，但保留模態框開啟）。
+   */
+  FlashcardApp.prototype.showGrammarQuizTypeSelect = function() {
+    if (this.grammarQuizState) {
+      this.grammarQuizState.isActive = false;
+      this.grammarQuizState.type = null;
+    }
+    this.showGrammarQuizScreen('type');
+  };
+
+  /**
+   * 關閉文法測驗模態框。
+   */
+  FlashcardApp.prototype.closeGrammarQuizModal = function() {
+    closeModalById(this, 'grammar-quiz-modal');
+    if (this.grammarQuizState) this.grammarQuizState.isActive = false;
+  };
+
+  /**
+   * 是否正在進行文法測驗（進行中不可點背景關閉）。
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype.isGrammarQuizInProgress = function() {
+    return !!(this.grammarQuizState && this.grammarQuizState.isActive);
+  };
+
+  /**
+   * 設定文法測驗的事件監聽器。
+   */
+  FlashcardApp.prototype.setupGrammarQuizListeners = function() {
+    var self = this;
+
+    var closeBtn = document.getElementById('close-grammar-quiz');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self.closeGrammarQuizModal(); });
+    }
+
+    var backBtn = document.getElementById('grammar-quiz-back');
+    if (backBtn) {
+      backBtn.addEventListener('click', function() { self.showGrammarQuizTypeSelect(); });
+    }
+
+    var nextBtn = document.getElementById('grammar-quiz-next');
+    if (nextBtn) {
+      nextBtn.addEventListener('click', function() { self.nextGrammarQuizQuestion(); });
+    }
+
+    var restartBtn = document.getElementById('grammar-quiz-restart');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', function() { self.restartGrammarQuiz(); });
+    }
+
+    var finishBtn = document.getElementById('grammar-quiz-finish');
+    if (finishBtn) {
+      finishBtn.addEventListener('click', function() { self.closeGrammarQuizModal(); });
+    }
+
+    var modal = document.getElementById('grammar-quiz-modal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (self.isGrammarQuizInProgress() && self.grammarQuizState.type) {
+          // 答題中不可點背景關閉
+          return;
+        }
+        if (e.target === modal) {
+          self.closeGrammarQuizModal();
+        }
+      });
+    }
+  };
+</script>
