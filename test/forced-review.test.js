@@ -282,6 +282,78 @@ describe('quick review quantity with forced-review words', function() {
   });
 });
 
+describe('changing the forced-review ratio from settings', function() {
+  beforeEach(function() {
+    var words = [];
+    for (var i = 0; i < 100; i++) {
+      words.push(makeWord(i, 'word' + i, 5));
+    }
+    for (var f = 0; f < 50; f++) {
+      words.push(makeWord(100 + f, 'forced' + f, 100, { lastReviewDate: reviewDate(f) }));
+    }
+
+    app.words = words;
+    app.removedWords = [];
+    app.srsReviewActive = false;
+    app._srsSelectedCount = 100;
+    app.currentWords = app.applyAllFilters(app.words);
+    app.currentIndex = 0;
+    app.displayCurrentWord = jest.fn();
+    app.updateActiveFilterDisplay = jest.fn();
+    app.showNotification = jest.fn();
+
+    var input = document.getElementById('forced-review-ratio-setting');
+    input.value = '10';
+  });
+
+  test('immediately rebuilds the active carousel review count', function() {
+    expect(app.currentWords.length).toBe(110);
+
+    var input = document.getElementById('forced-review-ratio-setting');
+    input.value = '20';
+    app.saveSettingsAndClose();
+
+    expect(app.settings.forcedReviewRatio).toBe(20);
+    expect(app.currentWords.length).toBe(120);
+    expect(document.getElementById('progress-text').textContent).toBe('1/120');
+    expect(app.displayCurrentWord).toHaveBeenCalled();
+  });
+
+  test('immediately rebuilds quick review without leaving SRS mode', function() {
+    app.srsReviewActive = true;
+
+    var input = document.getElementById('forced-review-ratio-setting');
+    input.value = '20';
+    app.saveSettingsAndClose();
+
+    expect(app.currentWords.length).toBe(120);
+    expect(app.srsReviewActive).toBe(true);
+  });
+
+  test('immediately removes extra forced-review words when the ratio becomes zero', function() {
+    var input = document.getElementById('forced-review-ratio-setting');
+    input.value = '0';
+    app.saveSettingsAndClose();
+
+    expect(app.currentWords.length).toBe(100);
+    var forcedCount = app.currentWords.filter(function(w) {
+      return w.difficultyLevel === 100;
+    }).length;
+    expect(forcedCount).toBe(0);
+    expect(document.getElementById('progress-text').textContent).toBe('1/100');
+  });
+
+  test('does not rebuild the review pool when the ratio is unchanged', function() {
+    app._refreshReviewPoolForRatioChange = jest.fn();
+
+    var input = document.getElementById('forced-review-ratio-setting');
+    input.value = '10';
+    app.saveSettingsAndClose();
+
+    expect(app._refreshReviewPoolForRatioChange).not.toHaveBeenCalled();
+  });
+});
+
 describe('forced-review display', function() {
   beforeEach(function() {
     app.currentWords = [makeWord(0, 'forced', 100), makeWord(1, 'normal', 5)];

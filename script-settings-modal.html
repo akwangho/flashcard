@@ -7,7 +7,7 @@
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, openModalById, closeModalById)
    * @provides FlashcardApp.prototype: openSettings, closeSettings,
-   *   saveSettingsAndClose, resetSettings, applyQuickMode,
+   *   _refreshReviewPoolForRatioChange, saveSettingsAndClose, resetSettings, applyQuickMode,
    *   openSheetSettings, closeSheetSettings, enhanceSliderInteraction
    */
 
@@ -27,6 +27,97 @@
     }
   };
   
+  /**
+   * 強制複習比例變更後，立即重算目前複習池。
+   * 一般單字維持目前複習清單與順序，只重新挑選額外的強制複習字；
+   * 快速複習仍保留原本選擇的 N 個一般單字，不會退回一般輪播模式。
+   */
+  FlashcardApp.prototype._refreshReviewPoolForRatioChange = function() {
+    if (!this.words || this.words.length === 0) return;
+
+    // 正常情況下 currentWords 已包含目前篩選結果；空清單時重新套用一次篩選。
+    if (!this.currentWords || this.currentWords.length === 0) {
+      this.currentWords = this.applyAllFilters(this.words);
+    }
+
+    var currentWord = this.currentWords[this.currentIndex];
+    var currentWordId = (currentWord && currentWord.id !== undefined && currentWord.id !== null)
+      ? currentWord.id
+      : null;
+
+    // 保留目前仍要複習的一般單字；它們已套用過篩選，且不應因改比例而被重選。
+    var normalWords = [];
+    for (var i = 0; i < this.currentWords.length; i++) {
+      if (!isForcedReviewWord(this.currentWords[i])) {
+        normalWords.push(this.currentWords[i]);
+      }
+    }
+
+    // 強制複習字可略過一般篩選，但本回合已移除的字不可再加入。
+    var removedIds = {};
+    if (this.removedWords && this.removedWords.length > 0) {
+      for (var r = 0; r < this.removedWords.length; r++) {
+        removedIds[this.removedWords[r].id] = true;
+      }
+    }
+
+    var forcedReviewCandidates = [];
+    for (var w = 0; w < this.words.length; w++) {
+      var word = this.words[w];
+      if (isForcedReviewWord(word) && !removedIds[word.id]) {
+        forcedReviewCandidates.push(word);
+      }
+    }
+
+    var selectedForcedReviewWords = this.selectForcedReviewWords(
+      forcedReviewCandidates,
+      normalWords.length
+    );
+    var updatedWords = selectedForcedReviewWords.concat(normalWords);
+
+    // 清掉舊清單的復原／待移除狀態，避免索引與新清單不一致。
+    this._clearRemovalUndoHalfExpireTimer();
+    this.removalUndoEntry = null;
+    this.pendingRemoval = null;
+    this.navigationHistory = [];
+    this.hideRestoreButton();
+
+    this.currentWords = updatedWords;
+    this.currentIndex = 0;
+
+    // 盡量留在原本正在看的單字；只有該字因比例改變被排除時才回到第一張。
+    if (currentWordId !== null) {
+      for (var c = 0; c < this.currentWords.length; c++) {
+        if (this.currentWords[c].id === currentWordId) {
+          this.currentIndex = c;
+          break;
+        }
+      }
+    }
+
+    // 若比例設為 0% 且原本只有強制複習字，會得到空複習池；
+    // 不進入 displayCurrentWord（空池會觸發新回合重載），只更新空狀態提示。
+    if (this.currentWords.length === 0) {
+      this.currentIndex = -1;
+      this.updateProgress();
+      this.updateActiveFilterDisplay();
+      if (typeof this.showNotification === 'function') {
+        this.showNotification('目前沒有可複習的單字', 'info');
+      }
+      return;
+    }
+
+    // displayCurrentWord 會重新啟動倒數；明確再更新一次進度，確保分母
+    //（實際複習總數）立即反映新的強制複習比例。
+    this.displayCurrentWord();
+    this.updateProgress();
+    this.updateActiveFilterDisplay();
+
+    if (typeof this.showNotification === 'function') {
+      this.showNotification('強制複習比例已更新，共 ' + this.currentWords.length + ' 個單字', 'success');
+    }
+  };
+
   // 儲存設定並關閉
   FlashcardApp.prototype.saveSettingsAndClose = function() {
     var delaySlider = document.getElementById('delay-setting');
@@ -36,6 +127,7 @@
     var oldDisplayMode = this.settings.displayMode;
     var oldFontFamily = this.settings.fontFamily;
     var oldGrammarAnnotationEnabled = this.settings.grammarAnnotationEnabled !== false;
+    var oldForcedReviewRatio = this.getForcedReviewRatio();
     
     if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
     if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
@@ -84,14 +176,19 @@
       );
     }
     
+    var forcedReviewRatioChanged = this.getForcedReviewRatio() !== oldForcedReviewRatio;
+
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
-    
-    // 如果顯示模式或字型改變，重新顯示當前單字
-    if (oldDisplayMode !== this.settings.displayMode ||
-        oldFontFamily !== this.settings.fontFamily ||
-        oldGrammarAnnotationEnabled !== (this.settings.grammarAnnotationEnabled !== false)) {
+
+    // 強制複習比例會影響實際複習池，儲存後立即重算，不需重新整理瀏覽器。
+    if (forcedReviewRatioChanged) {
+      this._refreshReviewPoolForRatioChange();
+    } else if (oldDisplayMode !== this.settings.displayMode ||
+               oldFontFamily !== this.settings.fontFamily ||
+               oldGrammarAnnotationEnabled !== (this.settings.grammarAnnotationEnabled !== false)) {
+      // 如果顯示模式或字型改變，重新顯示當前單字
       this.redisplayCurrentWord();
     }
   };

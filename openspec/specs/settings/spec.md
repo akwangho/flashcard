@@ -74,4 +74,5 @@ The system SHALL persist all settings to LocalStorage and apply them on startup.
 
 - **WHEN** the user changes any setting and presses 儲存設定
 - **THEN** the settings are written to their LocalStorage key and applied; closing or canceling the modal discards unsaved changes; on startup saved settings are read and applied before the carousel begins
+- **AND** changing `forcedReviewRatio` SHALL immediately rebuild the active carousel or quick-review pool and update the visible total review count without a page reload; quick review SHALL remain active and preserve its selected normal-word quantity
 - **AND** a legacy `reverseMode` boolean is silently migrated on load: `true` → `chinese-first`, `false` → `english-first`
