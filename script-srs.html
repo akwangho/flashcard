@@ -11,7 +11,7 @@
    *   loadSrsData, saveSrsData, getSrsForWord, updateSrsData,
    *   getDueWords, getDueWordCount, _buildPriorityList,
    *   getRecommendedWords, getRecommendedWordsWithPriority,
-   *   startSrsReview, openSrsReviewModal, renderSrsCountOptions,
+   *   _prepareSrsReviewWordsForDisplay, startSrsReview, openSrsReviewModal, renderSrsCountOptions,
    *   closeSrsReviewModal, calculateSrsStats, renderSrsStats,
    *   renderWordPriorityList
    */
@@ -270,8 +270,8 @@
 
   /**
    * 從候選單字中挑選快速複習內容：
-   * 一般單字依指定數量取前 N 個，強制複習（100）單字一律額外附加以外的數量，
-   * 因此選 100 個且有 3 個強制複習字時，最終會有 103 個。
+   * 一般單字依指定數量取前 N 個，另依設定比例加入強制複習（100）單字。
+   * 例如比例 10% 時，選 100 個一般單字會再加入 10 個最久沒複習的強制複習字。
    * @param {Array} sourceWords - 已套用篩選的候選單字
    * @param {number} count - 一般單字要取幾個
    * @returns {Array} 複習單字清單
@@ -291,13 +291,38 @@
     var recommendedWords = this.getRecommendedWords(normalWords);
     var limit = Math.max(0, Math.min(count, recommendedWords.length));
     var result = recommendedWords.slice(0, limit);
-    for (var f = 0; f < forcedReviewWords.length; f++) {
-      result.push(forcedReviewWords[f]);
+
+    // 強制複習字不佔用 N 個名額；依實際選到的 N 個一般單字計算比例。
+    var selectedForcedReviewWords = this.selectForcedReviewWords(forcedReviewWords, result.length);
+    for (var f = 0; f < selectedForcedReviewWords.length; f++) {
+      result.push(selectedForcedReviewWords[f]);
     }
     return result;
   };
 
-  // 開始快速複習模式（依優先度排序，取前 N 個；強制複習字額外全數載入）
+  /**
+   * 安排快速複習顯示順序：強制複習字依「最久沒複習優先」放在前面，
+   * 一般單字則洗牌，避免同一工作表的字過度集中。
+   * @param {Array} reviewWords - 已選出的複習單字
+   * @returns {Array} 重新排序後的複習單字
+   */
+  FlashcardApp.prototype._prepareSrsReviewWordsForDisplay = function(reviewWords) {
+    var forcedReviewWords = [];
+    var normalReviewWords = [];
+
+    for (var i = 0; i < reviewWords.length; i++) {
+      if (isForcedReviewWord(reviewWords[i])) {
+        forcedReviewWords.push(reviewWords[i]);
+      } else {
+        normalReviewWords.push(reviewWords[i]);
+      }
+    }
+
+    this.shuffleArray(normalReviewWords);
+    return forcedReviewWords.concat(normalReviewWords);
+  };
+
+  // 開始快速複習模式（依優先度排序，取前 N 個；另依比例加入強制複習字）
   // 與其他篩選條件為 AND 關係：先套用所有篩選，再從結果中依 SRS 優先度排序
   FlashcardApp.prototype.startSrsReview = function(count) {
     // 排除使用者已「暫時移除」的單字（與測驗/聽力一致），避免複習到已移除的字
@@ -309,9 +334,9 @@
       return;
     }
 
-    // 一般單字取指定數量；強制複習字不佔用該數量，額外附加
-    this.currentWords = reviewWords;
-    this.shuffleArray(this.currentWords);
+    // 一般單字取指定數量；強制複習字不佔用該數量，依比例額外附加。
+    // 強制複習字保留最久沒複習優先的順序，一般單字則洗牌。
+    this.currentWords = this._prepareSrsReviewWordsForDisplay(reviewWords);
     this.currentIndex = 0;
     this.removedWords = [];
     this._clearRemovalUndoHalfExpireTimer();

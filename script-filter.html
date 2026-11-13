@@ -7,7 +7,8 @@
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD, closeModalById)
    * @provides FlashcardApp.prototype: getTodayDateString, markWordAsReviewed,
-   *   syncReviewDates, applyAllFilters, getFilterCutoffDate, countWordsForFilter,
+   *   syncReviewDates, getForcedReviewRatio, getForcedReviewQuota,
+   *   selectForcedReviewWords, applyAllFilters, getFilterCutoffDate, countWordsForFilter,
    *   openReviewFilterModal, openDifficultyFilterModal, toggleMustSpellFilter,
    *   openTypeFilterModal, openTagFilterModal, updateActiveFilterDisplay, clearAllFilters ...
    */
@@ -118,6 +119,71 @@
       .batchUpdateReviewDates(this.sheetSettings.sheetId, updates);
   };
 
+  /**
+   * 取得強制複習（不熟程度 100）比例（百分比）。
+   * @returns {number} 0～100；無效值使用預設 10。
+   */
+  FlashcardApp.prototype.getForcedReviewRatio = function() {
+    var ratio = parseFloat(this.settings && this.settings.forcedReviewRatio);
+    if (!isFinite(ratio)) {
+      ratio = APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT;
+    }
+    return Math.max(
+      APP_CONSTANTS.FORCED_REVIEW_RATIO_MIN,
+      Math.min(APP_CONSTANTS.FORCED_REVIEW_RATIO_MAX, ratio)
+    );
+  };
+
+  /**
+   * 計算要額外加入的強制複習單字數。
+   * 以一般會出現的單字數為基準，比例 10% 時 100 個 → 10 個。
+   * 數量向上取整；若沒有一般單字但有強制複習候選字，仍加入 1 個，避免無法複習。
+   * @param {number} normalWordCount - 一般會出現的單字數
+   * @returns {number} 強制複習單字數
+   */
+  FlashcardApp.prototype.getForcedReviewQuota = function(normalWordCount) {
+    var ratio = this.getForcedReviewRatio();
+    if (ratio <= 0) return 0;
+
+    var count = Number(normalWordCount);
+    if (!isFinite(count) || count < 0) count = 0;
+    if (count === 0) count = 1;
+
+    return Math.ceil(count * ratio / 100);
+  };
+
+  /**
+   * 從強制複習候選字中，依「最久沒複習優先」選出額外加入的單字。
+   * 從未複習（lastReviewDate 為空）最優先；同日期以英文排序，確保結果穩定。
+   * @param {Array} forcedReviewWords - 不熟程度 100 的候選單字
+   * @param {number} normalWordCount - 一般會出現的單字數
+   * @returns {Array} 選出的強制複習單字
+   */
+  FlashcardApp.prototype.selectForcedReviewWords = function(forcedReviewWords, normalWordCount) {
+    if (!forcedReviewWords || forcedReviewWords.length === 0) return [];
+
+    var quota = this.getForcedReviewQuota(normalWordCount);
+    if (quota <= 0) return [];
+
+    var sortedWords = forcedReviewWords.slice();
+    sortedWords.sort(function(a, b) {
+      var aDate = (a && a.lastReviewDate) ? a.lastReviewDate : '';
+      var bDate = (b && b.lastReviewDate) ? b.lastReviewDate : '';
+
+      if (aDate !== bDate) {
+        if (aDate === '') return -1;
+        if (bDate === '') return 1;
+        return aDate < bDate ? -1 : 1;
+      }
+
+      var aEnglish = (a && a.english) ? a.english : '';
+      var bEnglish = (b && b.english) ? b.english : '';
+      return aEnglish < bEnglish ? -1 : (aEnglish > bEnglish ? 1 : 0);
+    });
+
+    return sortedWords.slice(0, Math.min(quota, sortedWords.length));
+  };
+
   // 套用所有篩選條件（不熟單字 + 複習時間）
   FlashcardApp.prototype.applyAllFilters = function(words) {
     var filtered = [];
@@ -126,7 +192,8 @@
     
     var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
 
-    // 強制複習（100）不受任何篩選影響，一律額外載入
+    // 強制複習（100）不受任何篩選影響，先保留為候選字；
+    // 實際加入數量依一般篩選結果與設定比例計算。
     for (var fw = 0; fw < words.length; fw++) {
       if (isForcedReviewWord(words[fw])) {
         forcedReviewWords.push(words[fw]);
@@ -203,16 +270,16 @@
       });
     }
     
-    // 強制複習單字額外加回（不列入篩選統計），再一起排序
-    for (var f = 0; f < forcedReviewWords.length; f++) {
-      filtered.push(forcedReviewWords[f]);
-    }
+    // 依一般篩選結果計算強制複習數量，並優先加入最久沒複習的字。
+    // 強制複習字不列入篩選統計，只作額外複習。
+    var selectedForcedReviewWords = this.selectForcedReviewWords(forcedReviewWords, filtered.length);
 
-    // 篩選後依「複習優先分數」排序：不熟程度數字大的、很久沒複習的優先出現；
+    // 一般單字依「複習優先分數」排序：不熟程度數字大的、很久沒複習的優先出現；
     // 最近剛複習且數字小的排到後面。同分數的單字之間以亂數輕度混合（多工作表打散）。
     this.sortWordsByReviewPriority(filtered);
-    
-    return filtered;
+
+    // 強制複習字放在前面，並保留「最久沒複習優先」的順序。
+    return selectedForcedReviewWords.concat(filtered);
   };
 
   /**
@@ -286,7 +353,7 @@
     var words = this.words;
     var VF = APP_CONSTANTS.DIFFICULTY_VERY_FAMILIAR;
 
-    // 強制複習單字不列入篩選統計（但仍會額外載入）
+    // 強制複習單字不列入篩選統計（但仍會依比例額外載入）
     words = words.filter(function(w) {
       return !isForcedReviewWord(w);
     });
@@ -554,7 +621,7 @@
   FlashcardApp.prototype.countWordsForDifficultyFilter = function(minLevel) {
     var words = this.words;
 
-    // 強制複習單字不列入篩選統計（但仍會額外載入）
+    // 強制複習單字不列入篩選統計（但仍會依比例額外載入）
     words = words.filter(function(w) {
       return !isForcedReviewWord(w);
     });

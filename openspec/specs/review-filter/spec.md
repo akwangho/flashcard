@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the filters restricting which words appear in the carousel and quiz: review-time, difficulty, must-spell, word-type, and tag. All active filters combine via intersection logic, except forced-review words (difficulty 100), which always bypass filters.
+Defines the filters restricting which words appear in the carousel, quiz, and listening practice: review-time, difficulty, must-spell, word-type, and tag. All active filters combine via intersection logic. Forced-review words (difficulty 100) bypass filters as candidates, but only a configurable ratio is added to each review pool.
 
 ## Requirements
 
@@ -54,14 +54,16 @@ The system SHALL allow filtering words by tags (column H, split by `,` or `，`)
 - **THEN** a word is included if it has ANY selected tag; all unique tags from loaded words are listed sorted, each with its word count
 - **AND** with no tags selected the filter is inactive (all words shown); when no loaded words have tags, the modal displays "目前沒有任何標籤"
 
-### Requirement: Forced Review Override
+### Requirement: Ratio-Based Forced Review
 
-The system SHALL always load every word whose difficulty is 100, regardless of the active filters, and SHALL exclude those words from filter counts and statistics.
+The system SHALL treat every word whose difficulty is 100 as a forced-review candidate that bypasses the active filters, but SHALL add only the configured percentage of the filtered normal-word count to the review pool (default 10%, rounded up, capped by the available candidates). Words never reviewed or with the oldest `lastReviewDate` SHALL be selected first. A configured percentage of 0 SHALL disable these extra forced-review words.
 
 #### Scenario: Extra words beyond the filtered set
 
-- **WHEN** any filter combination is applied and the pool contains forced-review words
-- **THEN** the filtered normal words are returned plus ALL forced-review words, even if they fail the difficulty, review-time, must-spell, type, or tag filters (e.g. 100 filtered normal words + 3 forced-review words = 103 words loaded)
+- **WHEN** 100 normal words pass the active filters and at least 10 forced-review candidates are available
+- **THEN** the 100 normal words are returned plus the 10 longest-unreviewed forced-review words, for 110 words total
+- **AND** if fewer forced-review candidates are available than the ratio requires, all available candidates are added
+- **AND** if no normal words pass the filters but forced-review candidates exist and the ratio is above 0%, one candidate is added so forced review remains reachable
 - **AND** the filter-option counts (`countWordsForFilter`, `countWordsForDifficultyFilter`) and SRS statistics count normal words only, so forced-review words do not change those numbers
 - **AND** the `★-` display indicates a forced-review word is excluded from statistics
 

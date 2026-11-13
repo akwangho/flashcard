@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.27.5',
+    APP_VERSION: '1.28.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-10 00:20',
+    APP_BUILD_TIME: '2026-11-13 10:59',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -50,6 +50,11 @@
     SRS_COUNT_OPTIONS: [10, 20, 30, 50, 100],
     SRS_BOX_INTERVALS: { 1: 1, 2: 2, 3: 4, 4: 7, 5: 14, 6: 30, 7: 60, 8: 120 },
     SRS_MAX_BOX: 8,
+
+    // === 強制複習（不熟程度 100）比例 ===
+    FORCED_REVIEW_RATIO_DEFAULT: 10,    // 一般每 100 個複習單字，額外加入 10 個強制複習字
+    FORCED_REVIEW_RATIO_MIN: 0,         // 0% = 不額外加入強制複習字
+    FORCED_REVIEW_RATIO_MAX: 100,
 
     // === 複習優先分數（決定每天輪播與快速複習的單字順序） ===
     // 分數越高越優先出現。score = staleness(天) + difficultyComponent。
@@ -134,7 +139,7 @@
 
     // === 不熟程度 ===
     DIFFICULTY_VERY_FAMILIAR: -999,    // 「非常熟」門檻值
-    DIFFICULTY_FORCED_REVIEW: 100,     // 強制複習：必定載入、顯示 ★-、不列入統計，複習/移除不改變此值
+    DIFFICULTY_FORCED_REVIEW: 100,     // 強制複習：依比例額外載入、顯示 ★-、不列入統計，複習/移除不改變此值
 
     // === 時間單位 ===
     MS_PER_DAY: 86400000,             // 一天的毫秒數 (24*60*60*1000)
@@ -272,7 +277,7 @@
   };
 
   /**
-   * 是否為「強制複習」等級（100）。此等級必定載入且不列入統計。
+   * 是否為「強制複習」等級（100）。此等級依設定比例額外載入且不列入統計。
    * @param {number} level - 不熟程度
    * @returns {boolean}
    */
@@ -467,7 +472,8 @@
       listeningMode: false,
       carouselMemoryMode: false,
       showKKPhonetic: true,            // KK 音標顯示開關（預設開啟；K 鍵可切換）
-      grammarAnnotationEnabled: true   // 動詞／助動詞／BE 動詞自動標注（預設開啟）
+      grammarAnnotationEnabled: true,  // 動詞／助動詞／BE 動詞自動標注（預設開啟）
+      forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT // 強制複習字比例（%，預設 10%）
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -837,6 +843,15 @@
         if (savedSettings.hasOwnProperty(key) && this.settings.hasOwnProperty(key)) {
           this.settings[key] = savedSettings[key];
         }
+      }
+
+      // 強制複習比例只接受 0～100 的數值；舊資料或損壞值改用預設 10%。
+      var forcedReviewRatio = this.settings.forcedReviewRatio;
+      if (typeof forcedReviewRatio !== 'number' ||
+          !isFinite(forcedReviewRatio) ||
+          forcedReviewRatio < APP_CONSTANTS.FORCED_REVIEW_RATIO_MIN ||
+          forcedReviewRatio > APP_CONSTANTS.FORCED_REVIEW_RATIO_MAX) {
+        this.settings.forcedReviewRatio = APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT;
       }
       
       var savedVoiceSettings = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.VOICE_SETTINGS) || '{}');
@@ -1212,6 +1227,18 @@
     }
     if (typeof this.updateGrammarLegendVisibility === 'function') {
       this.updateGrammarLegendVisibility();
+    }
+
+    // 設定強制複習比例（一般複習數量的百分比）
+    var forcedReviewRatioInput = document.getElementById('forced-review-ratio-setting');
+    if (forcedReviewRatioInput) {
+      var forcedReviewRatio = Number(this.settings.forcedReviewRatio);
+      if (!isFinite(forcedReviewRatio) ||
+          forcedReviewRatio < APP_CONSTANTS.FORCED_REVIEW_RATIO_MIN ||
+          forcedReviewRatio > APP_CONSTANTS.FORCED_REVIEW_RATIO_MAX) {
+        forcedReviewRatio = APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT;
+      }
+      forcedReviewRatioInput.value = forcedReviewRatio;
     }
 
     // 主畫面快速計時區（與 delay-setting / smart-timer-setting 同步）

@@ -70,6 +70,19 @@
     if (grammarAnnotationToggle) {
       this.settings.grammarAnnotationEnabled = grammarAnnotationToggle.checked;
     }
+
+    // 讀取強制複習比例（一般複習數量的百分比）
+    var forcedReviewRatioInput = document.getElementById('forced-review-ratio-setting');
+    if (forcedReviewRatioInput) {
+      var forcedReviewRatio = parseFloat(forcedReviewRatioInput.value);
+      if (!isFinite(forcedReviewRatio)) {
+        forcedReviewRatio = APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT;
+      }
+      this.settings.forcedReviewRatio = Math.max(
+        APP_CONSTANTS.FORCED_REVIEW_RATIO_MIN,
+        Math.min(APP_CONSTANTS.FORCED_REVIEW_RATIO_MAX, forcedReviewRatio)
+      );
+    }
     
     this.saveSettings();
     this.applySettings();
@@ -99,7 +112,8 @@
       listeningMode: false,
       carouselMemoryMode: false,
       showKKPhonetic: true,            // KK 音標顯示開關（預設開啟）
-      grammarAnnotationEnabled: true   // 英文語法角色自動標注（預設開啟）
+      grammarAnnotationEnabled: true,  // 英文語法角色自動標注（預設開啟）
+      forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT // 強制複習字比例（%，預設 10%）
     };
     this.voiceSettings = {
       enabled: true,

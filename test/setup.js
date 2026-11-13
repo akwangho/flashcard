@@ -104,6 +104,8 @@ function createDOMElements() {
     'kk-phonetic-setting',
     // Grammar role annotation setting toggle
     'grammar-annotation-setting',
+    // Forced-review ratio setting
+    'forced-review-ratio-setting',
     // Search word modal
     'search-word-modal', 'close-search-word', 'search-word-input', 'search-word-run',
     'search-word-summary', 'search-word-results', 'close-search-word-footer',
@@ -295,6 +297,15 @@ function createDOMElements() {
       el = document.createElement('input');
       el.id = id;
       el.type = 'checkbox';
+    }
+    if (id === 'forced-review-ratio-setting') {
+      el = document.createElement('input');
+      el.id = id;
+      el.type = 'number';
+      el.min = '0';
+      el.max = '100';
+      el.step = '1';
+      el.value = '10';
     }
     if (id === 'save-sheet-settings') {
       el = document.createElement('button');

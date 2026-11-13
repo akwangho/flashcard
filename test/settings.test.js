@@ -18,7 +18,8 @@ describe('applySettings', function() {
       mustSpellChineseFirst: true,
       showTimerProgressBar: true,
       timerProgressBarOffset: 0,
-      smartTimerEnabled: false
+      smartTimerEnabled: false,
+      forcedReviewRatio: 10
     };
   });
 
@@ -110,6 +111,13 @@ describe('applySettings', function() {
     var toggle = document.getElementById('smart-timer-setting');
     expect(toggle.checked).toBe(true);
   });
+
+  test('sets forced-review ratio input', function() {
+    app.settings.forcedReviewRatio = 25;
+    app.applySettings();
+    var input = document.getElementById('forced-review-ratio-setting');
+    expect(input.value).toBe('25');
+  });
 });
 
 describe('applyFontFamily', function() {
@@ -181,6 +189,23 @@ describe('saveSettingsAndClose', function() {
     expect(parsed.fontSize).toBeDefined();
   });
 
+  test('reads and persists the forced-review ratio', function() {
+    var input = document.getElementById('forced-review-ratio-setting');
+    input.value = '20';
+    app.saveSettingsAndClose();
+    expect(app.settings.forcedReviewRatio).toBe(20);
+
+    var stored = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.SETTINGS));
+    expect(stored.forcedReviewRatio).toBe(20);
+  });
+
+  test('clamps the forced-review ratio to 0-100', function() {
+    var input = document.getElementById('forced-review-ratio-setting');
+    input.value = '150';
+    app.saveSettingsAndClose();
+    expect(app.settings.forcedReviewRatio).toBe(100);
+  });
+
   test('redisplays word when displayMode changes', function() {
     app.settings.displayMode = 'english-first';
     var radio = document.querySelector('input[name="display-mode"][value="chinese-first"]');
@@ -223,6 +248,7 @@ describe('resetSettings', function() {
     expect(app.settings.showTimerProgressBar).toBe(true);
     expect(app.settings.fontSize).toBe(96);
     expect(app.settings.smartTimerEnabled).toBe(false);
+    expect(app.settings.forcedReviewRatio).toBe(10);
     expect(app.voiceSettings.chineseEnabled).toBe(false);
     expect(app.voiceSettings.spellOutLetters).toBe(false);
   });

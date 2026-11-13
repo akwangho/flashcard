@@ -1,7 +1,7 @@
 /**
  * Tests for the forced-review difficulty level (100):
- * always loaded, excluded from statistics, displayed as ★-, and protected
- * from review-related difficulty changes.
+ * added by the configured review ratio, excluded from statistics, displayed
+ * as ★-, and protected from review-related difficulty changes.
  * Spec: openspec/specs/difficulty-marking/spec.md, review-filter/spec.md, srs/spec.md
  */
 var app;
@@ -41,9 +41,24 @@ function makeWord(id, english, difficultyLevel, overrides) {
   return word;
 }
 
+// 產生固定的 YYYY-MM-DD 字串；offset 越大代表日期越新。
+function reviewDate(offset) {
+  var d = new Date(2000, 0, 1 + offset);
+  var month = d.getMonth() + 1;
+  var day = d.getDate();
+  return d.getFullYear() + '-' +
+    (month < 10 ? '0' : '') + month + '-' +
+    (day < 10 ? '0' : '') + day;
+}
+
 describe('forced-review level detection', function() {
   test('constant is 100', function() {
     expect(APP_CONSTANTS.DIFFICULTY_FORCED_REVIEW).toBe(100);
+  });
+
+  test('forced-review ratio defaults to 10 percent', function() {
+    expect(APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT).toBe(10);
+    expect(app.settings.forcedReviewRatio).toBe(10);
   });
 
   test('values >= 100 normalise to 100', function() {
@@ -80,6 +95,59 @@ describe('applyAllFilters with forced-review words', function() {
       return w.difficultyLevel === 100;
     }).length;
     expect(forcedCount).toBe(3);
+  });
+
+  test('adds only 10 percent of the normal count and chooses the longest-unreviewed words', function() {
+    var words = [];
+    for (var i = 0; i < 100; i++) {
+      words.push(makeWord(i, 'word' + i, 5));
+    }
+    for (var f = 0; f < 50; f++) {
+      var date = f === 0 ? '' : reviewDate(f);
+      words.push(makeWord(100 + f, 'forced' + f, 100, { lastReviewDate: date }));
+    }
+
+    var result = app.applyAllFilters(words);
+    var forcedWords = result.filter(function(w) {
+      return w.difficultyLevel === 100;
+    });
+
+    expect(result.length).toBe(110);
+    expect(forcedWords.length).toBe(10);
+    expect(forcedWords[0].english).toBe('forced0');       // 從未複習
+    expect(forcedWords[1].english).toBe('forced1');       // 最早複習
+    expect(forcedWords[9].english).toBe('forced9');
+    expect(forcedWords[10]).toBeUndefined();
+  });
+
+  test('uses the configurable ratio', function() {
+    var words = [];
+    for (var i = 0; i < 100; i++) {
+      words.push(makeWord(i, 'word' + i, 5));
+    }
+    for (var f = 0; f < 30; f++) {
+      words.push(makeWord(100 + f, 'forced' + f, 100, { lastReviewDate: reviewDate(f) }));
+    }
+
+    app.settings.forcedReviewRatio = 25;
+    var result = app.applyAllFilters(words);
+    var forcedCount = result.filter(function(w) {
+      return w.difficultyLevel === 100;
+    }).length;
+    expect(forcedCount).toBe(25);
+    expect(result.length).toBe(125);
+  });
+
+  test('a zero ratio disables extra forced-review words', function() {
+    var words = [
+      makeWord(0, 'normal', 5),
+      makeWord(1, 'forced', 100)
+    ];
+
+    app.settings.forcedReviewRatio = 0;
+    var result = app.applyAllFilters(words);
+    expect(result.length).toBe(1);
+    expect(result[0].english).toBe('normal');
   });
 
   test('forced words bypass difficulty, type, and tag filters', function() {
@@ -161,12 +229,46 @@ describe('quick review quantity with forced-review words', function() {
     app.saveFilterSettings = jest.fn();
   });
 
-  test('selects N normal words plus ALL forced words', function() {
+  test('selects N normal words plus 10 percent extra forced words', function() {
     app.startSrsReview(2);
 
-    expect(app.currentWords.length).toBe(4);
+    expect(app.currentWords.length).toBe(3);
     var forced = app.currentWords.filter(function(w) { return w.difficultyLevel === 100; });
-    expect(forced.length).toBe(2);
+    expect(forced.length).toBe(1);
+  });
+
+  test('selecting 100 normal words adds 10 forced-review words', function() {
+    var words = [];
+    for (var i = 0; i < 100; i++) {
+      words.push(makeWord(i, 'word' + i, 5));
+    }
+    for (var f = 0; f < 50; f++) {
+      words.push(makeWord(100 + f, 'forced' + f, 100, { lastReviewDate: reviewDate(f) }));
+    }
+    app.words = words;
+
+    app.startSrsReview(100);
+
+    expect(app.currentWords.length).toBe(110);
+    var forced = app.currentWords.filter(function(w) { return w.difficultyLevel === 100; });
+    expect(forced.length).toBe(10);
+  });
+
+  test('forced-review words appear first in longest-unreviewed-first order', function() {
+    var words = [];
+    for (var i = 0; i < 100; i++) {
+      words.push(makeWord(i, 'word' + i, 5));
+    }
+    words.push(makeWord(100, 'forced-newer', 100, { lastReviewDate: '2020-02-01' }));
+    words.push(makeWord(101, 'forced-never', 100, { lastReviewDate: '' }));
+    words.push(makeWord(102, 'forced-older', 100, { lastReviewDate: '2020-01-01' }));
+    app.words = words;
+
+    app.startSrsReview(100);
+
+    expect(app.currentWords[0].english).toBe('forced-never');
+    expect(app.currentWords[1].english).toBe('forced-older');
+    expect(app.currentWords[2].english).toBe('forced-newer');
   });
 
   test('selection still works when there are no normal words', function() {
@@ -176,7 +278,7 @@ describe('quick review quantity with forced-review words', function() {
     ];
     app.startSrsReview(0);
 
-    expect(app.currentWords.length).toBe(2);
+    expect(app.currentWords.length).toBe(1);
   });
 });
 

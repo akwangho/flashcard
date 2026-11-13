@@ -485,6 +485,17 @@
           </div>
 
           <div class="setting-group">
+            <label for="forced-review-ratio-setting">⭐ 強制複習比例 (%)</label>
+            <div class="setting-control">
+              <input type="number" id="forced-review-ratio-setting" min="0" max="100" value="10" step="1" style="width: 70px; padding: 6px 8px; font-size: 14px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; text-align: center;">
+              <span style="color: #888; font-size: 12px; margin-left: 6px;">1/10 = 10%</span>
+            </div>
+            <div class="setting-help">
+              <small>一般每複習 100 個單字，額外加入設定比例的不熟程度 100 單字；優先選擇較久沒複習的。設為 0% 可停用額外強制複習</small>
+            </div>
+          </div>
+
+          <div class="setting-group">
             <label for="show-timer-progress-setting">⏱️ 顯示計時進度條</label>
             <div class="setting-control">
               <label class="switch">

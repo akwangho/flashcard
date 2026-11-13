@@ -15,7 +15,7 @@ Row 1 is a header row; data starts from row 2.
 | A | (A1 = valid word count) | Must-spell flag: `1` = 衝刺要會拼單字 (sprint), `0.5` = 隨機要會拼單字 (random), `-1` = 看懂就好 (understand-only), empty/`0` = none; other legacy values read as `1` (see `flashcard-core/spec.md`) | No |
 | B | `單字` | English word | Yes |
 | C | `翻譯` | Chinese translation | Yes |
-| D | `不熟程度` | Difficulty -999~10, or `100` = forced review (always loaded, shown as ★-, excluded from statistics); empty = 0; values >=100 normalise to 100; reads legacy `*`, writes numbers | No |
+| D | `不熟程度` | Difficulty -999~10, or `100` = forced-review candidate (added by the configured review ratio, shown as ★-, excluded from statistics); empty = 0; values >=100 normalise to 100; reads legacy `*`, writes numbers | No |
 | E | `圖片URL` | Image URL | No |
 | F | `圖片` | Image display formula | No |
 | G | `最後複習日期` | Last review date `YYYY-MM-DD` (empty = never reviewed) | No |

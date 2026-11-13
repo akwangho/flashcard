@@ -63,3 +63,4 @@ CSS: every `var(--x)` needs a hard-coded fallback. Touch: `touchstart/move/end`;
 | Smart timer / carousel memory mode | off (`smartTimerEnabled: false`) / off (`carouselMemoryMode: false`) |
 | KK phonetic | **on** (`showKKPhonetic: true`) |
 | Grammar role annotation | **on** (`grammarAnnotationEnabled: true`) |
+| Forced-review ratio | **10%** (`forcedReviewRatio: 10`) |

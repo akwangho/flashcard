@@ -505,8 +505,7 @@
       var reviewWords = this._selectSrsReviewWords(filteredWords, this._srsSelectedCount);
 
       if (reviewWords.length > 0) {
-        this.currentWords = reviewWords;
-        this.shuffleArray(this.currentWords);
+        this.currentWords = this._prepareSrsReviewWordsForDisplay(reviewWords);
         this.currentIndex = 0;
         this.removedWords = [];
         this.srsReviewActive = true;
@@ -1204,7 +1203,7 @@
       srsStartBtn.addEventListener('click', function() {
         // 不得用真值判斷：篩選後一般單字 0 個、僅剩強制複習（100）單字時
         // _srsSelectedCount 為 0，使用者會完全無法開始（按鈕沒反應）；
-        // startSrsReview(0) 本身支援「只回全部強制複習單字」
+        // startSrsReview(0) 本身支援「只回強制複習候選字」
         if (self._srsSelectedCount !== undefined && self._srsSelectedCount !== null) {
           self.startSrsReview(self._srsSelectedCount);
         }
