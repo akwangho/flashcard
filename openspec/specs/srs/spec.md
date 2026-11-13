@@ -97,5 +97,5 @@ The system SHALL start a filtered carousel session when the user initiates quick
 - **WHEN** the user selects a quantity and starts the review
 - **THEN** the top N normal words by priority are selected, plus the configured percentage of N as extra forced-review words (difficulty 100), rounded up and capped by the available candidates; with the default 10%, selecting 100 adds 10 longest-unreviewed forced-review words for 110 words total
 - **AND** forced-review words do not consume the selected quantity and are excluded from the statistics used to choose it
-- **AND** the selected forced-review words appear first in longest-unreviewed-first order, while the normal words are shuffled to prevent same-sheet clustering
+- **AND** the normal words are shuffled to prevent same-sheet clustering, and the selected forced-review words are inserted at randomised positions throughout the session instead of always appearing first
 - **AND** the active-filters indicator shows "📖 快速複習"; SRS mode ends when the user clears filters or the session's words run out — it is deliberately retained across page reloads and the 重新載入單字 restart

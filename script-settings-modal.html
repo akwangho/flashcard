@@ -29,7 +29,7 @@
   
   /**
    * 強制複習比例變更後，立即重算目前複習池。
-   * 一般單字維持目前複習清單與順序，只重新挑選額外的強制複習字；
+   * 一般單字維持目前複習清單與順序，只重新挑選額外的強制複習字並隨機穿插；
    * 快速複習仍保留原本選擇的 N 個一般單字，不會退回一般輪播模式。
    */
   FlashcardApp.prototype._refreshReviewPoolForRatioChange = function() {
@@ -73,7 +73,7 @@
       forcedReviewCandidates,
       normalWords.length
     );
-    var updatedWords = selectedForcedReviewWords.concat(normalWords);
+    var updatedWords = this.interleaveForcedReviewWords(normalWords, selectedForcedReviewWords);
 
     // 清掉舊清單的復原／待移除狀態，避免索引與新清單不一致。
     this._clearRemovalUndoHalfExpireTimer();

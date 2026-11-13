@@ -120,6 +120,36 @@ describe('applyAllFilters with forced-review words', function() {
     expect(forcedWords[10]).toBeUndefined();
   });
 
+  test('interleaves forced-review words throughout the carousel list', function() {
+    var words = [];
+    for (var i = 0; i < 100; i++) {
+      words.push(makeWord(i, 'word' + i, 5));
+    }
+    for (var f = 0; f < 50; f++) {
+      words.push(makeWord(100 + f, 'forced' + f, 100, { lastReviewDate: reviewDate(f) }));
+    }
+
+    var randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.2);
+    var result;
+    try {
+      result = app.applyAllFilters(words);
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    var forcedPositions = [];
+    for (var j = 0; j < result.length; j++) {
+      if (result[j].difficultyLevel === 100) forcedPositions.push(j);
+    }
+    var forcedInLeadingBlock = result.slice(0, 10).filter(function(w) {
+      return w.difficultyLevel === 100;
+    }).length;
+
+    expect(forcedPositions.length).toBe(10);
+    expect(forcedInLeadingBlock).toBeLessThan(10);
+    expect(forcedPositions[forcedPositions.length - 1]).toBeGreaterThan(50);
+  });
+
   test('uses the configurable ratio', function() {
     var words = [];
     for (var i = 0; i < 100; i++) {
@@ -169,6 +199,45 @@ describe('applyAllFilters with forced-review words', function() {
     var forced = makeWord(0, 'forced', 100);
     var result = app.applyAllFilters([forced]);
     expect(result.length).toBe(1);
+  });
+});
+
+describe('forced-review word interleaving', function() {
+  test('places forced-review words at random positions while preserving group order', function() {
+    var normalWords = [];
+    for (var i = 0; i < 10; i++) {
+      normalWords.push(makeWord(i, 'normal' + i, 5));
+    }
+    var forcedWords = [
+      makeWord(100, 'forced0', 100),
+      makeWord(101, 'forced1', 100),
+      makeWord(102, 'forced2', 100)
+    ];
+
+    var result = app.interleaveForcedReviewWords(
+      normalWords,
+      forcedWords,
+      function() { return 0.2; }
+    );
+    var forcedPositions = [];
+    for (var j = 0; j < result.length; j++) {
+      if (result[j].difficultyLevel === 100) forcedPositions.push(j);
+    }
+
+    expect(result.length).toBe(13);
+    expect(forcedPositions).toEqual([3, 4, 9]);
+    expect(result[0].english).toBe('normal0');
+    expect(result[1].english).toBe('normal1');
+    expect(result[2].english).toBe('normal2');
+    expect(result[5].english).toBe('normal3');
+    expect(result[9].english).toBe('forced2');
+    expect(result[10].english).toBe('normal7');
+  });
+
+  test('returns the normal list unchanged when there are no forced-review words', function() {
+    var normalWords = [makeWord(0, 'normal0', 5), makeWord(1, 'normal1', 5)];
+    var result = app.interleaveForcedReviewWords(normalWords, []);
+    expect(result.map(function(w) { return w.english; })).toEqual(['normal0', 'normal1']);
   });
 });
 
@@ -254,7 +323,7 @@ describe('quick review quantity with forced-review words', function() {
     expect(forced.length).toBe(10);
   });
 
-  test('forced-review words appear first in longest-unreviewed-first order', function() {
+  test('forced-review words are interleaved throughout the quick-review list', function() {
     var words = [];
     for (var i = 0; i < 100; i++) {
       words.push(makeWord(i, 'word' + i, 5));
@@ -264,11 +333,27 @@ describe('quick review quantity with forced-review words', function() {
     words.push(makeWord(102, 'forced-older', 100, { lastReviewDate: '2020-01-01' }));
     app.words = words;
 
-    app.startSrsReview(100);
+    // 固定亂數讓測試可重現，並確保強制複習字不是固定塞在最前面。
+    var randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.2);
+    try {
+      app.startSrsReview(100);
+    } finally {
+      randomSpy.mockRestore();
+    }
 
-    expect(app.currentWords[0].english).toBe('forced-never');
-    expect(app.currentWords[1].english).toBe('forced-older');
-    expect(app.currentWords[2].english).toBe('forced-newer');
+    var forced = app.currentWords.filter(function(w) { return w.difficultyLevel === 100; });
+    var forcedPositions = [];
+    for (var i = 0; i < app.currentWords.length; i++) {
+      if (app.currentWords[i].difficultyLevel === 100) forcedPositions.push(i);
+    }
+
+    expect(forced.map(function(w) { return w.english; })).toEqual([
+      'forced-never',
+      'forced-older',
+      'forced-newer'
+    ]);
+    expect(forcedPositions[0]).toBeGreaterThan(0);
+    expect(forcedPositions[forcedPositions.length - 1]).toBeGreaterThan(50);
   });
 
   test('selection still works when there are no normal words', function() {
@@ -315,7 +400,7 @@ describe('changing the forced-review ratio from settings', function() {
 
     expect(app.settings.forcedReviewRatio).toBe(20);
     expect(app.currentWords.length).toBe(120);
-    expect(document.getElementById('progress-text').textContent).toBe('1/120');
+    expect(document.getElementById('progress-text').textContent).toMatch(/\/120$/);
     expect(app.displayCurrentWord).toHaveBeenCalled();
   });
 
@@ -340,7 +425,7 @@ describe('changing the forced-review ratio from settings', function() {
       return w.difficultyLevel === 100;
     }).length;
     expect(forcedCount).toBe(0);
-    expect(document.getElementById('progress-text').textContent).toBe('1/100');
+    expect(document.getElementById('progress-text').textContent).toMatch(/\/100$/);
   });
 
   test('does not rebuild the review pool when the ratio is unchanged', function() {

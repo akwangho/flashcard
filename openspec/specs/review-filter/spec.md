@@ -56,12 +56,13 @@ The system SHALL allow filtering words by tags (column H, split by `,` or `，`)
 
 ### Requirement: Ratio-Based Forced Review
 
-The system SHALL treat every word whose difficulty is 100 as a forced-review candidate that bypasses the active filters, but SHALL add only the configured percentage of the filtered normal-word count to the review pool (default 10%, rounded up, capped by the available candidates). Words never reviewed or with the oldest `lastReviewDate` SHALL be selected first. A configured percentage of 0 SHALL disable these extra forced-review words.
+The system SHALL treat every word whose difficulty is 100 as a forced-review candidate that bypasses the active filters, but SHALL add only the configured percentage of the filtered normal-word count to the review pool (default 10%, rounded up, capped by the available candidates). Words never reviewed or with the oldest `lastReviewDate` SHALL be selected first. Selected forced-review words SHALL be inserted at randomized positions throughout the review pool rather than always appearing first, while preserving the relative order of the normal words. A configured percentage of 0 SHALL disable these extra forced-review words.
 
 #### Scenario: Extra words beyond the filtered set
 
 - **WHEN** 100 normal words pass the active filters and at least 10 forced-review candidates are available
 - **THEN** the 100 normal words are returned plus the 10 longest-unreviewed forced-review words, for 110 words total
+- **AND** the selected forced-review words occupy randomised positions throughout the 110-word pool instead of a fixed leading block
 - **AND** if fewer forced-review candidates are available than the ratio requires, all available candidates are added
 - **AND** if no normal words pass the filters but forced-review candidates exist and the ratio is above 0%, one candidate is added so forced review remains reachable
 - **AND** the filter-option counts (`countWordsForFilter`, `countWordsForDifficultyFilter`) and SRS statistics count normal words only, so forced-review words do not change those numbers

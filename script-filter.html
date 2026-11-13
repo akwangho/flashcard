@@ -8,7 +8,8 @@
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS, formatDateYYYYMMDD, closeModalById)
    * @provides FlashcardApp.prototype: getTodayDateString, markWordAsReviewed,
    *   syncReviewDates, getForcedReviewRatio, getForcedReviewQuota,
-   *   selectForcedReviewWords, applyAllFilters, getFilterCutoffDate, countWordsForFilter,
+   *   selectForcedReviewWords, interleaveForcedReviewWords, applyAllFilters,
+   *   getFilterCutoffDate, countWordsForFilter,
    *   openReviewFilterModal, openDifficultyFilterModal, toggleMustSpellFilter,
    *   openTypeFilterModal, openTagFilterModal, updateActiveFilterDisplay, clearAllFilters ...
    */
@@ -184,6 +185,62 @@
     return sortedWords.slice(0, Math.min(quota, sortedWords.length));
   };
 
+  /**
+   * 把強制複習字隨機穿插到一般單字之間。
+   * 一般單字彼此的順序不變；強制複習字彼此也維持選取時的優先順序，
+   * 但所在位置會隨機分散，避免每次都固定排在最前面。
+   * @param {Array} normalWords - 一般單字
+   * @param {Array} forcedReviewWords - 已選出的強制複習字
+   * @param {Function=} randomFn - 測試用亂數來源；預設使用 Math.random
+   * @returns {Array} 穿插後的單字清單
+   */
+  FlashcardApp.prototype.interleaveForcedReviewWords = function(normalWords, forcedReviewWords, randomFn) {
+    normalWords = normalWords || [];
+    forcedReviewWords = forcedReviewWords || [];
+
+    if (forcedReviewWords.length === 0) return normalWords.slice();
+    if (normalWords.length === 0) return forcedReviewWords.slice();
+
+    var random = (typeof randomFn === 'function') ? randomFn : Math.random;
+    var total = normalWords.length + forcedReviewWords.length;
+
+    // 先隨機抽出不重複的插槽，再把強制複習字放入這些插槽；
+    // 一般單字依序填入其餘位置，因此兩組內部的相對順序都不會改變。
+    var slots = [];
+    for (var s = 0; s < total; s++) {
+      slots.push(s);
+    }
+    for (var i = slots.length - 1; i > 0; i--) {
+      var randomIndex = Math.floor(random() * (i + 1));
+      if (!isFinite(randomIndex) || randomIndex < 0) randomIndex = 0;
+      if (randomIndex > i) randomIndex = i;
+      var temp = slots[i];
+      slots[i] = slots[randomIndex];
+      slots[randomIndex] = temp;
+    }
+
+    var forcedSlots = slots.slice(0, forcedReviewWords.length);
+    forcedSlots.sort(function(a, b) {
+      return a - b;
+    });
+
+    var result = new Array(total);
+    var normalIndex = 0;
+    var forcedIndex = 0;
+    var forcedSlotIndex = 0;
+    for (var position = 0; position < total; position++) {
+      if (forcedSlotIndex < forcedSlots.length && position === forcedSlots[forcedSlotIndex]) {
+        result[position] = forcedReviewWords[forcedIndex];
+        forcedIndex++;
+        forcedSlotIndex++;
+      } else {
+        result[position] = normalWords[normalIndex];
+        normalIndex++;
+      }
+    }
+    return result;
+  };
+
   // 套用所有篩選條件（不熟單字 + 複習時間）
   FlashcardApp.prototype.applyAllFilters = function(words) {
     var filtered = [];
@@ -278,8 +335,9 @@
     // 最近剛複習且數字小的排到後面。同分數的單字之間以亂數輕度混合（多工作表打散）。
     this.sortWordsByReviewPriority(filtered);
 
-    // 強制複習字放在前面，並保留「最久沒複習優先」的順序。
-    return selectedForcedReviewWords.concat(filtered);
+    // 強制複習字隨機穿插於一般單字之間，不再固定排在最前面；
+    // 候選字仍依「最久沒複習優先」選出。
+    return this.interleaveForcedReviewWords(filtered, selectedForcedReviewWords);
   };
 
   /**

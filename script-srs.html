@@ -301,8 +301,8 @@
   };
 
   /**
-   * 安排快速複習顯示順序：強制複習字依「最久沒複習優先」放在前面，
-   * 一般單字則洗牌，避免同一工作表的字過度集中。
+   * 安排快速複習顯示順序：一般單字洗牌後，將強制複習字隨機穿插其中，
+   * 避免強制複習字每次都固定出現在最前面。
    * @param {Array} reviewWords - 已選出的複習單字
    * @returns {Array} 重新排序後的複習單字
    */
@@ -319,7 +319,7 @@
     }
 
     this.shuffleArray(normalReviewWords);
-    return forcedReviewWords.concat(normalReviewWords);
+    return this.interleaveForcedReviewWords(normalReviewWords, forcedReviewWords);
   };
 
   // 開始快速複習模式（依優先度排序，取前 N 個；另依比例加入強制複習字）
@@ -335,7 +335,7 @@
     }
 
     // 一般單字取指定數量；強制複習字不佔用該數量，依比例額外附加。
-    // 強制複習字保留最久沒複習優先的順序，一般單字則洗牌。
+    // 一般單字洗牌後，強制複習字依選取優先順序隨機穿插其中。
     this.currentWords = this._prepareSrsReviewWordsForDisplay(reviewWords);
     this.currentIndex = 0;
     this.removedWords = [];
