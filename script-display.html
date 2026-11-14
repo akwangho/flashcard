@@ -473,7 +473,14 @@
     var self = this;
     // 換卡會遞增 _speechPlayId；發音計時器觸發時比對，不一致代表已換卡 → 丟棄舊卡發音
     var phase2PlayId = this._speechPlayId || 0;
-    if (this.settings.listeningMode) {
+    var isGrammarTransformation = this.isGrammarTransformationWord(currentWord);
+    if (isGrammarTransformation) {
+      // 文法轉換卡的第二面是英文否定句／疑問句，必須使用英文語音。
+      setTimeout(function() {
+        if ((self._speechPlayId || 0) !== phase2PlayId) return;
+        self.speakWord(currentWord.chinese);
+      }, APP_CONSTANTS.SPEECH_DELAY_MS);
+    } else if (this.settings.listeningMode) {
       // 聽力模式：Phase 2 出現文字時再次發音，強化聽覺記憶（忽略延遲發音設定）
       setTimeout(function() {
         if ((self._speechPlayId || 0) !== phase2PlayId) return;

@@ -1,6 +1,6 @@
 ## Project Overview
 
-English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App, targeting iPad 4 (iOS 10 and below) users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, and word export.
+English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App, targeting iPad 4 (iOS 10 and below) users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, word export, and a dedicated 100-card grammar-transformation worksheet.
 
 ## Deployment
 
@@ -15,12 +15,13 @@ This project uses **clasp** (Command Line Apps Script Projects). All code is pus
 | `npm run open:web` | Open Web App in browser |
 | `npm test` | Run all Jest tests |
 | `npx jest <test_file>` | Run a single test file (e.g., `npx jest test/voice.test.js`) |
+| `npx clasp run seedGrammarTransformationSheet_` | Seed the 100-card grammar worksheet in `WordGo Data Sheet` after pushing code |
 
 For corporate networks with SSL inspection, see the `deploy.sh` comments for CA configuration (`NODE_EXTRA_CA_CERTS` or `FLASHCARD_CA_BUNDLE`).
 
 ## Architecture
 
-**Pattern:** Frontend-backend split via Google Apps Script HTML Service. Backend is `code.gs`; frontend is 28 `.html` modules (22 script + 5 style + 1 vendored library) included via `<?!= include(); ?>` in `index.html`.
+**Pattern:** Frontend-backend split via Google Apps Script HTML Service. Backend files include `code.gs` and `grammarFlashcards.gs`; frontend is 28 `.html` modules (22 script + 5 style + 1 vendored library) included via `<?!= include(); ?>` in `index.html`.
 
 **Frontend JS Pattern:**
 - All methods mounted on `FlashcardApp.prototype` (prototype-based OOP, single constructor)
@@ -28,7 +29,7 @@ For corporate networks with SSL inspection, see the `deploy.sh` comments for CA 
 - State stored as properties on the `FlashcardApp` instance
 - `APP_CONSTANTS` in `script-core.html` centralizes all magic numbers, timeouts, SRS intervals, quiz settings, localStorage keys, etc.
 
-**Backend:** `code.gs` runs ES6+ on Google servers. All functions wrapped in try-catch. Frontend calls via `google.script.run.withSuccessHandler()`.
+**Backend:** `code.gs` and `grammarFlashcards.gs` run ES6+ on Google servers. All functions wrapped in try-catch. Frontend calls via `google.script.run.withSuccessHandler()`.
 
 ## Critical Constraint: ES5 Frontend
 

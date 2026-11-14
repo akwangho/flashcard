@@ -2,13 +2,13 @@
 
 ## Overview
 
-英文單字閃卡 is a Google Apps Script + Google Sheets flashcard app for zh-TW learners (primarily iPad students): auto-carousel flashcards, EN/JA/ZH TTS, SRS, quizzes, listening practice, difficulty marking, filters, and word export. The frontend is ES5 and fully compatible with iPad 4 / iOS ≤ 10.
+英文單字閃卡 is a Google Apps Script + Google Sheets flashcard app for zh-TW learners (primarily iPad students): auto-carousel flashcards, EN/JA/ZH TTS, SRS, quizzes, listening practice, difficulty marking, filters, word export, and a dedicated 100-card grammar-transformation worksheet. The frontend is ES5 and fully compatible with iPad 4 / iOS ≤ 10.
 
 ## Architecture
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Google Apps Script (`code.gs`); ES6 allowed; every function try-catch wrapped |
+| Backend | Google Apps Script (`code.gs`, `grammarFlashcards.gs`); ES6 allowed; every function try-catch wrapped |
 | Frontend | Native ES5 JS; prototype-based OOP — all methods on `FlashcardApp.prototype`; 100+ state properties initialised via 7 sub-init fns (`_initCoreState`, `_initVoiceState`, `_initSettingsState`, `_initFilterState`, `_initScreenAwakeState`, `_initQuizState`, `_initKKPhoneticState`) |
 | Markup / CSS | HTML5 via GAS HTML Service templates (`<?!= include(); ?>`); CSS modules use `var()` with hard-coded fallbacks |
 | Voice | Web Speech API (EN/JA/ZH) |
@@ -23,10 +23,11 @@
 
 ## File Structure
 
-- `code.gs` — backend; `index.html` — main HTML (all modals)
+- `code.gs` — backend; `grammarFlashcards.gs` — generated 100-card grammar worksheet seeder; `index.html` — main HTML (all modals)
 - CSS: `style-base` · `style-flashcard` · `style-modal` · `style-sheets` · `style-quiz` (`.html`)
 - JS: `script-polyfills` (ES5 polyfills) · `vendor-compromise` (ES5 grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
 - Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh`
+- Grammar data: `data/grammar-transformation-cards.json` (canonical 100 cards) · `scripts/build-grammar-transformation-seed.mjs` (validation + `grammarFlashcards.gs` generator)
 - Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1100 cases)
 
 ## Deployment (clasp)
@@ -63,4 +64,5 @@ CSS: every `var(--x)` needs a hard-coded fallback. Touch: `touchstart/move/end`;
 | Smart timer / carousel memory mode | off (`smartTimerEnabled: false`) / off (`carouselMemoryMode: false`) |
 | KK phonetic | **on** (`showKKPhonetic: true`) |
 | Grammar role annotation | **on** (`grammarAnnotationEnabled: true`) |
+| Grammar transformation worksheet | `文法句型轉換` in `WordGo Data Sheet` · 100 cards (25 per transformation type) |
 | Forced-review ratio | **10%** (`forcedReviewRatio: 10`) |

@@ -131,6 +131,10 @@
   };
 
   FlashcardApp.prototype.isReversedForCurrentWord = function() {
+    // 文法轉換卡固定先顯示肯定句題目，再於計時器過半後顯示轉換答案。
+    // 即使使用者選擇先中文或混合模式，也不能把答案提前洩漏。
+    var currentWord = this.currentWords ? this.currentWords[this.currentIndex] : null;
+    if (this.isGrammarTransformationWord(currentWord)) return false;
     if (this.settings.displayMode === 'chinese-first') return true;
     if (this.settings.displayMode === 'mixed') return this.currentWordReversed;
     return false;
@@ -152,13 +156,15 @@
     }
 
     var isReversed = this.isReversedForCurrentWord();
+    var isGrammarTransformation = this.isGrammarTransformationWord(currentWord);
     var smartDelay;
     var difficulty = (currentWord.difficultyLevel !== undefined && currentWord.difficultyLevel !== null) ? currentWord.difficultyLevel : 0;
     // 「看懂就好」(-1) 不視為要會拼，不因其阻擋智慧計時加速；僅 0.5/1 且不熟程度>0 時停用加速
     var disableSmartTimer = (this.normalizeMustSpell(currentWord.mustSpell) > 0 && difficulty > 0) || (difficulty >= 3);
 
-    if (isReversed) {
-      var english = currentWord.english || '';
+    if (isReversed || isGrammarTransformation) {
+      // 文法轉換卡第二面是英文答案，不是中文翻譯，因此依英文字母數計算智慧延遲。
+      var english = isGrammarTransformation ? (currentWord.chinese || '') : (currentWord.english || '');
       var letterCount = english.replace(/[^a-zA-Z]/g, '').length;
       if (letterCount === 0) return this.settings.delayTime;
 

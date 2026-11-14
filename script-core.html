@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.28.2',
+    APP_VERSION: '1.29.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-13 20:09',
+    APP_BUILD_TIME: '2026-11-15 07:17',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -88,6 +88,12 @@
       { id: '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM', name: 'WordGo Data Sheet' },
       { id: '1hX2Ux2__5F-jdhfegmzMBZ7bg3faOt06ARb7ezC8Yzg', name: '小學生教育部規定1200單字' }
     ],
+
+    // === 文法句型轉換閃卡（WordGo Data Sheet 內的專用工作表） ===
+    GRAMMAR_TRANSFORMATION_SHEET_NAME: '文法句型轉換',
+    GRAMMAR_TRANSFORMATION_TAG: '文法轉換',
+    // B 欄題目尾端的轉換指示；語音朗讀時移除，避免中文指示被英文語音讀出
+    GRAMMAR_TRANSFORMATION_PROMPT_SUFFIX_PATTERN: '\\s*\\((?:轉成否定句|轉成疑問句)\\)\\s*$',
 
     // === 歷史記錄 ===
     HISTORY_MAX_ITEMS: 10,
@@ -210,6 +216,9 @@
    */
   function getWordType(english) {
     var trimmed = (english || '').trim();
+    // 文法轉換題目在肯定句後附加中文指示，仍屬完整句子類型。
+    var transformationPattern = new RegExp(APP_CONSTANTS.GRAMMAR_TRANSFORMATION_PROMPT_SUFFIX_PATTERN);
+    if (transformationPattern.test(trimmed)) return 'sentence';
     var last = trimmed.charAt(trimmed.length - 1);
     if (last === '"' || last === '\u201D' || last === "'") {
       last = trimmed.charAt(trimmed.length - 2);
@@ -261,6 +270,35 @@
     var text = word[lang];
     if (text === undefined || text === null) return '';
     return String(text).replace(/\u3000/g, ' ').trim();
+  };
+
+  /**
+   * 判斷卡片是否為文法句型轉換閃卡。
+   * 以專用工作表名稱或「文法轉換」標籤辨識；此類卡片固定先顯示肯定句題目，
+   * 再於計時器過半、第二階段顯示否定句或疑問句答案。
+   * @param {Object} word - 單字／卡片物件
+   * @returns {boolean}
+   */
+  FlashcardApp.prototype.isGrammarTransformationWord = function(word) {
+    if (!word) return false;
+    if (word.sheetName === APP_CONSTANTS.GRAMMAR_TRANSFORMATION_SHEET_NAME) return true;
+    var tags = word.tags || [];
+    for (var i = 0; i < tags.length; i++) {
+      if (tags[i] === APP_CONSTANTS.GRAMMAR_TRANSFORMATION_TAG) return true;
+    }
+    return false;
+  };
+
+  /**
+   * 取得文法轉換題目中適合英文 TTS 朗讀的純句子文字。
+   * 畫面仍保留「(轉成否定句)」／「(轉成疑問句)」指示，只有語音會移除它。
+   * @param {Object} word - 文法轉換卡片
+   * @returns {string}
+   */
+  FlashcardApp.prototype.grammarTransformationPromptSpeechText = function(word) {
+    var text = this.displayTextFor(word, 'english');
+    var pattern = new RegExp(APP_CONSTANTS.GRAMMAR_TRANSFORMATION_PROMPT_SUFFIX_PATTERN);
+    return text.replace(pattern, '').trim();
   };
 
   /**

@@ -716,9 +716,13 @@
         }
       }
 
-      if (self.settings.carouselMemoryMode) {
+      // 文法轉換卡必須使用一般兩階段模式：先顯示肯定句題目，
+      // 計時器過半後才顯示否定句／疑問句答案。輪播記憶模式會同時顯示兩面，
+      // 聽力模式則先隱藏文字，兩者都不符合此互動設計。
+      var isGrammarTransformation = self.isGrammarTransformationWord(currentWord);
+      if (!isGrammarTransformation && self.settings.carouselMemoryMode) {
         self._displayCarouselWord(currentWord);
-      } else if (self.settings.listeningMode) {
+      } else if (!isGrammarTransformation && self.settings.listeningMode) {
         self._displayListeningWord(currentWord);
       } else {
         self._displayNormalWord(currentWord);
@@ -799,6 +803,7 @@
     var phase1PlayId = this._speechPlayId || 0;
 
     var isReversed = this.isReversedForCurrentWord();
+    var isGrammarTransformation = this.isGrammarTransformationWord(currentWord);
     if (isReversed) {
       this.setCardText(firstElement, this.displayTextFor(currentWord, 'chinese'));
       setTimeout(function() {
@@ -809,9 +814,13 @@
       this.setCardText(firstElement, this.displayTextFor(currentWord, 'english'));
       if (!this.settings.delaySpeechInNormalMode) {
         var speechDelay = this._shouldSpellOutCurrentWord() ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
+        // 文法題目保留中文轉換指示供閱讀，但英文 TTS 只朗讀純英文句子。
+        var phase1SpeechText = isGrammarTransformation
+          ? this.grammarTransformationPromptSpeechText(currentWord)
+          : currentWord.english;
         setTimeout(function() {
           if ((self._speechPlayId || 0) !== phase1PlayId) return;
-          self.speakWord(currentWord.english);
+          self.speakWord(phase1SpeechText);
         }, speechDelay);
       }
     }
