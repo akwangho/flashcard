@@ -82,6 +82,17 @@ The system SHALL show a real progress bar during sheet loading.
 - **WHEN** loading sheets
 - **THEN** Phase 1 shows an indeterminate animation (connecting to the Google Sheet) and Phase 2 shows a determinate percentage as each worksheet's word count is retrieved
 
+### Requirement: Dedicated Grammar Worksheet Routing
+
+The system SHALL always include `文法句型轉換` in the effective worksheet load list so the configurable grammar-review share can be honoured. Backend reads and writes for that worksheet SHALL resolve to the built-in `WordGo Data Sheet` spreadsheet, regardless of which spreadsheet the user selected for ordinary vocabulary.
+
+#### Scenario: Grammar source remains available with another vocabulary sheet
+
+- **GIVEN** the user selected a vocabulary worksheet in a different spreadsheet
+- **WHEN** the app builds its effective load list
+- **THEN** `文法句型轉換` is added exactly once
+- **AND** grammar difficulty, property, and review-date updates are written to `WordGo Data Sheet`.
+
 ### Requirement: Backend API
 
 The backend SHALL expose the following functions to the frontend (via `google.script.run`).

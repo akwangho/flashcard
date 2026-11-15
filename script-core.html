@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.30.0',
+    APP_VERSION: '1.31.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-15 10:55',
+    APP_BUILD_TIME: '2026-11-15 12:41',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -55,6 +55,11 @@
     FORCED_REVIEW_RATIO_DEFAULT: 10,    // 一般每 100 個複習單字，額外加入 10 個強制複習字
     FORCED_REVIEW_RATIO_MIN: 0,         // 0% = 不額外加入強制複習字
     FORCED_REVIEW_RATIO_MAX: 100,
+
+    // === 文法複習比例（文法題佔最終複習清單的百分比） ===
+    GRAMMAR_REVIEW_RATIO_DEFAULT: 10,   // 預設讓文法題約佔整輪複習的 10%
+    GRAMMAR_REVIEW_RATIO_MIN: 0,        // 0% = 不安排文法題
+    GRAMMAR_REVIEW_RATIO_MAX: 100,      // 100% = 只複習文法題
 
     // === 複習優先分數（決定每天輪播與快速複習的單字順序） ===
     // 分數越高越優先出現。score = staleness(天) + difficultyComponent。
@@ -511,7 +516,8 @@
       carouselMemoryMode: false,
       showKKPhonetic: true,            // KK 音標顯示開關（預設開啟；K 鍵可切換）
       grammarAnnotationEnabled: true,  // 動詞／助動詞／BE 動詞自動標注（預設開啟）
-      forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT // 強制複習字比例（%，預設 10%）
+      forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT, // 強制複習字比例（%，預設 10%）
+      grammarReviewRatio: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT // 文法題佔總複習比例（%，預設 10%）
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -890,6 +896,15 @@
           forcedReviewRatio < APP_CONSTANTS.FORCED_REVIEW_RATIO_MIN ||
           forcedReviewRatio > APP_CONSTANTS.FORCED_REVIEW_RATIO_MAX) {
         this.settings.forcedReviewRatio = APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT;
+      }
+
+      // 文法複習比例只接受 0～100 的數值；舊資料或損壞值改用預設 10%。
+      var grammarReviewRatio = this.settings.grammarReviewRatio;
+      if (typeof grammarReviewRatio !== 'number' ||
+          !isFinite(grammarReviewRatio) ||
+          grammarReviewRatio < APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MIN ||
+          grammarReviewRatio > APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX) {
+        this.settings.grammarReviewRatio = APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT;
       }
       
       var savedVoiceSettings = JSON.parse(localStorage.getItem(APP_CONSTANTS.STORAGE_KEYS.VOICE_SETTINGS) || '{}');
@@ -1277,6 +1292,18 @@
         forcedReviewRatio = APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT;
       }
       forcedReviewRatioInput.value = forcedReviewRatio;
+    }
+
+    // 設定文法複習比例（文法題佔最終複習清單的百分比）
+    var grammarReviewRatioInput = document.getElementById('grammar-review-ratio-setting');
+    if (grammarReviewRatioInput) {
+      var grammarReviewRatio = Number(this.settings.grammarReviewRatio);
+      if (!isFinite(grammarReviewRatio) ||
+          grammarReviewRatio < APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MIN ||
+          grammarReviewRatio > APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX) {
+        grammarReviewRatio = APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT;
+      }
+      grammarReviewRatioInput.value = grammarReviewRatio;
     }
 
     // 主畫面快速計時區（與 delay-setting / smart-timer-setting 同步）
@@ -1694,10 +1721,30 @@
     };
   };
   
+  /**
+   * 取得本次實際要載入的工作表名稱。
+   * 文法句型轉換一律加入；後端會固定從 WordGo Data Sheet 的專用工作表載入，
+   * 因此即使使用者只選其他工作表，文法複習比例仍能取得來源卡片。
+   */
+  FlashcardApp.prototype.getEffectiveSelectedSheetsForReview = function() {
+    var selectedSheets = (this.sheetSettings && this.sheetSettings.selectedSheets) || [];
+    var effectiveSheets = selectedSheets.slice();
+    var grammarSheetName = APP_CONSTANTS.GRAMMAR_TRANSFORMATION_SHEET_NAME;
+    var hasGrammarSheet = false;
+    for (var i = 0; i < effectiveSheets.length; i++) {
+      if (effectiveSheets[i] === grammarSheetName) {
+        hasGrammarSheet = true;
+        break;
+      }
+    }
+    if (!hasGrammarSheet) effectiveSheets.push(grammarSheetName);
+    return effectiveSheets;
+  };
+
   // 逐表載入單字（含真實進度條）
   FlashcardApp.prototype.loadWordsProgressively = function(callback) {
     var self = this;
-    var selectedSheets = this.sheetSettings.selectedSheets;
+    var selectedSheets = this.getEffectiveSelectedSheetsForReview();
     var sheetId = this.sheetSettings.sheetId;
     var allWords = [];
     var completed = 0;
@@ -1915,7 +1962,11 @@
           console.error('載入單字失敗:', error);
           self.handleLoadingComplete(false, true);
         })
-        .getWordsFromSheetsWithDuplicateDetection(self.sheetSettings.sheetId, self.sheetSettings.selectedSheets, false);
+        .getWordsFromSheetsWithDuplicateDetection(
+          self.sheetSettings.sheetId,
+          self.getEffectiveSelectedSheetsForReview(),
+          false
+        );
     } else {
       // 未設定 Sheet（正式流程不會到達：所有呼叫端皆有設定才會呼叫 loadWords）：
       // 直接開啟設定畫面。不得走舊的 getWordsFromSheet() 後備——它載入的是

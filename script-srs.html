@@ -279,10 +279,13 @@
   FlashcardApp.prototype._selectSrsReviewWords = function(sourceWords, count) {
     var normalWords = [];
     var forcedReviewWords = [];
+    var grammarReviewWords = [];
 
     for (var i = 0; i < sourceWords.length; i++) {
       if (isForcedReviewWord(sourceWords[i])) {
         forcedReviewWords.push(sourceWords[i]);
+      } else if (this.isGrammarTransformationWord(sourceWords[i])) {
+        grammarReviewWords.push(sourceWords[i]);
       } else {
         normalWords.push(sourceWords[i]);
       }
@@ -294,8 +297,26 @@
 
     // 強制複習字不佔用 N 個名額；依實際選到的 N 個一般單字計算比例。
     var selectedForcedReviewWords = this.selectForcedReviewWords(forcedReviewWords, result.length);
+
+    // 100% 文法比例時只保留文法題；若沒有文法候選則保留一般題避免空池。
+    if (this.getGrammarReviewRatio() >= APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX &&
+        grammarReviewWords.length > 0) {
+      result = [];
+      selectedForcedReviewWords = [];
+    }
+
+    // 文法題不佔用 N 個一般名額，依一般題與強制複習題名額補足設定比例。
+    var grammarBaseCount = result.length + selectedForcedReviewWords.length;
+    var selectedGrammarReviewWords = this.selectGrammarReviewWords(
+      grammarReviewWords,
+      grammarBaseCount
+    );
+
     for (var f = 0; f < selectedForcedReviewWords.length; f++) {
       result.push(selectedForcedReviewWords[f]);
+    }
+    for (var g = 0; g < selectedGrammarReviewWords.length; g++) {
+      result.push(selectedGrammarReviewWords[g]);
     }
     return result;
   };
@@ -308,25 +329,29 @@
    */
   FlashcardApp.prototype._prepareSrsReviewWordsForDisplay = function(reviewWords) {
     var forcedReviewWords = [];
+    var grammarReviewWords = [];
     var normalReviewWords = [];
 
     for (var i = 0; i < reviewWords.length; i++) {
       if (isForcedReviewWord(reviewWords[i])) {
         forcedReviewWords.push(reviewWords[i]);
+      } else if (this.isGrammarTransformationWord(reviewWords[i])) {
+        grammarReviewWords.push(reviewWords[i]);
       } else {
         normalReviewWords.push(reviewWords[i]);
       }
     }
 
     this.shuffleArray(normalReviewWords);
-    return this.interleaveForcedReviewWords(normalReviewWords, forcedReviewWords);
+    var displayWords = this.interleaveForcedReviewWords(normalReviewWords, forcedReviewWords);
+    return this.interleaveForcedReviewWords(displayWords, grammarReviewWords);
   };
 
   // 開始快速複習模式（依優先度排序，取前 N 個；另依比例加入強制複習字）
   // 與其他篩選條件為 AND 關係：先套用所有篩選，再從結果中依 SRS 優先度排序
   FlashcardApp.prototype.startSrsReview = function(count) {
     // 排除使用者已「暫時移除」的單字（與測驗/聽力一致），避免複習到已移除的字
-    var filteredWords = this.getFilteredWordsExcludingRemoved();
+    var filteredWords = this.getFilteredWordsExcludingRemoved(true);
     var reviewWords = this._selectSrsReviewWords(filteredWords, count);
 
     if (reviewWords.length === 0) {
@@ -363,18 +388,21 @@
   // 開啟快速複習模態框（統計與數量基於篩選後的一般單字；強制複習字不列入統計）
   FlashcardApp.prototype.openSrsReviewModal = function() {
     // 與 startSrsReview 相同基準：排除「暫時移除」單字，統計與實際複習的數字才會一致
-    var filteredWords = this.getFilteredWordsExcludingRemoved();
+    var filteredWords = this.getFilteredWordsExcludingRemoved(true);
     var normalWords = [];
     var forcedCount = 0;
+    var grammarCount = 0;
     for (var fw = 0; fw < filteredWords.length; fw++) {
       if (isForcedReviewWord(filteredWords[fw])) {
         forcedCount++;
+      } else if (this.isGrammarTransformationWord(filteredWords[fw])) {
+        grammarCount++;
       } else {
         normalWords.push(filteredWords[fw]);
       }
     }
     var filteredCount = normalWords.length;
-    var hasAnyReviewWord = normalWords.length > 0 || forcedCount > 0;
+    var hasAnyReviewWord = normalWords.length > 0 || forcedCount > 0 || grammarCount > 0;
     var modal = document.getElementById('srs-review-modal');
     var statsEl = document.getElementById('srs-stats');
     var priorityListEl = document.getElementById('srs-word-priority-list');

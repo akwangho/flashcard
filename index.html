@@ -496,6 +496,17 @@
           </div>
 
           <div class="setting-group">
+            <label for="grammar-review-ratio-setting">📝 文法複習比例 (%)</label>
+            <div class="setting-control">
+              <input type="number" id="grammar-review-ratio-setting" min="0" max="100" value="10" step="1" style="width: 70px; padding: 6px 8px; font-size: 14px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; text-align: center;">
+              <span style="color: #888; font-size: 12px; margin-left: 6px;">預設 10%</span>
+            </div>
+            <div class="setting-help">
+              <small>讓文法題在最終複習清單中約佔設定比例。文法題會略過一般難度、複習時間、類型與標籤篩選，並隨機穿插在一般題之間；設為 0% 可停用，100% 則只複習文法題。儲存後會立即重新計算目前的實際複習數量</small>
+            </div>
+          </div>
+
+          <div class="setting-group">
             <label for="show-timer-progress-setting">⏱️ 顯示計時進度條</label>
             <div class="setting-control">
               <label class="switch">

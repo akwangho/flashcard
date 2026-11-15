@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the dedicated 200-card worksheet in `WordGo Data Sheet` for practising mixed sentence-form transformations with BE verbs (`am/is/are`) and auxiliary verbs (`do/does`). Prompts may be affirmative, negative, or interrogative; each card asks for one specific target form.
+Defines the dedicated 200-card worksheet in `WordGo Data Sheet` for practising mixed sentence-form transformations with BE verbs (`am/is/are`) and auxiliary verbs (`do/does`). Prompts may be affirmative, negative, or interrogative; each card asks for one specific target form. The worksheet also supplies a configurable share of grammar cards in normal and quick-review pools.
 
 ## Data Model
 
@@ -68,3 +68,20 @@ The system SHALL load grammar cards through the same worksheet and word-object p
 - **THEN** the primary fields are labelled `題目` and `答案`, while fields irrelevant to complete sentences are hidden
 - **WHEN** the edited values are saved
 - **THEN** the prompt is written to column B and the English answer is written to column C using the existing sheet-update API.
+
+### Requirement: Configurable Grammar Review Share
+
+The system SHALL provide a persisted grammar-review ratio setting from 0% to 100%, defaulting to 10%. The dedicated grammar worksheet SHALL be loaded from `WordGo Data Sheet` regardless of which other worksheets the user selects. For each carousel or quick-review pool, the system SHALL choose enough grammar cards for their share of the final review list to approximate the configured ratio, SHALL select those cards from the complete grammar source so ordinary difficulty, review-time, type, and tag filters cannot remove them, and SHALL interleave them among normal cards. A ratio of 0% SHALL exclude grammar cards; a ratio of 100% SHALL produce a grammar-only pool when grammar cards are available.
+
+#### Scenario: Default 10% ratio with restrictive filters
+
+- **GIVEN** 100 normal cards that pass the current filters and 200 grammar cards available from the dedicated worksheet
+- **WHEN** a review pool is built with the default grammar-review ratio
+- **THEN** 11 grammar cards are added, giving an approximately 10% grammar share of the final 111-card pool
+- **AND** the grammar cards appear at distributed positions rather than as one block.
+
+#### Scenario: Quick review keeps its normal-card quantity
+
+- **GIVEN** a quick review requesting 10 normal cards
+- **WHEN** the pool is built with the default grammar-review ratio
+- **THEN** the 10 normal-card slots are preserved and one grammar card is added outside those slots.

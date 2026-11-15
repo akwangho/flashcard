@@ -1,6 +1,6 @@
 ## Project Overview
 
-English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App, targeting iPad 4 (iOS 10 and below) users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet.
+English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App, targeting iPad 4 (iOS 10 and below) users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet with a configurable review share (default 10%).
 
 ## Deployment
 

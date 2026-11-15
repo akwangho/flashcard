@@ -132,8 +132,10 @@
   // 排除「暫時移除」單字後的篩選結果（測驗/聽力/SRS 共用）：
   // 移除單字只會從 currentWords 拿掉，this.words 仍保留全量，
   // 若不排除，測驗與複習還是會出現使用者明確移除的單字
-  FlashcardApp.prototype.getFilteredWordsExcludingRemoved = function() {
-    var pool = this.applyAllFilters(this.words || []);
+  FlashcardApp.prototype.getFilteredWordsExcludingRemoved = function(includeGrammarReview) {
+    var pool = this.applyAllFilters(this.words || [], {
+      includeGrammarReview: includeGrammarReview === true
+    });
     if (this.removedWords && this.removedWords.length > 0) {
       var removedIds = {};
       for (var i = 0; i < this.removedWords.length; i++) {

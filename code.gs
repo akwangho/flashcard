@@ -9,7 +9,7 @@
    * 前端「自動檢查新版本」流程會呼叫 getAppDeployInfo() 比對，
    * 不一致時以本值（後端＝已部署版本）為準重新載入頁面。
    */
-  var SERVER_VERSION = '1.30.0';
+  var SERVER_VERSION = '1.31.0';
 
   /**
    * 已部署程式的建置時間（格式 YYYY-MM-DD HH:mm）。
@@ -17,7 +17,7 @@
    * 與「部署時間」不同：這個是「寫程式時的時間」，會忘記更新，
    * 部署時間則由 recordDeployTime() 自動記錄，不會漏掉。
    */
-  var SERVER_BUILD_TIME = '2026-11-15 10:55';
+  var SERVER_BUILD_TIME = '2026-11-15 12:41';
 
   /** Script Properties 中記錄各版本部署時間的 key 前綴 */
   var DEPLOY_TIME_PROP_PREFIX = 'DEPLOY_TIME_';
@@ -172,6 +172,21 @@
       throw new Error('請提供有效的 Google Sheet ID');
     }
     return sheetId.trim();
+  }
+
+  /** 文法句型轉換讀寫路由（與 grammarFlashcards.gs 的產生器常數分開命名） */
+  var GRAMMAR_ROUTING_SHEET_NAME = '文法句型轉換';
+  var GRAMMAR_ROUTING_SPREADSHEET_ID = '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
+
+  /**
+   * 依工作表名稱決定實際試算表。
+   * 文法題固定來自 WordGo Data Sheet，不受使用者目前選取的試算表影響。
+   */
+  function resolveSpreadsheetIdForSheetName(sheetId, sheetName) {
+    if (sheetName === GRAMMAR_ROUTING_SHEET_NAME) {
+      return GRAMMAR_ROUTING_SPREADSHEET_ID;
+    }
+    return sheetId;
   }
 
   /**
@@ -418,7 +433,8 @@ function countValidWords(sheet) {
     try {
       console.log('載入單一工作表:', sheetName, 'Sheet ID:', sheetId);
       const cleanSheetId = validateAndCleanSheetId(sheetId);
-      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
+      const targetSpreadsheetId = resolveSpreadsheetIdForSheetName(cleanSheetId, sheetName);
+      const spreadsheet = openSpreadsheetSafely(targetSpreadsheetId);
       const sheet = spreadsheet.getSheetByName(sheetName);
 
       if (!sheet) {
@@ -456,7 +472,7 @@ function countValidWords(sheet) {
         throw new Error('請選擇至少一個工作表');
       }
       
-      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
+      const spreadsheetCache = {};
       const allWords = [];
       let currentId = 0;
       
@@ -464,7 +480,11 @@ function countValidWords(sheet) {
         const sheetName = sheetNames[i];
         console.log('載入工作表:', sheetName);
         
-        const sheet = spreadsheet.getSheetByName(sheetName);
+        const targetSpreadsheetId = resolveSpreadsheetIdForSheetName(cleanSheetId, sheetName);
+        if (!spreadsheetCache[targetSpreadsheetId]) {
+          spreadsheetCache[targetSpreadsheetId] = openSpreadsheetSafely(targetSpreadsheetId);
+        }
+        const sheet = spreadsheetCache[targetSpreadsheetId].getSheetByName(sheetName);
         
         if (!sheet) {
           console.error('找不到工作表：' + sheetName);
@@ -512,7 +532,8 @@ function countValidWords(sheet) {
         return { success: false, error: '缺少必要參數：sheetId 或 sheetName' };
       }
       
-      const spreadsheet = openSpreadsheetSafely(sheetId.trim());
+      const targetSpreadsheetId = resolveSpreadsheetIdForSheetName(sheetId.trim(), sheetName);
+      const spreadsheet = openSpreadsheetSafely(targetSpreadsheetId);
       const sheet = spreadsheet.getSheetByName(sheetName);
       
       if (!sheet) {
@@ -557,7 +578,8 @@ function countValidWords(sheet) {
         return { success: false, error: '缺少必要參數：sheetId 或 sheetName' };
       }
       
-      var spreadsheet = openSpreadsheetSafely(sheetId.trim());
+      var targetSpreadsheetId = resolveSpreadsheetIdForSheetName(sheetId.trim(), sheetName);
+      var spreadsheet = openSpreadsheetSafely(targetSpreadsheetId);
       var sheet = spreadsheet.getSheetByName(sheetName);
       
       if (!sheet) {
@@ -770,7 +792,6 @@ function countValidWords(sheet) {
       }
 
       const cleanSheetId = validateAndCleanSheetId(sheetId);
-      const spreadsheet = openSpreadsheetSafely(cleanSheetId);
 
       // 按工作表名稱分組
       const groupedBySheet = {};
@@ -787,7 +808,9 @@ function countValidWords(sheet) {
 
       for (const sheetName in groupedBySheet) {
         const sheetUpdates = groupedBySheet[sheetName];
-        const sheet = spreadsheet.getSheetByName(sheetName);
+        const targetSpreadsheetId = resolveSpreadsheetIdForSheetName(cleanSheetId, sheetName);
+        const targetSpreadsheet = openSpreadsheetSafely(targetSpreadsheetId);
+        const sheet = targetSpreadsheet.getSheetByName(sheetName);
 
         if (!sheet) {
           console.error('找不到工作表:', sheetName);
@@ -993,7 +1016,11 @@ function countValidWords(sheet) {
     for (var s = 0; s < sheetOrder.length; s++) {
       var sheetName = sheetOrder[s];
       try {
-        var sheet = spreadsheet.getSheetByName(sheetName);
+        var targetSpreadsheetId = resolveSpreadsheetIdForSheetName('', sheetName);
+        var targetSpreadsheet = targetSpreadsheetId
+          ? openSpreadsheetSafely(targetSpreadsheetId)
+          : spreadsheet;
+        var sheet = targetSpreadsheet.getSheetByName(sheetName);
         if (!sheet) {
           console.error('找不到工作表:', sheetName);
           continue;

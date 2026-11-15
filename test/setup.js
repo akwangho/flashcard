@@ -107,6 +107,8 @@ function createDOMElements() {
     'grammar-annotation-setting',
     // Forced-review ratio setting
     'forced-review-ratio-setting',
+    // Grammar-review ratio setting
+    'grammar-review-ratio-setting',
     // Search word modal
     'search-word-modal', 'close-search-word', 'search-word-input', 'search-word-run',
     'search-word-summary', 'search-word-results', 'close-search-word-footer',
@@ -299,7 +301,7 @@ function createDOMElements() {
       el.id = id;
       el.type = 'checkbox';
     }
-    if (id === 'forced-review-ratio-setting') {
+    if (id === 'forced-review-ratio-setting' || id === 'grammar-review-ratio-setting') {
       el = document.createElement('input');
       el.id = id;
       el.type = 'number';

@@ -28,8 +28,8 @@
   };
   
   /**
-   * 強制複習比例變更後，立即重算目前複習池。
-   * 一般單字維持目前複習清單與順序，只重新挑選額外的強制複習字並隨機穿插；
+   * 強制複習／文法複習比例變更後，立即重算目前複習池。
+   * 一般單字維持目前複習清單與順序，只重新挑選額外的強制複習字與文法題並隨機穿插；
    * 快速複習仍保留原本選擇的 N 個一般單字，不會退回一般輪播模式。
    */
   FlashcardApp.prototype._refreshReviewPoolForRatioChange = function() {
@@ -48,12 +48,13 @@
     // 保留目前仍要複習的一般單字；它們已套用過篩選，且不應因改比例而被重選。
     var normalWords = [];
     for (var i = 0; i < this.currentWords.length; i++) {
-      if (!isForcedReviewWord(this.currentWords[i])) {
+      if (!isForcedReviewWord(this.currentWords[i]) &&
+          !this.isGrammarTransformationWord(this.currentWords[i])) {
         normalWords.push(this.currentWords[i]);
       }
     }
 
-    // 強制複習字可略過一般篩選，但本回合已移除的字不可再加入。
+    // 強制複習字與文法題可略過一般篩選，但本回合已移除的字不可再加入。
     var removedIds = {};
     if (this.removedWords && this.removedWords.length > 0) {
       for (var r = 0; r < this.removedWords.length; r++) {
@@ -62,10 +63,14 @@
     }
 
     var forcedReviewCandidates = [];
+    var grammarReviewCandidates = [];
     for (var w = 0; w < this.words.length; w++) {
       var word = this.words[w];
-      if (isForcedReviewWord(word) && !removedIds[word.id]) {
+      if (removedIds[word.id]) continue;
+      if (isForcedReviewWord(word)) {
         forcedReviewCandidates.push(word);
+      } else if (this.isGrammarTransformationWord(word)) {
+        grammarReviewCandidates.push(word);
       }
     }
 
@@ -73,7 +78,21 @@
       forcedReviewCandidates,
       normalWords.length
     );
+
+    // 100% 文法比例時只保留文法題；若沒有文法候選則保留一般題避免空池。
+    if (this.getGrammarReviewRatio() >= APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX &&
+        grammarReviewCandidates.length > 0) {
+      normalWords = [];
+      selectedForcedReviewWords = [];
+    }
+
+    var grammarBaseCount = normalWords.length + selectedForcedReviewWords.length;
+    var selectedGrammarReviewWords = this.selectGrammarReviewWords(
+      grammarReviewCandidates,
+      grammarBaseCount
+    );
     var updatedWords = this.interleaveForcedReviewWords(normalWords, selectedForcedReviewWords);
+    updatedWords = this.interleaveForcedReviewWords(updatedWords, selectedGrammarReviewWords);
 
     // 清掉舊清單的復原／待移除狀態，避免索引與新清單不一致。
     this._clearRemovalUndoHalfExpireTimer();
@@ -114,7 +133,10 @@
     this.updateActiveFilterDisplay();
 
     if (typeof this.showNotification === 'function') {
-      this.showNotification('強制複習比例已更新，共 ' + this.currentWords.length + ' 個單字', 'success');
+      this.showNotification(
+        '複習比例已更新，共 ' + this.currentWords.length + ' 個單字（文法 ' + this.getGrammarReviewRatio() + '%）',
+        'success'
+      );
     }
   };
 
@@ -128,6 +150,7 @@
     var oldFontFamily = this.settings.fontFamily;
     var oldGrammarAnnotationEnabled = this.settings.grammarAnnotationEnabled !== false;
     var oldForcedReviewRatio = this.getForcedReviewRatio();
+    var oldGrammarReviewRatio = this.getGrammarReviewRatio();
     
     if (delaySlider) this.settings.delayTime = parseFloat(delaySlider.value);
     if (fontSizeSlider) this.settings.fontSize = parseInt(fontSizeSlider.value);
@@ -176,14 +199,28 @@
       );
     }
     
+    // 讀取文法複習比例（文法題佔最終複習清單的百分比）
+    var grammarReviewRatioInput = document.getElementById('grammar-review-ratio-setting');
+    if (grammarReviewRatioInput) {
+      var grammarReviewRatio = parseFloat(grammarReviewRatioInput.value);
+      if (!isFinite(grammarReviewRatio)) {
+        grammarReviewRatio = APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT;
+      }
+      this.settings.grammarReviewRatio = Math.max(
+        APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MIN,
+        Math.min(APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX, grammarReviewRatio)
+      );
+    }
+
     var forcedReviewRatioChanged = this.getForcedReviewRatio() !== oldForcedReviewRatio;
+    var grammarReviewRatioChanged = this.getGrammarReviewRatio() !== oldGrammarReviewRatio;
 
     this.saveSettings();
     this.applySettings();
     this.closeSettings();
 
-    // 強制複習比例會影響實際複習池，儲存後立即重算，不需重新整理瀏覽器。
-    if (forcedReviewRatioChanged) {
+    // 複習比例會影響實際複習池，儲存後立即重算，不需重新整理瀏覽器。
+    if (forcedReviewRatioChanged || grammarReviewRatioChanged) {
       this._refreshReviewPoolForRatioChange();
     } else if (oldDisplayMode !== this.settings.displayMode ||
                oldFontFamily !== this.settings.fontFamily ||
@@ -210,7 +247,8 @@
       carouselMemoryMode: false,
       showKKPhonetic: true,            // KK 音標顯示開關（預設開啟）
       grammarAnnotationEnabled: true,  // 英文語法角色自動標注（預設開啟）
-      forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT // 強制複習字比例（%，預設 10%）
+      forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT, // 強制複習字比例（%，預設 10%）
+      grammarReviewRatio: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT // 文法題佔總複習比例（%，預設 10%）
     };
     this.voiceSettings = {
       enabled: true,
