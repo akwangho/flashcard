@@ -319,8 +319,8 @@
    * 實際將音標文字顯示在畫面正中央（以斜線包團，如 /faɪr/）。
    * needsReview = true（多候選查詢的暫定第一候選、尚未人為選定）→ 套用
    * kk-needs-review 特殊顏色，提示使用者開啟編輯單字選定符合學習發音的音標。
-   * 片語組合音標較長（如 /ðə ˋnɛðɚlændz/）→ 套用 kk-phonetic-long 縮小字級，
-   * 單行不超出畫面寬度（與既有 white-space: nowrap 策略一致）。
+   * 片語組合音標較長（如 /ðə ˋnɛðɚlændz/、/floʊtɪŋ ˈmɑrkɪt/）→
+   * 套用 kk-phonetic-long 以維持正常字級並在詞間空白處換行，不縮小字級。
    * @param {string} phonetic - 音標字串（不含斜線）
    * @param {boolean} [needsReview] - 是否為多候選待確認
    */

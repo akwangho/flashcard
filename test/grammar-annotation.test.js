@@ -59,6 +59,18 @@ describe('grammar annotation', function() {
     expect(auxiliaryColor).not.toBe(beColor);
   });
 
+  test('pending annotations keep the normal text colour until phase two', function() {
+    var css = fs.readFileSync(
+      path.join(__dirname, '..', 'style-flashcard.html'),
+      'utf8'
+    );
+
+    expect(css).toMatch(/\.word\.grammar-annotation-pending\s+\.grammar-verb/);
+    expect(css).toMatch(/\.word\.grammar-annotation-pending\s+\.grammar-auxiliary/);
+    expect(css).toMatch(/\.word\.grammar-annotation-pending\s+\.grammar-be/);
+    expect(css).toMatch(/\.word\.grammar-annotation-pending[^}]*color:\s*inherit/);
+  });
+
   test('classifies main verbs, auxiliary verbs, and BE verbs separately', function() {
     expect(annotationFor('She has eaten.', 'has').role).toBe('auxiliary');
     expect(annotationFor('She has eaten.', 'eaten').role).toBe('verb');
@@ -274,7 +286,7 @@ describe('grammar annotation', function() {
     expect(app.redisplayCurrentWord).toHaveBeenCalled();
   });
 
-  test('English-first text stays plain until Chinese is revealed', function() {
+  test('English-first prepares stable annotation DOM before Chinese is revealed', function() {
     var word = { english: 'She has eaten.', chinese: '她吃過了。' };
     var englishElement = document.getElementById('english-word');
     var chineseElement = document.getElementById('chinese-word');
@@ -282,15 +294,22 @@ describe('grammar annotation', function() {
     app.settings.displayMode = 'english-first';
     app.currentWords = [word];
     app.currentIndex = 0;
-    app.setCardText(englishElement, word.english);
+    app.prepareGrammarAnnotatedText(englishElement, word.english);
 
-    expect(englishElement.querySelectorAll('.grammar-verb, .grammar-auxiliary, .grammar-be').length).toBe(0);
+    // 最終 DOM 在 Phase 1 已建立，但角色色暫不顯示；文字外觀仍是普通英文。
+    expect(englishElement.querySelectorAll('.grammar-auxiliary').length).toBe(1);
+    expect(englishElement.querySelectorAll('.grammar-verb').length).toBe(1);
+    expect(englishElement.classList.contains('grammar-annotation-pending')).toBe(true);
+    var preparedHtml = englishElement.innerHTML;
 
     app._revealSecondPart(word);
 
     expect(chineseElement.textContent).toBe('她吃過了。');
     expect(englishElement.querySelectorAll('.grammar-auxiliary').length).toBe(1);
     expect(englishElement.querySelectorAll('.grammar-verb').length).toBe(1);
+    expect(englishElement.classList.contains('grammar-annotation-pending')).toBe(false);
+    // Phase 2 只切換顏色 class，不替換文字節點，因此瀏覽器不會重新換行。
+    expect(englishElement.innerHTML).toBe(preparedHtml);
   });
 
   test('Chinese-first English is annotated immediately when it appears', function() {

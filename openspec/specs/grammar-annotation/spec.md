@@ -33,15 +33,16 @@ The system SHALL provide a general-settings toggle for automatic grammar-role an
 
 ### Requirement: Annotation Timing
 
-The system SHALL withhold annotation from English text that appears first and SHALL apply it only when the Chinese translation appears. When Chinese appears first, English SHALL be rendered with annotation immediately when it appears.
+The system SHALL withhold annotation colours from English text that appears first and SHALL apply them only when the Chinese translation appears. The final annotation DOM SHALL be prepared before the first English text is shown, so phase 2 changes only the colour state and does not rebuild the sentence or change its line count. When Chinese appears first, English SHALL be rendered with annotation immediately when it appears.
 
 #### Scenario: English first
 
 - **GIVEN** the card shows English before Chinese and grammar annotation is enabled
 - **WHEN** only the English side is visible
-- **THEN** the English text has no grammar-role colour spans, allowing the learner to identify the verb first
+- **THEN** the English text has no visible grammar-role colours, allowing the learner to identify the verb first
+- **AND** the final annotation DOM is already laid out, so the sentence's visible line count does not change later
 - **WHEN** the Chinese translation appears
-- **THEN** the visible English text is annotated in place.
+- **THEN** the visible English text changes to annotation colours in place without rebuilding the text DOM.
 
 #### Scenario: Chinese first
 

@@ -48,12 +48,17 @@ The system SHALL restrict display, fetching, and pre-caching to words and phrase
 
 ### Requirement: Centre Display
 
-The system SHALL display the phonetic centred on the card — exactly midway between the English and Chinese sections — wrapped in slashes (`/faɪr/`), on a single line (over-length phonetics shrink via `kk-phonetic-long`), fading in over 0.5 s.
+The system SHALL display the phonetic centred on the card — exactly midway between the English and Chinese sections — wrapped in slashes (`/faɪr/`), fading in over 0.5 s. Short phonetics SHALL remain on one line. Over-length phrase phonetics SHALL retain the normal phonetic font size and wrap at word boundaries instead of shrinking.
 
 #### Scenario: Phase-2 reveal
 
 - **WHEN** phase 2 begins (second language revealed; in carousel memory mode, together with the card)
 - **THEN** the phonetic fades in — never during phase 1, so it leaks no extra hint — is shown at most once per card, and disappears with the card on transition
+
+#### Scenario: Over-length phrase phonetic
+
+- **WHEN** a phrase phonetic exceeds the long-phonetic threshold (for example `floating market`)
+- **THEN** it uses the normal phonetic font size, wraps at the space between the phrase words, and is not reduced to a smaller font
 
 #### Scenario: Needs-review colour
 

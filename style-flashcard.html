@@ -140,20 +140,21 @@
     background: rgba(4, 44, 84, 0.72);
   }
   
-  /* 片語組合音標較長（如 /ðə ˋnɛðɚlændz/、多字型態列組合）→ 字級減半，
-     單行（white-space: nowrap）不超出畫面寬度；閾值由 APP_CONSTANTS.KK_PHONETIC_LONG_LENGTH 控制 */
+  /* 片語組合音標較長（如 /ðə ˋnɛðɚlændz/、/floʊtɪŋ ˈmɑrkɪt/）→
+     維持正常字級，在詞間空白處換行；不因長度縮小字級。
+     閾值由 APP_CONSTANTS.KK_PHONETIC_LONG_LENGTH 控制。 */
   .kk-phonetic-display.kk-phonetic-long {
-    font-size: 48px;
+    white-space: normal;
+    overflow-wrap: break-word; /* iOS 10 舊 Safari 相容 */
+    word-wrap: break-word;
+    word-break: normal;
+    line-height: 1.15;
   }
   
   /* 與 .word 的響應式字級同步（style-base.html 的 768px 斷點）；
-     手機版基準已是 36px（夠容納長音標），長音標 class 不再另外縮小 */
+     長音標沿用相同字級，只改為換行，不再另外縮小。 */
   @media (max-width: 768px) {
     .kk-phonetic-display {
-      font-size: 36px;
-      font-size: var(--font-3xl);
-    }
-    .kk-phonetic-display.kk-phonetic-long {
       font-size: 36px;
       font-size: var(--font-3xl);
     }
@@ -216,6 +217,14 @@
 
   .grammar-be {
     color: #51cf66;
+  }
+
+  /* 先英文模式：Phase 1 先建立最終標注 DOM，但角色色暫不顯示。
+     這讓句子從一開始就使用最終行寬，Phase 2 只換色、不會由兩行跳成三行。 */
+  .word.grammar-annotation-pending .grammar-verb,
+  .word.grammar-annotation-pending .grammar-auxiliary,
+  .word.grammar-annotation-pending .grammar-be {
+    color: inherit;
   }
 
   .grammar-legend {

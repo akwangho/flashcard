@@ -663,6 +663,8 @@
 
     englishElement.classList.remove('show');
     chineseElement.classList.remove('show');
+    englishElement.classList.remove('grammar-annotation-pending');
+    chineseElement.classList.remove('grammar-annotation-pending');
     englishElement.classList.remove('word-pending-removal');
     chineseElement.classList.remove('word-pending-removal');
     this.setCardText(englishElement, '');
@@ -811,7 +813,9 @@
         self.speakChineseWord(currentWord.chinese);
       }, APP_CONSTANTS.SPEECH_DELAY_MS);
     } else {
-      this.setCardText(firstElement, this.displayTextFor(currentWord, 'english'));
+      // 先英文模式：預先建立最終語法標注 DOM，但 Phase 1 暫不顯示角色色。
+      // 句子行數因此從一開始就固定，Phase 2 不會再由兩行瞬間變成三行。
+      this.prepareGrammarAnnotatedText(firstElement, this.displayTextFor(currentWord, 'english'));
       if (!this.settings.delaySpeechInNormalMode) {
         var speechDelay = this._shouldSpellOutCurrentWord() ? 50 : APP_CONSTANTS.SPEECH_DELAY_MS;
         // 文法題目保留中文轉換指示供閱讀，但英文 TTS 只朗讀純英文句子。

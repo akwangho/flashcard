@@ -204,7 +204,7 @@
       // 聽力模式：點擊時同時顯示第一語言
       if (this.settings.listeningMode) {
         var isReversed = this.isReversedForCurrentWord();
-        this.setCardText(englishElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
+        this.prepareGrammarAnnotatedText(englishElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
       }
       this._revealSecondPart(currentWord);
     }
@@ -441,21 +441,18 @@
     var isReversed = this.isReversedForCurrentWord();
     var secondText = isReversed ? this.displayTextFor(currentWord, 'english') : this.displayTextFor(currentWord, 'chinese');
 
-    this.setCardText(chineseElement, secondText);
-    chineseElement.classList.add('show');
-    this.showingChinese = true;
-
-    // 語法標注依出現順序處理：
-    // - 先英文：英文已先顯示且未標注，現在中文出現才補標注英文。
-    // - 先中文：英文此刻才出現，直接以已標注狀態顯示。
+    // 語法標注依出現順序處理，但先完成 DOM 準備再顯示：
+    // - 先英文：Phase 1 已建立相同標注 DOM（角色色暫隱），此時只顯示角色色；
+    //   不重新建立文字節點，避免句子行數在 Phase 2 瞬間改變。
+    // - 先中文：英文此刻才出現，先建立標注 DOM，再一起淡入。
     if (isReversed) {
       this.setGrammarAnnotatedText(chineseElement, secondText);
     } else {
-      this.setGrammarAnnotatedText(
-        document.getElementById('english-word'),
-        this.displayTextFor(currentWord, 'english')
-      );
+      this.setCardText(chineseElement, secondText);
+      this.revealGrammarAnnotations(document.getElementById('english-word'));
     }
+    chineseElement.classList.add('show');
+    this.showingChinese = true;
 
     // KK 音標：先中文/聽力模式下，英文此刻才出現 → 音標同步顯示；
     // 已顯示中（先英文模式）則僅微調位置避免與翻譯重疊
@@ -530,7 +527,7 @@
     if (this.settings.listeningMode) {
       var firstElement = document.getElementById('english-word');
       var isReversed = this.isReversedForCurrentWord();
-      this.setCardText(firstElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
+      this.prepareGrammarAnnotatedText(firstElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
     }
 
     this._revealSecondPart(currentWord);
@@ -735,7 +732,7 @@
     if (!this.showingChinese) {
       if (this.settings.listeningMode) {
         var isReversed = this.isReversedForCurrentWord();
-        this.setCardText(englishElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
+        this.prepareGrammarAnnotatedText(englishElement, this.displayTextFor(currentWord, isReversed ? 'chinese' : 'english'));
       }
       this._revealSecondPart(currentWord);
     }

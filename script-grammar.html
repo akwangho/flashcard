@@ -871,6 +871,7 @@
    */
   FlashcardApp.prototype.setGrammarAnnotatedText = function(element, text) {
     if (!element) return;
+    element.classList.remove('grammar-annotation-pending');
     var isSentence = typeof getWordType === 'function' && getWordType(text) === 'sentence';
     if (this.settings && this.settings.grammarAnnotationEnabled === false) {
       this.setCardText(element, text);
@@ -881,6 +882,41 @@
       return;
     }
     this.renderGrammarAnnotations(element, text);
+  };
+
+  /**
+   * 預先建立語法標注 DOM，但暫時讓標注沿用一般文字顏色。
+   *
+   * 先英文模式在 Phase 1 已顯示整句英文；到了 Phase 2 才把標注改成角色顏色。
+   * 若 Phase 2 才第一次建立 span，某些瀏覽器會因文字節點改成多個 inline
+   * 元素而重新計算行寬，造成使用者先看到兩行、瞬間又變三行。預先建立相同
+   * DOM 可讓最終行數從一開始就固定，Phase 2 只切換顏色、不再替換內容。
+   *
+   * @param {HTMLElement} element - 目標文字元素
+   * @param {string} text - 原始英文文字
+   * @returns {boolean} 是否已建立可於 Phase 2 顯示的標注
+   */
+  FlashcardApp.prototype.prepareGrammarAnnotatedText = function(element, text) {
+    if (!element) return false;
+    this.setGrammarAnnotatedText(element, text);
+    if (this.settings && this.settings.grammarAnnotationEnabled === false) return false;
+    var isSentence = typeof getWordType === 'function' && getWordType(text) === 'sentence';
+    if (!isSentence) return false;
+    if (!element.querySelector ||
+        !element.querySelector('.grammar-verb, .grammar-auxiliary, .grammar-be')) {
+      return false;
+    }
+    element.classList.add('grammar-annotation-pending');
+    return true;
+  };
+
+  /**
+   * 顯示先前預備好的語法標注顏色；只切換 class，不重建文字 DOM。
+   * @param {HTMLElement} element - 目標文字元素
+   */
+  FlashcardApp.prototype.revealGrammarAnnotations = function(element) {
+    if (!element) return;
+    element.classList.remove('grammar-annotation-pending');
   };
 
   /**

@@ -15,7 +15,10 @@
  *  - race condition（晚回來的音標不顯示在已切換的單字上，但會寫回資料）
  *  - 編輯單字：KK 資訊顯示、強制重新抓取、多筆候選選擇、修改英文時清除 KK
  *  - 失敗容錯：API 失敗不影響卡片顯示
+ *  - 長片語音標（如 floating market）維持字級並換行，不縮小
  */
+var fs = require('fs');
+var path = require('path');
 var app;
 
 beforeEach(function() {
@@ -377,6 +380,29 @@ describe('KK phonetic display', function() {
       expect(el.classList.contains('kk-phonetic-long')).toBe(true);
       done();
     }, 10);
+  });
+
+  test('floating market keeps the normal phonetic size and uses the wrapping class', function() {
+    var el = document.getElementById('kk-phonetic-display');
+
+    app._showKKPhoneticText('ˈfloʊtɪŋ ˈmɑrkɪt');
+
+    expect(el.textContent).toBe('/ˈfloʊtɪŋ ˈmɑrkɪt/');
+    expect(el.classList.contains('kk-phonetic-long')).toBe(true);
+    expect(el.style.fontSize).toBe('');
+  });
+
+  test('long phonetic CSS wraps without shrinking the font', function() {
+    var css = fs.readFileSync(
+      path.join(__dirname, '..', 'style-flashcard.html'),
+      'utf8'
+    );
+    var match = css.match(/\.kk-phonetic-display\.kk-phonetic-long\s*\{([^}]*)\}/);
+
+    expect(match).not.toBeNull();
+    expect(match[1]).toMatch(/white-space:\s*normal/);
+    expect(match[1]).toMatch(/word-wrap:\s*break-word/);
+    expect(match[1]).not.toMatch(/font-size/);
   });
 
   test('hides display and never queries for phrases longer than two words', function() {
