@@ -71,14 +71,21 @@ The system SHALL load grammar cards through the same worksheet and word-object p
 
 ### Requirement: Configurable Grammar Review Share
 
-The system SHALL provide a persisted grammar-review ratio setting from 0% to 100%, defaulting to 10%. The dedicated grammar worksheet SHALL be loaded from `WordGo Data Sheet` regardless of which other worksheets the user selects. For each carousel or quick-review pool, the system SHALL choose enough grammar cards for their share of the final review list to approximate the configured ratio, SHALL select those cards from the complete grammar source so ordinary difficulty, review-time, type, and tag filters cannot remove them, and SHALL interleave them among normal cards. A ratio of 0% SHALL exclude grammar cards; a ratio of 100% SHALL produce a grammar-only pool when grammar cards are available.
+The system SHALL provide a persisted grammar-review ratio setting from 0% to 100%, defaulting to 5%. The dedicated grammar worksheet SHALL be loaded from `WordGo Data Sheet` regardless of which other worksheets the user selects. For each carousel or quick-review pool, the grammar quota SHALL be calculated independently from the original normal-card count, rounded up, and capped by the available grammar cards. The forced-review quota SHALL also use that same original normal-card count without including grammar cards in its own calculation basis. Grammar cards SHALL be selected from the complete grammar source so ordinary difficulty, review-time, type, and tag filters cannot remove them, and SHALL be interleaved among normal cards. A ratio of 0% SHALL exclude grammar cards; a ratio of 100% SHALL add one grammar card per original normal card.
 
-#### Scenario: Default 10% ratio with restrictive filters
+#### Scenario: Default 5% ratio with restrictive filters
 
 - **GIVEN** 100 normal cards that pass the current filters and 200 grammar cards available from the dedicated worksheet
-- **WHEN** a review pool is built with the default grammar-review ratio
-- **THEN** 11 grammar cards are added, giving an approximately 10% grammar share of the final 111-card pool
+- **WHEN** a review pool is built with the default grammar-review ratio and no forced-review cards
+- **THEN** 5 grammar cards are added, giving 105 cards in total
 - **AND** the grammar cards appear at distributed positions rather than as one block.
+
+#### Scenario: Forced-review and grammar quotas use the same original base
+
+- **GIVEN** a quick review requesting 100 normal cards, a forced-review ratio of 10%, and a grammar-review ratio of 5%
+- **WHEN** the review pool is built
+- **THEN** 10 forced-review cards and 5 grammar cards are added independently from the original 100 normal cards
+- **AND** the pool contains exactly 115 cards.
 
 #### Scenario: Quick review keeps its normal-card quantity
 

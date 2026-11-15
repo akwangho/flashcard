@@ -488,7 +488,6 @@
             <label for="forced-review-ratio-setting">⭐ 強制複習比例 (%)</label>
             <div class="setting-control">
               <input type="number" id="forced-review-ratio-setting" min="0" max="100" value="10" step="1" style="width: 70px; padding: 6px 8px; font-size: 14px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; text-align: center;">
-              <span style="color: #888; font-size: 12px; margin-left: 6px;">1/10 = 10%</span>
             </div>
             <div class="setting-help">
               <small>一般每複習 100 個單字，額外加入設定比例的不熟程度 100 單字；優先選擇較久沒複習的，並隨機穿插在本次複習清單中。設為 0% 可停用額外強制複習。儲存後會立即重新計算目前的實際複習數量</small>
@@ -498,11 +497,10 @@
           <div class="setting-group">
             <label for="grammar-review-ratio-setting">📝 文法複習比例 (%)</label>
             <div class="setting-control">
-              <input type="number" id="grammar-review-ratio-setting" min="0" max="100" value="10" step="1" style="width: 70px; padding: 6px 8px; font-size: 14px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; text-align: center;">
-              <span style="color: #888; font-size: 12px; margin-left: 6px;">預設 10%</span>
+              <input type="number" id="grammar-review-ratio-setting" min="0" max="100" value="5" step="1" style="width: 70px; padding: 6px 8px; font-size: 14px; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; text-align: center;">
             </div>
             <div class="setting-help">
-              <small>讓文法題在最終複習清單中約佔設定比例。文法題會略過一般難度、複習時間、類型與標籤篩選，並隨機穿插在一般題之間；設為 0% 可停用，100% 則只複習文法題。儲存後會立即重新計算目前的實際複習數量</small>
+              <small>以原本一般複習數量為基準，每 100 題額外加入設定比例的文法題；與強制複習比例各自計算，例如 100 題、強制複習 10%、文法複習 5%，總數為 115 題。文法題會略過一般難度、複習時間、類型與標籤篩選，並隨機穿插在一般題之間；設為 0% 可停用。儲存後會立即重新計算目前的實際複習數量</small>
             </div>
           </div>
 

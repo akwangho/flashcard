@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.31.0',
+    APP_VERSION: '1.32.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-15 12:41',
+    APP_BUILD_TIME: '2026-11-15 14:11',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -56,10 +56,11 @@
     FORCED_REVIEW_RATIO_MIN: 0,         // 0% = 不額外加入強制複習字
     FORCED_REVIEW_RATIO_MAX: 100,
 
-    // === 文法複習比例（文法題佔最終複習清單的百分比） ===
-    GRAMMAR_REVIEW_RATIO_DEFAULT: 10,   // 預設讓文法題約佔整輪複習的 10%
+    // === 文法複習比例（依原本一般單字數計算的額外文法名額） ===
+    GRAMMAR_REVIEW_RATIO_DEFAULT: 5,    // 預設每 100 張原本一般卡加入 5 張文法題
     GRAMMAR_REVIEW_RATIO_MIN: 0,        // 0% = 不安排文法題
-    GRAMMAR_REVIEW_RATIO_MAX: 100,      // 100% = 只複習文法題
+    GRAMMAR_REVIEW_RATIO_MAX: 100,      // 100% = 每 100 張原本一般卡加入 100 張文法題
+    GRAMMAR_REVIEW_RATIO_SETTING_VERSION: 2, // v1 的預設 10% 遷移為 v2 的預設 5%
 
     // === 複習優先分數（決定每天輪播與快速複習的單字順序） ===
     // 分數越高越優先出現。score = staleness(天) + difficultyComponent。
@@ -517,7 +518,8 @@
       showKKPhonetic: true,            // KK 音標顯示開關（預設開啟；K 鍵可切換）
       grammarAnnotationEnabled: true,  // 動詞／助動詞／BE 動詞自動標注（預設開啟）
       forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT, // 強制複習字比例（%，預設 10%）
-      grammarReviewRatio: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT // 文法題佔總複習比例（%，預設 10%）
+      grammarReviewRatio: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT, // 文法題額外名額比例（%，預設 5%）
+      grammarReviewRatioVersion: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_SETTING_VERSION
     };
     this.fontFamilyMap = {
       'system-default': "'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif",
@@ -883,6 +885,14 @@
         delete savedSettings.reverseMode;
       }
       
+      // v1.31 的文法比例預設是 10%；升級到 v2 時只遷移這個舊預設值。
+      // 已在 v2 使用者自行設定的 10% 會保留，不會每次啟動都被改回 5%。
+      if (savedSettings.grammarReviewRatioVersion !== APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_SETTING_VERSION &&
+          Number(savedSettings.grammarReviewRatio) === 10) {
+        savedSettings.grammarReviewRatio = APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT;
+      }
+      savedSettings.grammarReviewRatioVersion = APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_SETTING_VERSION;
+
       for (var key in savedSettings) {
         if (savedSettings.hasOwnProperty(key) && this.settings.hasOwnProperty(key)) {
           this.settings[key] = savedSettings[key];
@@ -898,7 +908,7 @@
         this.settings.forcedReviewRatio = APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT;
       }
 
-      // 文法複習比例只接受 0～100 的數值；舊資料或損壞值改用預設 10%。
+      // 文法複習比例只接受 0～100 的數值；舊資料或損壞值改用預設 5%。
       var grammarReviewRatio = this.settings.grammarReviewRatio;
       if (typeof grammarReviewRatio !== 'number' ||
           !isFinite(grammarReviewRatio) ||
@@ -1294,7 +1304,7 @@
       forcedReviewRatioInput.value = forcedReviewRatio;
     }
 
-    // 設定文法複習比例（文法題佔最終複習清單的百分比）
+    // 設定文法複習比例（依原本一般單字數計算的額外文法名額）
     var grammarReviewRatioInput = document.getElementById('grammar-review-ratio-setting');
     if (grammarReviewRatioInput) {
       var grammarReviewRatio = Number(this.settings.grammarReviewRatio);

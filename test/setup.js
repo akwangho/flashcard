@@ -308,7 +308,7 @@ function createDOMElements() {
       el.min = '0';
       el.max = '100';
       el.step = '1';
-      el.value = '10';
+      el.value = id === 'grammar-review-ratio-setting' ? '5' : '10';
     }
     if (id === 'save-sheet-settings') {
       el = document.createElement('button');

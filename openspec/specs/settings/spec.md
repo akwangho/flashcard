@@ -13,7 +13,7 @@ Defines the general and voice settings modals and the LocalStorage models persis
 - `showTimerProgressBar: Boolean`, `timerProgressBarOffset: Number` (0–2000 px), `smartTimerEnabled: Boolean`, `showKKPhonetic: Boolean` (see `kk-phonetic` spec)
 - `grammarAnnotationEnabled: Boolean` (automatic main-verb / auxiliary-verb / BE-verb colouring; see `grammar-annotation/spec.md`)
 - `forcedReviewRatio: Number` (0–100 percent; extra difficulty-100 review words relative to the normal review count; see `review-filter/spec.md`)
-- `grammarReviewRatio: Number` (0–100 percent; approximate grammar-card share of the final review pool; see `grammar-transformation/spec.md`)
+- `grammarReviewRatio: Number` (0–100 percent; extra grammar-card quota calculated independently from the original normal-card count; see `grammar-transformation/spec.md`)
 
 ### Voice Settings (`flashcard-voice-settings`)
 
@@ -38,7 +38,8 @@ The system SHALL provide a modal for configuring core carousel behaviour.
 #### Scenario: Available controls
 
 - **WHEN** the general settings modal is open
-- **THEN** it offers a delay time slider (1–10 s, step 0.5), font size slider (20–120 px, step 4, live preview), font family dropdown (9 fonts, live preview), display mode radio (English first / Chinese first / Mixed), sprint must-spell force-Chinese-first toggle (visible only in Mixed mode), smart timer toggle, KK phonetic toggle, grammar-role annotation toggle, forced-review ratio input (0–100%, default 10%), grammar-review ratio input (0–100%, default 10%), timer progress bar toggle, and progress bar top offset input (0–2000 px, visible only when the bar is enabled)
+- **THEN** it offers a delay time slider (1–10 s, step 0.5), font size slider (20–120 px, step 4, live preview), font family dropdown (9 fonts, live preview), display mode radio (English first / Chinese first / Mixed), sprint must-spell force-Chinese-first toggle (visible only in Mixed mode), smart timer toggle, KK phonetic toggle, grammar-role annotation toggle, forced-review ratio input (0–100%, default 10%), grammar-review ratio input (0–100%, default 5%), timer progress bar toggle, and progress bar top offset input (0–2000 px, visible only when the bar is enabled)
+- **AND** ratio inputs SHALL display the percentage value directly without equivalent fraction descriptions such as `1/10`.
 
 ### Requirement: Voice Settings Modal
 
@@ -76,5 +77,5 @@ The system SHALL persist all settings to LocalStorage and apply them on startup.
 - **WHEN** the user changes any setting and presses 儲存設定
 - **THEN** the settings are written to their LocalStorage key and applied; closing or canceling the modal discards unsaved changes; on startup saved settings are read and applied before the carousel begins
 - **AND** changing `forcedReviewRatio` SHALL immediately rebuild the active carousel or quick-review pool and update the visible total review count without a page reload; quick review SHALL remain active and preserve its selected normal-word quantity, and the rebuilt pool SHALL interleave forced-review words at randomised positions
-- **AND** changing `grammarReviewRatio` SHALL immediately rebuild the same pool, preserve the selected normal-word quantity in quick review, and interleave enough grammar cards to approximate the new grammar share
+- **AND** changing `grammarReviewRatio` SHALL immediately rebuild the same pool, preserve the selected normal-word quantity in quick review, and interleave a grammar quota calculated independently from that original normal-word quantity
 - **AND** a legacy `reverseMode` boolean is silently migrated on load: `true` → `chinese-first`, `false` → `english-first`

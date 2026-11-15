@@ -2,7 +2,7 @@
 
 ## Overview
 
-英文單字閃卡 is a Google Apps Script + Google Sheets flashcard app for zh-TW learners (primarily iPad students): auto-carousel flashcards, EN/JA/ZH TTS, SRS, quizzes, listening practice, difficulty marking, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet with a configurable 10%-default review share. The frontend is ES5 and fully compatible with iPad 4 / iOS ≤ 10.
+英文單字閃卡 is a Google Apps Script + Google Sheets flashcard app for zh-TW learners (primarily iPad students): auto-carousel flashcards, EN/JA/ZH TTS, SRS, quizzes, listening practice, difficulty marking, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet with a configurable 5%-default review quota. The frontend is ES5 and fully compatible with iPad 4 / iOS ≤ 10.
 
 ## Architecture
 
@@ -28,7 +28,7 @@
 - JS: `script-polyfills` (ES5 polyfills) · `vendor-compromise` (ES5 grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
 - Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh`
 - Grammar data: `data/grammar-transformation-cards.json` (canonical 200 cards) · `scripts/generate-grammar-transformation-cards.mjs` (reproducible mixed-card generator) · `scripts/build-grammar-transformation-seed.mjs` (validation + `grammarFlashcards.gs` generator)
-- Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1149 cases)
+- Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1154 cases)
 
 ## Deployment (clasp)
 
@@ -65,5 +65,5 @@ CSS: every `var(--x)` needs a hard-coded fallback. Touch: `touchstart/move/end`;
 | KK phonetic | **on** (`showKKPhonetic: true`) |
 | Grammar role annotation | **on** (`grammarAnnotationEnabled: true`) |
 | Grammar transformation worksheet | `文法句型轉換` in `WordGo Data Sheet` · 200 cards (50 per direction; 25 per BE / Do-Does subtype) |
-| Grammar-review ratio | **10%** (`grammarReviewRatio: 10`) |
+| Grammar-review ratio | **5%** (`grammarReviewRatio: 5`) |
 | Forced-review ratio | **10%** (`forcedReviewRatio: 10`) |

@@ -249,6 +249,7 @@ describe('resetSettings', function() {
     expect(app.settings.fontSize).toBe(96);
     expect(app.settings.smartTimerEnabled).toBe(false);
     expect(app.settings.forcedReviewRatio).toBe(10);
+    expect(app.settings.grammarReviewRatio).toBe(5);
     expect(app.voiceSettings.chineseEnabled).toBe(false);
     expect(app.voiceSettings.spellOutLetters).toBe(false);
   });

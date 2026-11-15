@@ -295,18 +295,13 @@
     var limit = Math.max(0, Math.min(count, recommendedWords.length));
     var result = recommendedWords.slice(0, limit);
 
-    // 強制複習字不佔用 N 個名額；依實際選到的 N 個一般單字計算比例。
-    var selectedForcedReviewWords = this.selectForcedReviewWords(forcedReviewWords, result.length);
-
-    // 100% 文法比例時只保留文法題；若沒有文法候選則保留一般題避免空池。
-    if (this.getGrammarReviewRatio() >= APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX &&
-        grammarReviewWords.length > 0) {
-      result = [];
-      selectedForcedReviewWords = [];
-    }
-
-    // 文法題不佔用 N 個一般名額，依一般題與強制複習題名額補足設定比例。
-    var grammarBaseCount = result.length + selectedForcedReviewWords.length;
+    // 強制複習字與文法題都不佔用 N 個一般名額。
+    // 兩者各自依實際選到的 N 張原本一般單字計算比例，不互相加入計算基準。
+    var grammarBaseCount = result.length;
+    var selectedForcedReviewWords = this.selectForcedReviewWords(
+      forcedReviewWords,
+      grammarBaseCount
+    );
     var selectedGrammarReviewWords = this.selectGrammarReviewWords(
       grammarReviewWords,
       grammarBaseCount

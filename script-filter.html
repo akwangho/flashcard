@@ -137,8 +137,8 @@
   };
 
   /**
-   * 取得文法題佔最終複習清單的比例（百分比）。
-   * @returns {number} 0～100；無效值使用預設 10。
+   * 取得依原本一般單字數計算的文法額外名額比例（百分比）。
+   * @returns {number} 0～100；無效值使用預設 5。
    */
   FlashcardApp.prototype.getGrammarReviewRatio = function() {
     var ratio = parseFloat(this.settings && this.settings.grammarReviewRatio);
@@ -153,10 +153,10 @@
 
   /**
    * 計算文法題應佔用的名額。
-   * 讓「文法名額 ÷（一般名額 + 文法名額）」接近設定比例；
-   * 例如一般 100 題、比例 10%，安排 11 題文法（最終約 9.9%）。
-   * 比例 100% 時使用所有可用文法題；候選不足時以實際數量為準。
-   * @param {number} normalWordCount - 不含文法的複習名額（含強制複習額外名額）
+   * 文法名額與強制複習名額都各自依「原本一般單字數」計算，不互相加入計算基準。
+   * 例如一般 100 題、強制複習 10%、文法複習 5%，結果為 100 + 10 + 5 = 115 題。
+   * 候選不足時以實際可用數量為準。
+   * @param {number} normalWordCount - 原本一般會出現的單字數（不含任何額外名額）
    * @param {number} availableGrammarCount - 可用文法題數量
    * @returns {number} 文法題名額
    */
@@ -166,14 +166,13 @@
 
     var ratio = this.getGrammarReviewRatio();
     if (ratio <= 0) return 0;
-    if (ratio >= APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX) return Math.floor(available);
 
     var count = Number(normalWordCount);
     if (!isFinite(count) || count < 0) count = 0;
     if (count === 0) count = 1;
 
-    // quota / (count + quota) = ratio / 100
-    var quota = Math.round(count * ratio / (100 - ratio));
+    // 與強制複習相同：名額 = 原本一般單字數 × 比例，並一律向上取整。
+    var quota = Math.ceil(count * ratio / 100);
     if (quota < 1) quota = 1;
     return Math.min(available, quota);
   };
@@ -400,24 +399,19 @@
       });
     }
     
-    // 依一般篩選結果計算強制複習數量，並優先加入最久沒複習的字。
-    // 強制複習字不列入篩選統計，只作額外複習。
-    var selectedForcedReviewWords = this.selectForcedReviewWords(forcedReviewWords, filtered.length);
-
-    // 100% 文法比例時只保留文法題；若根本沒有文法候選，才保留一般題避免空池。
-    if (this.getGrammarReviewRatio() >= APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX &&
-        grammarReviewCandidates.length > 0) {
-      filtered = [];
-      selectedForcedReviewWords = [];
-    }
+    // 原本一般單字數是兩種額外名額的共同計算基準。
+    // 強制複習與文法複習各自乘上自己的比例，不把另一種額外名額加入基準。
+    var grammarBaseCount = filtered.length;
+    var selectedForcedReviewWords = this.selectForcedReviewWords(
+      forcedReviewWords,
+      grammarBaseCount
+    );
 
     // 一般單字依「複習優先分數」排序：不熟程度數字大的、很久沒複習的優先出現；
     // 最近剛複習且數字小的排到後面。同分數的單字之間以亂數輕度混合（多工作表打散）。
     this.sortWordsByReviewPriority(filtered);
 
-    // 文法名額以「一般題 + 強制複習題」為基準，讓文法題在最終清單中約佔設定比例。
     // 文法候選來自完整 words，因此即使被難度、時間、類型或標籤篩選排除，也必定補足。
-    var grammarBaseCount = filtered.length + selectedForcedReviewWords.length;
     var selectedGrammarReviewWords = this.selectGrammarReviewWords(
       grammarReviewCandidates,
       grammarBaseCount

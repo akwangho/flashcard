@@ -74,19 +74,13 @@
       }
     }
 
+    // 強制複習與文法複習各自依原本一般單字數計算，兩者不互相加入計算基準。
+    var grammarBaseCount = normalWords.length;
     var selectedForcedReviewWords = this.selectForcedReviewWords(
       forcedReviewCandidates,
-      normalWords.length
+      grammarBaseCount
     );
 
-    // 100% 文法比例時只保留文法題；若沒有文法候選則保留一般題避免空池。
-    if (this.getGrammarReviewRatio() >= APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_MAX &&
-        grammarReviewCandidates.length > 0) {
-      normalWords = [];
-      selectedForcedReviewWords = [];
-    }
-
-    var grammarBaseCount = normalWords.length + selectedForcedReviewWords.length;
     var selectedGrammarReviewWords = this.selectGrammarReviewWords(
       grammarReviewCandidates,
       grammarBaseCount
@@ -199,7 +193,7 @@
       );
     }
     
-    // 讀取文法複習比例（文法題佔最終複習清單的百分比）
+    // 讀取文法複習比例（依原本一般單字數計算的額外文法名額）
     var grammarReviewRatioInput = document.getElementById('grammar-review-ratio-setting');
     if (grammarReviewRatioInput) {
       var grammarReviewRatio = parseFloat(grammarReviewRatioInput.value);
@@ -248,7 +242,8 @@
       showKKPhonetic: true,            // KK 音標顯示開關（預設開啟）
       grammarAnnotationEnabled: true,  // 英文語法角色自動標注（預設開啟）
       forcedReviewRatio: APP_CONSTANTS.FORCED_REVIEW_RATIO_DEFAULT, // 強制複習字比例（%，預設 10%）
-      grammarReviewRatio: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT // 文法題佔總複習比例（%，預設 10%）
+      grammarReviewRatio: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_DEFAULT, // 文法題額外名額比例（%，預設 5%）
+      grammarReviewRatioVersion: APP_CONSTANTS.GRAMMAR_REVIEW_RATIO_SETTING_VERSION
     };
     this.voiceSettings = {
       enabled: true,
