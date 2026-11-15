@@ -10,12 +10,13 @@ This project uses **clasp** (Command Line Apps Script Projects). All code is pus
 |---------|-------------|
 | `npm run setup` | First-time setup: install clasp, login, link Script ID |
 | `npm run push` | Push code to Google Apps Script |
+| `npm run deploy` | Push code and open the current web-app deployment (override with `FLASHCARD_DEPLOYMENT_ID`) |
 | `npm run pull` | Pull code from GAS (overwrites local) |
 | `npm run open` | Open Apps Script editor in browser |
 | `npm run open:web` | Open Web App in browser |
 | `npm test` | Run all Jest tests |
 | `npx jest <test_file>` | Run a single test file (e.g., `npx jest test/voice.test.js`) |
-| `npx clasp run seedGrammarTransformationSheet_` | Seed the 100-card grammar worksheet in `WordGo Data Sheet` after pushing code |
+| `npx clasp run seedGrammarTransformationSheet_` | Seed the 100-card grammar worksheet after pushing code; requires a linked standard GCP project (otherwise run the private function from the Apps Script editor) |
 
 For corporate networks with SSL inspection, see the `deploy.sh` comments for CA configuration (`NODE_EXTRA_CA_CERTS` or `FLASHCARD_CA_BUNDLE`).
 
