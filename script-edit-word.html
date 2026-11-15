@@ -16,6 +16,43 @@
   // 編輯單字功能
   // ==========================================================================
 
+  /**
+   * 設定編輯視窗的內容模式。
+   * 一般字庫使用「單字／翻譯」；文法句型轉換使用「題目／英文答案」，
+   * 並隱藏與完整句子不相關的拼字、圖片與 KK 音標欄位。
+   * @param {boolean} isGrammarTransformation - 是否為文法轉換卡
+   */
+  FlashcardApp.prototype.configureEditWordContentMode_ = function(isGrammarTransformation) {
+    var title = document.getElementById('edit-word-title');
+    var englishLabel = document.getElementById('edit-word-english-label');
+    var chineseLabel = document.getElementById('edit-word-chinese-label');
+    var englishInput = document.getElementById('edit-word-english');
+    var chineseInput = document.getElementById('edit-word-chinese');
+    var mustSpellGroup = document.getElementById('edit-word-must-spell-group');
+    var imageGroup = document.getElementById('edit-word-image-group');
+    var kkGroup = document.getElementById('edit-word-kk-group');
+
+    if (isGrammarTransformation) {
+      if (title) title.textContent = '✏️ 編輯文法題目';
+      if (englishLabel) englishLabel.textContent = '題目';
+      if (chineseLabel) chineseLabel.textContent = '答案';
+      if (englishInput) englishInput.placeholder = '英文題目（例：He is from the USA.）';
+      if (chineseInput) chineseInput.placeholder = '英文答案（例：Is he from the USA?）';
+      if (mustSpellGroup) mustSpellGroup.style.display = 'none';
+      if (imageGroup) imageGroup.style.display = 'none';
+      if (kkGroup) kkGroup.style.display = 'none';
+    } else {
+      if (title) title.textContent = '✏️ 編輯單字';
+      if (englishLabel) englishLabel.textContent = '單字';
+      if (chineseLabel) chineseLabel.textContent = '翻譯';
+      if (englishInput) englishInput.placeholder = '英文單字';
+      if (chineseInput) chineseInput.placeholder = '中文翻譯';
+      if (mustSpellGroup) mustSpellGroup.style.display = '';
+      if (imageGroup) imageGroup.style.display = '';
+      if (kkGroup) kkGroup.style.display = '';
+    }
+  };
+
   // 開啟編輯單字模態框（可選傳入 optWord：由搜尋等流程指定單字，否則使用當前卡片）
   FlashcardApp.prototype.openEditWordModal = function(optWord) {
     var currentWord = optWord || this.currentWords[this.currentIndex];
@@ -42,7 +79,9 @@
     var difficultyValue = document.getElementById('edit-word-difficulty-value');
     var imageInput = document.getElementById('edit-word-image');
     var sheetNameEl = document.getElementById('edit-word-sheet-name');
+    var isGrammarTransformation = this.isGrammarTransformationWord(currentWord);
 
+    this.configureEditWordContentMode_(isGrammarTransformation);
     if (englishInput) englishInput.value = currentWord.english || '';
     if (chineseInput) chineseInput.value = currentWord.chinese || '';
     var difficultyNumberInput = document.getElementById('edit-word-difficulty-number');
@@ -61,6 +100,7 @@
 
     var mustSpellToggle = document.getElementById('edit-word-must-spell');
     if (mustSpellToggle) mustSpellToggle.value = String(this.normalizeMustSpell(currentWord.mustSpell));
+    this._editingWordIsGrammarTransformation = isGrammarTransformation;
 
     var tagsInput = document.getElementById('edit-word-tags');
     if (tagsInput) tagsInput.value = (currentWord.tags && currentWord.tags.length > 0) ? currentWord.tags.join(', ') : '';
@@ -70,7 +110,7 @@
 
     // KK 音標資訊（顯示目前 I 欄音標；重新抓取按鈕於下方 listener 綁定）
     this._editingOriginalEnglish = currentWord.english || '';
-    if (typeof this._renderEditKKPhonetic === 'function') {
+    if (!isGrammarTransformation && typeof this._renderEditKKPhonetic === 'function') {
       this._renderEditKKPhonetic(currentWord);
     }
 
@@ -86,6 +126,7 @@
     closeModalById(this, 'edit-word-modal');
     this._editingWordId = undefined;
     this._editingOriginalEnglish = undefined;
+    this._editingWordIsGrammarTransformation = false;
 
     // 重置 KK 音標暫存狀態（未儲存的選定/查詢結果不寫回 Sheet）
     if (typeof this._renderEditKKPhonetic === 'function') {
@@ -347,6 +388,7 @@
     var self = this;
     var wordId = this._editingWordId;
     if (wordId === undefined) return;
+    var isGrammarEdit = this._editingWordIsGrammarTransformation === true;
 
     var englishInput = document.getElementById('edit-word-english');
     var chineseInput = document.getElementById('edit-word-chinese');
@@ -374,7 +416,7 @@
     }
 
     if (!newEnglish || !newChinese) {
-      alert('單字和翻譯不能為空');
+      alert(isGrammarEdit ? '題目和答案不能為空' : '單字和翻譯不能為空');
       return;
     }
 
@@ -525,7 +567,7 @@
     this.renderDifficultyLevel();
 
     this.closeEditWordModal();
-    console.log('單字已更新:', newEnglish, '-', newChinese, '★' + newDifficulty);
+    console.log(isGrammarEdit ? '文法題目已更新:' : '單字已更新:', newEnglish, '-', newChinese, '★' + newDifficulty);
   };
 
 </script>

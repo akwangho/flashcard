@@ -18,12 +18,29 @@ const ROOT = path.resolve(__dirname, '..');
 const DATA_PATH = path.join(ROOT, 'data', 'grammar-transformation-cards.json');
 const OUTPUT_PATH = path.join(ROOT, 'grammarFlashcards.gs');
 
-const EXPECTED_COUNT = 100;
+const EXPECTED_COUNT = 200;
+const EXPECTED_BASE_COUNT = 50;
 const CATEGORIES = {
-  'be-negative': 'BE否定句',
-  'be-question': 'BE疑問句',
-  'do-negative': 'DoDoes否定句',
-  'do-question': 'DoDoes疑問句'
+  'be-affirmative-to-negative': 'BE肯定→否定',
+  'be-affirmative-to-question': 'BE肯定→疑問',
+  'be-negative-to-question': 'BE否定→疑問',
+  'be-question-to-affirmative': 'BE疑問→肯定',
+  'do-affirmative-to-negative': 'DoDoes肯定→否定',
+  'do-affirmative-to-question': 'DoDoes肯定→疑問',
+  'do-negative-to-question': 'DoDoes否定→疑問',
+  'do-question-to-affirmative': 'DoDoes疑問→肯定'
+};
+const TRANSFORMATIONS = [
+  'affirmative-to-negative',
+  'affirmative-to-question',
+  'negative-to-question',
+  'question-to-affirmative'
+];
+const INSTRUCTIONS = {
+  'affirmative-to-negative': '轉成否定句',
+  'affirmative-to-question': '轉成疑問句',
+  'negative-to-question': '轉成疑問句',
+  'question-to-affirmative': '轉成肯定句'
 };
 
 function fail(message) {
@@ -33,14 +50,17 @@ function fail(message) {
 
 function validateCards(data) {
   if (!data || !Array.isArray(data.cards)) fail('cards must be an array');
+  if (data.schemaVersion !== 2) fail(`schemaVersion must be 2, found ${data.schemaVersion}`);
   if (data.cards.length !== EXPECTED_COUNT) {
     fail(`expected ${EXPECTED_COUNT} cards, found ${data.cards.length}`);
   }
 
   const ids = new Set();
   const prompts = new Set();
-  const answers = new Set();
   const categoryCounts = {};
+  const transformationCounts = {};
+  const baseIds = new Set();
+  const answerForms = { contracted: 0, expanded: 0 };
 
   data.cards.forEach((card, index) => {
     const expectedId = index + 1;
@@ -53,27 +73,57 @@ function validateCards(data) {
     }
     categoryCounts[card.category] = (categoryCounts[card.category] || 0) + 1;
 
-    for (const field of ['prompt', 'answer', 'rule']) {
+    if (!TRANSFORMATIONS.includes(card.transformation)) {
+      fail(`card ${card.id} has unknown transformation ${card.transformation}`);
+    }
+    transformationCounts[card.transformation] = (transformationCounts[card.transformation] || 0) + 1;
+    if (card.instruction !== INSTRUCTIONS[card.transformation]) {
+      fail(`card ${card.id} has instruction ${card.instruction} for ${card.transformation}`);
+    }
+    if (!Number.isInteger(card.baseId) || card.baseId < 1 || card.baseId > EXPECTED_BASE_COUNT) {
+      fail(`card ${card.id} has invalid baseId ${card.baseId}`);
+    }
+    baseIds.add(card.baseId);
+
+    for (const field of ['prompt', 'answer', 'rule', 'promptType', 'answerType', 'grammarFamily']) {
       if (typeof card[field] !== 'string' || !card[field].trim()) {
         fail(`card ${card.id} has empty ${field}`);
       }
     }
     if (!/^[A-Z]/.test(card.prompt)) fail(`card ${card.id} prompt is not capitalized`);
     if (!/[.?!]$/.test(card.prompt)) fail(`card ${card.id} prompt has no terminal punctuation`);
+    if (!/[.?!]$/.test(card.answer)) fail(`card ${card.id} answer has no terminal punctuation`);
+    if (/\s\/\s/.test(card.answer)) fail(`card ${card.id} answer contains multiple alternatives`);
     if (!Array.isArray(card.sourceWords) || card.sourceWords.length === 0) {
       fail(`card ${card.id} has no sourceWords`);
     }
+    if (card.answerContraction) {
+      if (!Object.prototype.hasOwnProperty.call(answerForms, card.answerContraction)) {
+        fail(`card ${card.id} has invalid answerContraction ${card.answerContraction}`);
+      }
+      answerForms[card.answerContraction] += 1;
+    }
 
-    if (prompts.has(card.prompt)) fail(`duplicate prompt: ${card.prompt}`);
-    if (answers.has(card.answer)) fail(`duplicate answer: ${card.answer}`);
-    prompts.add(card.prompt);
-    answers.add(card.answer);
+    const completePrompt = `${card.prompt} (${card.instruction})`;
+    if (prompts.has(completePrompt)) fail(`duplicate complete prompt: ${completePrompt}`);
+    prompts.add(completePrompt);
   });
 
   for (const category of Object.keys(CATEGORIES)) {
     if (categoryCounts[category] !== 25) {
       fail(`category ${category} must contain 25 cards, found ${categoryCounts[category] || 0}`);
     }
+  }
+  for (const transformation of TRANSFORMATIONS) {
+    if (transformationCounts[transformation] !== 50) {
+      fail(`transformation ${transformation} must contain 50 cards, found ${transformationCounts[transformation] || 0}`);
+    }
+  }
+  if (baseIds.size !== EXPECTED_BASE_COUNT) {
+    fail(`expected ${EXPECTED_BASE_COUNT} base sentence ids, found ${baseIds.size}`);
+  }
+  if (answerForms.contracted !== 25 || answerForms.expanded !== 25) {
+    fail(`negative answers must mix 25 contracted and 25 expanded forms, found ${answerForms.contracted} and ${answerForms.expanded}`);
   }
 }
 
@@ -84,11 +134,19 @@ function jsValue(value) {
 function buildModule(data) {
   const cards = data.cards.map((card) => ({
     id: card.id,
+    baseId: card.baseId,
     category: card.category,
+    grammarFamily: card.grammarFamily,
+    transformation: card.transformation,
+    promptType: card.promptType,
+    answerType: card.answerType,
+    instruction: card.instruction,
     prompt: card.prompt,
     answer: card.answer,
     sourceWords: card.sourceWords,
-    rule: card.rule
+    rule: card.rule,
+    promptContraction: card.promptContraction,
+    answerContraction: card.answerContraction
   }));
 
   return `// AUTO-GENERATED from data/grammar-transformation-cards.json by
@@ -105,34 +163,41 @@ var GRAMMAR_TRANSFORMATION_TAG = '文法轉換';
 
 /** Human-readable category labels stored in worksheet columns H and K. */
 var GRAMMAR_TRANSFORMATION_CATEGORY_LABELS = {
-  'be-negative': 'BE否定句',
-  'be-question': 'BE疑問句',
-  'do-negative': 'DoDoes否定句',
-  'do-question': 'DoDoes疑問句'
+  'be-affirmative-to-negative': 'BE肯定→否定',
+  'be-affirmative-to-question': 'BE肯定→疑問',
+  'be-negative-to-question': 'BE否定→疑問',
+  'be-question-to-affirmative': 'BE疑問→肯定',
+  'do-affirmative-to-negative': 'DoDoes肯定→否定',
+  'do-affirmative-to-question': 'DoDoes肯定→疑問',
+  'do-negative-to-question': 'DoDoes否定→疑問',
+  'do-question-to-affirmative': 'DoDoes疑問→肯定'
 };
 
-/** The 100 canonical cards. The JSON file remains the source of truth. */
+/** The 200 canonical cards. The JSON file remains the source of truth. */
 var GRAMMAR_TRANSFORMATION_CARDS = ${JSON.stringify(cards, null, 2).split('\n').join('\n')};
 
 /**
- * Convert a card category to the instruction shown beside its prompt.
- * @param {string} category - Card category
+ * Return the instruction shown beside a transformation prompt.
+ * @param {Object|string} card - Card object or transformation category
  * @returns {string} Chinese instruction
  */
-function getGrammarTransformationInstruction_(category) {
-  if (category === 'be-negative' || category === 'do-negative') return '轉成否定句';
-  if (category === 'be-question' || category === 'do-question') return '轉成疑問句';
+function getGrammarTransformationInstruction_(card) {
+  if (card && typeof card === 'object' && card.instruction) return card.instruction;
+  var transformation = typeof card === 'string' ? card : (card && card.transformation);
+  if (transformation === 'affirmative-to-negative') return '轉成否定句';
+  if (transformation === 'affirmative-to-question' || transformation === 'negative-to-question') return '轉成疑問句';
+  if (transformation === 'question-to-affirmative') return '轉成肯定句';
   return '轉成句型';
 }
 
 /**
  * Build worksheet rows in the existing WordGo A-I vocabulary schema.
  * Columns J-L add source words, category, and a grammar rule for teachers.
- * @returns {Array<Array<*>>} 100 worksheet rows
+ * @returns {Array<Array<*>>} 200 worksheet rows
  */
 function buildGrammarTransformationRows_() {
   return GRAMMAR_TRANSFORMATION_CARDS.map(function(card) {
-    var instruction = getGrammarTransformationInstruction_(card.category);
+    var instruction = getGrammarTransformationInstruction_(card);
     var categoryLabel = GRAMMAR_TRANSFORMATION_CATEGORY_LABELS[card.category] || '句型轉換';
     return [
       0,                                                    // A: 不啟用拼字標記
@@ -153,7 +218,7 @@ function buildGrammarTransformationRows_() {
 
 /**
  * Create or update the grammar transformation worksheet in WordGo Data Sheet.
- * Safe to run repeatedly: the worksheet is replaced with the canonical 100 rows.
+ * Safe to run repeatedly: the worksheet is replaced with the canonical 200 rows.
  * The trailing underscore keeps this administrative function out of the anonymous
  * Web App's google.script.run surface.
  * @returns {Object} { success, sheetName, rowCount, spreadsheetName?, error? }

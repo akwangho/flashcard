@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Validate the canonical grammar transformation cards against the live
- * 「單字庫」 worksheet and the BE / Do-Does grammar rules.
+ * Validate the canonical 200-card grammar-transformation dataset against the
+ * live 「單字庫」 worksheet and the BE / Do-Does transformation rules.
  *
  * Usage:
  *   node scripts/validate-grammar-transformation-cards.mjs
@@ -18,6 +18,16 @@ const SPREADSHEET_ID = '1jrpECEaDgtcXawdO9Rl4raHZ_sqmvnUm7x0bJ4IqfRM';
 const SOURCE_SHEET_NAME = '單字庫';
 const SOURCE_CSV_URL =
   `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
+const EXPECTED_CARD_COUNT = 200;
+const EXPECTED_BASE_COUNT = 50;
+const EXPECTED_CATEGORY_COUNT = 25;
+
+const TRANSFORMATIONS = [
+  'affirmative-to-negative',
+  'affirmative-to-question',
+  'negative-to-question',
+  'question-to-affirmative'
+];
 
 function parseCsv(text) {
   const rows = [];
@@ -63,21 +73,6 @@ function parseCsv(text) {
   return rows;
 }
 
-function tokens(text) {
-  return (text.match(/[A-Za-z']+/g) || []);
-}
-
-function deinflectThirdPerson(verb) {
-  if (/ies$/i.test(verb)) return verb.replace(/ies$/i, 'y');
-  if (/(ches|shes|sses|xes|zes)$/i.test(verb)) return verb.replace(/es$/i, '');
-  if (/s$/i.test(verb)) return verb.replace(/s$/i, '');
-  return verb;
-}
-
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 async function loadSourceWords() {
   const response = await fetch(SOURCE_CSV_URL);
   if (!response.ok) {
@@ -91,117 +86,213 @@ async function loadSourceWords() {
   return words;
 }
 
-function validateCard(card, sourceWords, errors) {
-  const cardLabel = `card ${card.id}`;
-  const promptTokens = tokens(card.prompt);
-  const beIndex = promptTokens.findIndex((token) => /^(am|is|are)$/i.test(token));
+function lowerFirst(text) {
+  if (!text || text === 'I') return text;
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
 
-  if (card.category.startsWith('be-')) {
-    if (beIndex < 1) {
-      errors.push(`${cardLabel}: cannot find BE verb in prompt: ${card.prompt}`);
-      return;
-    }
-    const beVerb = promptTokens[beIndex].toLowerCase();
-    const subject = promptTokens.slice(0, beIndex).join(' ');
+function deinflectThirdPerson(verb) {
+  if (/ies$/i.test(verb)) return verb.replace(/ies$/i, 'y');
+  if (/(ches|shes|sses|xes|zes)$/i.test(verb)) return verb.replace(/es$/i, '');
+  if (/s$/i.test(verb)) return verb.replace(/s$/i, '');
+  return verb;
+}
 
-    if (card.category === 'be-negative') {
-      if (!new RegExp(`\\b${escapeRegExp(subject)}\\b`, 'i').test(card.answer)) {
-        errors.push(`${cardLabel}: negative answer lost subject: ${card.answer}`);
-      }
-      if (!/\b(?:not|n't)\b/i.test(card.answer)) {
-        errors.push(`${cardLabel}: negative answer has no negation: ${card.answer}`);
-      }
-      if (beVerb === 'am' && /\baren't\b/i.test(card.answer)) {
-        errors.push(`${cardLabel}: "I aren't" is not standard English: ${card.answer}`);
-      }
-    } else {
-      const expectedStart = beVerb === 'am' ? 'Am' : beVerb === 'is' ? 'Is' : 'Are';
-      if (!new RegExp(`^${expectedStart}\\b`).test(card.answer)) {
-        errors.push(`${cardLabel}: question must start with ${expectedStart}: ${card.answer}`);
-      }
-      if (!new RegExp(`\\b${escapeRegExp(subject)}\\b`, 'i').test(card.answer)) {
-        errors.push(`${cardLabel}: question lost subject: ${card.answer}`);
-      }
-    }
-    return;
+function parseBase(family, affirmative) {
+  if (family === 'be') {
+    const match = affirmative.match(/^([A-Z][A-Za-z' ]*?) (am|is|are) (.+)\.$/);
+    if (!match) return null;
+    return {
+      subject: match[1],
+      be: match[2].toLowerCase(),
+      complement: match[3]
+    };
   }
+  const match = affirmative.match(/^([A-Z][A-Za-z']*) ([A-Za-z]+) (.+)\.$/);
+  if (!match) return null;
+  const subject = match[1];
+  const promptVerb = match[2];
+  const usesDo = ['I', 'You', 'We', 'They'].indexOf(subject) !== -1;
+  return {
+    subject,
+    usesDo,
+    verb: usesDo ? promptVerb.toLowerCase() : deinflectThirdPerson(promptVerb),
+    thirdVerb: promptVerb,
+    complement: match[3]
+  };
+}
 
-  if (!card.category.startsWith('do-')) {
-    errors.push(`${cardLabel}: unknown category ${card.category}`);
-    return;
+function expectedNegative(family, base, form) {
+  if (family === 'be') {
+    if (form === 'expanded') return `${base.subject} ${base.be} not ${base.complement}.`;
+    if (base.be === 'am') return `I'm not ${base.complement}.`;
+    if (base.be === 'are') return `${base.subject} aren't ${base.complement}.`;
+    return `${base.subject} isn't ${base.complement}.`;
   }
-
-  const subject = promptTokens[0] || '';
-  const promptVerb = promptTokens[1] || '';
-  const baseVerb = deinflectThirdPerson(promptVerb);
-  const pluralSubject = /^(i|you|we|they)$/i.test(subject);
-  const expectedAux = pluralSubject ? 'do' : 'does';
-
-  if (pluralSubject && promptVerb.toLowerCase() !== baseVerb.toLowerCase()) {
-    errors.push(`${cardLabel}: plural subject must use base verb: ${card.prompt}`);
+  if (form === 'expanded') {
+    return `${base.subject} ${base.usesDo ? 'do not' : 'does not'} ${base.verb} ${base.complement}.`;
   }
-  if (!pluralSubject && promptVerb.toLowerCase() === baseVerb.toLowerCase()) {
-    errors.push(`${cardLabel}: third-person singular prompt needs inflected verb: ${card.prompt}`);
-  }
+  return `${base.subject} ${base.usesDo ? "don't" : "doesn't"} ${base.verb} ${base.complement}.`;
+}
 
-  if (card.category === 'do-negative') {
-    const negativePattern = pluralSubject
-      ? new RegExp(`\\b(?:do not|don't)\\s+${escapeRegExp(baseVerb)}\\b`, 'i')
-      : new RegExp(`\\b(?:does not|doesn't)\\s+${escapeRegExp(baseVerb)}\\b`, 'i');
-    if (!negativePattern.test(card.answer)) {
-      errors.push(`${cardLabel}: negative answer must use ${expectedAux} + base verb "${baseVerb}": ${card.answer}`);
-    }
-  } else {
-    const questionPattern = pluralSubject
-      ? new RegExp(`^Do\\s+${escapeRegExp(subject)}\\s+${escapeRegExp(baseVerb)}\\b`, 'i')
-      : new RegExp(`^Does\\s+${escapeRegExp(subject)}\\s+${escapeRegExp(baseVerb)}\\b`, 'i');
-    if (!questionPattern.test(card.answer)) {
-      errors.push(`${cardLabel}: question must use ${expectedAux} + subject + base verb "${baseVerb}": ${card.answer}`);
-    }
+function expectedQuestion(family, base) {
+  if (family === 'be') {
+    const auxiliary = base.be === 'am' ? 'Am' : base.be === 'are' ? 'Are' : 'Is';
+    return `${auxiliary} ${lowerFirst(base.subject)} ${base.complement}?`;
   }
+  return `${base.usesDo ? 'Do' : 'Does'} ${lowerFirst(base.subject)} ${base.verb} ${base.complement}?`;
+}
 
-  card.sourceWords.forEach((sourceWord) => {
-    if (!sourceWords.has(sourceWord.toLowerCase())) {
-      errors.push(`${cardLabel}: source word not found in ${SOURCE_SHEET_NAME}: ${sourceWord}`);
+function expectedAffirmative(family, base) {
+  if (family === 'be') return `${base.subject} ${base.be} ${base.complement}.`;
+  return `${base.subject} ${base.usesDo ? base.verb : base.thirdVerb} ${base.complement}.`;
+}
+
+function validateCardMetadata(card, errors) {
+  const label = `card ${card.id}`;
+  const requiredFields = [
+    'baseId', 'category', 'grammarFamily', 'transformation', 'promptType',
+    'answerType', 'instruction', 'prompt', 'answer', 'sourceWords', 'rule'
+  ];
+  requiredFields.forEach((field) => {
+    if (card[field] === undefined || card[field] === null || card[field] === '') {
+      errors.push(`${label}: missing ${field}`);
     }
   });
+
+  if (!/^[A-Z]/.test(card.prompt || '')) errors.push(`${label}: prompt is not capitalized`);
+  if (!/[.?!]$/.test(card.prompt || '')) errors.push(`${label}: prompt has no terminal punctuation`);
+  if (!/[.?!]$/.test(card.answer || '')) errors.push(`${label}: answer has no terminal punctuation`);
+  if (/\s\/\s/.test(card.answer || '')) errors.push(`${label}: answer shows multiple alternatives: ${card.answer}`);
+  if (/\(轉成/.test(card.prompt || '')) errors.push(`${label}: prompt must not embed the instruction`);
+  if (!Array.isArray(card.sourceWords) || card.sourceWords.length === 0) {
+    errors.push(`${label}: sourceWords must be a non-empty array`);
+  }
+}
+
+function validateBaseSet(baseId, cards, sourceWords, errors) {
+  const label = `base ${baseId}`;
+  if (cards.length !== 4) {
+    errors.push(`${label}: expected 4 transformations, found ${cards.length}`);
+    return;
+  }
+  const byTransformation = {};
+  cards.forEach((card) => {
+    byTransformation[card.transformation] = card;
+    validateCardMetadata(card, errors);
+    (card.sourceWords || []).forEach((sourceWord) => {
+      if (!sourceWords.has(String(sourceWord).toLowerCase())) {
+        errors.push(`card ${card.id}: source word not found in ${SOURCE_SHEET_NAME}: ${sourceWord}`);
+      }
+    });
+  });
+
+  TRANSFORMATIONS.forEach((transformation) => {
+    if (!byTransformation[transformation]) errors.push(`${label}: missing ${transformation}`);
+  });
+  if (Object.keys(byTransformation).length !== 4) return;
+
+  const affirmativeCard = byTransformation['affirmative-to-question'];
+  const negativeCard = byTransformation['affirmative-to-negative'];
+  const negativeToQuestionCard = byTransformation['negative-to-question'];
+  const questionToAffirmativeCard = byTransformation['question-to-affirmative'];
+  const family = affirmativeCard.grammarFamily;
+  const base = parseBase(family, affirmativeCard.prompt);
+  if (!base) {
+    errors.push(`${label}: cannot parse affirmative sentence: ${affirmativeCard.prompt}`);
+    return;
+  }
+
+  const affirmative = expectedAffirmative(family, base);
+  const question = expectedQuestion(family, base);
+  const firstNegative = expectedNegative(family, base, negativeCard.answerContraction);
+  const secondNegative = expectedNegative(family, base, negativeToQuestionCard.promptContraction);
+
+  if (affirmativeCard.prompt !== affirmative) errors.push(`${label}: affirmative prompt mismatch`);
+  if (negativeCard.prompt !== affirmative) errors.push(`${label}: affirmative-to-negative prompt mismatch`);
+  if (negativeCard.answer !== firstNegative) {
+    errors.push(`card ${negativeCard.id}: negative answer mismatch: ${negativeCard.answer}`);
+  }
+  if (affirmativeCard.answer !== question) errors.push(`card ${affirmativeCard.id}: question answer mismatch`);
+  if (negativeToQuestionCard.prompt !== secondNegative) {
+    errors.push(`card ${negativeToQuestionCard.id}: negative prompt mismatch: ${negativeToQuestionCard.prompt}`);
+  }
+  if (negativeToQuestionCard.answer !== question) {
+    errors.push(`card ${negativeToQuestionCard.id}: question answer mismatch`);
+  }
+  if (questionToAffirmativeCard.prompt !== question) {
+    errors.push(`card ${questionToAffirmativeCard.id}: question prompt mismatch`);
+  }
+  if (questionToAffirmativeCard.answer !== affirmative) {
+    errors.push(`card ${questionToAffirmativeCard.id}: affirmative answer mismatch`);
+  }
 }
 
 const data = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
 const sourceWords = await loadSourceWords();
 const errors = [];
 
-if (!Array.isArray(data.cards) || data.cards.length !== 100) {
-  errors.push(`expected 100 cards, found ${data.cards ? data.cards.length : 0}`);
+if (data.schemaVersion !== 2) errors.push(`expected schemaVersion 2, found ${data.schemaVersion}`);
+if (!Array.isArray(data.cards) || data.cards.length !== EXPECTED_CARD_COUNT) {
+  errors.push(`expected ${EXPECTED_CARD_COUNT} cards, found ${data.cards ? data.cards.length : 0}`);
 }
 
 const ids = new Set();
-const prompts = new Set();
-const answers = new Set();
+const completePrompts = new Set();
 const categoryCounts = {};
-(data.cards || []).forEach((card) => {
+const transformationCounts = {};
+const familyCounts = {};
+const answerForms = { contracted: 0, expanded: 0 };
+const baseSets = new Map();
+(data.cards || []).forEach((card, index) => {
+  if (card.id !== index + 1) errors.push(`card ${index + 1} has id ${card.id}`);
   if (ids.has(card.id)) errors.push(`duplicate id ${card.id}`);
   ids.add(card.id);
-  if (prompts.has(card.prompt)) errors.push(`duplicate prompt: ${card.prompt}`);
-  prompts.add(card.prompt);
-  if (answers.has(card.answer)) errors.push(`duplicate answer: ${card.answer}`);
-  answers.add(card.answer);
+
+  const completePrompt = `${card.prompt} (${card.instruction})`;
+  if (completePrompts.has(completePrompt)) errors.push(`duplicate complete prompt: ${completePrompt}`);
+  completePrompts.add(completePrompt);
+
   categoryCounts[card.category] = (categoryCounts[card.category] || 0) + 1;
-  validateCard(card, sourceWords, errors);
+  transformationCounts[card.transformation] = (transformationCounts[card.transformation] || 0) + 1;
+  familyCounts[card.grammarFamily] = (familyCounts[card.grammarFamily] || 0) + 1;
+  if (card.answerContraction) answerForms[card.answerContraction] += 1;
+
+  if (!baseSets.has(card.baseId)) baseSets.set(card.baseId, []);
+  baseSets.get(card.baseId).push(card);
 });
 
 Object.keys(categoryCounts).sort().forEach((category) => {
-  if (categoryCounts[category] !== 25) {
-    errors.push(`category ${category} has ${categoryCounts[category]} cards; expected 25`);
+  if (categoryCounts[category] !== EXPECTED_CATEGORY_COUNT) {
+    errors.push(`category ${category} has ${categoryCounts[category]} cards; expected ${EXPECTED_CATEGORY_COUNT}`);
   }
 });
+TRANSFORMATIONS.forEach((transformation) => {
+  if (transformationCounts[transformation] !== 50) {
+    errors.push(`transformation ${transformation} has ${transformationCounts[transformation] || 0} cards; expected 50`);
+  }
+});
+if (familyCounts.be !== 100 || familyCounts.do !== 100) {
+  errors.push(`expected 100 BE and 100 Do/Does cards, found ${familyCounts.be || 0} and ${familyCounts.do || 0}`);
+}
+if (answerForms.contracted !== 25 || answerForms.expanded !== 25) {
+  errors.push(`expected 25 contracted and 25 expanded negative answers, found ${answerForms.contracted} and ${answerForms.expanded}`);
+}
+if (baseSets.size !== EXPECTED_BASE_COUNT) {
+  errors.push(`expected ${EXPECTED_BASE_COUNT} base sentence sets, found ${baseSets.size}`);
+}
+baseSets.forEach((cards, baseId) => validateBaseSet(baseId, cards, sourceWords, errors));
 
 if (errors.length > 0) {
   console.error(`Validation failed with ${errors.length} issue(s):`);
-  errors.forEach((error) => console.error(`  - ${error}`));
+  errors.slice(0, 100).forEach((error) => console.error(`  - ${error}`));
+  if (errors.length > 100) console.error(`  ... and ${errors.length - 100} more`);
   process.exit(1);
 }
 
 console.log(`Validated ${data.cards.length} cards against ${SOURCE_SHEET_NAME} (${sourceWords.size} vocabulary entries).`);
 console.log('Category counts:', categoryCounts);
-console.log('All grammar, source-word, uniqueness, and agreement checks passed.');
+console.log('Transformation counts:', transformationCounts);
+console.log('Family counts:', familyCounts);
+console.log('Negative answer forms:', answerForms);
+console.log('All grammar, source-word, instruction, single-answer, and base-set checks passed.');

@@ -12,1120 +12,3818 @@ var GRAMMAR_TRANSFORMATION_TAG = '文法轉換';
 
 /** Human-readable category labels stored in worksheet columns H and K. */
 var GRAMMAR_TRANSFORMATION_CATEGORY_LABELS = {
-  'be-negative': 'BE否定句',
-  'be-question': 'BE疑問句',
-  'do-negative': 'DoDoes否定句',
-  'do-question': 'DoDoes疑問句'
+  'be-affirmative-to-negative': 'BE肯定→否定',
+  'be-affirmative-to-question': 'BE肯定→疑問',
+  'be-negative-to-question': 'BE否定→疑問',
+  'be-question-to-affirmative': 'BE疑問→肯定',
+  'do-affirmative-to-negative': 'DoDoes肯定→否定',
+  'do-affirmative-to-question': 'DoDoes肯定→疑問',
+  'do-negative-to-question': 'DoDoes否定→疑問',
+  'do-question-to-affirmative': 'DoDoes疑問→肯定'
 };
 
-/** The 100 canonical cards. The JSON file remains the source of truth. */
+/** The 200 canonical cards. The JSON file remains the source of truth. */
 var GRAMMAR_TRANSFORMATION_CARDS = [
   {
     "id": 1,
-    "category": "be-negative",
+    "baseId": 1,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
     "prompt": "I am tired.",
-    "answer": "I am not tired. / I'm not tired.",
+    "answer": "Am I tired?",
     "sourceWords": [
       "tired"
     ],
-    "rule": "I + am not / I'm not + 形容詞"
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
   },
   {
     "id": 2,
-    "category": "be-negative",
-    "prompt": "You are hungry.",
-    "answer": "You are not hungry. / You aren't hungry.",
-    "sourceWords": [
-      "hungry"
-    ],
-    "rule": "you + are not / aren't + 形容詞"
-  },
-  {
-    "id": 3,
-    "category": "be-negative",
-    "prompt": "He is angry.",
-    "answer": "He is not angry. / He isn't angry.",
-    "sourceWords": [
-      "angry"
-    ],
-    "rule": "he/she/it + is not / isn't + 形容詞"
-  },
-  {
-    "id": 4,
-    "category": "be-negative",
-    "prompt": "She is a nurse.",
-    "answer": "She is not a nurse. / She isn't a nurse.",
-    "sourceWords": [
-      "nurse"
-    ],
-    "rule": "否定 be 動詞後面，其餘句子不變"
-  },
-  {
-    "id": 5,
-    "category": "be-negative",
-    "prompt": "It is sunny.",
-    "answer": "It is not sunny. / It isn't sunny.",
-    "sourceWords": [
-      "sunny"
-    ],
-    "rule": "it + is not / isn't + 形容詞"
-  },
-  {
-    "id": 6,
-    "category": "be-negative",
-    "prompt": "We are busy.",
-    "answer": "We are not busy. / We aren't busy.",
-    "sourceWords": [
-      "busy"
-    ],
-    "rule": "we/they + are not / aren't + 形容詞"
-  },
-  {
-    "id": 7,
-    "category": "be-negative",
-    "prompt": "They are free.",
-    "answer": "They are not free. / They aren't free.",
-    "sourceWords": [
-      "free"
-    ],
-    "rule": "they + are not / aren't + 形容詞"
-  },
-  {
-    "id": 8,
-    "category": "be-negative",
-    "prompt": "My brother is tall.",
-    "answer": "My brother is not tall. / My brother isn't tall.",
-    "sourceWords": [
-      "brother",
-      "tall"
-    ],
-    "rule": "否定 be 動詞後面，其餘句子不變"
-  },
-  {
-    "id": 9,
-    "category": "be-negative",
-    "prompt": "My grandma is sick.",
-    "answer": "My grandma is not sick. / My grandma isn't sick.",
-    "sourceWords": [
-      "grandmother (grandma)",
-      "sick"
-    ],
-    "rule": "否定 be 動詞後面，其餘句子不變"
-  },
-  {
-    "id": 10,
-    "category": "be-negative",
-    "prompt": "The doctor is tired.",
-    "answer": "The doctor is not tired. / The doctor isn't tired.",
-    "sourceWords": [
-      "doctor",
-      "tired"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 11,
-    "category": "be-negative",
-    "prompt": "The weather is wet.",
-    "answer": "The weather is not wet. / The weather isn't wet.",
-    "sourceWords": [
-      "weather",
-      "wet"
-    ],
-    "rule": "the weather 視為單數，使用 is"
-  },
-  {
-    "id": 12,
-    "category": "be-negative",
-    "prompt": "The eggs are fresh.",
-    "answer": "The eggs are not fresh. / The eggs aren't fresh.",
-    "sourceWords": [
-      "egg",
-      "fresh"
-    ],
-    "rule": "the + 複數名詞 + are not / aren't"
-  },
-  {
-    "id": 13,
-    "category": "be-negative",
-    "prompt": "The juice is delicious.",
-    "answer": "The juice is not delicious. / The juice isn't delicious.",
-    "sourceWords": [
-      "juice",
-      "delicious"
-    ],
-    "rule": "the juice 視為單數，使用 is"
-  },
-  {
-    "id": 14,
-    "category": "be-negative",
-    "prompt": "My shoes are dirty.",
-    "answer": "My shoes are not dirty. / My shoes aren't dirty.",
-    "sourceWords": [
-      "shoes",
-      "dirty"
-    ],
-    "rule": "shoes 是複數，使用 are not / aren't"
-  },
-  {
-    "id": 15,
-    "category": "be-negative",
-    "prompt": "My clothes are clean.",
-    "answer": "My clothes are not clean. / My clothes aren't clean.",
-    "sourceWords": [
-      "clothes",
-      "clean"
-    ],
-    "rule": "clothes 永遠是複數，使用 are not / aren't"
-  },
-  {
-    "id": 16,
-    "category": "be-negative",
-    "prompt": "The picture is beautiful.",
-    "answer": "The picture is not beautiful. / The picture isn't beautiful.",
-    "sourceWords": [
-      "picture",
-      "beautiful"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 17,
-    "category": "be-negative",
-    "prompt": "The music is loud.",
-    "answer": "The music is not loud. / The music isn't loud.",
-    "sourceWords": [
-      "music",
-      "loud"
-    ],
-    "rule": "the music 視為單數，使用 is"
-  },
-  {
-    "id": 18,
-    "category": "be-negative",
-    "prompt": "The robot is friendly.",
-    "answer": "The robot is not friendly. / The robot isn't friendly.",
-    "sourceWords": [
-      "robot",
-      "friendly"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 19,
-    "category": "be-negative",
-    "prompt": "The duck is angry.",
-    "answer": "The duck is not angry. / The duck isn't angry.",
-    "sourceWords": [
-      "duck",
-      "angry"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 20,
-    "category": "be-negative",
-    "prompt": "The vegetable is raw.",
-    "answer": "The vegetable is not raw. / The vegetable isn't raw.",
-    "sourceWords": [
-      "vegetable",
-      "raw"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 21,
-    "category": "be-negative",
-    "prompt": "The camera is heavy.",
-    "answer": "The camera is not heavy. / The camera isn't heavy.",
-    "sourceWords": [
-      "camera",
-      "heavy"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 22,
-    "category": "be-negative",
-    "prompt": "The bike is old.",
-    "answer": "The bike is not old. / The bike isn't old.",
-    "sourceWords": [
-      "bike",
-      "old"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 23,
-    "category": "be-negative",
-    "prompt": "The computer is slow.",
-    "answer": "The computer is not slow. / The computer isn't slow.",
-    "sourceWords": [
-      "computer",
-      "slow"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 24,
-    "category": "be-negative",
-    "prompt": "The story is sad.",
-    "answer": "The story is not sad. / The story isn't sad.",
-    "sourceWords": [
-      "story",
-      "sad"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 25,
-    "category": "be-negative",
-    "prompt": "The game is wonderful.",
-    "answer": "The game is not wonderful. / The game isn't wonderful.",
-    "sourceWords": [
-      "game",
-      "wonderful"
-    ],
-    "rule": "the + 單數名詞 + is not / isn't"
-  },
-  {
-    "id": 26,
-    "category": "be-question",
-    "prompt": "You are angry.",
-    "answer": "Are you angry?",
-    "sourceWords": [
-      "angry"
-    ],
-    "rule": "Are + you + 原句 are 後面的部分"
-  },
-  {
-    "id": 27,
-    "category": "be-question",
-    "prompt": "He is happy.",
-    "answer": "Is he happy?",
-    "sourceWords": [
-      "happy"
-    ],
-    "rule": "Is + he + 原句 is 後面的部分"
-  },
-  {
-    "id": 28,
-    "category": "be-question",
-    "prompt": "She is thirsty.",
-    "answer": "Is she thirsty?",
-    "sourceWords": [
-      "thirsty"
-    ],
-    "rule": "Is + she + 原句 is 後面的部分"
-  },
-  {
-    "id": 29,
-    "category": "be-question",
-    "prompt": "I am sad.",
-    "answer": "Am I sad?",
-    "sourceWords": [
-      "sad"
-    ],
-    "rule": "Am + I + 原句 am 後面的部分"
-  },
-  {
-    "id": 30,
-    "category": "be-question",
-    "prompt": "We are at the library.",
-    "answer": "Are we at the library?",
-    "sourceWords": [
-      "library"
-    ],
-    "rule": "Are + we + 原句 are 後面的部分"
-  },
-  {
-    "id": 31,
-    "category": "be-question",
-    "prompt": "They are old.",
-    "answer": "Are they old?",
-    "sourceWords": [
-      "old"
-    ],
-    "rule": "Are + they + 原句 are 後面的部分"
-  },
-  {
-    "id": 32,
-    "category": "be-question",
-    "prompt": "Your brother is young.",
-    "answer": "Is your brother young?",
-    "sourceWords": [
-      "brother",
-      "young"
-    ],
-    "rule": "Is + your brother + 原句 is 後面的部分"
-  },
-  {
-    "id": 33,
-    "category": "be-question",
-    "prompt": "Your grandma is happy.",
-    "answer": "Is your grandma happy?",
-    "sourceWords": [
-      "grandmother (grandma)",
-      "happy"
-    ],
-    "rule": "Is + your grandma + 原句 is 後面的部分"
-  },
-  {
-    "id": 34,
-    "category": "be-question",
-    "prompt": "The doctor is busy.",
-    "answer": "Is the doctor busy?",
-    "sourceWords": [
-      "doctor",
-      "busy"
-    ],
-    "rule": "Is + the doctor + 原句 is 後面的部分"
-  },
-  {
-    "id": 35,
-    "category": "be-question",
-    "prompt": "The nurse is kind.",
-    "answer": "Is the nurse kind?",
-    "sourceWords": [
-      "nurse",
-      "kind"
-    ],
-    "rule": "Is + the nurse + 原句 is 後面的部分"
-  },
-  {
-    "id": 36,
-    "category": "be-question",
-    "prompt": "The weather is cloudy.",
-    "answer": "Is the weather cloudy?",
-    "sourceWords": [
-      "weather",
-      "cloudy"
-    ],
-    "rule": "the weather 視為單數，使用 Is"
-  },
-  {
-    "id": 37,
-    "category": "be-question",
-    "prompt": "The tomatoes are fresh.",
-    "answer": "Are the tomatoes fresh?",
-    "sourceWords": [
-      "tomato",
-      "fresh"
-    ],
-    "rule": "the tomatoes 是複數，使用 Are"
-  },
-  {
-    "id": 38,
-    "category": "be-question",
-    "prompt": "The soup is salty.",
-    "answer": "Is the soup salty?",
-    "sourceWords": [
-      "salty"
-    ],
-    "rule": "the soup 視為單數，使用 Is"
-  },
-  {
-    "id": 39,
-    "category": "be-question",
-    "prompt": "My shoes are clean.",
-    "answer": "Are my shoes clean?",
-    "sourceWords": [
-      "shoes",
-      "clean"
-    ],
-    "rule": "shoes 是複數，使用 Are"
-  },
-  {
-    "id": 40,
-    "category": "be-question",
-    "prompt": "My clothes are dirty.",
-    "answer": "Are my clothes dirty?",
-    "sourceWords": [
-      "clothes",
-      "dirty"
-    ],
-    "rule": "clothes 永遠是複數，使用 Are"
-  },
-  {
-    "id": 41,
-    "category": "be-question",
-    "prompt": "The picture is amazing.",
-    "answer": "Is the picture amazing?",
-    "sourceWords": [
-      "picture",
-      "amazing"
-    ],
-    "rule": "Is + the picture + 原句 is 後面的部分"
-  },
-  {
-    "id": 42,
-    "category": "be-question",
-    "prompt": "Science is easy.",
-    "answer": "Is science easy?",
-    "sourceWords": [
-      "science",
-      "easy"
-    ],
-    "rule": "Is + science + 原句 is 後面的部分"
-  },
-  {
-    "id": 43,
-    "category": "be-question",
-    "prompt": "The frog is cute.",
-    "answer": "Is the frog cute?",
-    "sourceWords": [
-      "frog",
-      "cute"
-    ],
-    "rule": "Is + the frog + 原句 is 後面的部分"
-  },
-  {
-    "id": 44,
-    "category": "be-question",
-    "prompt": "The duckling is upset.",
-    "answer": "Is the duckling upset?",
-    "sourceWords": [
-      "duckling",
-      "upset"
-    ],
-    "rule": "Is + the duckling + 原句 is 後面的部分"
-  },
-  {
-    "id": 45,
-    "category": "be-question",
-    "prompt": "The vegetables are raw.",
-    "answer": "Are the vegetables raw?",
-    "sourceWords": [
-      "vegetable",
-      "raw"
-    ],
-    "rule": "the vegetables 是複數，使用 Are"
-  },
-  {
-    "id": 46,
-    "category": "be-question",
-    "prompt": "The camera is famous.",
-    "answer": "Is the camera famous?",
-    "sourceWords": [
-      "camera",
-      "famous"
-    ],
-    "rule": "Is + the camera + 原句 is 後面的部分"
-  },
-  {
-    "id": 47,
-    "category": "be-question",
-    "prompt": "The train is fast.",
-    "answer": "Is the train fast?",
-    "sourceWords": [
-      "train",
-      "fast"
-    ],
-    "rule": "Is + the train + 原句 is 後面的部分"
-  },
-  {
-    "id": 48,
-    "category": "be-question",
-    "prompt": "The computer is safe.",
-    "answer": "Is the computer safe?",
-    "sourceWords": [
-      "computer",
-      "safe"
-    ],
-    "rule": "Is + the computer + 原句 is 後面的部分"
-  },
-  {
-    "id": 49,
-    "category": "be-question",
-    "prompt": "The story is wonderful.",
-    "answer": "Is the story wonderful?",
-    "sourceWords": [
-      "story",
-      "wonderful"
-    ],
-    "rule": "Is + the story + 原句 is 後面的部分"
-  },
-  {
-    "id": 50,
-    "category": "be-question",
-    "prompt": "The game is popular.",
-    "answer": "Is the game popular?",
-    "sourceWords": [
-      "game",
-      "popular"
-    ],
-    "rule": "Is + the game + 原句 is 後面的部分"
-  },
-  {
-    "id": 51,
-    "category": "do-negative",
-    "prompt": "I study Chinese.",
-    "answer": "I do not study Chinese. / I don't study Chinese.",
-    "sourceWords": [
-      "study",
-      "Chinese"
-    ],
-    "rule": "I/you/we/they + do not / don't + 原形動詞"
-  },
-  {
-    "id": 52,
-    "category": "do-negative",
-    "prompt": "You clean your bedroom.",
-    "answer": "You do not clean your bedroom. / You don't clean your bedroom.",
-    "sourceWords": [
-      "bedroom",
-      "clean"
-    ],
-    "rule": "I/you/we/they + do not / don't + 原形動詞"
-  },
-  {
-    "id": 53,
-    "category": "do-negative",
+    "baseId": 6,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
     "prompt": "He studies math.",
-    "answer": "He does not study math. / He doesn't study math.",
+    "answer": "Does he study math?",
     "sourceWords": [
       "study",
       "math"
     ],
-    "rule": "he/she/it + does not / doesn't + 原形動詞"
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
   },
   {
-    "id": 54,
-    "category": "do-negative",
-    "prompt": "She buys bread.",
-    "answer": "She does not buy bread. / She doesn't buy bread.",
+    "id": 3,
+    "baseId": 43,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You don't pick the fruit.",
+    "answer": "Do you pick the fruit?",
     "sourceWords": [
-      "buy",
-      "bread"
+      "pick",
+      "fruit"
     ],
-    "rule": "第三人稱單數否定，動詞回到原形 buy"
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
   },
   {
-    "id": 55,
-    "category": "do-negative",
-    "prompt": "We dance at the party.",
-    "answer": "We do not dance at the party. / We don't dance at the party.",
-    "sourceWords": [
-      "dance"
-    ],
-    "rule": "we/they + do not / don't + 原形動詞"
-  },
-  {
-    "id": 56,
-    "category": "do-negative",
-    "prompt": "They draw a robot.",
-    "answer": "They do not draw a robot. / They don't draw a robot.",
-    "sourceWords": [
-      "draw",
-      "robot"
-    ],
-    "rule": "they + do not / don't + 原形動詞"
-  },
-  {
-    "id": 57,
-    "category": "do-negative",
-    "prompt": "Tom swims on Monday.",
-    "answer": "Tom does not swim on Monday. / Tom doesn't swim on Monday.",
-    "sourceWords": [
-      "swim",
-      "Monday"
-    ],
-    "rule": "第三人稱單數否定，動詞回到原形 swim"
-  },
-  {
-    "id": 58,
-    "category": "do-negative",
-    "prompt": "Amy jumps on Sunday.",
-    "answer": "Amy does not jump on Sunday. / Amy doesn't jump on Sunday.",
-    "sourceWords": [
-      "jump",
-      "Sunday"
-    ],
-    "rule": "第三人稱單數否定，動詞回到原形 jump"
-  },
-  {
-    "id": 59,
-    "category": "do-negative",
-    "prompt": "I cook dinner.",
-    "answer": "I do not cook dinner. / I don't cook dinner.",
-    "sourceWords": [
-      "cook"
-    ],
-    "rule": "I + do not / don't + 原形動詞"
-  },
-  {
-    "id": 60,
-    "category": "do-negative",
-    "prompt": "You wait in the garden.",
-    "answer": "You do not wait in the garden. / You don't wait in the garden.",
-    "sourceWords": [
-      "wait",
-      "garden"
-    ],
-    "rule": "you + do not / don't + 原形動詞"
-  },
-  {
-    "id": 61,
-    "category": "do-negative",
-    "prompt": "He walks to the library.",
-    "answer": "He does not walk to the library. / He doesn't walk to the library.",
-    "sourceWords": [
-      "walk",
-      "library"
-    ],
-    "rule": "第三人稱單數否定，動詞回到原形 walk"
-  },
-  {
-    "id": 62,
-    "category": "do-negative",
-    "prompt": "She calls her grandma.",
-    "answer": "She does not call her grandma. / She doesn't call her grandma.",
-    "sourceWords": [
-      "call",
-      "grandmother (grandma)"
-    ],
-    "rule": "第三人稱單數否定，動詞回到原形 call"
-  },
-  {
-    "id": 63,
-    "category": "do-negative",
-    "prompt": "We visit the library.",
-    "answer": "We do not visit the library. / We don't visit the library.",
-    "sourceWords": [
-      "visit",
-      "library"
-    ],
-    "rule": "we + do not / don't + 原形動詞"
-  },
-  {
-    "id": 64,
-    "category": "do-negative",
-    "prompt": "They laugh at the clown.",
-    "answer": "They do not laugh at the clown. / They don't laugh at the clown.",
-    "sourceWords": [
-      "laugh",
-      "clown"
-    ],
-    "rule": "they + do not / don't + 原形動詞"
-  },
-  {
-    "id": 65,
-    "category": "do-negative",
-    "prompt": "I smile at the robot.",
-    "answer": "I do not smile at the robot. / I don't smile at the robot.",
-    "sourceWords": [
-      "smile",
-      "robot"
-    ],
-    "rule": "I + do not / don't + 原形動詞"
-  },
-  {
-    "id": 66,
-    "category": "do-negative",
-    "prompt": "You answer the question.",
-    "answer": "You do not answer the question. / You don't answer the question.",
-    "sourceWords": [
-      "answer",
-      "question"
-    ],
-    "rule": "you + do not / don't + 原形動詞"
-  },
-  {
-    "id": 67,
-    "category": "do-negative",
-    "prompt": "He catches the rabbit.",
-    "answer": "He does not catch the rabbit. / He doesn't catch the rabbit.",
-    "sourceWords": [
-      "catch",
-      "rabbit"
-    ],
-    "rule": "第三人稱單數否定，動詞回到原形 catch"
-  },
-  {
-    "id": 68,
-    "category": "do-negative",
-    "prompt": "She feels sick today.",
-    "answer": "She does not feel sick today. / She doesn't feel sick today.",
+    "id": 4,
+    "baseId": 35,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She doesn't feel sick today.",
+    "answer": "Does she feel sick today?",
     "sourceWords": [
       "feel",
       "sick"
     ],
-    "rule": "第三人稱單數否定，動詞回到原形 feel"
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
   },
   {
-    "id": 69,
-    "category": "do-negative",
+    "id": 5,
+    "baseId": 42,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "I pay for the camera.",
+    "answer": "I don't pay for the camera.",
+    "sourceWords": [
+      "pay",
+      "camera"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 6,
+    "baseId": 2,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do I study Chinese?",
+    "answer": "I study Chinese.",
+    "sourceWords": [
+      "study",
+      "Chinese"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 7,
+    "baseId": 19,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do you wait in the garden?",
+    "answer": "You wait in the garden.",
+    "sourceWords": [
+      "wait",
+      "garden"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 8,
+    "baseId": 15,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "Amy jumps on Sunday.",
+    "answer": "Amy does not jump on Sunday.",
+    "sourceWords": [
+      "jump",
+      "Sunday"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 9,
+    "baseId": 3,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You clean your bedroom.",
+    "answer": "Do you clean your bedroom?",
+    "sourceWords": [
+      "bedroom",
+      "clean"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 10,
+    "baseId": 44,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The bike is old.",
+    "answer": "Is the bike old?",
+    "sourceWords": [
+      "bike",
+      "old"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 11,
+    "baseId": 36,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The robot is friendly.",
+    "answer": "The robot isn't friendly.",
+    "sourceWords": [
+      "robot",
+      "friendly"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 12,
+    "baseId": 5,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He isn't angry.",
+    "answer": "Is he angry?",
+    "sourceWords": [
+      "angry"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 13,
+    "baseId": 4,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Are you hungry?",
+    "answer": "You are hungry.",
+    "sourceWords": [
+      "hungry"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 14,
+    "baseId": 36,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The robot is not friendly.",
+    "answer": "Is the robot friendly?",
+    "sourceWords": [
+      "robot",
+      "friendly"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 15,
+    "baseId": 11,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They don't draw a robot.",
+    "answer": "Do they draw a robot?",
+    "sourceWords": [
+      "draw",
+      "robot"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 16,
+    "baseId": 24,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The eggs are fresh.",
+    "answer": "Are the eggs fresh?",
+    "sourceWords": [
+      "egg",
+      "fresh"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 17,
+    "baseId": 41,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The camera is heavy.",
+    "answer": "The camera is not heavy.",
+    "sourceWords": [
+      "camera",
+      "heavy"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 18,
+    "baseId": 10,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "We dance at the party.",
+    "answer": "We don't dance at the party.",
+    "sourceWords": [
+      "dance"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 19,
+    "baseId": 49,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The game is wonderful.",
+    "answer": "Is the game wonderful?",
+    "sourceWords": [
+      "game",
+      "wonderful"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 20,
+    "baseId": 9,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "It is sunny.",
+    "answer": "Is it sunny?",
+    "sourceWords": [
+      "sunny"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 21,
+    "baseId": 7,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does she buy bread?",
+    "answer": "She buys bread.",
+    "sourceWords": [
+      "buy",
+      "bread"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 22,
+    "baseId": 50,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "We talk about the game.",
+    "answer": "We don't talk about the game.",
+    "sourceWords": [
+      "talk",
+      "game"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 23,
+    "baseId": 11,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "They draw a robot.",
+    "answer": "They do not draw a robot.",
+    "sourceWords": [
+      "draw",
+      "robot"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 24,
+    "baseId": 21,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The weather is wet.",
+    "answer": "The weather is not wet.",
+    "sourceWords": [
+      "weather",
+      "wet"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 25,
+    "baseId": 3,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do you clean your bedroom?",
+    "answer": "You clean your bedroom.",
+    "sourceWords": [
+      "bedroom",
+      "clean"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 26,
+    "baseId": 28,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "My shoes are dirty.",
+    "answer": "My shoes aren't dirty.",
+    "sourceWords": [
+      "shoes",
+      "dirty"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 27,
+    "baseId": 8,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is she a nurse?",
+    "answer": "She is a nurse.",
+    "sourceWords": [
+      "nurse"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 28,
+    "baseId": 15,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does amy jump on Sunday?",
+    "answer": "Amy jumps on Sunday.",
+    "sourceWords": [
+      "jump",
+      "Sunday"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 29,
+    "baseId": 5,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is he angry?",
+    "answer": "He is angry.",
+    "sourceWords": [
+      "angry"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 30,
+    "baseId": 34,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "He catches the rabbit.",
+    "answer": "He doesn't catch the rabbit.",
+    "sourceWords": [
+      "catch",
+      "rabbit"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 31,
+    "baseId": 32,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The picture is beautiful.",
+    "answer": "Is the picture beautiful?",
+    "sourceWords": [
+      "picture",
+      "beautiful"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 32,
+    "baseId": 33,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The music is loud.",
+    "answer": "The music is not loud.",
+    "sourceWords": [
+      "music",
+      "loud"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 33,
+    "baseId": 12,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "We are busy.",
+    "answer": "We aren't busy.",
+    "sourceWords": [
+      "busy"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 34,
+    "baseId": 25,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the juice delicious?",
+    "answer": "The juice is delicious.",
+    "sourceWords": [
+      "juice",
+      "delicious"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 35,
+    "baseId": 23,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She calls her grandma.",
+    "answer": "Does she call her grandma?",
+    "sourceWords": [
+      "call",
+      "grandmother (grandma)"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 36,
+    "baseId": 16,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My brother is tall.",
+    "answer": "Is my brother tall?",
+    "sourceWords": [
+      "brother",
+      "tall"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 37,
+    "baseId": 31,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do you answer the question?",
+    "answer": "You answer the question.",
+    "sourceWords": [
+      "answer",
+      "question"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 38,
+    "baseId": 11,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They draw a robot.",
+    "answer": "Do they draw a robot?",
+    "sourceWords": [
+      "draw",
+      "robot"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 39,
+    "baseId": 42,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I do not pay for the camera.",
+    "answer": "Do I pay for the camera?",
+    "sourceWords": [
+      "pay",
+      "camera"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 40,
+    "baseId": 15,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "Amy jumps on Sunday.",
+    "answer": "Does amy jump on Sunday?",
+    "sourceWords": [
+      "jump",
+      "Sunday"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 41,
+    "baseId": 18,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "I cook dinner.",
+    "answer": "I don't cook dinner.",
+    "sourceWords": [
+      "cook"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 42,
+    "baseId": 30,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do I smile at the robot?",
+    "answer": "I smile at the robot.",
+    "sourceWords": [
+      "smile",
+      "robot"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 43,
+    "baseId": 50,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We talk about the game.",
+    "answer": "Do we talk about the game?",
+    "sourceWords": [
+      "talk",
+      "game"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 44,
+    "baseId": 38,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
     "prompt": "We keep the computer clean.",
-    "answer": "We do not keep the computer clean. / We don't keep the computer clean.",
+    "answer": "Do we keep the computer clean?",
     "sourceWords": [
       "keep",
       "clean",
       "computer"
     ],
-    "rule": "we + do not / don't + 原形動詞"
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
   },
   {
-    "id": 70,
-    "category": "do-negative",
-    "prompt": "They move the heavy rock.",
-    "answer": "They do not move the heavy rock. / They don't move the heavy rock.",
-    "sourceWords": [
-      "move",
-      "heavy",
-      "rock"
-    ],
-    "rule": "they + do not / don't + 原形動詞"
-  },
-  {
-    "id": 71,
-    "category": "do-negative",
-    "prompt": "I pay for the camera.",
-    "answer": "I do not pay for the camera. / I don't pay for the camera.",
-    "sourceWords": [
-      "pay",
-      "camera"
-    ],
-    "rule": "I + do not / don't + 原形動詞"
-  },
-  {
-    "id": 72,
-    "category": "do-negative",
-    "prompt": "You pick the fruit.",
-    "answer": "You do not pick the fruit. / You don't pick the fruit.",
-    "sourceWords": [
-      "pick",
-      "fruit"
-    ],
-    "rule": "you + do not / don't + 原形動詞"
-  },
-  {
-    "id": 73,
-    "category": "do-negative",
-    "prompt": "He pushes the heavy door.",
-    "answer": "He does not push the heavy door. / He doesn't push the heavy door.",
-    "sourceWords": [
-      "push",
-      "heavy",
-      "door"
-    ],
-    "rule": "第三人稱單數否定，動詞回到原形 push"
-  },
-  {
-    "id": 74,
-    "category": "do-negative",
-    "prompt": "She stays in the library tonight.",
-    "answer": "She does not stay in the library tonight. / She doesn't stay in the library tonight.",
-    "sourceWords": [
-      "stay",
-      "library"
-    ],
-    "rule": "第三人稱單數否定，動詞回到原形 stay"
-  },
-  {
-    "id": 75,
-    "category": "do-negative",
-    "prompt": "We talk about the game.",
-    "answer": "We do not talk about the game. / We don't talk about the game.",
-    "sourceWords": [
-      "talk",
-      "game"
-    ],
-    "rule": "we + do not / don't + 原形動詞"
-  },
-  {
-    "id": 76,
-    "category": "do-question",
-    "prompt": "You study Chinese.",
-    "answer": "Do you study Chinese?",
-    "sourceWords": [
-      "study",
-      "Chinese"
-    ],
-    "rule": "Do + you + 原形動詞"
-  },
-  {
-    "id": 77,
-    "category": "do-question",
-    "prompt": "We clean the bedroom.",
-    "answer": "Do we clean the bedroom?",
-    "sourceWords": [
-      "bedroom",
-      "clean"
-    ],
-    "rule": "Do + we + 原形動詞"
-  },
-  {
-    "id": 78,
-    "category": "do-question",
-    "prompt": "He learns math.",
-    "answer": "Does he learn math?",
-    "sourceWords": [
-      "learn",
-      "math"
-    ],
-    "rule": "Does + he/she/it + 原形動詞"
-  },
-  {
-    "id": 79,
-    "category": "do-question",
-    "prompt": "She buys fruit.",
-    "answer": "Does she buy fruit?",
-    "sourceWords": [
-      "buy",
-      "fruit"
-    ],
-    "rule": "第三人稱單數疑問句，動詞用原形 buy"
-  },
-  {
-    "id": 80,
-    "category": "do-question",
-    "prompt": "You dance at the party.",
-    "answer": "Do you dance at the party?",
-    "sourceWords": [
-      "dance"
-    ],
-    "rule": "Do + you + 原形動詞"
-  },
-  {
-    "id": 81,
-    "category": "do-question",
-    "prompt": "They draw a picture.",
-    "answer": "Do they draw a picture?",
-    "sourceWords": [
-      "draw",
-      "picture"
-    ],
-    "rule": "Do + they + 原形動詞"
-  },
-  {
-    "id": 82,
-    "category": "do-question",
-    "prompt": "Tom swims in the sea.",
-    "answer": "Does Tom swim in the sea?",
-    "sourceWords": [
-      "swim",
-      "sea"
-    ],
-    "rule": "第三人稱單數疑問句，動詞用原形 swim"
-  },
-  {
-    "id": 83,
-    "category": "do-question",
-    "prompt": "Amy jumps very high.",
-    "answer": "Does Amy jump very high?",
-    "sourceWords": [
-      "jump",
-      "high"
-    ],
-    "rule": "第三人稱單數疑問句，動詞用原形 jump"
-  },
-  {
-    "id": 84,
-    "category": "do-question",
-    "prompt": "You cook dinner.",
-    "answer": "Do you cook dinner?",
-    "sourceWords": [
-      "cook"
-    ],
-    "rule": "Do + you + 原形動詞"
-  },
-  {
-    "id": 85,
-    "category": "do-question",
-    "prompt": "He waits in the garden.",
-    "answer": "Does he wait in the garden?",
+    "id": 45,
+    "baseId": 19,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You don't wait in the garden.",
+    "answer": "Do you wait in the garden?",
     "sourceWords": [
       "wait",
       "garden"
     ],
-    "rule": "第三人稱單數疑問句，動詞用原形 wait"
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
   },
   {
-    "id": 86,
-    "category": "do-question",
-    "prompt": "She walks to the library.",
-    "answer": "Does she walk to the library?",
-    "sourceWords": [
-      "walk",
-      "library"
-    ],
-    "rule": "第三人稱單數疑問句，動詞用原形 walk"
-  },
-  {
-    "id": 87,
-    "category": "do-question",
-    "prompt": "We call our grandma.",
-    "answer": "Do we call our grandma?",
-    "sourceWords": [
-      "call",
-      "grandmother (grandma)"
-    ],
-    "rule": "Do + we + 原形動詞"
-  },
-  {
-    "id": 88,
-    "category": "do-question",
-    "prompt": "They visit the library.",
-    "answer": "Do they visit the library?",
+    "id": 46,
+    "baseId": 26,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "We visit the library.",
+    "answer": "We don't visit the library.",
     "sourceWords": [
       "visit",
       "library"
     ],
-    "rule": "Do + they + 原形動詞"
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
   },
   {
-    "id": 89,
-    "category": "do-question",
-    "prompt": "He laughs at the clown.",
-    "answer": "Does he laugh at the clown?",
+    "id": 47,
+    "baseId": 28,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My shoes are not dirty.",
+    "answer": "Are my shoes dirty?",
     "sourceWords": [
-      "laugh",
-      "clown"
+      "shoes",
+      "dirty"
     ],
-    "rule": "第三人稱單數疑問句，動詞用原形 laugh"
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
   },
   {
-    "id": 90,
-    "category": "do-question",
-    "prompt": "You smile at the robot.",
-    "answer": "Do you smile at the robot?",
+    "id": 48,
+    "baseId": 47,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She doesn't stay in the library tonight.",
+    "answer": "Does she stay in the library tonight?",
     "sourceWords": [
-      "smile",
-      "robot"
+      "stay",
+      "library"
     ],
-    "rule": "Do + you + 原形動詞"
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
   },
   {
-    "id": 91,
-    "category": "do-question",
-    "prompt": "She answers the question.",
-    "answer": "Does she answer the question?",
-    "sourceWords": [
-      "answer",
-      "question"
-    ],
-    "rule": "第三人稱單數疑問句，動詞用原形 answer"
-  },
-  {
-    "id": 92,
-    "category": "do-question",
-    "prompt": "They catch the rabbit.",
-    "answer": "Do they catch the rabbit?",
-    "sourceWords": [
-      "catch",
-      "rabbit"
-    ],
-    "rule": "Do + they + 原形動詞"
-  },
-  {
-    "id": 93,
-    "category": "do-question",
-    "prompt": "He feels sick today.",
-    "answer": "Does he feel sick today?",
-    "sourceWords": [
-      "feel",
-      "sick"
-    ],
-    "rule": "第三人稱單數疑問句，動詞用原形 feel"
-  },
-  {
-    "id": 94,
-    "category": "do-question",
-    "prompt": "We keep the desk clean.",
-    "answer": "Do we keep the desk clean?",
-    "sourceWords": [
-      "keep",
-      "clean"
-    ],
-    "rule": "Do + we + 原形動詞"
-  },
-  {
-    "id": 95,
-    "category": "do-question",
-    "prompt": "She moves the rock.",
-    "answer": "Does she move the rock?",
-    "sourceWords": [
-      "move",
-      "rock"
-    ],
-    "rule": "第三人稱單數疑問句，動詞用原形 move"
-  },
-  {
-    "id": 96,
-    "category": "do-question",
-    "prompt": "You pay for the camera.",
-    "answer": "Do you pay for the camera?",
-    "sourceWords": [
-      "pay",
-      "camera"
-    ],
-    "rule": "Do + you + 原形動詞"
-  },
-  {
-    "id": 97,
-    "category": "do-question",
-    "prompt": "He picks the fruit.",
-    "answer": "Does he pick the fruit?",
+    "id": 49,
+    "baseId": 43,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "You pick the fruit.",
+    "answer": "You do not pick the fruit.",
     "sourceWords": [
       "pick",
       "fruit"
     ],
-    "rule": "第三人稱單數疑問句，動詞用原形 pick"
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 50,
+    "baseId": 30,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "I smile at the robot.",
+    "answer": "I don't smile at the robot.",
+    "sourceWords": [
+      "smile",
+      "robot"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 51,
+    "baseId": 47,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "She stays in the library tonight.",
+    "answer": "She does not stay in the library tonight.",
+    "sourceWords": [
+      "stay",
+      "library"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 52,
+    "baseId": 21,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the weather wet?",
+    "answer": "The weather is wet.",
+    "sourceWords": [
+      "weather",
+      "wet"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 53,
+    "baseId": 8,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She is a nurse.",
+    "answer": "Is she a nurse?",
+    "sourceWords": [
+      "nurse"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 54,
+    "baseId": 20,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The doctor is tired.",
+    "answer": "Is the doctor tired?",
+    "sourceWords": [
+      "doctor",
+      "tired"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 55,
+    "baseId": 31,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "You answer the question.",
+    "answer": "You do not answer the question.",
+    "sourceWords": [
+      "answer",
+      "question"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 56,
+    "baseId": 17,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My grandma is sick.",
+    "answer": "Is my grandma sick?",
+    "sourceWords": [
+      "grandmother (grandma)",
+      "sick"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 57,
+    "baseId": 12,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We are busy.",
+    "answer": "Are we busy?",
+    "sourceWords": [
+      "busy"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 58,
+    "baseId": 16,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is my brother tall?",
+    "answer": "My brother is tall.",
+    "sourceWords": [
+      "brother",
+      "tall"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 59,
+    "baseId": 7,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She buys bread.",
+    "answer": "Does she buy bread?",
+    "sourceWords": [
+      "buy",
+      "bread"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 60,
+    "baseId": 29,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Are my clothes clean?",
+    "answer": "My clothes are clean.",
+    "sourceWords": [
+      "clothes",
+      "clean"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 61,
+    "baseId": 21,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The weather is wet.",
+    "answer": "Is the weather wet?",
+    "sourceWords": [
+      "weather",
+      "wet"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 62,
+    "baseId": 18,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I cook dinner.",
+    "answer": "Do I cook dinner?",
+    "sourceWords": [
+      "cook"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 63,
+    "baseId": 39,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They move the heavy rock.",
+    "answer": "Do they move the heavy rock?",
+    "sourceWords": [
+      "move",
+      "heavy",
+      "rock"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 64,
+    "baseId": 22,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does he walk to the library?",
+    "answer": "He walks to the library.",
+    "sourceWords": [
+      "walk",
+      "library"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 65,
+    "baseId": 18,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do I cook dinner?",
+    "answer": "I cook dinner.",
+    "sourceWords": [
+      "cook"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 66,
+    "baseId": 23,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She doesn't call her grandma.",
+    "answer": "Does she call her grandma?",
+    "sourceWords": [
+      "call",
+      "grandmother (grandma)"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 67,
+    "baseId": 20,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the doctor tired?",
+    "answer": "The doctor is tired.",
+    "sourceWords": [
+      "doctor",
+      "tired"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 68,
+    "baseId": 19,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You wait in the garden.",
+    "answer": "Do you wait in the garden?",
+    "sourceWords": [
+      "wait",
+      "garden"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 69,
+    "baseId": 12,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Are we busy?",
+    "answer": "We are busy.",
+    "sourceWords": [
+      "busy"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 70,
+    "baseId": 3,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You don't clean your bedroom.",
+    "answer": "Do you clean your bedroom?",
+    "sourceWords": [
+      "bedroom",
+      "clean"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 71,
+    "baseId": 37,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the duck angry?",
+    "answer": "The duck is angry.",
+    "sourceWords": [
+      "duck",
+      "angry"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 72,
+    "baseId": 20,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The doctor is tired.",
+    "answer": "The doctor isn't tired.",
+    "sourceWords": [
+      "doctor",
+      "tired"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 73,
+    "baseId": 6,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does he study math?",
+    "answer": "He studies math.",
+    "sourceWords": [
+      "study",
+      "math"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 74,
+    "baseId": 14,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "Tom does not swim on Monday.",
+    "answer": "Does tom swim on Monday?",
+    "sourceWords": [
+      "swim",
+      "Monday"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 75,
+    "baseId": 33,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The music is loud.",
+    "answer": "Is the music loud?",
+    "sourceWords": [
+      "music",
+      "loud"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 76,
+    "baseId": 44,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The bike is old.",
+    "answer": "The bike isn't old.",
+    "sourceWords": [
+      "bike",
+      "old"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 77,
+    "baseId": 42,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do I pay for the camera?",
+    "answer": "I pay for the camera.",
+    "sourceWords": [
+      "pay",
+      "camera"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 78,
+    "baseId": 1,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "I am tired.",
+    "answer": "I am not tired.",
+    "sourceWords": [
+      "tired"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 79,
+    "baseId": 23,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does she call her grandma?",
+    "answer": "She calls her grandma.",
+    "sourceWords": [
+      "call",
+      "grandmother (grandma)"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 80,
+    "baseId": 35,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does she feel sick today?",
+    "answer": "She feels sick today.",
+    "sourceWords": [
+      "feel",
+      "sick"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 81,
+    "baseId": 10,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We dance at the party.",
+    "answer": "Do we dance at the party?",
+    "sourceWords": [
+      "dance"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 82,
+    "baseId": 27,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They laugh at the clown.",
+    "answer": "Do they laugh at the clown?",
+    "sourceWords": [
+      "laugh",
+      "clown"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 83,
+    "baseId": 32,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the picture beautiful?",
+    "answer": "The picture is beautiful.",
+    "sourceWords": [
+      "picture",
+      "beautiful"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 84,
+    "baseId": 31,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You answer the question.",
+    "answer": "Do you answer the question?",
+    "sourceWords": [
+      "answer",
+      "question"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 85,
+    "baseId": 27,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "They laugh at the clown.",
+    "answer": "They do not laugh at the clown.",
+    "sourceWords": [
+      "laugh",
+      "clown"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 86,
+    "baseId": 22,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "He walks to the library.",
+    "answer": "He doesn't walk to the library.",
+    "sourceWords": [
+      "walk",
+      "library"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 87,
+    "baseId": 25,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The juice isn't delicious.",
+    "answer": "Is the juice delicious?",
+    "sourceWords": [
+      "juice",
+      "delicious"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 88,
+    "baseId": 24,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Are the eggs fresh?",
+    "answer": "The eggs are fresh.",
+    "sourceWords": [
+      "egg",
+      "fresh"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 89,
+    "baseId": 22,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He walks to the library.",
+    "answer": "Does he walk to the library?",
+    "sourceWords": [
+      "walk",
+      "library"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 90,
+    "baseId": 26,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We visit the library.",
+    "answer": "Do we visit the library?",
+    "sourceWords": [
+      "visit",
+      "library"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 91,
+    "baseId": 17,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "My grandma is sick.",
+    "answer": "My grandma is not sick.",
+    "sourceWords": [
+      "grandmother (grandma)",
+      "sick"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 92,
+    "baseId": 7,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She doesn't buy bread.",
+    "answer": "Does she buy bread?",
+    "sourceWords": [
+      "buy",
+      "bread"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 93,
+    "baseId": 5,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He is angry.",
+    "answer": "Is he angry?",
+    "sourceWords": [
+      "angry"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 94,
+    "baseId": 37,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The duck is angry.",
+    "answer": "Is the duck angry?",
+    "sourceWords": [
+      "duck",
+      "angry"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 95,
+    "baseId": 4,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "You are hungry.",
+    "answer": "You aren't hungry.",
+    "sourceWords": [
+      "hungry"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 96,
+    "baseId": 26,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do we visit the library?",
+    "answer": "We visit the library.",
+    "sourceWords": [
+      "visit",
+      "library"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 97,
+    "baseId": 4,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You are hungry.",
+    "answer": "Are you hungry?",
+    "sourceWords": [
+      "hungry"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
   },
   {
     "id": 98,
-    "category": "do-question",
-    "prompt": "They push the heavy door.",
-    "answer": "Do they push the heavy door?",
+    "baseId": 38,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We do not keep the computer clean.",
+    "answer": "Do we keep the computer clean?",
+    "sourceWords": [
+      "keep",
+      "clean",
+      "computer"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 99,
+    "baseId": 40,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The vegetable is not raw.",
+    "answer": "Is the vegetable raw?",
+    "sourceWords": [
+      "vegetable",
+      "raw"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 100,
+    "baseId": 13,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They aren't free.",
+    "answer": "Are they free?",
+    "sourceWords": [
+      "free"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 101,
+    "baseId": 47,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She stays in the library tonight.",
+    "answer": "Does she stay in the library tonight?",
+    "sourceWords": [
+      "stay",
+      "library"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 102,
+    "baseId": 24,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The eggs are not fresh.",
+    "answer": "Are the eggs fresh?",
+    "sourceWords": [
+      "egg",
+      "fresh"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 103,
+    "baseId": 36,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The robot is friendly.",
+    "answer": "Is the robot friendly?",
+    "sourceWords": [
+      "robot",
+      "friendly"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 104,
+    "baseId": 50,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do we talk about the game?",
+    "answer": "We talk about the game.",
+    "sourceWords": [
+      "talk",
+      "game"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 105,
+    "baseId": 49,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The game isn't wonderful.",
+    "answer": "Is the game wonderful?",
+    "sourceWords": [
+      "game",
+      "wonderful"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 106,
+    "baseId": 34,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does he catch the rabbit?",
+    "answer": "He catches the rabbit.",
+    "sourceWords": [
+      "catch",
+      "rabbit"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 107,
+    "baseId": 25,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The juice is delicious.",
+    "answer": "Is the juice delicious?",
+    "sourceWords": [
+      "juice",
+      "delicious"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 108,
+    "baseId": 12,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We are not busy.",
+    "answer": "Are we busy?",
+    "sourceWords": [
+      "busy"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 109,
+    "baseId": 45,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The computer is slow.",
+    "answer": "The computer is not slow.",
+    "sourceWords": [
+      "computer",
+      "slow"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 110,
+    "baseId": 48,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The story is sad.",
+    "answer": "Is the story sad?",
+    "sourceWords": [
+      "story",
+      "sad"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 111,
+    "baseId": 9,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is it sunny?",
+    "answer": "It is sunny.",
+    "sourceWords": [
+      "sunny"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 112,
+    "baseId": 22,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He does not walk to the library.",
+    "answer": "Does he walk to the library?",
+    "sourceWords": [
+      "walk",
+      "library"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 113,
+    "baseId": 13,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Are they free?",
+    "answer": "They are free.",
+    "sourceWords": [
+      "free"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 114,
+    "baseId": 39,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "They move the heavy rock.",
+    "answer": "They do not move the heavy rock.",
+    "sourceWords": [
+      "move",
+      "heavy",
+      "rock"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 115,
+    "baseId": 14,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does tom swim on Monday?",
+    "answer": "Tom swims on Monday.",
+    "sourceWords": [
+      "swim",
+      "Monday"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 116,
+    "baseId": 45,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The computer isn't slow.",
+    "answer": "Is the computer slow?",
+    "sourceWords": [
+      "computer",
+      "slow"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 117,
+    "baseId": 49,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the game wonderful?",
+    "answer": "The game is wonderful.",
+    "sourceWords": [
+      "game",
+      "wonderful"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 118,
+    "baseId": 46,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He pushes the heavy door.",
+    "answer": "Does he push the heavy door?",
     "sourceWords": [
       "push",
       "heavy",
       "door"
     ],
-    "rule": "Do + they + 原形動詞"
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
   },
   {
-    "id": 99,
-    "category": "do-question",
-    "prompt": "She stays late tonight.",
-    "answer": "Does she stay late tonight?",
+    "id": 119,
+    "baseId": 48,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The story is sad.",
+    "answer": "The story isn't sad.",
     "sourceWords": [
-      "stay"
+      "story",
+      "sad"
     ],
-    "rule": "第三人稱單數疑問句，動詞用原形 stay"
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
   },
   {
-    "id": 100,
-    "category": "do-question",
-    "prompt": "He talks about the game.",
-    "answer": "Does he talk about the game?",
+    "id": 120,
+    "baseId": 6,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He does not study math.",
+    "answer": "Does he study math?",
+    "sourceWords": [
+      "study",
+      "math"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 121,
+    "baseId": 34,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He catches the rabbit.",
+    "answer": "Does he catch the rabbit?",
+    "sourceWords": [
+      "catch",
+      "rabbit"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 122,
+    "baseId": 41,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the camera heavy?",
+    "answer": "The camera is heavy.",
+    "sourceWords": [
+      "camera",
+      "heavy"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 123,
+    "baseId": 8,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "She is a nurse.",
+    "answer": "She isn't a nurse.",
+    "sourceWords": [
+      "nurse"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 124,
+    "baseId": 31,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You don't answer the question.",
+    "answer": "Do you answer the question?",
+    "sourceWords": [
+      "answer",
+      "question"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 125,
+    "baseId": 39,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do they move the heavy rock?",
+    "answer": "They move the heavy rock.",
+    "sourceWords": [
+      "move",
+      "heavy",
+      "rock"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 126,
+    "baseId": 2,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "I study Chinese.",
+    "answer": "I don't study Chinese.",
+    "sourceWords": [
+      "study",
+      "Chinese"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 127,
+    "baseId": 37,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The duck is angry.",
+    "answer": "The duck is not angry.",
+    "sourceWords": [
+      "duck",
+      "angry"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 128,
+    "baseId": 36,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the robot friendly?",
+    "answer": "The robot is friendly.",
+    "sourceWords": [
+      "robot",
+      "friendly"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 129,
+    "baseId": 10,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do we dance at the party?",
+    "answer": "We dance at the party.",
+    "sourceWords": [
+      "dance"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 130,
+    "baseId": 49,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The game is wonderful.",
+    "answer": "The game is not wonderful.",
+    "sourceWords": [
+      "game",
+      "wonderful"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 131,
+    "baseId": 14,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "Tom swims on Monday.",
+    "answer": "Does tom swim on Monday?",
+    "sourceWords": [
+      "swim",
+      "Monday"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 132,
+    "baseId": 1,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I'm not tired.",
+    "answer": "Am I tired?",
+    "sourceWords": [
+      "tired"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 133,
+    "baseId": 16,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "My brother is tall.",
+    "answer": "My brother isn't tall.",
+    "sourceWords": [
+      "brother",
+      "tall"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 134,
+    "baseId": 40,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The vegetable is raw.",
+    "answer": "The vegetable isn't raw.",
+    "sourceWords": [
+      "vegetable",
+      "raw"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 135,
+    "baseId": 43,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You pick the fruit.",
+    "answer": "Do you pick the fruit?",
+    "sourceWords": [
+      "pick",
+      "fruit"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 136,
+    "baseId": 26,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We do not visit the library.",
+    "answer": "Do we visit the library?",
+    "sourceWords": [
+      "visit",
+      "library"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 137,
+    "baseId": 9,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "It isn't sunny.",
+    "answer": "Is it sunny?",
+    "sourceWords": [
+      "sunny"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 138,
+    "baseId": 39,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They don't move the heavy rock.",
+    "answer": "Do they move the heavy rock?",
+    "sourceWords": [
+      "move",
+      "heavy",
+      "rock"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 139,
+    "baseId": 2,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I study Chinese.",
+    "answer": "Do I study Chinese?",
+    "sourceWords": [
+      "study",
+      "Chinese"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 140,
+    "baseId": 50,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We do not talk about the game.",
+    "answer": "Do we talk about the game?",
     "sourceWords": [
       "talk",
       "game"
     ],
-    "rule": "第三人稱單數疑問句，動詞用原形 talk"
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 141,
+    "baseId": 45,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The computer is slow.",
+    "answer": "Is the computer slow?",
+    "sourceWords": [
+      "computer",
+      "slow"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 142,
+    "baseId": 9,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "It is sunny.",
+    "answer": "It is not sunny.",
+    "sourceWords": [
+      "sunny"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 143,
+    "baseId": 35,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "She feels sick today.",
+    "answer": "She does not feel sick today.",
+    "sourceWords": [
+      "feel",
+      "sick"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 144,
+    "baseId": 38,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do we keep the computer clean?",
+    "answer": "We keep the computer clean.",
+    "sourceWords": [
+      "keep",
+      "clean",
+      "computer"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 145,
+    "baseId": 46,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He does not push the heavy door.",
+    "answer": "Does he push the heavy door?",
+    "sourceWords": [
+      "push",
+      "heavy",
+      "door"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 146,
+    "baseId": 40,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The vegetable is raw.",
+    "answer": "Is the vegetable raw?",
+    "sourceWords": [
+      "vegetable",
+      "raw"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 147,
+    "baseId": 27,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do they laugh at the clown?",
+    "answer": "They laugh at the clown.",
+    "sourceWords": [
+      "laugh",
+      "clown"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 148,
+    "baseId": 15,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "Amy doesn't jump on Sunday.",
+    "answer": "Does amy jump on Sunday?",
+    "sourceWords": [
+      "jump",
+      "Sunday"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 149,
+    "baseId": 48,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The story is not sad.",
+    "answer": "Is the story sad?",
+    "sourceWords": [
+      "story",
+      "sad"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 150,
+    "baseId": 13,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "They are free.",
+    "answer": "They are not free.",
+    "sourceWords": [
+      "free"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 151,
+    "baseId": 29,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My clothes are clean.",
+    "answer": "Are my clothes clean?",
+    "sourceWords": [
+      "clothes",
+      "clean"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 152,
+    "baseId": 18,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I do not cook dinner.",
+    "answer": "Do I cook dinner?",
+    "sourceWords": [
+      "cook"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 153,
+    "baseId": 7,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "She buys bread.",
+    "answer": "She does not buy bread.",
+    "sourceWords": [
+      "buy",
+      "bread"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 154,
+    "baseId": 24,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The eggs are fresh.",
+    "answer": "The eggs aren't fresh.",
+    "sourceWords": [
+      "egg",
+      "fresh"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 155,
+    "baseId": 32,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The picture is beautiful.",
+    "answer": "The picture isn't beautiful.",
+    "sourceWords": [
+      "picture",
+      "beautiful"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 156,
+    "baseId": 45,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the computer slow?",
+    "answer": "The computer is slow.",
+    "sourceWords": [
+      "computer",
+      "slow"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 157,
+    "baseId": 29,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My clothes aren't clean.",
+    "answer": "Are my clothes clean?",
+    "sourceWords": [
+      "clothes",
+      "clean"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 158,
+    "baseId": 21,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The weather isn't wet.",
+    "answer": "Is the weather wet?",
+    "sourceWords": [
+      "weather",
+      "wet"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 159,
+    "baseId": 13,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They are free.",
+    "answer": "Are they free?",
+    "sourceWords": [
+      "free"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 160,
+    "baseId": 41,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The camera is heavy.",
+    "answer": "Is the camera heavy?",
+    "sourceWords": [
+      "camera",
+      "heavy"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 161,
+    "baseId": 28,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Are my shoes dirty?",
+    "answer": "My shoes are dirty.",
+    "sourceWords": [
+      "shoes",
+      "dirty"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 162,
+    "baseId": 46,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does he push the heavy door?",
+    "answer": "He pushes the heavy door.",
+    "sourceWords": [
+      "push",
+      "heavy",
+      "door"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 163,
+    "baseId": 46,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "He pushes the heavy door.",
+    "answer": "He doesn't push the heavy door.",
+    "sourceWords": [
+      "push",
+      "heavy",
+      "door"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 164,
+    "baseId": 43,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do you pick the fruit?",
+    "answer": "You pick the fruit.",
+    "sourceWords": [
+      "pick",
+      "fruit"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 165,
+    "baseId": 1,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Am I tired?",
+    "answer": "I am tired.",
+    "sourceWords": [
+      "tired"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 166,
+    "baseId": 6,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "He studies math.",
+    "answer": "He doesn't study math.",
+    "sourceWords": [
+      "study",
+      "math"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 167,
+    "baseId": 17,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is my grandma sick?",
+    "answer": "My grandma is sick.",
+    "sourceWords": [
+      "grandmother (grandma)",
+      "sick"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 168,
+    "baseId": 32,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The picture is not beautiful.",
+    "answer": "Is the picture beautiful?",
+    "sourceWords": [
+      "picture",
+      "beautiful"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 169,
+    "baseId": 20,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The doctor is not tired.",
+    "answer": "Is the doctor tired?",
+    "sourceWords": [
+      "doctor",
+      "tired"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 170,
+    "baseId": 38,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "We keep the computer clean.",
+    "answer": "We don't keep the computer clean.",
+    "sourceWords": [
+      "keep",
+      "clean",
+      "computer"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 171,
+    "baseId": 14,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "Tom swims on Monday.",
+    "answer": "Tom doesn't swim on Monday.",
+    "sourceWords": [
+      "swim",
+      "Monday"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "contracted"
+  },
+  {
+    "id": 172,
+    "baseId": 44,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the bike old?",
+    "answer": "The bike is old.",
+    "sourceWords": [
+      "bike",
+      "old"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 173,
+    "baseId": 35,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She feels sick today.",
+    "answer": "Does she feel sick today?",
+    "sourceWords": [
+      "feel",
+      "sick"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 174,
+    "baseId": 33,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The music isn't loud.",
+    "answer": "Is the music loud?",
+    "sourceWords": [
+      "music",
+      "loud"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 175,
+    "baseId": 47,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Does she stay in the library tonight?",
+    "answer": "She stays in the library tonight.",
+    "sourceWords": [
+      "stay",
+      "library"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 176,
+    "baseId": 30,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I do not smile at the robot.",
+    "answer": "Do I smile at the robot?",
+    "sourceWords": [
+      "smile",
+      "robot"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 177,
+    "baseId": 11,
+    "category": "do-question-to-affirmative",
+    "grammarFamily": "do",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Do they draw a robot?",
+    "answer": "They draw a robot.",
+    "sourceWords": [
+      "draw",
+      "robot"
+    ],
+    "rule": "疑問句改肯定句：還原第三人稱單數的 -s 動詞形式",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 178,
+    "baseId": 48,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the story sad?",
+    "answer": "The story is sad.",
+    "sourceWords": [
+      "story",
+      "sad"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 179,
+    "baseId": 33,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the music loud?",
+    "answer": "The music is loud.",
+    "sourceWords": [
+      "music",
+      "loud"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 180,
+    "baseId": 16,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My brother is not tall.",
+    "answer": "Is my brother tall?",
+    "sourceWords": [
+      "brother",
+      "tall"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 181,
+    "baseId": 30,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I smile at the robot.",
+    "answer": "Do I smile at the robot?",
+    "sourceWords": [
+      "smile",
+      "robot"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 182,
+    "baseId": 25,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "The juice is delicious.",
+    "answer": "The juice is not delicious.",
+    "sourceWords": [
+      "juice",
+      "delicious"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 183,
+    "baseId": 28,
+    "category": "be-affirmative-to-question",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My shoes are dirty.",
+    "answer": "Are my shoes dirty?",
+    "sourceWords": [
+      "shoes",
+      "dirty"
+    ],
+    "rule": "BE 疑問句：Am/Is/Are + 主詞 + 原句其餘部分",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 184,
+    "baseId": 10,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "We do not dance at the party.",
+    "answer": "Do we dance at the party?",
+    "sourceWords": [
+      "dance"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 185,
+    "baseId": 42,
+    "category": "do-affirmative-to-question",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-question",
+    "promptType": "affirmative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I pay for the camera.",
+    "answer": "Do I pay for the camera?",
+    "sourceWords": [
+      "pay",
+      "camera"
+    ],
+    "rule": "Do/Does 疑問句：Do/Does + 主詞 + 原形動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 186,
+    "baseId": 27,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "They don't laugh at the clown.",
+    "answer": "Do they laugh at the clown?",
+    "sourceWords": [
+      "laugh",
+      "clown"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 187,
+    "baseId": 29,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "My clothes are clean.",
+    "answer": "My clothes are not clean.",
+    "sourceWords": [
+      "clothes",
+      "clean"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 188,
+    "baseId": 44,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The bike is not old.",
+    "answer": "Is the bike old?",
+    "sourceWords": [
+      "bike",
+      "old"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 189,
+    "baseId": 17,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "My grandma isn't sick.",
+    "answer": "Is my grandma sick?",
+    "sourceWords": [
+      "grandmother (grandma)",
+      "sick"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 190,
+    "baseId": 4,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "You are not hungry.",
+    "answer": "Are you hungry?",
+    "sourceWords": [
+      "hungry"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 191,
+    "baseId": 19,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "You wait in the garden.",
+    "answer": "You do not wait in the garden.",
+    "sourceWords": [
+      "wait",
+      "garden"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 192,
+    "baseId": 34,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "He does not catch the rabbit.",
+    "answer": "Does he catch the rabbit?",
+    "sourceWords": [
+      "catch",
+      "rabbit"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 193,
+    "baseId": 23,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "She calls her grandma.",
+    "answer": "She does not call her grandma.",
+    "sourceWords": [
+      "call",
+      "grandmother (grandma)"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 194,
+    "baseId": 41,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The camera isn't heavy.",
+    "answer": "Is the camera heavy?",
+    "sourceWords": [
+      "camera",
+      "heavy"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 195,
+    "baseId": 5,
+    "category": "be-affirmative-to-negative",
+    "grammarFamily": "be",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "He is angry.",
+    "answer": "He is not angry.",
+    "sourceWords": [
+      "angry"
+    ],
+    "rule": "BE 動詞後加入 not；其餘部分不變",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 196,
+    "baseId": 8,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "She is not a nurse.",
+    "answer": "Is she a nurse?",
+    "sourceWords": [
+      "nurse"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "expanded",
+    "answerContraction": null
+  },
+  {
+    "id": 197,
+    "baseId": 3,
+    "category": "do-affirmative-to-negative",
+    "grammarFamily": "do",
+    "transformation": "affirmative-to-negative",
+    "promptType": "affirmative",
+    "answerType": "negative",
+    "instruction": "轉成否定句",
+    "prompt": "You clean your bedroom.",
+    "answer": "You do not clean your bedroom.",
+    "sourceWords": [
+      "bedroom",
+      "clean"
+    ],
+    "rule": "否定句：do/does not + 原形動詞；第三人稱單數用 does not",
+    "promptContraction": null,
+    "answerContraction": "expanded"
+  },
+  {
+    "id": 198,
+    "baseId": 37,
+    "category": "be-negative-to-question",
+    "grammarFamily": "be",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "The duck isn't angry.",
+    "answer": "Is the duck angry?",
+    "sourceWords": [
+      "duck",
+      "angry"
+    ],
+    "rule": "否定句改疑問句：移除 not，把 be 動詞移到句首",
+    "promptContraction": "contracted",
+    "answerContraction": null
+  },
+  {
+    "id": 199,
+    "baseId": 40,
+    "category": "be-question-to-affirmative",
+    "grammarFamily": "be",
+    "transformation": "question-to-affirmative",
+    "promptType": "question",
+    "answerType": "affirmative",
+    "instruction": "轉成肯定句",
+    "prompt": "Is the vegetable raw?",
+    "answer": "The vegetable is raw.",
+    "sourceWords": [
+      "vegetable",
+      "raw"
+    ],
+    "rule": "疑問句改肯定句：還原與主詞一致的 be 動詞",
+    "promptContraction": null,
+    "answerContraction": null
+  },
+  {
+    "id": 200,
+    "baseId": 2,
+    "category": "do-negative-to-question",
+    "grammarFamily": "do",
+    "transformation": "negative-to-question",
+    "promptType": "negative",
+    "answerType": "question",
+    "instruction": "轉成疑問句",
+    "prompt": "I do not study Chinese.",
+    "answer": "Do I study Chinese?",
+    "sourceWords": [
+      "study",
+      "Chinese"
+    ],
+    "rule": "否定句改疑問句：移除 do/does not，把 Do/Does 移到句首，動詞用原形",
+    "promptContraction": "expanded",
+    "answerContraction": null
   }
 ];
 
 /**
- * Convert a card category to the instruction shown beside its prompt.
- * @param {string} category - Card category
+ * Return the instruction shown beside a transformation prompt.
+ * @param {Object|string} card - Card object or transformation category
  * @returns {string} Chinese instruction
  */
-function getGrammarTransformationInstruction_(category) {
-  if (category === 'be-negative' || category === 'do-negative') return '轉成否定句';
-  if (category === 'be-question' || category === 'do-question') return '轉成疑問句';
+function getGrammarTransformationInstruction_(card) {
+  if (card && typeof card === 'object' && card.instruction) return card.instruction;
+  var transformation = typeof card === 'string' ? card : (card && card.transformation);
+  if (transformation === 'affirmative-to-negative') return '轉成否定句';
+  if (transformation === 'affirmative-to-question' || transformation === 'negative-to-question') return '轉成疑問句';
+  if (transformation === 'question-to-affirmative') return '轉成肯定句';
   return '轉成句型';
 }
 
 /**
  * Build worksheet rows in the existing WordGo A-I vocabulary schema.
  * Columns J-L add source words, category, and a grammar rule for teachers.
- * @returns {Array<Array<*>>} 100 worksheet rows
+ * @returns {Array<Array<*>>} 200 worksheet rows
  */
 function buildGrammarTransformationRows_() {
   return GRAMMAR_TRANSFORMATION_CARDS.map(function(card) {
-    var instruction = getGrammarTransformationInstruction_(card.category);
+    var instruction = getGrammarTransformationInstruction_(card);
     var categoryLabel = GRAMMAR_TRANSFORMATION_CATEGORY_LABELS[card.category] || '句型轉換';
     return [
       0,                                                    // A: 不啟用拼字標記
@@ -1146,7 +3844,7 @@ function buildGrammarTransformationRows_() {
 
 /**
  * Create or update the grammar transformation worksheet in WordGo Data Sheet.
- * Safe to run repeatedly: the worksheet is replaced with the canonical 100 rows.
+ * Safe to run repeatedly: the worksheet is replaced with the canonical 200 rows.
  * The trailing underscore keeps this administrative function out of the anonymous
  * Web App's google.script.run surface.
  * @returns {Object} { success, sheetName, rowCount, spreadsheetName?, error? }

@@ -1,6 +1,6 @@
 ## Project Overview
 
-English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App, targeting iPad 4 (iOS 10 and below) users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, word export, and a dedicated 100-card grammar-transformation worksheet.
+English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App, targeting iPad 4 (iOS 10 and below) users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet.
 
 ## Deployment
 
@@ -16,7 +16,7 @@ This project uses **clasp** (Command Line Apps Script Projects). All code is pus
 | `npm run open:web` | Open Web App in browser |
 | `npm test` | Run all Jest tests |
 | `npx jest <test_file>` | Run a single test file (e.g., `npx jest test/voice.test.js`) |
-| `npx clasp run seedGrammarTransformationSheet_` | Seed the 100-card grammar worksheet after pushing code; requires a linked standard GCP project (otherwise run the private function from the Apps Script editor) |
+| `npx clasp run seedGrammarTransformationSheet_` | Seed the 200-card grammar worksheet after pushing code; requires a linked standard GCP project (otherwise run the private function from the Apps Script editor) |
 
 For corporate networks with SSL inspection, see the `deploy.sh` comments for CA configuration (`NODE_EXTRA_CA_CERTS` or `FLASHCARD_CA_BUNDLE`).
 

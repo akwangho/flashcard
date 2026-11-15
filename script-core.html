@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.29.0',
+    APP_VERSION: '1.30.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-15 07:17',
+    APP_BUILD_TIME: '2026-11-15 10:55',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -93,7 +93,7 @@
     GRAMMAR_TRANSFORMATION_SHEET_NAME: '文法句型轉換',
     GRAMMAR_TRANSFORMATION_TAG: '文法轉換',
     // B 欄題目尾端的轉換指示；語音朗讀時移除，避免中文指示被英文語音讀出
-    GRAMMAR_TRANSFORMATION_PROMPT_SUFFIX_PATTERN: '\\s*\\((?:轉成否定句|轉成疑問句)\\)\\s*$',
+    GRAMMAR_TRANSFORMATION_PROMPT_SUFFIX_PATTERN: '\\s*\\((?:轉成否定句|轉成疑問句|轉成肯定句)\\)\\s*$',
 
     // === 歷史記錄 ===
     HISTORY_MAX_ITEMS: 10,
@@ -291,7 +291,7 @@
 
   /**
    * 取得文法轉換題目中適合英文 TTS 朗讀的純句子文字。
-   * 畫面仍保留「(轉成否定句)」／「(轉成疑問句)」指示，只有語音會移除它。
+   * 畫面仍保留「(轉成否定句)」／「(轉成疑問句)」／「(轉成肯定句)」指示，只有語音會移除它。
    * @param {Object} word - 文法轉換卡片
    * @returns {string}
    */

@@ -29,7 +29,7 @@ OpenSpec v1.3.1. Specs describe **current deployed behaviour** and are the sourc
 | `screen-awake/` | Wake Lock, NoSleep video, silent audio, Keep-Alive |
 | `kk-phonetic/` | KK phonetic toggle, centre display, dictionary query, pre-cache, edit-modal confirmation |
 | `grammar-annotation/` | Optional automatic colouring of main verbs, auxiliary verbs, and BE verbs with reveal-order timing |
-| `grammar-transformation/` | Dedicated 100-card BE / Do-Does affirmative-to-negative-and-question worksheet and timed prompt-first reveal |
+| `grammar-transformation/` | Dedicated 200-card BE / Do-Does mixed sentence-transformation worksheet, timed prompt-first reveal, and question/answer editing |
 
 ## Conventions
 

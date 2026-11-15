@@ -743,7 +743,7 @@
   <div id="edit-word-modal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>✏️ 編輯單字</h2>
+        <h2 id="edit-word-title">✏️ 編輯單字</h2>
         <button id="close-edit-word" class="close-btn" aria-label="關閉視窗">&times;</button>
       </div>
       <div class="modal-body">
@@ -752,13 +752,13 @@
           <span id="edit-word-sheet-name" class="edit-word-sheet-value"></span>
         </div>
         <div class="setting-group">
-          <label for="edit-word-english">單字</label>
+          <label id="edit-word-english-label" for="edit-word-english">單字</label>
           <div class="setting-control">
             <input type="text" id="edit-word-english" placeholder="英文單字" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           </div>
         </div>
         <div class="setting-group">
-          <label for="edit-word-chinese">翻譯</label>
+          <label id="edit-word-chinese-label" for="edit-word-chinese">翻譯</label>
           <div class="setting-control">
             <input type="text" id="edit-word-chinese" placeholder="中文翻譯" autocomplete="off">
           </div>
@@ -771,7 +771,7 @@
             <span id="edit-word-difficulty-value" class="edit-word-difficulty-value">★0</span>
           </div>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" id="edit-word-must-spell-group">
           <label for="edit-word-must-spell">✍️ 要會拼</label>
           <div class="setting-control">
             <select id="edit-word-must-spell">
@@ -782,7 +782,7 @@
             </select>
           </div>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" id="edit-word-image-group">
           <label for="edit-word-image">圖片 URL</label>
           <div class="setting-control">
             <input type="text" id="edit-word-image" placeholder="圖片網址（可留空）" autocomplete="off">

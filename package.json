@@ -15,6 +15,7 @@
     "test": "jest --verbose",
     "test:watch": "jest --watch",
     "test:file": "jest --bail=1",
+    "generate:grammar-cards": "node scripts/generate-grammar-transformation-cards.mjs",
     "validate:grammar-cards": "node scripts/validate-grammar-transformation-cards.mjs",
     "deploy": "bash scripts/run-clasp.sh push && echo '✅ 推送完成！' && bash scripts/run-clasp.sh open-web-app ${FLASHCARD_DEPLOYMENT_ID:-AKfycbyAgDBbnMNmQLbmy9qKSTw0pPAMZamC3MDlV4u82K0}"
   },
