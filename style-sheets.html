@@ -147,16 +147,13 @@
   .sheet-item {
     display: flex;
     align-items: center;
+    gap: var(--spacing-sm);
     padding: 12px var(--spacing-md);
     border-bottom: 1px solid rgba(255, 255, 0, 0.2);
     cursor: pointer;
     transition: background-color var(--transition-normal);
   }
 
-  /* iOS 10 無 flexbox gap：以子項 margin-left 等效模擬（不用負邊距容器，避免 border 變短） */
-  .sheet-item > * + * {
-    margin-left: var(--spacing-sm);
-  }
   
   .sheet-item:last-child {
     border-bottom: none;

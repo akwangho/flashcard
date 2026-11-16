@@ -67,12 +67,8 @@ FlashcardApp.prototype.getDefaultExportSheetName = function() {
   
   var date = new Date();
   var y = date.getFullYear();
-  var m = (date.getMonth() + 1).toString();
-  var d = date.getDate().toString();
-  
-  // ES5 版本的 padStart
-  if (m.length < 2) m = '0' + m;
-  if (d.length < 2) d = '0' + d;
+  var m = String(date.getMonth() + 1).padStart(2, '0');
+  var d = String(date.getDate()).padStart(2, '0');
   
   return base + '_' + y + m + d;
 };
@@ -541,14 +537,9 @@ FlashcardApp.prototype.processBatch = function() {
   
   FlashcardApp.prototype.generateAlternativeSheetName = function(originalName) {
     var now = new Date();
-    var hours = now.getHours().toString();
-    var minutes = now.getMinutes().toString();
-    var seconds = now.getSeconds().toString();
-    
-    // ES5 版本的 padStart
-    if (hours.length < 2) hours = '0' + hours;
-    if (minutes.length < 2) minutes = '0' + minutes;
-    if (seconds.length < 2) seconds = '0' + seconds;
+    var hours = String(now.getHours()).padStart(2, '0');
+    var minutes = String(now.getMinutes()).padStart(2, '0');
+    var seconds = String(now.getSeconds()).padStart(2, '0');
     
     // 時間戳精確到秒（HHMMSS）：只到分的話，同一分鐘內第二次匯出會
     // 建議出「與現在同名」的新名稱，陷入已存在→同名建議→已存在的迴圈

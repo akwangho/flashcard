@@ -17,12 +17,12 @@ The system SHALL show a loading screen during startup and word reload.
 
 ### Requirement: Visual Theme and Responsive Layout
 
-The system SHALL use a dark theme with CSS variables and hard-coded fallbacks: `--primary-color` #FFFF00, `--bg-color` #000000, `--text-color` #FFFFFF, `--gray-color` #888888, `--success-color` #00FF00, `--error-color` #FF6B6B, `--warning-color` #FFA500. The viewport uses `user-scalable=no` and `maximum-scale=1.0`, with sufficiently large touch targets on touch devices.
+The system SHALL use a dark theme with CSS variables: `--primary-color` #FFFF00, `--bg-color` #000000, `--text-color` #FFFFFF, `--gray-color` #888888, `--success-color` #00FF00, `--error-color` #FF6B6B, `--warning-color` #FFA500. The viewport SHALL preserve user zoom and use sufficiently large touch targets on touch devices.
 
 #### Scenario: Palette and viewport
 
 - **WHEN** the UI renders on a touch device
-- **THEN** the variables above apply (yellow primary text on black, white general text) with legacy fallbacks, and interactive buttons keep large tap targets
+- **THEN** the variables above apply (yellow primary text on black, white general text), page zoom remains available, and interactive buttons keep large tap targets
 
 ### Requirement: Fullscreen Mode
 
@@ -107,4 +107,5 @@ The system SHALL suppress verbose `console.log` output in the deployed app while
 
 - **WHEN** the user searches loaded words
 - **THEN** English matches case-insensitively by substring and Chinese by substring; "Complete match" restricts to exact case-insensitive English; results show sheet name, row number, preview, and an Edit button that closes search and opens the edit modal pre-filled
+- **AND** the search control uses a semantic form with native submission, so Enter keeps IME candidate-confirmation semantics
 - **AND** opening search from the menu keeps the carousel paused

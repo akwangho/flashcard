@@ -26,8 +26,6 @@ function createDOMElements() {
     // Loading progress
     'loading-progress-fill', 'loading-progress-bar', 'loading-status-text',
     'loading-version',
-    // Speech activation
-    'speech-activation-container', 'activate-speech-btn',
     // Flashcard display
     'paused-indicator', 'muted-indicator',
     'english-section', 'english-word', 'chinese-section', 'chinese-word',
@@ -110,7 +108,7 @@ function createDOMElements() {
     // Grammar-review ratio setting
     'grammar-review-ratio-setting',
     // Search word modal
-    'search-word-modal', 'close-search-word', 'search-word-input', 'search-word-run',
+    'search-word-modal', 'close-search-word', 'search-word-form', 'search-word-input', 'search-word-run',
     'search-word-summary', 'search-word-results', 'close-search-word-footer',
     'search-word-exact-match',
     // Difficulty filter modal
@@ -206,6 +204,15 @@ function createDOMElements() {
       el = document.createElement('select');
       el.id = id;
     }
+    if (id === 'search-word-form') {
+      el = document.createElement('form');
+      el.id = id;
+    }
+    if (id === 'search-word-run') {
+      el = document.createElement('button');
+      el.id = id;
+      el.type = 'submit';
+    }
     if (id === 'search-word-exact-match') {
       el = document.createElement('input');
       el.id = id;
@@ -223,7 +230,7 @@ function createDOMElements() {
     if (id === 'sheet-id-input' || id === 'export-sheet-name' || id === 'edit-word-english' || id === 'edit-word-chinese' || id === 'edit-word-image' || id === 'edit-word-tags' || id === 'edit-word-kk-input' || id === 'listening-spell-input' || id === 'search-word-input') {
       el = document.createElement('input');
       el.id = id;
-      el.type = 'text';
+      el.type = id === 'search-word-input' ? 'search' : 'text';
     }
     if (id === 'export-type-remaining' || id === 'export-type-difficult') {
       el = document.createElement('input');
@@ -483,7 +490,7 @@ function loadScriptFile(filename) {
 function loadAllScripts() {
   // Try split files first
   var splitFiles = [
-    'script-polyfills.html',
+    'script-runtime.html',
     'vendor-compromise.html',
     'script-core.html',
     'script-grammar.html',

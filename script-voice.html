@@ -98,13 +98,6 @@
       return;
     }
     
-    // 舊版瀏覽器檢查用戶交互狀態
-    if (this.isLegacyBrowser && !this.speechActivated) {
-      console.log('舊版瀏覽器：語音未啟用，跳過字母拼讀');
-      if (callback) callback();
-      return;
-    }
-
     // iPadOS Safari 26.4 限定：手勢前呼叫 speak() 會永久污染語音引擎
     if (this._needsTapToStart && !this._userGestureSeen) {
       console.log('字母拼讀略過：使用者尚未產生第一個手勢 (iPad)');
@@ -219,13 +212,6 @@
       return;
     }
 
-    // 舊版瀏覽器檢查用戶交互狀態
-    if (this.isLegacyBrowser && !this.speechActivated) {
-      console.log('舊版瀏覽器：語音未啟用，跳過拆字發音');
-      if (callback) callback();
-      return;
-    }
-
     // iPadOS Safari 26.4 限定：手勢前呼叫 speak() 會永久污染語音引擎
     if (this._needsTapToStart && !this._userGestureSeen) {
       console.log('拆字發音略過：使用者尚未產生第一個手勢 (iPad)');
@@ -320,12 +306,6 @@
     if (!this.voiceSettings.enabled) return;
     if (!text) return;
     
-    // 舊版瀏覽器檢查用戶交互狀態
-    if (this.isLegacyBrowser && !this.speechActivated) {
-      console.log('舊版瀏覽器：語音未啟用，跳過播放');
-      return;
-    }
-
     // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
     if (this._needsTapToStart && !this._userGestureSeen) {
       console.log('英文語音略過：使用者尚未產生第一個手勢 (iPad)');
@@ -408,7 +388,7 @@
       
       var self = this;
       
-      // 為舊版瀏覽器添加錯誤處理
+      // 語音播放錯誤處理
       utterance.onerror = function(event) {
         console.log('英文語音播放錯誤:', event.error);
         self._speechSequenceActive = false;
@@ -434,12 +414,6 @@
     if (!this.voiceSettings.enabled) return;
     if (!text) return;
     
-    // 舊版瀏覽器檢查用戶交互狀態
-    if (this.isLegacyBrowser && !this.speechActivated) {
-      console.log('舊版瀏覽器：語音未啟用，跳過播放');
-      return;
-    }
-
     // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
     if (this._needsTapToStart && !this._userGestureSeen) {
       console.log('日文語音略過：使用者尚未產生第一個手勢 (iPad)');
@@ -485,7 +459,7 @@
           utterance.voice = selectedVoice;
         }
         
-        // 為舊版瀏覽器添加錯誤處理
+        // 語音播放錯誤處理
         utterance.onerror = function(event) {
           console.log('日文語音播放錯誤:', event.error);
         };
@@ -514,12 +488,6 @@
     if (!this.voiceSettings.chineseEnabled) return;
     if (!text) return;
     
-    // 舊版瀏覽器檢查用戶交互狀態
-    if (this.isLegacyBrowser && !this.speechActivated) {
-      console.log('舊版瀏覽器：語音未啟用，跳過播放');
-      return;
-    }
-
     // iPadOS Safari 26.4 限定：手勢前 speak() 會永久污染語音引擎，徹底跳過
     if (this._needsTapToStart && !this._userGestureSeen) {
       console.log('中文語音略過：使用者尚未產生第一個手勢 (iPad)');
@@ -617,7 +585,7 @@
         utterance.voice = selectedVoice;
       }
       
-      // 為舊版瀏覽器添加錯誤處理
+      // 語音播放錯誤處理
       utterance.onerror = function(event) {
         console.log('中文語音播放錯誤:', event.error);
       };

@@ -159,6 +159,20 @@ describe('grammar annotation', function() {
     expect(annotationFor('Computers connect us in a way called the Internet.', 'called')).toBeNull();
   });
 
+  test('treats compound noun heads as nouns instead of verbs', function() {
+    var sentence = 'Check the schedule for our video call.';
+    expect(annotationFor(sentence, 'Check').role).toBe('verb');
+    expect(annotationFor(sentence, 'call')).toBeNull();
+
+    expect(annotationFor('The video call starts at noon.', 'call')).toBeNull();
+    expect(annotationFor('We made a phone call yesterday.', 'call')).toBeNull();
+    expect(annotationFor('I watched our video call recording.', 'call')).toBeNull();
+    expect(annotationFor('Our very important video call starts at noon.', 'call')).toBeNull();
+
+    // 真正的動詞用法不受複合名詞規則影響。
+    expect(annotationFor('Call the doctor tomorrow.', 'Call').role).toBe('verb');
+  });
+
   test('does not mark participial adjectives before nouns as verbs', function() {
     var sentence = 'The night owl bought fried food from a street vendor.';
     expect(annotationFor(sentence, 'bought').role).toBe('verb');

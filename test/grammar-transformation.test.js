@@ -250,9 +250,33 @@ describe('grammar transformation flashcard behavior', function() {
     app._revealSecondPart(card);
     jest.advanceTimersByTime(APP_CONSTANTS.SPEECH_DELAY_MS + 10);
 
-    expect(document.getElementById('chinese-word').textContent).toBe('You are angry.');
+    var answerElement = document.getElementById('chinese-word');
+    expect(answerElement.textContent).toBe('You are angry.');
+    expect(answerElement.querySelectorAll('.grammar-be').length).toBe(1);
+    expect(answerElement.querySelector('.grammar-be').textContent).toBe('are');
     expect(app.speakWord).toHaveBeenCalledWith('You are angry.');
     expect(app.speakChineseWord).not.toHaveBeenCalled();
+  });
+
+  test('annotates main verbs and auxiliary verbs in the English answer', function() {
+    card.chinese = 'They have finished the work.';
+    app._revealSecondPart(card);
+
+    var answerElement = document.getElementById('chinese-word');
+    expect(answerElement.textContent).toBe('They have finished the work.');
+    expect(answerElement.querySelectorAll('.grammar-auxiliary').length).toBe(1);
+    expect(answerElement.querySelector('.grammar-auxiliary').textContent).toBe('have');
+    expect(answerElement.querySelectorAll('.grammar-verb').length).toBe(1);
+    expect(answerElement.querySelector('.grammar-verb').textContent).toBe('finished');
+  });
+
+  test('does not annotate the answer when grammar annotation is disabled', function() {
+    app.settings.grammarAnnotationEnabled = false;
+    app._revealSecondPart(card);
+
+    var answerElement = document.getElementById('chinese-word');
+    expect(answerElement.textContent).toBe('You are angry.');
+    expect(answerElement.querySelectorAll('.grammar-verb, .grammar-auxiliary, .grammar-be').length).toBe(0);
   });
 });
 

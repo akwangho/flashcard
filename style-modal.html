@@ -100,12 +100,8 @@
   .setting-control {
     display: flex;
     align-items: center;
-    /* iOS 10 無 flexbox gap：以子項 margin-left 等效模擬 */
+    gap: var(--spacing-md);
     position: relative;
-  }
-  
-  .setting-control > * + * {
-    margin-left: var(--spacing-md);
   }
   
   .setting-control input[type="range"] {
@@ -376,18 +372,12 @@
   .modal-footer {
     display: flex;
     justify-content: center;
+    gap: var(--spacing-md);
     padding: var(--spacing-lg);
     border-top: 2px solid var(--primary-color);
-    background-color: #1a1a1a;
     background-color: var(--bg-color);
-    -webkit-flex-shrink: 0;
     flex-shrink: 0;
     z-index: 10;
-  }
-  
-  /* iOS 10 無 flexbox gap：以子項 margin-left 等效模擬 */
-  .modal-footer > * + * {
-    margin-left: var(--spacing-md);
   }
   
   .secondary-btn {

@@ -4,7 +4,7 @@ OpenSpec v1.3.1. Specs describe **current deployed behaviour** and are the sourc
 
 ## Where to Find Things
 
-`openspec/project.md` holds architecture, file structure, deployment, ES5 constraints, testing, and the **defaults table**; each capability's requirements + scenarios live in `openspec/specs/<capability>/spec.md`.
+`openspec/project.md` holds architecture, file structure, deployment, browser-support policy, testing, and the **defaults table**; each capability's requirements + scenarios live in `openspec/specs/<capability>/spec.md`.
 
 ## Capability Index
 
@@ -35,6 +35,6 @@ OpenSpec v1.3.1. Specs describe **current deployed behaviour** and are the sourc
 
 - Requirements use `### Requirement:` headings; scenarios use `#### Scenario:` with **GIVEN/WHEN/THEN** bullets; RFC 2119 keywords (SHALL/SHOULD/MAY).
 - Keep specs lean: 1–2 core scenarios per requirement, cross-reference other specs and the `project.md` defaults table instead of restating facts, and keep implementation details out of `spec.md`.
-- Frontend MUST be ES5 (see `project.md`); put new magic numbers / localStorage keys in `APP_CONSTANTS` (`script-core.html`).
+- Frontend targets Baseline Widely available browser features (see `project.md`); put new magic numbers / localStorage keys in `APP_CONSTANTS` (`script-core.html`).
 - When adding a feature, add its `### Requirement:` block to the relevant spec before implementing.
 - A `changes/` directory (delta-spec workflow) is not initialised; run `openspec init` if adopting it.

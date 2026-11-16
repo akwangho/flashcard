@@ -2,22 +2,22 @@
 
 ## Overview
 
-英文單字閃卡 is a Google Apps Script + Google Sheets flashcard app for zh-TW learners (primarily iPad students): auto-carousel flashcards, EN/JA/ZH TTS, SRS, quizzes, listening practice, difficulty marking, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet with a configurable 5%-default review quota. The frontend is ES5 and fully compatible with iPad 4 / iOS ≤ 10.
+英文單字閃卡 is a Google Apps Script + Google Sheets flashcard app for zh-TW learners: auto-carousel flashcards, EN/JA/ZH TTS, SRS, quizzes, listening practice, difficulty marking, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet with a configurable 5%-default review quota. The frontend targets modern Baseline Widely available browser features.
 
 ## Architecture
 
 | Layer | Technology |
 |-------|------------|
 | Backend | Google Apps Script (`code.gs`, `grammarFlashcards.gs`); ES6 allowed; every function try-catch wrapped |
-| Frontend | Native ES5 JS; prototype-based OOP — all methods on `FlashcardApp.prototype`; 100+ state properties initialised via 7 sub-init fns (`_initCoreState`, `_initVoiceState`, `_initSettingsState`, `_initFilterState`, `_initScreenAwakeState`, `_initQuizState`, `_initKKPhoneticState`) |
-| Markup / CSS | HTML5 via GAS HTML Service templates (`<?!= include(); ?>`); CSS modules use `var()` with hard-coded fallbacks |
+| Frontend | Modern JavaScript; prototype-based OOP — all methods on `FlashcardApp.prototype`; 100+ state properties initialised via 7 sub-init fns (`_initCoreState`, `_initVoiceState`, `_initSettingsState`, `_initFilterState`, `_initScreenAwakeState`, `_initQuizState`, `_initKKPhoneticState`) |
+| Markup / CSS | HTML5 via GAS HTML Service templates (`<?!= include(); ?>`); CSS modules use native variables, Grid, and Flexbox |
 | Voice | Web Speech API (EN/JA/ZH) |
 | Data | Google Sheets via `SpreadsheetApp`; frontend calls backend via `google.script.run.withSuccessHandler()` |
 | Persistence | LocalStorage for user preferences |
 
 ### Startup and word-load flows
 
-- `new FlashcardApp()` (6 sub-inits) → `init()`: `loadSettings()` + `loadSheetSettings()` + `loadSrsData()` → `detectLegacyBrowser()` → `setupEventListeners()` (core / menu / modal / keyboard / swipe / progress); saved sheet → `loadWords(true)`, otherwise `openSheetSettings()`
+- `new FlashcardApp()` (6 sub-inits) → `init()`: `loadSettings()` + `loadSheetSettings()` + `loadSrsData()` → `setupEventListeners()` (core / menu / modal / keyboard / swipe / progress); saved sheet → `loadWords(true)`, otherwise `openSheetSettings()`
 - **Initial load:** `loadWordsProgressively()` → effective sheet list (always includes the dedicated grammar worksheet) → parallel `getWordsFromSingleSheet()` per sheet (progress bar) → `finishProgressiveLoading()` (reassign ids → duplicate auto-handle → notification) → `handleLoadingComplete()` → `startNewRound()`
 - **Reload:** `getWordsFromSheetsWithDuplicateDetection()` (backend auto-handles duplicates; see `duplicate-handling/spec.md`) → notification / duplicate modal / proceed
 
@@ -25,20 +25,22 @@
 
 - `code.gs` — backend; `grammarFlashcards.gs` — generated 200-card grammar worksheet seeder; `index.html` — main HTML (all modals)
 - CSS: `style-base` · `style-flashcard` · `style-modal` · `style-sheets` · `style-quiz` (`.html`)
-- JS: `script-polyfills` (ES5 polyfills) · `vendor-compromise` (ES5 grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
+- JS: `script-runtime` (production logging controls) · `vendor-compromise` (grammar tagger) · `script-core` (`APP_CONSTANTS`, constructor, init, settings, word load) · `script-grammar` (verb role annotation) · `script-events` · `script-settings-modal` · `script-difficulty` · `script-display` · `script-progress-bar` · `script-voice` · `script-export` · `script-sheets` · `script-duplicates` · `script-filter` · `script-kk-phonetic` · `script-edit-word` · `script-search-word` · `script-srs` · `script-screen-awake` · `script-quiz` · `script-listening` · `script-bootstrap`
 - Tooling: `appsscript.json` · `.clasp.json` · `.claspignore` · `package.json` · `jest.config.js` · `deploy.sh` · `clasp-node-ca.sh` · `deploy.local.sh.example` · `scripts/run-clasp.sh`
 - Grammar data: `data/grammar-transformation-cards.json` (canonical 200 cards) · `scripts/generate-grammar-transformation-cards.mjs` (reproducible mixed-card generator) · `scripts/build-grammar-transformation-seed.mjs` (validation + `grammarFlashcards.gs` generator)
-- Tests: `test/environment.js` (caches ~730 KB script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js` (1154 cases)
+- Tests: `test/environment.js` (caches script content) · `test/setup-env.js` · `test/setup.js` (DOM mocks, `google.script.run` + `speechSynthesis` mocks, `createApp()`) · `test/*.test.js`
 
 ## Deployment (clasp)
 
 `bash deploy.sh setup|push|pull|open|web` · `npm run push` · `npm run push:watch` · `npm run deploy` (push + open Web App). SSL-inspected corporate networks: copy `deploy.local.sh.example` → `deploy.local.sh` and set `NODE_EXTRA_CA_CERTS` or `FLASHCARD_CA_BUNDLE` (or drop a `.node-extra-ca.pem` in the project root).
 
-## ES5 Compatibility (critical — all frontend `.html` files)
+## Browser Support (frontend)
 
-**Forbidden:** `let`, `const`, arrow functions, template literals, destructuring, spread, `Promise`, async/await, `class`.
-**Required:** `var`, `function`, string concatenation, `for` loops; polyfills exist for `forEach/filter/map/find/includes`.
-CSS: every `var(--x)` needs a hard-coded fallback. Touch: `touchstart/move/end`; `cancelBubble` as `stopPropagation` fallback.
+The frontend targets Baseline Widely available browser features. Modern JavaScript syntax and native CSS/HTML APIs are allowed; no ES5 transpilation or compatibility polyfill layer is required.
+
+- Prefer native Grid/Flexbox, CSS variables, forms, and keyboard events over legacy workarounds.
+- Feature-detect APIs with narrower support and degrade gracefully rather than restoring broad legacy-browser support.
+- Consult the `modern-web-guidance` skill for client-side HTML/CSS/JavaScript changes.
 
 ## Error Handling & Performance
 

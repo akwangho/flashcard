@@ -133,19 +133,15 @@
     border: 2px solid rgba(255, 255, 255, 0.2);
   }
   
-  /* Quiz Options
-     iOS 10 Safari 不支援 CSS grid（原 display:grid 會退化成單欄堆疊），
-     flexbox gap 也要 Safari 14.1+ → 改用 flex + 負邊距容器 + 子項邊距模擬兩欄間距 */
+  /* Quiz Options：兩欄等寬 grid，窄螢幕改為單欄。 */
   .quiz-options {
-    display: flex;
-    flex-wrap: wrap;
-    margin: calc(var(--spacing-md) / -2);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-md);
     margin-bottom: var(--spacing-lg);
   }
   
   .quiz-option {
-    flex: 0 0 calc(50% - var(--spacing-md));
-    margin: calc(var(--spacing-md) / 2);
     padding: var(--spacing-md) var(--spacing-lg);
     background-color: rgba(0, 0, 0, 0.7);
     color: var(--text-color);
@@ -264,15 +260,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
     padding: var(--spacing-lg);
     background-color: rgba(255, 255, 0, 0.1);
     border-radius: var(--radius-lg);
-  }
-  
-  /* iOS 10 無 flexbox gap：以子項 margin-left 等效模擬 */
-  .quiz-result-score > * + * {
-    margin-left: var(--spacing-xl);
   }
   
   .quiz-score-circle {
@@ -423,20 +415,13 @@
       max-width: none;
     }
     
-    .quiz-option {
-      /* 單欄版面（窄螢幕）：flex-basis 改 100% - 間距 */
-      flex-basis: calc(100% - var(--spacing-md));
+    .quiz-options {
+      grid-template-columns: minmax(0, 1fr);
     }
     
     .quiz-result-score {
       flex-direction: column;
-    }
-    
-    /* 直向版面改用 margin-top（原本的 gap 在 iOS 10 無效）；
-       margin-left 會被 flex-direction:column 下的定位自然忽略 */
-    .quiz-result-score > * + * {
-      margin-left: 0;
-      margin-top: var(--spacing-lg);
+      gap: var(--spacing-lg);
     }
     
     .quiz-score-circle {
@@ -480,11 +465,7 @@
   .review-filter-options {
     display: flex;
     flex-direction: column;
-  }
-  
-  /* iOS 10 無 flexbox gap：以子項 margin-top 等效模擬 */
-  .review-filter-options > * + * {
-    margin-top: 8px;
+    gap: 8px;
   }
 
   .review-filter-option {

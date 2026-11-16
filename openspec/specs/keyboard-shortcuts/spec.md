@@ -24,6 +24,11 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 | `P` | Replay the whole word only (EN/JA auto-detected; skips letter spell-out even when spell-out is enabled); odd press = normal rate, even press = fixed slow rate `0.1` (not scaled by the user's voice rate); sentences always use normal rate; a re-press cancels the in-flight replay (works even while paused) |
 | Escape | Close the topmost open modal (falls back to closing the menu when no modal is open) |
 
+#### Scenario: Standard key events
+
+- **WHEN** a keyboard shortcut is pressed
+- **THEN** the system matches standard `KeyboardEvent.code` / `KeyboardEvent.key` values and does not require deprecated numeric key codes
+
 #### Scenario: Restrictions
 
 - **WHEN** any modal is open and focus is inside a form control, or the carousel is paused

@@ -106,31 +106,15 @@
 
   // 處理flashcard點擊事件（檢查點擊位置）
   FlashcardApp.prototype.handleFlashcardClick = function(event) {
-    // 檢查點擊是否發生在控制按鈕或選單上（ES5兼容版本）
-    var target = event.target;
-    
-    // 向上遍历DOM树检查是否点击了控制元素
-    var element = target;
-    while (element && element !== event.currentTarget) {
-      if (element.classList && (
-          element.classList.contains('controls-wrapper') ||
-          element.classList.contains('progress') ||
-          element.classList.contains('restore-btn-container') ||
-          element.classList.contains('paused-indicator') ||
-          element.classList.contains('paused-content') ||
-          element.classList.contains('paused-icon') ||
-          element.classList.contains('paused-text') ||
-          element.classList.contains('muted-indicator') ||
-          element.classList.contains('muted-content') ||
-          element.classList.contains('muted-icon') ||
-          element.classList.contains('muted-text') ||
-          element.classList.contains('active-filters') ||
-          element.classList.contains('quick-timer-dock') ||
-          element.tagName === 'BUTTON')) {
-        return; // 如果點擊的是控制元素，不處理
-      }
-      element = element.parentElement;
-    }
+    // 使用原生 closest() 一次判斷點擊是否落在控制元素上。
+    const target = event.target;
+    const controlSelector = [
+      '.controls-wrapper', '.progress', '.restore-btn-container',
+      '.paused-indicator', '.paused-content', '.paused-icon', '.paused-text',
+      '.muted-indicator', '.muted-content', '.muted-icon', '.muted-text',
+      '.active-filters', '.quick-timer-dock', 'button'
+    ].join(', ');
+    if (target?.closest?.(controlSelector)) return;
     
     // 計算下方安全區域的高度
     var flashcardRect = event.currentTarget.getBoundingClientRect();
@@ -439,16 +423,22 @@
     var chineseElement = document.getElementById('chinese-word');
     var flashcardDiv = document.getElementById('flashcard');
     var isReversed = this.isReversedForCurrentWord();
+    var isGrammarTransformation = this.isGrammarTransformationWord(currentWord);
     var secondText = isReversed ? this.displayTextFor(currentWord, 'english') : this.displayTextFor(currentWord, 'chinese');
 
     // 語法標注依出現順序處理，但先完成 DOM 準備再顯示：
     // - 先英文：Phase 1 已建立相同標注 DOM（角色色暫隱），此時只顯示角色色；
     //   不重新建立文字節點，避免句子行數在 Phase 2 瞬間改變。
     // - 先中文：英文此刻才出現，先建立標注 DOM，再一起淡入。
+    // - 文法轉換卡：第二面是英文答案，答案本身同樣標注動詞角色。
     if (isReversed) {
       this.setGrammarAnnotatedText(chineseElement, secondText);
     } else {
-      this.setCardText(chineseElement, secondText);
+      if (isGrammarTransformation) {
+        this.setGrammarAnnotatedText(chineseElement, secondText, true);
+      } else {
+        this.setCardText(chineseElement, secondText);
+      }
       this.revealGrammarAnnotations(document.getElementById('english-word'));
     }
     chineseElement.classList.add('show');
@@ -470,7 +460,6 @@
     var self = this;
     // 換卡會遞增 _speechPlayId；發音計時器觸發時比對，不一致代表已換卡 → 丟棄舊卡發音
     var phase2PlayId = this._speechPlayId || 0;
-    var isGrammarTransformation = this.isGrammarTransformationWord(currentWord);
     if (isGrammarTransformation) {
       // 文法轉換卡的第二面是英文否定句／疑問句，必須使用英文語音。
       setTimeout(function() {

@@ -57,6 +57,18 @@ The system SHALL read grammar transformation prompts and answers with the Englis
 - **WHEN** the answer appears in phase 2
 - **THEN** the English target form is spoken with the English voice.
 
+### Requirement: Answer Grammar Annotation
+
+When automatic grammar annotation is enabled, the system SHALL apply the same main-verb, auxiliary-verb, and BE-verb colouring to the English answer when it appears in phase 2. The answer text SHALL remain unchanged, and the annotation toggle SHALL continue to control both prompts and answers.
+
+#### Scenario: Annotated English answer
+
+- **GIVEN** grammar annotation is enabled and a grammar transformation card has the answer `They have finished the work.`
+- **WHEN** the phase-2 answer appears
+- **THEN** `have` is coloured as an auxiliary verb and `finished` is coloured as a main verb.
+- **WHEN** grammar annotation is disabled
+- **THEN** the answer appears as plain text without grammar-role colour spans.
+
 ### Requirement: Question-and-Answer Editing Compatibility
 
 The system SHALL load grammar cards through the same worksheet and word-object path as other vocabulary cards. Column B SHALL represent the question/prompt and column C SHALL represent the English answer. Editing a grammar card SHALL save both values back to those columns and SHALL use question/answer labels instead of vocabulary/translation labels.

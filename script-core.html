@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.33.0',
+    APP_VERSION: '1.35.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-15 17:25',
+    APP_BUILD_TIME: '2026-11-16 21:38',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -189,7 +189,7 @@
   // =====================================================================
 
   /**
-   * 格式化日期為 YYYY-MM-DD 字串（ES5 兼容）
+   * 格式化日期為 YYYY-MM-DD 字串
    * @param {Date} [date] - 要格式化的日期，預設為今天
    * @returns {string} 格式化後的日期字串
    */
@@ -465,8 +465,6 @@
   /** 語音相關狀態 */
   FlashcardApp.prototype._initVoiceState = function() {
     this.speechSynthesis = window.speechSynthesis;
-    this.speechActivated = false;
-    this.isLegacyBrowser = false;
     // iPadOS Safari 26.4: 任何在使用者第一個手勢前呼叫的 speechSynthesis.speak()
     // 會「污染」語音引擎，導致之後即使在手勢內 speak() 也都不會觸發 onstart。
     // 此問題只發生在 iPad；其他平台 (iPhone / Android / PC) 不需要這個 gating。
@@ -604,7 +602,7 @@
    * 依序：loadSettings → loadSheetSettings → loadSrsData → setupUI → loadWords
    */
   FlashcardApp.prototype.init = function() {
-    console.log('=== FlashcardApp 初始化開始 (ES5版本) ===');
+    console.log('=== FlashcardApp 初始化開始 ===');
     try {
       console.log('載入基本設定...');
       this.loadSettings();
@@ -618,8 +616,7 @@
         try { this.fetchAppDeployInfo(); } catch (e) { /* 不影響載入 */ }
       }
 
-      // 檢測瀏覽器是否需要語音交互
-      this.detectLegacyBrowser();
+      // 現代瀏覽器不需要額外的語音解鎖流程
       
       console.log('設定事件監聽器...');
       this.setupEventListeners();
@@ -766,51 +763,6 @@
     }
   };
 
-  // 檢測舊版瀏覽器
-  FlashcardApp.prototype.detectLegacyBrowser = function() {
-    var userAgent = navigator.userAgent;
-    var isIOS = /iPad|iPhone|iPod/.test(userAgent);
-    var iosVersion = null;
-    var isOldChrome = false;
-    
-    if (isIOS) {
-      var match = userAgent.match(/OS (\d+)_/);
-      if (match) {
-        iosVersion = parseInt(match[1]);
-      }
-    }
-    
-    // 檢測舊版Chrome（版本低於80）
-    var chromeMatch = userAgent.match(/Chrome\/(\d+)/);
-    if (chromeMatch) {
-      var chromeVersion = parseInt(chromeMatch[1]);
-      isOldChrome = chromeVersion < 80;
-    }
-    
-    // 檢測需要用戶交互才能播放語音的瀏覽器：
-    // 1. iPad/iOS 10及以下版本
-    // 2. 舊版Chrome（版本低於80）
-    // 3. Safari 12及以下版本
-    this.isLegacyBrowser = (isIOS && iosVersion && iosVersion <= 10) || 
-                          isOldChrome ||
-                          userAgent.indexOf('Safari') !== -1 && userAgent.indexOf('Chrome') === -1 && 
-                          userAgent.match(/Version\/(\d+)/) && parseInt(userAgent.match(/Version\/(\d+)/)[1]) <= 12;
-    
-    // 新版瀏覽器自動啟用語音
-    if (!this.isLegacyBrowser) {
-      this.speechActivated = true;
-    }
-    
-    console.log('瀏覽器檢測結果:', {
-      userAgent: userAgent,
-      isIOS: isIOS,
-      iosVersion: iosVersion,
-      isOldChrome: isOldChrome,
-      isLegacyBrowser: this.isLegacyBrowser,
-      speechActivated: this.speechActivated
-    });
-  };
-  
   // 處理載入完成
   FlashcardApp.prototype.handleLoadingComplete = function(hasDuplicates, shouldOpenSettings) {
     // 載入完成後啟動「自動檢查新版本」背景機制（冪等；見 script-app-update.html）
@@ -818,35 +770,27 @@
       try { this.setupAppUpdateWatcher(); } catch (e) { /* 不影響載入 */ }
     }
 
-    if (this.isLegacyBrowser && !this.speechActivated) {
-      // 舊版瀏覽器顯示語音啟用按鈕
+    this.hideLoading();
+    this.applySettings();
+
+    if (shouldOpenSettings) {
+      // 設定畫面需要互動 → 關掉覆蓋層
       this._hideTapToStartOverlay();
-      this.showSpeechActivation();
+      this.openSheetSettings();
+    } else if (hasDuplicates) {
+      // 重複單字對話框需要互動 → 關掉覆蓋層
+      this._hideTapToStartOverlay();
     } else {
-      // 新版瀏覽器或已啟用語音，直接進入主畫面
-      this.hideLoading();
-      this.applySettings();
-      
-      if (shouldOpenSettings) {
-        // 設定畫面需要互動 → 關掉覆蓋層
-        this._hideTapToStartOverlay();
-        this.openSheetSettings();
-      } else if (hasDuplicates) {
-        // 重複單字對話框需要互動 → 關掉覆蓋層
-        this._hideTapToStartOverlay();
+      // iPad 限定：等待第一次 user gesture 後才 startNewRound（覆蓋層由 HTML 預設顯示）。
+      // 其他平台 (iPhone / Android / PC) 不需要 gating，直接 startNewRound。
+      if (this._needsTapToStart && !this._userGestureSeen) {
+        // 使用者還沒點 → 把 startNewRound 留給 _consumePendingStartNewRound 觸發
+        this._pendingStartNewRound = true;
       } else {
-        // iPad 限定：等待第一次 user gesture 後才 startNewRound（覆蓋層由 HTML 預設顯示）。
-        // 其他平台 (iPhone / Android / PC) 不需要 gating，直接 startNewRound。
-        if (this._needsTapToStart && !this._userGestureSeen) {
-          // 使用者還沒點 → 把 startNewRound 留給 _consumePendingStartNewRound 觸發
-          this._pendingStartNewRound = true;
-        } else {
-          // 非 iPad 直接開始；或 iPad 但使用者已在載入時點過覆蓋層
-          this._hideTapToStartOverlay();
-          this.startNewRound();
-        }
+        // 非 iPad 直接開始；或 iPad 但使用者已在載入時點過覆蓋層
+        this._hideTapToStartOverlay();
+        this.startNewRound();
       }
-      
     }
   };
 
@@ -1658,7 +1602,7 @@
     return result;
   };
 
-  // 客戶端 ES5 相容的重複單字偵測與自動處理
+  // 客戶端重複單字偵測與自動處理
   FlashcardApp.prototype.detectAndHandleDuplicatesInMemory = function(allWords) {
     var duplicates = this.findDuplicateGroupsInMemory(allWords);
     var i, j, word;

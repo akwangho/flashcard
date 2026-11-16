@@ -13,7 +13,7 @@ The system SHALL simultaneously attempt several methods to prevent screen sleep 
 #### Scenario: Silent audio and iOS user-gesture activation
 
 - **WHEN** the app starts
-- **THEN** the wake methods are armed; on the first user gesture a silent `AudioContext` MediaStream starts playing through a hidden `<audio>` element (iOS keeps the screen on; Android throttles less), and a 20 kHz oscillator always plays directly — the MediaStream layer is skipped when `createMediaStreamDestination` is unavailable (iPad 4)
+- **THEN** the wake methods are armed; on the first user gesture a silent `AudioContext` MediaStream starts playing through a hidden `<audio>` element (iOS keeps the screen on; Android throttles less), and a 20 kHz oscillator always plays directly — the MediaStream layer is feature-detected and skipped when `createMediaStreamDestination` is unavailable
 - **AND** on every `touchstart` / `touchend` / `click`, the AudioContext and `<audio>` element are re-checked and resumed if iOS suspended them (never while the user has actively paused playback — see watchdog scenario)
 
 #### Scenario: Watchdog monitoring

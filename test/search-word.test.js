@@ -115,4 +115,18 @@ describe('openSearchWordModal / runSearchWords', function() {
     expect(results.innerHTML.indexOf('Sheet1')).not.toBe(-1);
     expect(results.innerHTML.indexOf('編輯')).not.toBe(-1);
   });
+
+  it('uses native form submission instead of a custom Enter handler', function() {
+    var form = document.getElementById('search-word-form');
+    var input = document.getElementById('search-word-input');
+    var summary = document.getElementById('search-word-summary');
+    form.appendChild(input);
+    input.value = 'hello';
+
+    var submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+    form.dispatchEvent(submitEvent);
+
+    expect(submitEvent.defaultPrevented).toBe(true);
+    expect(summary.textContent.indexOf('1 筆')).not.toBe(-1);
+  });
 });

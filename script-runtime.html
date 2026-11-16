@@ -1,0 +1,14 @@
+<!-- script-runtime.html -->
+<script>
+  // Runtime-only setup that must run before application modules.
+  // Production console.log output is suppressed unless ?debug=1 is present.
+  (() => {
+    const isTestEnv = typeof jest !== 'undefined' ||
+      (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test');
+    const debugMode = /[?&]debug(=1|=true|&|$)/.test(window.location.search || '');
+
+    if (!isTestEnv && !debugMode && typeof window.console?.log === 'function') {
+      window.console.log = () => {};
+    }
+  })();
+</script>

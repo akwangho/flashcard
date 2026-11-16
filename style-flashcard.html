@@ -93,7 +93,7 @@
 
   /* 畳置於 card-container 與控制列之間的畫面正中央；
      字型/字體大小與中英文單字一致（.word：--font-4xl + bold，手機 768px 以下 --font-3xl）；
-     var() 均提供硬編碼 fallback（iPad 4 兼容） */
+     字級使用全域 CSS 變數 */
   .kk-phonetic-display {
     position: absolute;
     top: 50%;
@@ -145,7 +145,7 @@
      閾值由 APP_CONSTANTS.KK_PHONETIC_LONG_LENGTH 控制。 */
   .kk-phonetic-display.kk-phonetic-long {
     white-space: normal;
-    overflow-wrap: break-word; /* iOS 10 舊 Safari 相容 */
+    overflow-wrap: break-word;
     word-wrap: break-word;
     word-break: normal;
     line-height: 1.15;
@@ -575,7 +575,6 @@
     }
   }
   
-  /* iPad 4 兼容性：為不支持CSS變量的舊版瀏覽器提供fallback */
   @media screen and (max-width: 768px) {
     .restore-btn-container {
       left: 15px;
@@ -646,16 +645,10 @@
   
   .controls {
     display: flex;
-    /* iOS 10 無 flexbox gap（Safari 14.1+ 才支援）：負邊距容器 + 子項邊距等效模擬，
-       換行時邊距也能正確退到容器邊緣 */
-    margin: calc(var(--spacing-sm) / -2);
+    gap: var(--spacing-sm);
     align-items: center;
     opacity: 0;
     transition: opacity 0.4s ease 0.5s;
-  }
-  
-  .controls > * {
-    margin: calc(var(--spacing-sm) / 2);
   }
   
   /* .force-show 選擇器已移除：JS 只使用 force-hide（hover 顯示 + force-hide 隱藏） */
@@ -718,8 +711,7 @@
   }
   
   .menu-toggle {
-    /* 不加 !important：style-base 的 ≤768px/≤480px media query 需要
-       能覆寫此 padding（iPad 4 直向正好 768px，加了會吃掉行動版間距） */
+    /* 不加 !important，讓 style-base 的響應式 media query 可覆寫 padding。 */
     padding: 12px var(--spacing-lg);
     background-color: rgba(0, 0, 0, 0.7);
     color: var(--primary-color);
@@ -1001,8 +993,7 @@
   .active-filters {
     position: absolute;
     top: 5px;
-    left: 20px;                       /* 舊瀏覽器回退值 */
-    left: var(--spacing-lg);          /* 支援變數者以此為準（回退值必須在前） */
+    left: var(--spacing-lg);
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255, 165, 0, 0.5);
     border-radius: 6px;

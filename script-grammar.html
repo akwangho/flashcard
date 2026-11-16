@@ -123,6 +123,51 @@
   };
 
   /**
+   * 既是動詞、也常用來作複合名詞頭部的字。
+   *
+   * compromise 的詞彙庫會把 call、meeting、work 等這類字優先視為動詞，
+   * 即使它位於 `our video call`、`a team meeting` 等名詞片語中。
+   * 這份共用詞彙表配合下方片語結構規則，可一次處理同類複合名詞，
+   * 不需要為每個名詞片語建立獨立例外。
+   */
+  var GRAMMAR_COMPOUND_NOUN_HEADS = {
+    'account': true, 'accounts': true, 'answer': true, 'answers': true,
+    'backup': true, 'back': true, 'book': true, 'books': true,
+    'break': true, 'breaks': true, 'call': true, 'calls': true,
+    'check': true, 'checks': true, 'checkout': true, 'class': true,
+    'classes': true, 'close': true, 'coach': true, 'comment': true,
+    'comments': true, 'contact': true, 'contacts': true, 'cook': true,
+    'cooks': true, 'copy': true, 'copies': true, 'cover': true,
+    'covers': true, 'design': true, 'designs': true, 'download': true,
+    'downloads': true, 'drive': true, 'email': true, 'emails': true,
+    'end': true, 'ends': true, 'experience': true, 'experiences': true,
+    'feedback': true, 'file': true, 'files': true, 'fire': true,
+    'focus': true, 'help': true, 'helps': true, 'home': true,
+    'house': true, 'input': true, 'job': true, 'jobs': true,
+    'land': true, 'link': true, 'links': true, 'load': true,
+    'lock': true, 'mail': true, 'meeting': true, 'meetings': true,
+    'mock': true, 'mocks': true, 'network': true, 'output': true,
+    'paint': true, 'park': true, 'parking': true, 'pass': true,
+    'phone': true, 'phones': true, 'pick': true, 'place': true,
+    'places': true, 'plan': true, 'plans': true, 'play': true,
+    'plays': true, 'point': true, 'points': true, 'post': true,
+    'posts': true, 'press': true, 'print': true, 'project': true,
+    'projects': true, 'question': true, 'questions': true,
+    'record': true, 'records': true, 'report': true, 'reports': true,
+    'review': true, 'reviews': true, 'run': true, 'runs': true,
+    'school': true, 'screen': true, 'screens': true, 'search': true,
+    'searches': true, 'show': true, 'shows': true, 'sign': true,
+    'smile': true, 'sound': true, 'start': true, 'starts': true,
+    'store': true, 'support': true, 'test': true, 'tests': true,
+    'text': true, 'texts': true, 'tour': true, 'track': true,
+    'tracks': true, 'train': true, 'travel': true, 'turn': true,
+    'turns': true, 'upload': true, 'use': true, 'uses': true,
+    'view': true, 'views': true, 'walk': true, 'walks': true,
+    'watch': true, 'watches': true, 'work': true, 'works': true,
+    'write': true, 'writes': true
+  };
+
+  /**
    * 判斷 compromise term 是否帶有指定標籤。
    * @param {Object} term - compromise term
    * @param {string} tag - 標籤名稱
@@ -521,6 +566,54 @@
   };
 
   /**
+   * 修正複合名詞的頭部名詞。
+   *
+   * compromise 可能把 `our video call`、`a phone call` 的頭部名詞 call
+   * 標成動詞。這類詞組具有「限定詞／所有格 → 名詞修飾語 → 頭部名詞」的
+   * 結構；頭部名詞即使被 tagger 誤標為 Verb，也應保留名詞角色。
+   * 反之，真正的主句動詞不會同時位於這種完整名詞片語的頭部，
+   * 因此本規則可泛化處理其他複合名詞，而不只針對 call 的特例。
+   *
+   * @param {Array<Object>} units - 可見詞彙單元
+   */
+  FlashcardApp.prototype._grammarApplyCompoundNounHeads = function(units) {
+    for (var i = 1; i < units.length; i++) {
+      if (units[i].role !== GRAMMAR_ROLE_VERB) continue;
+      if (this._grammarTermHasTag(units[i].term, 'Imperative')) continue;
+
+      var headWord = this._grammarTermText(units[i].term);
+      if (!GRAMMAR_COMPOUND_NOUN_HEADS[headWord]) continue;
+
+      // 頭部名詞前一個詞必須是名詞性修飾語，例如 video / phone。
+      var modifierTerm = units[i - 1].term;
+      if (!this._grammarTermHasTag(modifierTerm, 'Noun')) continue;
+
+      // 向前回溯名詞修飾語鏈，找出其限定詞或所有格修飾語。
+      // 例如 `our very important video call` 會依序略過 important / very，
+      // 再由 our 確認整個片語是名詞片語。
+      var hasNounPhraseGovernor = false;
+      for (var j = i - 2; j >= 0; j--) {
+        var term = units[j].term;
+        if (this._grammarTermHasTag(term, 'Determiner') ||
+            this._grammarTermHasTag(term, 'Possessive')) {
+          hasNounPhraseGovernor = true;
+          break;
+        }
+        if (this._grammarTermHasTag(term, 'Noun') ||
+            this._grammarTermHasTag(term, 'Adjective') ||
+            this._grammarTermHasTag(term, 'Adverb')) {
+          continue;
+        }
+        break;
+      }
+
+      if (hasNounPhraseGovernor) {
+        units[i].role = null;
+      }
+    }
+  };
+
+  /**
    * 清除名詞位置的假陽性標注。
    * compromise 會把 `books`、`blocks`、`Christmas tree`、`firework show` 等
    * 名詞片語的一部分標成動詞；此處僅在明確名詞上下文才清除。
@@ -790,6 +883,7 @@
         this._grammarApplyModalFallback(units);
         this._grammarApplyCommonVerbFallback(units);
         this._grammarApplyImperativeFallback(units);
+        this._grammarApplyCompoundNounHeads(units);
         this._grammarApplyParticipleModifiers(units);
         this._grammarApplyNounContextRules(units);
         this._grammarApplyContextualAdjectives(units);
@@ -865,11 +959,13 @@
 
   /**
    * 依設定設定文字；只有完整句子且功能開啟時顯示語法標注，
-   * 其餘情況（單字、片語）顯示純文字。
+   * 其餘情況（單字、片語）顯示純文字。文法轉換卡的英文答案已是完整句子，
+   * 但仍可傳入 forceAnnotation，讓答案不受一般卡片類型判斷影響。
    * @param {HTMLElement} element - 目標文字元素
    * @param {string} text - 原始英文文字
+   * @param {boolean} [forceAnnotation=false] - 是否強制建立語法標注
    */
-  FlashcardApp.prototype.setGrammarAnnotatedText = function(element, text) {
+  FlashcardApp.prototype.setGrammarAnnotatedText = function(element, text, forceAnnotation) {
     if (!element) return;
     element.classList.remove('grammar-annotation-pending');
     var isSentence = typeof getWordType === 'function' && getWordType(text) === 'sentence';
@@ -877,7 +973,7 @@
       this.setCardText(element, text);
       return;
     }
-    if (!isSentence) {
+    if (!isSentence && !forceAnnotation) {
       this.setCardText(element, text);
       return;
     }

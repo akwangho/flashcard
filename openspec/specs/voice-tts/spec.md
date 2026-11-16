@@ -97,12 +97,7 @@ The system SHALL toggle voice with the voice button or the Muted indicator, show
 
 ### Requirement: Voice Activation Gates
 
-The system SHALL gate first-use voice on non-desktop platforms: legacy browsers (iOS ≤10, Chrome ≤80, Safari ≤12) show an "Enable voice playback" button on the loading screen; iPads show a fullscreen 輕觸畫面以開始 overlay before data loads, because iPadOS Safari permanently breaks the speech engine if `speechSynthesis.speak()` runs before the first user gesture.
-
-#### Scenario: Legacy browser unlock
-
-- **WHEN** the user clicks the "Enable voice playback" button
-- **THEN** a silent utterance unlocks the TTS engine and normal voice functionality follows
+The system SHALL gate first-use voice on iPadOS Safari with a fullscreen 輕觸畫面以開始 overlay before data loads, because iPadOS Safari permanently breaks the speech engine if `speechSynthesis.speak()` runs before the first user gesture. Other supported modern platforms SHALL start voice without a separate legacy-browser unlock screen.
 
 #### Scenario: iPadOS detection and overlay
 

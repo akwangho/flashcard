@@ -1,6 +1,6 @@
 ## Project Overview
 
-English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App, targeting iPad 4 (iOS 10 and below) users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet with a configurable review quota (default 5%).
+English Vocabulary Flashcard (英文單字閃卡) is a Google Apps Script web application that uses Google Sheets as a data source for English-Chinese word flashcards. It runs as a Google Web App for modern browser users learning English vocabulary. Features include auto-carousel flashcards, TTS (EN/JA/ZH), SRS spaced repetition, quiz modes, listening practice, filters, word export, and a dedicated 200-card mixed grammar-transformation worksheet with a configurable review quota (default 5%).
 
 ## Deployment
 
@@ -32,14 +32,16 @@ For corporate networks with SSL inspection, see the `deploy.sh` comments for CA 
 
 **Backend:** `code.gs` and `grammarFlashcards.gs` run ES6+ on Google servers. All functions wrapped in try-catch. Frontend calls via `google.script.run.withSuccessHandler()`.
 
-## Critical Constraint: ES5 Frontend
+## Browser Support and Frontend JS
 
-All frontend `.html` files must be **ES5-compatible** (iPad 4 / iOS 10):
-- **Forbidden:** `let`, `const`, arrow functions, template literals, destructuring, spread operator, `Promise`, `async/await`, `class` syntax
-- **Required:** `var`, `function`, string concatenation, `for` loops
-- Polyfills for `Array.prototype.forEach/filter/map/find/includes` are in `script-polyfills.html`
+The frontend targets the web platform's Baseline Widely available feature set. Modern JavaScript syntax and native browser APIs are allowed; no ES5 transpilation or compatibility polyfill layer is required.
 
-Backend (`code.gs`) may use ES6+.
+- Prefer native HTML, CSS, and JavaScript APIs over custom compatibility workarounds.
+- Use the `modern-web-guidance` skill for client-side HTML/CSS/JavaScript changes and follow the retrieved compatibility guidance.
+- Existing ES5-style code may remain until it is intentionally refactored; new or changed code is not restricted to ES5 syntax.
+- Feature-detect APIs with narrower support and degrade gracefully rather than restoring broad legacy-browser support.
+
+Backend (`code.gs`) also uses modern JavaScript.
 
 ## Spec-Driven Development (OpenSpec)
 

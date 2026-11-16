@@ -3,7 +3,7 @@
   /**
    * @module script-events
    * @description 事件綁定與 UI 互動模組：所有事件監聽器的設置（核心點擊、選單委派、
-   *   模態框、鍵盤快捷鍵、進度區、匯出）、舊版瀏覽器語音啟用、
+   *   模態框、鍵盤快捷鍵、進度區、匯出）、現代瀏覽器語音互動、
    *   顯示單字、更新進度、開始新回合、自訂確認對話框。
    *
    * @dependencies script-core.html (FlashcardApp, APP_CONSTANTS)
@@ -383,74 +383,6 @@
   };
   
 
-  
-  // 顯示語音啟用界面
-  FlashcardApp.prototype.showSpeechActivation = function() {
-    console.log('顯示語音啟用界面 (舊版瀏覽器)');
-    var activationContainer = document.getElementById('speech-activation-container');
-    if (activationContainer) {
-      activationContainer.style.display = 'block';
-    }
-    
-    // 設置語音啟用按鈕事件
-    var activateBtn = document.getElementById('activate-speech-btn');
-    var self = this;
-    if (activateBtn) {
-      activateBtn.addEventListener('click', function() {
-        self.activateSpeech();
-      });
-    }
-  };
-  
-  // 啟用語音功能
-  FlashcardApp.prototype.activateSpeech = function() {
-    console.log('用戶點擊啟用語音按鈕');
-    
-    // 測試語音功能是否可用
-    try {
-      var testUtterance = new SpeechSynthesisUtterance('');
-      testUtterance.volume = 0; // 靜音測試
-      this.speechSynthesis.speak(testUtterance);
-      
-      this.speechActivated = true;
-      console.log('語音功能已啟用');
-      
-      // 隱藏語音啟用界面
-      var activationContainer = document.getElementById('speech-activation-container');
-      if (activationContainer) {
-        activationContainer.style.display = 'none';
-      }
-      
-      // 進入主畫面
-      this.hideLoading();
-      this.applySettings();
-      
-      if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
-        this.startNewRound();
-      } else {
-        this.openSheetSettings();
-      }
-      
-    } catch (error) {
-      console.error('語音啟用失敗:', error);
-      alert('語音功能啟用失敗，但程式仍可正常使用');
-      this.speechActivated = false;
-      
-      // 仍然進入主畫面
-      var activationContainer = document.getElementById('speech-activation-container');
-      if (activationContainer) {
-        activationContainer.style.display = 'none';
-      }
-      this.hideLoading();
-      this.applySettings();
-      
-      if (this.sheetSettings.sheetId && this.sheetSettings.selectedSheets.length > 0) {
-        this.startNewRound();
-      } else {
-        this.openSheetSettings();
-      }
-    }
-  };
   
   // 隱藏載入畫面
   FlashcardApp.prototype.hideLoading = function() {
@@ -1231,183 +1163,79 @@
     }
   };
   
-    // 鍵盤監聽器 - iPad 4 兼容版本
+  // 鍵盤監聽器：使用標準 KeyboardEvent.code / key，不依賴已淘汰的 keyCode。
   FlashcardApp.prototype.setupKeyboardListeners = function() {
-    var self = this;
-    
-    // iPad 4 兼容性改進：確保 body 元素可以接收鍵盤事件
-    var body = document.body;
-    
-    // 設置 tabindex 屬性，讓 body 可以被聚焦
-    body.setAttribute('tabindex', '0');
-    
-    // 自動聚焦到 body 元素
-    body.focus();
-    
-    // 加入點擊事件監聽器，確保點擊後重新聚焦到 body（但排除表單控件）
-    body.addEventListener('click', function(e) {
-      // 檢查點擊目標是否為表單控件
-      var target = e.target;
-      if (target && (
-          target.tagName === 'SELECT' ||
-          target.tagName === 'OPTION' ||
-          target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.contentEditable === 'true'
-      )) {
-        console.log('點擊了表單控件，不重新聚焦到body:', target.tagName);
-        return; // 不重新聚焦，讓表單控件保持焦點
-      }
-      
-      // 檢查是否點擊了表單控件的容器
-      var element = target;
-      while (element && element !== body) {
-        if (element.classList && (
-            element.classList.contains('setting-control') ||
-            element.classList.contains('font-preview')
-        )) {
-          console.log('點擊了表單控件容器，不重新聚焦到body');
+    const self = this;
+    const keyMap = [
+      { codes: ['Enter'], keys: ['UIKeyInputUpArrow'],
+        action: () => self.toggleDifficultCurrentWord() },
+      { codes: ['Space'], keys: ['UIKeyInputDownArrow'],
+        action: () => self.onWordClick() },
+      { codes: ['ArrowLeft'], keys: ['UIKeyInputLeftArrow'],
+        action: () => self.previousWord() },
+      { codes: ['ArrowUp'], action: () => self.previousWord() },
+      { codes: ['ArrowRight'], keys: ['UIKeyInputRightArrow'],
+        action: () => self.nextWord() },
+      { codes: ['ArrowDown'], action: () => self.nextWord() },
+      { codes: ['F5', 'KeyS'], action: () => self.increaseDifficulty() },
+      { codes: ['KeyD'], action: () => self.handleMarkVeryFamiliar() },
+      { codes: ['KeyE'], action: () => self.openEditWordModal(), allowWhenPaused: true },
+      { codes: ['KeyF'], action: () => self.toggleFullscreen(), allowWhenPaused: true },
+      { codes: ['KeyK'], action: () => self.toggleKKPhonetic(), allowWhenPaused: true },
+      { codes: ['KeyP'], action: () => self.replayCurrentWordAudio(), allowWhenPaused: true }
+    ];
+
+    const handleKeyDown = (event) => {
+      const code = event.code || '';
+      const key = event.key || '';
+
+      if (code === 'Escape' || key === 'Escape') {
+        if (self._closeTopmostModal()) {
+          event.preventDefault();
           return;
         }
-        element = element.parentElement;
-      }
-      
-      body.focus();
-    });
-    
-      // 鍵盤事件處理函數 - 使用 ES5 兼容語法 + key-action mapping
-      //
-      // keyMap: 每個條目 = { keyCodes: [...], codes: [...], keys: [...], action: fn }
-      // 比對順序：keyCode → code → key（iPad 4 相容）
-      var keyMap = [
-        // Enter / iPad UIKeyInputUpArrow → 標記不熟
-        { keyCodes: [13], codes: ['Enter'], keys: ['UIKeyInputUpArrow'],
-          action: function() { self.toggleDifficultCurrentWord(); } },
-        // 空格 / iPad UIKeyInputDownArrow → 點擊單字
-        { keyCodes: [32], codes: ['Space'], keys: ['UIKeyInputDownArrow'],
-          action: function() { self.onWordClick(); } },
-        // ← / iPad UIKeyInputLeftArrow → 上一個字
-        { keyCodes: [37], codes: ['ArrowLeft'], keys: ['UIKeyInputLeftArrow'],
-          action: function() { self.previousWord(); } },
-        // ↑ → 上一個字
-        { keyCodes: [38], codes: ['ArrowUp'], keys: [],
-          action: function() { self.previousWord(); } },
-        // → / iPad UIKeyInputRightArrow → 下一個字
-        { keyCodes: [39], codes: ['ArrowRight'], keys: ['UIKeyInputRightArrow'],
-          action: function() { self.nextWord(); } },
-        // ↓ → 下一個字
-        { keyCodes: [40], codes: ['ArrowDown'], keys: [],
-          action: function() { self.nextWord(); } },
-        // Escape → 關閉所有 modal
-        { keyCodes: [27], codes: ['Escape'], keys: [],
-          action: function() {
-            self.closeSettings();
-            self.closeVoiceSettings();
-            self.closeExportModal();
-            self.closeOverwriteConfirmModal();
-            self.closeDuplicateModal();
-            self.closeDifficultyFilterModal();
-            self.closeEditWordModal();
-            if (typeof self.closeSearchWordModal === 'function') self.closeSearchWordModal();
-            self.closeMenu();
-          } },
-        // F5 / S → 增加不熟程度
-        { keyCodes: [116, 83], codes: ['F5', 'KeyS'], keys: [],
-          action: function() { self.increaseDifficulty(); } },
-        // D → 標記非常熟（需按兩次確認）
-        { keyCodes: [68], codes: ['KeyD'], keys: [],
-          action: function() { self.handleMarkVeryFamiliar(); } },
-        // E → 編輯當前單字（暫停時也可用）
-        { keyCodes: [69], codes: ['KeyE'], keys: [],
-          action: function() { self.openEditWordModal(); },
-          allowWhenPaused: true },
-        // F → 切換全螢幕（等同於選單裡點擊全螢幕；暫停時也可用）
-        { keyCodes: [70], codes: ['KeyF'], keys: [],
-          action: function() { self.toggleFullscreen(); },
-          allowWhenPaused: true },
-        // K → 切換 KK 音標顯示（即時更新當下單字 + toast 提示；暫停時也可用）
-        { keyCodes: [75], codes: ['KeyK'], keys: [],
-          action: function() { self.toggleKKPhonetic(); },
-          allowWhenPaused: true },
-        // P → 重新播放「整個單字」發音（略過字母拼讀）；KK 音標卡改播真人音檔；暫停時也可用
-        { keyCodes: [80], codes: ['KeyP'], keys: [],
-          action: function() { self.replayCurrentWordAudio(); },
-          allowWhenPaused: true }
-      ];
-
-  function handleKeyDown(e) {
-    e = e || window.event;
-    var keyCode = e.keyCode || e.which;
-    var code = e.code || '';
-    var key = e.key || '';
-
-    // ESC 鍵關閉最上層開啟的 modal（優先於所有其他按鍵處理）
-    if (keyCode === 27 || code === 'Escape' || key === 'Escape') {
-      if (self._closeTopmostModal()) {
-        if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
+        self.closeMenu();
+        event.preventDefault();
         return;
       }
-    }
-    
-    // 焦點在表單控件上時不攔截
-    var activeElement = document.activeElement;
-    if (activeElement && (
-        activeElement.tagName === 'SELECT' ||
-        activeElement.tagName === 'INPUT' ||
-        activeElement.tagName === 'TEXTAREA' ||
-        activeElement.contentEditable === 'true'
-    )) {
-      return;
-    }
-    
-    // B 鍵 - 暫停/繼續，任何狀態下都能使用（modal 開啟中除外）
-    if (keyCode === 66 || code === 'KeyB') {
-      // modal 開啟時不得切換暫停：輪播已被 modal 凍結，這裡切 B 會在
-      // modal 背後恢復自動輪播與捷徑（Enter 改難度、→ 換卡會在
-      // 測驗／聽力／SRS 進行中生效，把資料寫到看不見的單字上）
-      if (typeof self._anyModalOpen === 'function' && self._anyModalOpen()) {
-        if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
+
+      const activeElement = document.activeElement;
+      if (activeElement && (
+          activeElement.tagName === 'SELECT' ||
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.contentEditable === 'true'
+      )) {
         return;
       }
-      if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
-      self.togglePause();
-      return;
-    }
-    
-    // 查找匹配的 action
-    var matched = null;
-    for (var i = 0; i < keyMap.length; i++) {
-      var entry = keyMap[i];
-      var hit = false;
-      for (var j = 0; j < entry.keyCodes.length; j++) {
-        if (keyCode === entry.keyCodes[j]) { hit = true; break; }
-      }
-      if (!hit) {
-        for (var k = 0; k < entry.codes.length; k++) {
-          if (code === entry.codes[k]) { hit = true; break; }
+
+      if (code === 'KeyB') {
+        // Modal 凍結輪播時不可在背景恢復播放或切換資料。
+        if (typeof self._anyModalOpen === 'function' && self._anyModalOpen()) {
+          event.preventDefault();
+          return;
         }
+        event.preventDefault();
+        self.togglePause();
+        return;
       }
-      if (!hit && entry.keys) {
-        for (var m = 0; m < entry.keys.length; m++) {
-          if (key === entry.keys[m]) { hit = true; break; }
-        }
-      }
-      if (hit) { matched = entry; break; }
+
+      const matched = keyMap.find((entry) =>
+        entry.codes.includes(code) || entry.keys?.includes(key)
+      );
+      if (!matched) return;
+      if (self.isPaused && !matched.allowWhenPaused) return;
+
+      event.preventDefault();
+      matched.action();
+    };
+
+    if (this._keyboardKeyHandler) {
+      document.removeEventListener('keydown', this._keyboardKeyHandler);
     }
-    
-    if (!matched) return;
-    
-    // 暫停時只允許標記為 allowWhenPaused 的按鍵
-    if (self.isPaused && !matched.allowWhenPaused) return;
-    
-    if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
-    matched.action();
-    }
-    
-    // 監聽整個 document 的鍵盤事件
+    this._keyboardKeyHandler = handleKeyDown;
     document.addEventListener('keydown', handleKeyDown);
-    
-    console.log('鍵盤事件監聽器已設置 (iPad 4 兼容版本)');
+    console.log('鍵盤事件監聽器已設置');
   };
   
   // 觸控滑動手勢監聽器（支援 smartphone, iPhone, Android, iPad）
