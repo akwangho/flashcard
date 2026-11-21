@@ -16,10 +16,10 @@
   // =====================================================================
   var APP_CONSTANTS = {
     // === 應用程式版本（唯一版本來源，更新時只改這裡） ===
-    APP_VERSION: '1.35.0',
+    APP_VERSION: '1.36.0',
 
     /** 建置日期時間（發版時一併更新，格式 YYYY-MM-DD HH:mm） */
-    APP_BUILD_TIME: '2026-11-16 21:38',
+    APP_BUILD_TIME: '2026-11-21 20:52',
     // === 超時設定（毫秒） ===
     LOAD_TIMEOUT_MS: 30000,          // 整體載入超時
     PHASE1_TIMEOUT_MS: 15000,        // Sheet 連接超時（Phase 1）
@@ -129,8 +129,8 @@
     TOAST_CONFIRM_DURATION_MS: 1500,   // Toast 確認訊息顯示時間
     SPELL_LETTER_GAP_MS: 100,          // 拼讀字母與單字之間的間隔
     // P 鍵第二次（偶數次）按下時的慢速速率（固定值，不受語音速率設定影響）
-    // 對齊 Google 字典喇叭「連點變慢」的體感：0.1 速最慢，方便逐音節聽清楚
-    SLOW_SPEECH_RATE: 0.1,
+    // 對齊 Google 字典喇叭「連點變慢」的體感：0.05 速最慢（0.1 的一半），方便逐音節聽清楚
+    SLOW_SPEECH_RATE: 0.05,
     // P 鍵重播前等待 speechSynthesis.cancel() 生效的輪詢間隔與上限：
     // iOS Safari 的 cancel() 是非同步的，同一個 tick 內立刻 speak() 會被一起清掉（完全無聲），
     // 因此發音中重播必須等 speaking/pending 歸零後再播。

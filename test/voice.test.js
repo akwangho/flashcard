@@ -825,7 +825,7 @@ describe('replayCurrentWordAudio (P key)', function() {
 
     app.replayCurrentWordAudio();
     var secondRate = global.speechSynthesis.speak.mock.calls[1][0].rate;
-    // 慢速 = 固定 0.1（不隨語音速率縮放）
+    // 慢速 = 固定 0.05（不隨語音速率縮放）
     expect(secondRate).toBe(APP_CONSTANTS.SLOW_SPEECH_RATE); // 第 2 次：慢速
   });
 

@@ -21,7 +21,7 @@ The system SHALL support the following keyboard shortcuts for controlling the ca
 | `F` | Toggle fullscreen |
 | `D` | Mark as very familiar (-999); requires two presses within 3 s |
 | `E` | Open edit-word modal (works even while paused) |
-| `P` | Replay the whole word only (EN/JA auto-detected; skips letter spell-out even when spell-out is enabled); odd press = normal rate, even press = fixed slow rate `0.1` (not scaled by the user's voice rate); sentences always use normal rate; a re-press cancels the in-flight replay (works even while paused) |
+| `P` | Replay the whole word only (EN/JA auto-detected; skips letter spell-out even when spell-out is enabled); odd press = normal rate, even press = fixed slow rate `0.05` (not scaled by the user's voice rate; half of the previous `0.1`); sentences always use normal rate; a re-press cancels the in-flight replay (works even while paused) |
 | Escape | Close the topmost open modal (falls back to closing the menu when no modal is open) |
 
 #### Scenario: Standard key events
